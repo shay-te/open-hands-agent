@@ -2,6 +2,8 @@ from typing import Any
 
 from core_lib.client.client_base import ClientBase
 
+from openhands_agent.fields import PullRequestFields
+
 
 class BitbucketClient(ClientBase):
     def __init__(self, base_url: str, token: str) -> None:
@@ -21,8 +23,8 @@ class BitbucketClient(ClientBase):
         response = self._post(
             f'/repositories/{workspace}/{repo_slug}/pullrequests',
             json={
-                'title': title,
-                'description': description,
+                PullRequestFields.TITLE: title,
+                PullRequestFields.DESCRIPTION: description,
                 'source': {'branch': {'name': source_branch}},
                 'destination': {'branch': {'name': destination_branch}},
             },
@@ -33,7 +35,7 @@ class BitbucketClient(ClientBase):
     @staticmethod
     def _normalize_pr(payload: dict[str, Any]) -> dict[str, str]:
         return {
-            'id': str(payload['id']),
-            'title': payload.get('title', ''),
-            'url': payload.get('links', {}).get('html', {}).get('href', ''),
+            PullRequestFields.ID: str(payload[PullRequestFields.ID]),
+            PullRequestFields.TITLE: payload.get(PullRequestFields.TITLE, ''),
+            PullRequestFields.URL: payload.get('links', {}).get('html', {}).get('href', ''),
         }

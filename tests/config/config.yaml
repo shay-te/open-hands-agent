@@ -9,7 +9,9 @@ openhands_agent:
     token: test-youtrack-token
     project: TEST
     assignee: me
-    issue_state: Open
+    issue_states:
+      - Todo
+      - Open
   bitbucket:
     base_url: http://localhost:8081
     token: test-bitbucket-token

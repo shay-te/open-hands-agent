@@ -10,6 +10,3 @@ class Task(Base):
     summary = Column(VARCHAR(length=255), nullable=False)
     description = Column(Text)
     branch_name = Column(VARCHAR(length=255), nullable=False)
-
-    def __eq__(self, other) -> bool:
-        return type(self) is type(other) and self.__dict__ == other.__dict__

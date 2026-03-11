@@ -4,11 +4,6 @@ from unittest.mock import patch
 
 import bootstrap  # noqa: F401
 
-from openhands_agent.data_layers.data.review_comment import ReviewComment
-from openhands_agent.data_layers.data.task import Task
-from openhands_agent.data_layers.data_access.implementation_data_access import (
-    ImplementationDataAccess,
-)
 from openhands_agent.data_layers.data_access.pull_request_data_access import (
     PullRequestDataAccess,
 )
@@ -22,7 +17,7 @@ class TaskDataAccessTests(unittest.TestCase):
             token="yt-token",
             project="PROJ",
             assignee="me",
-            issue_state="Open",
+            issue_states=["Todo", "Open"],
         )
 
         with patch(
@@ -37,12 +32,31 @@ class TaskDataAccessTests(unittest.TestCase):
         client.get_assigned_tasks.assert_called_once_with(
             project='PROJ',
             assignee='me',
-            state='Open',
+            states=['Todo', 'Open'],
         )
         client.add_pull_request_comment.assert_called_once_with(
             'PROJ-1',
             'https://bitbucket/pr/1',
         )
+
+    def test_validates_runtime_values(self) -> None:
+        config = types.SimpleNamespace(
+            base_url="https://youtrack.example",
+            token="yt-token",
+            project="PROJ",
+            assignee="me",
+            issue_states=["Todo", "Open"],
+        )
+        data_access = TaskDataAccess(config, types.SimpleNamespace())
+
+        with self.assertRaisesRegex(ValueError, 'issue_id must be'):
+            data_access.add_pull_request_comment(17, 'https://bitbucket/pr/1')
+
+        with self.assertRaisesRegex(ValueError, 'assignee must be'):
+            data_access.get_assigned_tasks(assignee=17)
+
+        with self.assertRaisesRegex(ValueError, 'states must be'):
+            data_access.get_assigned_tasks(states='Open')
 
 
 class PullRequestDataAccessTests(unittest.TestCase):
@@ -75,37 +89,19 @@ class PullRequestDataAccessTests(unittest.TestCase):
             description='Ready for review',
         )
 
-
-class ImplementationDataAccessTests(unittest.TestCase):
-    def test_passes_api_key_to_openhands_client_calls(self) -> None:
+    def test_validates_create_pull_request_values(self) -> None:
         config = types.SimpleNamespace(
-            base_url="https://openhands.example",
-            api_key="oh-token",
+            base_url="https://bitbucket.example",
+            token="bb-token",
+            workspace="workspace",
+            repo_slug="repo",
+            destination_branch="main",
         )
-        task = Task(
-            id="PROJ-1",
-            summary="Fix bug",
-            description="Details",
-            branch_name="feature/proj-1",
-        )
-        comment = ReviewComment(
-            pull_request_id="17",
-            comment_id="99",
-            author="reviewer",
-            body="Please rename this variable.",
-        )
+        data_access = PullRequestDataAccess(config, types.SimpleNamespace())
 
-        with patch(
-            'openhands_agent.data_layers.data_access.implementation_data_access.OpenHandsClient'
-        ) as mock_client_cls:
-            data_access = ImplementationDataAccess(config, mock_client_cls.return_value)
-            data_access.implement_task(task)
-            data_access.fix_review_comment(comment, 'feature/proj-1')
-
-        mock_client_cls.assert_not_called()
-        client = mock_client_cls.return_value
-        client.implement_task.assert_called_once_with(task)
-        client.fix_review_comment.assert_called_once_with(
-            comment,
-            'feature/proj-1',
-        )
+        with self.assertRaisesRegex(ValueError, 'title must be'):
+            data_access.create_pull_request(
+                title=17,
+                source_branch='feature/proj-1',
+                description='Ready for review',
+            )

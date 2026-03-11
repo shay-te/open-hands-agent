@@ -2,6 +2,7 @@ from core_lib.client.client_base import ClientBase
 
 from openhands_agent.data_layers.data.review_comment import ReviewComment
 from openhands_agent.data_layers.data.task import Task
+from openhands_agent.fields import ImplementationFields
 
 
 class OpenHandsClient(ClientBase):
@@ -26,8 +27,11 @@ class OpenHandsClient(ClientBase):
         return {
             Task.branch_name.key: task.branch_name,
             Task.summary.key: payload.get(Task.summary.key, ''),
-            'commit_message': payload.get('commit_message', f'Implement {task.id}'),
-            'success': bool(payload.get('success', True)),
+            ImplementationFields.COMMIT_MESSAGE: payload.get(
+                ImplementationFields.COMMIT_MESSAGE,
+                f'Implement {task.id}',
+            ),
+            ImplementationFields.SUCCESS: bool(payload.get(ImplementationFields.SUCCESS, True)),
         }
 
     def fix_review_comment(self, comment: ReviewComment, branch_name: str) -> dict[str, str | bool]:
@@ -45,6 +49,9 @@ class OpenHandsClient(ClientBase):
         return {
             Task.branch_name.key: branch_name,
             Task.summary.key: payload.get(Task.summary.key, ''),
-            'commit_message': payload.get('commit_message', 'Address review comments'),
-            'success': bool(payload.get('success', True)),
+            ImplementationFields.COMMIT_MESSAGE: payload.get(
+                ImplementationFields.COMMIT_MESSAGE,
+                'Address review comments',
+            ),
+            ImplementationFields.SUCCESS: bool(payload.get(ImplementationFields.SUCCESS, True)),
         }

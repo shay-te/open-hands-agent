@@ -8,8 +8,10 @@ openhands_agent:
     base_url: ${oc.env:YOUTRACK_BASE_URL}
     token: ${oc.env:YOUTRACK_TOKEN}
     project: ${oc.env:YOUTRACK_PROJECT}
-    assignee: me
-    issue_state: Open
+    assignee: ${oc.env:YOUTRACK_ASSIGNEE,me}
+    issue_states:
+      - Todo
+      - Open
   bitbucket:
     base_url: ${oc.env:BITBUCKET_BASE_URL}
     token: ${oc.env:BITBUCKET_TOKEN}

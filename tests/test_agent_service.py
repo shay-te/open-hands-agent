@@ -4,132 +4,136 @@ from unittest.mock import Mock
 
 import bootstrap  # noqa: F401
 
-from openhands_agent.data_layers.data.review_comment import ReviewComment
-from openhands_agent.data_layers.data.task import Task
+from openhands_agent.data_layers.data_access.pull_request_data_access import (
+    PullRequestDataAccess,
+)
+from openhands_agent.data_layers.data_access.task_data_access import TaskDataAccess
 from openhands_agent.data_layers.service.agent_service import AgentService
+from openhands_agent.data_layers.service.implementation_service import (
+    ImplementationService,
+)
+from openhands_agent.fields import ImplementationFields, PullRequestFields, StatusFields
+from utils import build_review_comment_payload, build_task, build_test_cfg
+
+
 class AgentServiceTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.cfg = build_test_cfg()
+        task_client = types.SimpleNamespace(
+            get_assigned_tasks=Mock(
+                return_value=[
+                    build_task(),
+                    build_task(
+                        task_id='PROJ-2',
+                        summary='Skip bug',
+                        branch_name='feature/proj-2',
+                    ),
+                ]
+            ),
+            add_pull_request_comment=Mock(),
+        )
+        self.task_data_access = TaskDataAccess(
+            self.cfg.openhands_agent.youtrack,
+            task_client,
+        )
+        self.task_client = task_client
+        self.openhands_client = types.SimpleNamespace(
+            implement_task=Mock(
+                side_effect=[
+                    {
+                        ImplementationFields.SUCCESS: True,
+                        "branch_name": "feature/proj-1",
+                        "summary": "Implemented PROJ-1",
+                    },
+                    {
+                        ImplementationFields.SUCCESS: False,
+                        "branch_name": "feature/proj-2",
+                        "summary": "Failed PROJ-2",
+                    },
+                ]
+            ),
+            fix_review_comment=Mock(return_value={ImplementationFields.SUCCESS: True}),
+        )
+        self.implementation_service = ImplementationService(self.openhands_client)
+        pull_request_client = types.SimpleNamespace(
+            create_pull_request=Mock(
+                return_value={
+                    PullRequestFields.ID: "17",
+                    PullRequestFields.TITLE: "PROJ-1: Fix bug",
+                    PullRequestFields.URL: "https://bitbucket/pr/17",
+                }
+            )
+        )
+        self.pull_request_client = pull_request_client
+        self.pull_request_data_access = PullRequestDataAccess(
+            self.cfg.openhands_agent.bitbucket,
+            pull_request_client,
+        )
+        self.service = AgentService(
+            self.task_data_access,
+            self.implementation_service,
+            self.pull_request_data_access,
+        )
+
     def test_process_assigned_tasks_creates_pull_requests_for_successful_tasks(self) -> None:
-        task_one = Task(
-            id="PROJ-1",
-            summary="Fix bug",
-            description="Details",
-            branch_name="feature/proj-1",
-        )
-        task_two = Task(
-            id="PROJ-2",
-            summary="Skip bug",
-            description="Details",
-            branch_name="feature/proj-2",
-        )
-
-        task_da = types.SimpleNamespace()
-        impl_da = types.SimpleNamespace()
-        pr_da = types.SimpleNamespace()
-
-        task_da.get_assigned_tasks = lambda: [task_one, task_two]
-        task_da.add_pull_request_comment = Mock()
-        impl_da.implement_task = Mock(
-            side_effect=[
-                {
-                    "success": True,
-                    "branch_name": "feature/proj-1",
-                    "summary": "Implemented PROJ-1",
-                },
-                {
-                    "success": False,
-                    "branch_name": "feature/proj-2",
-                    "summary": "Failed PROJ-2",
-                },
-            ]
-        )
-        pr_da.create_pull_request = Mock(
-            return_value={
-                "id": "17",
-                "title": "PROJ-1: Fix bug",
-                "url": "https://bitbucket/pr/17",
-            }
-        )
-
-        service = AgentService(task_da, impl_da, pr_da)
-        results = service.process_assigned_tasks()
+        results = self.service.process_assigned_tasks()
 
         self.assertEqual(
             results,
             [
                 {
-                    "id": "17",
-                    "title": "PROJ-1: Fix bug",
-                    "url": "https://bitbucket/pr/17",
+                    PullRequestFields.ID: "17",
+                    PullRequestFields.TITLE: "PROJ-1: Fix bug",
+                    PullRequestFields.URL: "https://bitbucket/pr/17",
                 }
             ],
         )
-        pr_da.create_pull_request.assert_called_once_with(
+        self.pull_request_client.create_pull_request.assert_called_once_with(
             title="PROJ-1: Fix bug",
             source_branch="feature/proj-1",
+            workspace="workspace",
+            repo_slug="repo",
+            destination_branch="main",
             description="Implemented PROJ-1",
         )
-        task_da.add_pull_request_comment.assert_called_once_with(
+        self.task_client.add_pull_request_comment.assert_called_once_with(
             "PROJ-1",
             "https://bitbucket/pr/17",
         )
-        self.assertEqual(service.pull_request_branch_map, {"17": "feature/proj-1"})
+        self.assertEqual(self.service.pull_request_branch_map, {"17": "feature/proj-1"})
 
     def test_handle_pull_request_comment_updates_known_branch(self) -> None:
-        impl_da = types.SimpleNamespace(fix_review_comment=Mock(return_value={"success": True}))
-        service = AgentService(types.SimpleNamespace(), impl_da, types.SimpleNamespace())
-        service.pull_request_branch_map["17"] = "feature/proj-1"
+        self.service.pull_request_branch_map["17"] = "feature/proj-1"
+        payload = build_review_comment_payload()
 
-        result = service.handle_pull_request_comment(
-            {
-                "pull_request_id": "17",
-                "comment_id": "99",
-                "author": "reviewer",
-                "body": "Please rename this variable.",
-            }
-        )
+        result = self.service.handle_pull_request_comment(payload)
 
         self.assertEqual(
             result,
             {
-                "status": "updated",
+                StatusFields.STATUS: StatusFields.UPDATED,
                 "pull_request_id": "17",
                 "branch_name": "feature/proj-1",
             },
         )
-        impl_da.fix_review_comment.assert_called_once()
-        comment_arg = impl_da.fix_review_comment.call_args.args[0]
-        self.assertIsInstance(comment_arg, ReviewComment)
+        self.openhands_client.fix_review_comment.assert_called_once()
+        comment_arg = self.openhands_client.fix_review_comment.call_args.args[0]
+        self.assertEqual(comment_arg.pull_request_id, "17")
+        self.assertEqual(comment_arg.comment_id, "99")
+        self.assertEqual(comment_arg.author, "reviewer")
+        self.assertEqual(comment_arg.body, "Please rename this variable.")
 
     def test_handle_pull_request_comment_rejects_invalid_payload(self) -> None:
-        service = AgentService(types.SimpleNamespace(), types.SimpleNamespace(), types.SimpleNamespace())
-
-        with self.assertRaises(ValueError):
-            service.handle_pull_request_comment({"pull_request_id": "17"})
+        with self.assertRaisesRegex(ValueError, 'invalid review comment payload'):
+            self.service.handle_pull_request_comment({"pull_request_id": "17"})
 
     def test_handle_pull_request_comment_rejects_unknown_pull_request(self) -> None:
-        service = AgentService(types.SimpleNamespace(), types.SimpleNamespace(), types.SimpleNamespace())
-
         with self.assertRaisesRegex(ValueError, "unknown pull request id"):
-            service.handle_pull_request_comment(
-                {
-                    "pull_request_id": "17",
-                    "comment_id": "99",
-                    "author": "reviewer",
-                    "body": "Please rename this variable.",
-                }
-            )
+            self.service.handle_pull_request_comment(build_review_comment_payload())
 
     def test_handle_pull_request_comment_raises_when_fix_fails(self) -> None:
-        impl_da = types.SimpleNamespace(fix_review_comment=Mock(return_value={"success": False}))
-        service = AgentService(types.SimpleNamespace(), impl_da, types.SimpleNamespace())
-        service.pull_request_branch_map["17"] = "feature/proj-1"
+        self.openhands_client.fix_review_comment.return_value = {ImplementationFields.SUCCESS: False}
+        self.service.pull_request_branch_map["17"] = "feature/proj-1"
 
         with self.assertRaisesRegex(RuntimeError, "failed to address comment 99"):
-            service.handle_pull_request_comment(
-                {
-                    "pull_request_id": "17",
-                    "comment_id": "99",
-                    "author": "reviewer",
-                    "body": "Please rename this variable.",
-                }
-            )
+            self.service.handle_pull_request_comment(build_review_comment_payload())

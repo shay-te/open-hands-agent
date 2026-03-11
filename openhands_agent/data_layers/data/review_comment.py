@@ -10,6 +10,3 @@ class ReviewComment(Base):
     comment_id = Column(VARCHAR(length=255), primary_key=True)
     author = Column(VARCHAR(length=255), nullable=False)
     body = Column(Text, nullable=False)
-
-    def __eq__(self, other) -> bool:
-        return type(self) is type(other) and self.__dict__ == other.__dict__
