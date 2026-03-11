@@ -1,6 +1,6 @@
 # OpenHands YouTrack Agent
 
-This repository is structured as a [`core-lib`](https://github.com/shay-te/core-lib) application.
+This repository is structured as a [`core-lib`](https://github.com/shay-te/core-lib) application and follows the documented `core-lib` package layout.
 
 The agent is designed to:
 
@@ -14,22 +14,30 @@ The agent is designed to:
 
 ```text
 openhands_agent/
-  app_core_lib.py
-  clients/
+  client/
     bitbucket_client.py
-    client_base_compat.py
     openhands_client.py
     youtrack_client.py
-  core_lib_config.yaml
-  main.py
-  models/
-    review_comment.py
-    task.py
-  openhands_agent_instance.py
+  config/
+    core_lib.yaml
+  data_layers/
+    data/
+      review_comment.py
+      task.py
+    data_access/
+      implementation_data_access.py
+      pull_request_data_access.py
+      task_data_access.py
+    service/
+      agent_service.py
   jobs/
     process_assigned_tasks.py
-  services/
-    agent_service.py
+  main.py
+  openhands_agent_core_lib.py
+  openhands_agent_instance.py
+tests/
+  config/
+    config.yaml
 ```
 
 ## Required Environment
@@ -49,10 +57,11 @@ export OPENHANDS_API_KEY="..."
 ## What This Scaffold Implements
 
 - `core-lib` application wrapper for the agent.
-- `core-lib`-style clients for YouTrack and Bitbucket based on `ClientBase`.
+- `core-lib`-style `client`, `data_layers/data`, `data_layers/data_access`, and `data_layers/service` packages.
+- Data-access wrappers around YouTrack, OpenHands, and Bitbucket integrations.
 - A service layer that orchestrates the full task-to-PR flow.
 - A webhook-style handler for Bitbucket PR comments.
-- A job entrypoint for processing assigned tasks.
+- A job entrypoint for processing assigned tasks plus a `tests/config` Hydra scaffold.
 
 ## What Still Needs Completion
 

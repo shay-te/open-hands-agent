@@ -6,7 +6,6 @@ requires-python = ">=3.11"
 dependencies = [
   "core-lib",
   "hydra-core>=1.3.2",
-  "httpx>=0.28.0",
   "omegaconf>=2.3.0",
   "pydantic>=2.11.0",
 ]

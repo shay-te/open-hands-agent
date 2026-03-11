@@ -1,24 +1,20 @@
 from __future__ import annotations
 
-import httpx
-from omegaconf import DictConfig
+from core_lib.client.client_base import ClientBase
 
-from openhands_agent.models.review_comment import ReviewComment
-from openhands_agent.models.task import Task
+from openhands_agent.data_layers.data.review_comment import ReviewComment
+from openhands_agent.data_layers.data.task import Task
 
 
-class OpenHandsClient:
-    def __init__(self, config: DictConfig) -> None:
-        self.config = config
-        self.client = httpx.Client(
-            base_url=config.base_url.rstrip("/"),
-            headers={"Authorization": f"Bearer {config.api_key}"},
-            timeout=300.0,
-        )
+class OpenHandsClient(ClientBase):
+    def __init__(self, base_url: str) -> None:
+        super().__init__(base_url.rstrip("/"))
 
-    def implement_task(self, task: Task) -> dict[str, str | bool]:
-        response = self.client.post(
+    def implement_task(self, api_key: str, task: Task) -> dict[str, str | bool]:
+        response = self._post(
             "/api/sessions",
+            headers={"Authorization": f"Bearer {api_key}"},
+            timeout=300,
             json={
                 "prompt": (
                     f"Implement task {task.id}: {task.summary}\n\n"
@@ -36,9 +32,11 @@ class OpenHandsClient:
             "success": bool(payload.get("success", True)),
         }
 
-    def fix_review_comment(self, comment: ReviewComment, branch_name: str) -> dict[str, str | bool]:
-        response = self.client.post(
+    def fix_review_comment(self, api_key: str, comment: ReviewComment, branch_name: str) -> dict[str, str | bool]:
+        response = self._post(
             "/api/sessions",
+            headers={"Authorization": f"Bearer {api_key}"},
+            timeout=300,
             json={
                 "prompt": (
                     f"Address pull request comment on branch {branch_name}.\n"

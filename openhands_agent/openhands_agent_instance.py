@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from omegaconf import DictConfig
 
-from openhands_agent.app_core_lib import OpenHandsAgentCoreLib
+from openhands_agent.openhands_agent_core_lib import OpenHandsAgentCoreLib
 
 
 class OpenHandsAgentInstance:

@@ -1,7 +1,12 @@
 from __future__ import annotations
 
-from openhands_agent.app_core_lib import app
+from core_lib.jobs.job import Job
 
 
-def run() -> list[dict[str, str]]:
-    return app.process_assigned_tasks()
+class ProcessAssignedTasksJob(Job):
+
+    def initialized(self, data_handler) -> None:
+        self.data_handler = data_handler
+
+    def run(self) -> list[dict[str, str]]:
+        return self.data_handler.process_assigned_tasks()

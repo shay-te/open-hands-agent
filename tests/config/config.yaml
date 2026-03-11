@@ -1,0 +1,21 @@
+# @package _global_
+core_lib:
+  app:
+    name: openhands-agent-test
+
+openhands_agent:
+  youtrack:
+    base_url: http://localhost:8080
+    token: test-youtrack-token
+    project: TEST
+    assignee: me
+    issue_state: Open
+  bitbucket:
+    base_url: http://localhost:8081
+    token: test-bitbucket-token
+    workspace: test-workspace
+    repo_slug: test-repo
+    destination_branch: main
+  openhands:
+    base_url: http://localhost:3000
+    api_key: test-openhands-api-key

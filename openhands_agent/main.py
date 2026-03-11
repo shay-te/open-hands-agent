@@ -6,7 +6,7 @@ from omegaconf import DictConfig
 from openhands_agent.openhands_agent_instance import OpenHandsAgentInstance
 
 
-@hydra.main(version_base=None, config_path=".", config_name="core_lib_config.yaml")
+@hydra.main(version_base=None, config_path="config", config_name="core_lib")
 def main(cfg: DictConfig) -> int:
     OpenHandsAgentInstance.init(cfg)
     app = OpenHandsAgentInstance.get()
