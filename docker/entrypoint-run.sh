@@ -1,6 +1,8 @@
 #!/bin/sh
 set -eu
 
+cd /app
+
 python - <<'PY'
 import time
 import urllib.request

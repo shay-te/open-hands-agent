@@ -241,6 +241,34 @@ def _install_omegaconf_stub() -> None:
     sys.modules["omegaconf"] = omegaconf_module
 
 
+def _install_hydra_stub() -> None:
+    if "hydra" in sys.modules:
+        return
+
+    hydra_module = types.ModuleType("hydra")
+    hydra_core_module = types.ModuleType("hydra.core")
+    hydra_config_search_path_module = types.ModuleType("hydra.core.config_search_path")
+    hydra_plugins_module = types.ModuleType("hydra.plugins")
+    hydra_search_path_plugin_module = types.ModuleType("hydra.plugins.search_path_plugin")
+
+    class ConfigSearchPath:
+        def append(self, provider: str, path: str) -> None:
+            raise NotImplementedError
+
+    class SearchPathPlugin:
+        def manipulate_search_path(self, search_path: ConfigSearchPath) -> None:
+            raise NotImplementedError
+
+    hydra_config_search_path_module.ConfigSearchPath = ConfigSearchPath
+    hydra_search_path_plugin_module.SearchPathPlugin = SearchPathPlugin
+
+    sys.modules["hydra"] = hydra_module
+    sys.modules["hydra.core"] = hydra_core_module
+    sys.modules["hydra.core.config_search_path"] = hydra_config_search_path_module
+    sys.modules["hydra.plugins"] = hydra_plugins_module
+    sys.modules["hydra.plugins.search_path_plugin"] = hydra_search_path_plugin_module
+
+
 def _install_pydantic_stub() -> None:
     if "pydantic" in sys.modules:
         return
@@ -274,4 +302,5 @@ def _install_pydantic_stub() -> None:
 _install_core_lib_stubs()
 _install_sqlalchemy_stub()
 _install_omegaconf_stub()
+_install_hydra_stub()
 _install_pydantic_stub()
