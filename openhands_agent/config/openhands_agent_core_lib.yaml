@@ -37,7 +37,7 @@ openhands_agent:
     template_id: ${oc.env:OPENHANDS_AGENT_FAILURE_EMAIL_TEMPLATE_ID,0}
     body_template: failure_email.txt
     recipients:
-      - ${oc.env:OPENHANDS_AGENT_FAILURE_EMAIL_TO,""}
+      - ${oc.env:OPENHANDS_AGENT_FAILURE_EMAIL_TO,null}
     sender:
       name: ${oc.env:OPENHANDS_AGENT_FAILURE_EMAIL_SENDER_NAME,"OpenHands Agent"}
       email: ${oc.env:OPENHANDS_AGENT_FAILURE_EMAIL_SENDER_EMAIL,"noreply@example.com"}
@@ -46,7 +46,7 @@ openhands_agent:
     template_id: ${oc.env:OPENHANDS_AGENT_COMPLETION_EMAIL_TEMPLATE_ID,0}
     body_template: completion_email.txt
     recipients:
-      - ${oc.env:OPENHANDS_AGENT_COMPLETION_EMAIL_TO,""}
+      - ${oc.env:OPENHANDS_AGENT_COMPLETION_EMAIL_TO,null}
     sender:
       name: ${oc.env:OPENHANDS_AGENT_COMPLETION_EMAIL_SENDER_NAME,"OpenHands Agent"}
       email: ${oc.env:OPENHANDS_AGENT_COMPLETION_EMAIL_SENDER_EMAIL,"noreply@example.com"}

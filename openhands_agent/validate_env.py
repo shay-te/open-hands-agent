@@ -46,6 +46,7 @@ def validate_agent_env(env: dict[str, str]) -> list[str]:
         'YOUTRACK_BASE_URL',
         'YOUTRACK_TOKEN',
         'YOUTRACK_PROJECT',
+        'YOUTRACK_ASSIGNEE',
         'REPOSITORY_ID',
         'REPOSITORY_BASE_URL',
         'REPOSITORY_LOCAL_PATH',

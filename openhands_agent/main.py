@@ -1,6 +1,7 @@
 import hydra
 from omegaconf import DictConfig
 
+from openhands_agent.jobs.process_assigned_tasks import collect_processing_results
 from openhands_agent.logging_utils import configure_logger
 from openhands_agent.openhands_agent_instance import OpenHandsAgentInstance
 
@@ -17,15 +18,7 @@ def main(cfg: DictConfig) -> int:
     app.logger = getattr(app, 'logger', None) or logger
     app.logger.info('starting openhands agent')
     try:
-        results = []
-        for task in app.service.get_assigned_tasks():
-            result = app.service.process_assigned_task(task)
-            if result is not None:
-                results.append(result)
-        for comment in app.service.get_new_pull_request_comments():
-            result = app.service.process_review_comment(comment)
-            if result is not None:
-                results.append(result)
+        results = collect_processing_results(app.service)
     except Exception as exc:
         app.logger.exception('failed to process assigned task')
         try:

@@ -169,6 +169,19 @@ class BitbucketClientTests(unittest.TestCase):
             },
         )
 
+    def test_create_pull_request_omits_destination_when_branch_is_missing(self) -> None:
+        client = BitbucketClient('https://bitbucket.example', 'bb-token')
+        response = mock_response(json_data={
+            PullRequestFields.ID: 7,
+            PullRequestFields.TITLE: 'PROJ-1: Fix bug',
+            'links': {'html': {'href': 'https://bitbucket/pr/7'}},
+        })
+
+        with patch.object(client, '_post', return_value=response) as mock_post:
+            create_pull_request_with_defaults(client, destination_branch=None)
+
+        self.assertNotIn('destination', mock_post.call_args.kwargs['json'])
+
     def test_list_pull_request_comments_normalizes_response(self) -> None:
         client = BitbucketClient('https://bitbucket.example', 'bb-token')
         response = mock_response(

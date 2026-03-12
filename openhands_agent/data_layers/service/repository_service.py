@@ -146,7 +146,7 @@ class RepositoryService(Service):
     def _keyword_matches(searchable_text: str, keyword: str) -> bool:
         if not keyword:
             return False
-        pattern = rf'(?<![a-z0-9]){re.escape(keyword.lower())}(?![a-z0-9])'
+        pattern = rf'(?<![a-z0-9_.-]){re.escape(keyword.lower())}(?![a-z0-9_.-])'
         return re.search(pattern, searchable_text) is not None
 
     @staticmethod

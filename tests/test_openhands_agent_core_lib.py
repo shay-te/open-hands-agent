@@ -15,6 +15,8 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
 
     def test_builds_data_access_and_service_in_core_lib(self) -> None:
         mock_db_connection = Mock()
+        implementation_client = Mock(name='implementation_openhands_client')
+        testing_client = Mock(name='testing_openhands_client')
 
         with patch(
             'openhands_agent.openhands_agent_core_lib.CoreLib.connection_factory_registry.get_or_reg',
@@ -24,7 +26,8 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
         ) as mock_email_core_lib_cls, patch(
             'openhands_agent.openhands_agent_core_lib.YouTrackClient'
         ) as mock_youtrack_client_cls, patch(
-            'openhands_agent.openhands_agent_core_lib.OpenHandsClient'
+            'openhands_agent.openhands_agent_core_lib.OpenHandsClient',
+            side_effect=[implementation_client, testing_client],
         ) as mock_openhands_client_cls, patch(
             'openhands_agent.openhands_agent_core_lib.AgentStateDataAccess'
         ) as mock_state_data_access_cls, patch(
@@ -49,10 +52,22 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
             self.cfg.openhands_agent.youtrack.token,
             self.cfg.openhands_agent.retry.max_retries,
         )
-        mock_openhands_client_cls.assert_called_once_with(
-            self.cfg.openhands_agent.openhands.base_url,
-            self.cfg.openhands_agent.openhands.api_key,
-            self.cfg.openhands_agent.retry.max_retries,
+        self.assertEqual(mock_openhands_client_cls.call_count, 2)
+        self.assertEqual(
+            mock_openhands_client_cls.call_args_list[0].args,
+            (
+                self.cfg.openhands_agent.openhands.base_url,
+                self.cfg.openhands_agent.openhands.api_key,
+                self.cfg.openhands_agent.retry.max_retries,
+            ),
+        )
+        self.assertEqual(
+            mock_openhands_client_cls.call_args_list[1].args,
+            (
+                self.cfg.openhands_agent.openhands.base_url,
+                self.cfg.openhands_agent.openhands.api_key,
+                self.cfg.openhands_agent.retry.max_retries,
+            ),
         )
         mock_repository_service_cls.assert_called_once_with(
             self.cfg.openhands_agent.repositories,
@@ -62,8 +77,8 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
             self.cfg.openhands_agent.state.file_path,
         )
         mock_task_da_cls.assert_called_once_with(self.cfg.openhands_agent.youtrack, mock_youtrack_client_cls.return_value)
-        mock_impl_service_cls.assert_called_once_with(mock_openhands_client_cls.return_value)
-        mock_testing_service_cls.assert_called_once_with(mock_openhands_client_cls.return_value)
+        mock_impl_service_cls.assert_called_once_with(implementation_client)
+        mock_testing_service_cls.assert_called_once_with(testing_client)
         mock_notification_service_cls.assert_called_once_with(
             app_name=self.cfg.core_lib.app.name,
             email_core_lib=mock_email_core_lib_cls.return_value,

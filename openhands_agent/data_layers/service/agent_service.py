@@ -27,6 +27,7 @@ class AgentService(Service):
         notification_service: NotificationService,
         state_data_access=None,
     ) -> None:
+        self.logger = logging.getLogger(self.__class__.__name__)
         if testing_service is None:
             raise ValueError('testing_service is required')
         if notification_service is None:
@@ -38,7 +39,11 @@ class AgentService(Service):
         self._notification_service = notification_service
         self._state_data_access = state_data_access
         self._pull_request_context_map: dict[str, list[dict[str, str]]] = {}
-        self.logger = logging.getLogger(self.__class__.__name__)
+        if self._state_data_access is None:
+            self.logger.warning(
+                'state_data_access is not configured; processed tasks and pull request comment '
+                'state will not survive restarts'
+            )
 
     @property
     def notification_service(self) -> NotificationService:
@@ -100,7 +105,7 @@ class AgentService(Service):
         setattr(task, 'repository_branches', repository_branches)
         execution = self._implementation_service.implement_task(task) or {}
         if not self._implementation_succeeded(execution):
-            self.logger.warning('implementation failed for task %s', task.id)
+            self._handle_implementation_failure(task, execution)
             return None
 
         testing = self._testing_service.test_task(task) or {}
@@ -137,7 +142,10 @@ class AgentService(Service):
                 PullRequestFields.FAILED_REPOSITORIES: failed_repositories,
             }
 
-        self._task_data_access.move_task_to_review(task.id)
+        try:
+            self._task_data_access.move_task_to_review(task.id)
+        except Exception:
+            self.logger.exception('failed to move task %s to review', task.id)
         self._mark_task_processed(task.id, pull_requests)
         self._notify_task_ready_for_review(task, pull_requests)
         return {
@@ -167,9 +175,11 @@ class AgentService(Service):
                 )
                 continue
 
-            comment_context: list[dict[str, str]] = []
+            comment_context = [
+                self._comment_context_entry(comment)
+                for comment in comments
+            ]
             for comment in comments:
-                comment_context.append(self._comment_context_entry(comment))
                 setattr(comment, PullRequestFields.REPOSITORY_ID, repository_id)
                 setattr(comment, ReviewCommentFields.ALL_COMMENTS, list(comment_context))
                 if self._is_review_comment_processed(
@@ -319,6 +329,17 @@ class AgentService(Service):
     def _handle_testing_failure(self, task: Task, testing: dict[str, str | bool]) -> None:
         summary = str(testing.get(Task.summary.key) or 'testing agent reported the task is not ready')
         self.logger.warning('testing failed for task %s: %s', task.id, summary)
+        self._handle_task_failure(task, RuntimeError(summary))
+
+    def _handle_implementation_failure(
+        self,
+        task: Task,
+        execution: dict[str, str | bool],
+    ) -> None:
+        summary = str(
+            execution.get(Task.summary.key) or 'implementation agent reported the task is not ready'
+        )
+        self.logger.warning('implementation failed for task %s: %s', task.id, summary)
         self._handle_task_failure(task, RuntimeError(summary))
 
     def _handle_task_failure(self, task: Task, error: Exception) -> None:

@@ -299,10 +299,12 @@ class AgentServiceTests(unittest.TestCase):
         self.openhands_client.test_task.assert_not_called()
         self.repository_service.create_pull_request.assert_not_called()
         self.task_client.move_issue_to_state.assert_not_called()
-        self.email_core_lib.send.assert_not_called()
+        self.task_client.add_comment.assert_called_once()
+        self.assertEqual(self.email_core_lib.send.call_count, 2)
         self.service.logger.warning.assert_called_once_with(
-            'implementation failed for task %s',
+            'implementation failed for task %s: %s',
             'PROJ-1',
+            'implementation agent reported the task is not ready',
         )
 
     def test_process_assigned_task_handles_ambiguous_or_missing_repository_scope(self) -> None:
@@ -358,12 +360,20 @@ class AgentServiceTests(unittest.TestCase):
         self.task_client.move_issue_to_state.assert_not_called()
         self.assertEqual(self.email_core_lib.send.call_count, 2)
 
-    def test_process_assigned_task_raises_when_move_to_review_fails(self) -> None:
+    def test_process_assigned_task_continues_when_move_to_review_fails(self) -> None:
         self.task_client.move_issue_to_state.side_effect = RuntimeError('state update failed')
+        self.service.logger = Mock()
         task = self.task_data_access.get_assigned_tasks()[0]
 
-        with self.assertRaisesRegex(RuntimeError, 'state update failed'):
-            self.service.process_assigned_task(task)
+        with patch.object(self.service, 'logger', self.service.logger):
+            results = self.service.process_assigned_task(task)
+
+        self.assertEqual(results[StatusFields.STATUS], StatusFields.READY_FOR_REVIEW)
+        self.assertEqual(self.email_core_lib.send.call_count, 2)
+        self.service.logger.exception.assert_called_once_with(
+            'failed to move task %s to review',
+            'PROJ-1',
+        )
 
     def test_process_assigned_task_ignores_completion_notification_failures(self) -> None:
         self.notification_service.notify_task_ready_for_review = Mock(side_effect=RuntimeError('smtp failed'))
@@ -558,6 +568,11 @@ class AgentServiceTests(unittest.TestCase):
                     ReviewCommentFields.COMMENT_ID: '98',
                     ReviewCommentFields.AUTHOR: 'reviewer',
                     ReviewCommentFields.BODY: 'Please add a test.',
-                }
+                },
+                {
+                    ReviewCommentFields.COMMENT_ID: '99',
+                    ReviewCommentFields.AUTHOR: 'reviewer',
+                    ReviewCommentFields.BODY: 'Please rename this variable.',
+                },
             ],
         )

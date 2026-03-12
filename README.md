@@ -68,10 +68,10 @@ Then fill in the values you need. The most important variables are:
 export YOUTRACK_BASE_URL="https://your-company.youtrack.cloud"
 export YOUTRACK_TOKEN="..."
 export YOUTRACK_PROJECT="PROJ"
-export YOUTRACK_ASSIGNEE="me"
+export YOUTRACK_ASSIGNEE="your-youtrack-login"
 export REPOSITORY_ID="client"
 export REPOSITORY_DISPLAY_NAME="Client"
-export REPOSITORY_LOCAL_PATH="/workspace/client"
+export REPOSITORY_LOCAL_PATH="./client"
 export REPOSITORY_BASE_URL="https://api.bitbucket.org/2.0"
 export REPOSITORY_TOKEN="..."
 export REPOSITORY_OWNER="your-workspace"
@@ -152,6 +152,7 @@ Retry count is configured under `openhands_agent.retry.max_retries`.
 Processed task state, processed review-comment ids, and pull-request comment context are persisted in `OPENHANDS_AGENT_STATE_FILE` so the agent can skip already-completed work, poll for new review comments, and still resolve review comments after a restart.
 Failure emails are configured under `openhands_agent.failure_email` and sent through `email-core-lib`.
 Completion emails are configured under `openhands_agent.completion_email` and sent through `email-core-lib`.
+If email notifications are enabled, install the optional dependency set with `python -m pip install -e ".[notifications]"`.
 The email body text comes from [`completion_email.txt`](openhands_agent/templates/email/completion_email.txt) and [`failure_email.txt`](openhands_agent/templates/email/failure_email.txt), rendered with template variables at runtime.
 The Hydra config is registered through [`hydra_plugins/openhands_agent/openhands_agent_searchpath.py`](hydra_plugins/openhands_agent/openhands_agent_searchpath.py), so standard Hydra overrides work. Example:
 
@@ -253,9 +254,9 @@ pip install -e .
 export YOUTRACK_BASE_URL="https://your-company.youtrack.cloud"
 export YOUTRACK_TOKEN="..."
 export YOUTRACK_PROJECT="PROJ"
-export YOUTRACK_ASSIGNEE="me"
+export YOUTRACK_ASSIGNEE="your-youtrack-login"
 export REPOSITORY_ID="client"
-export REPOSITORY_LOCAL_PATH="/workspace/client"
+export REPOSITORY_LOCAL_PATH="./client"
 export REPOSITORY_BASE_URL="https://api.bitbucket.org/2.0"
 export REPOSITORY_TOKEN="..."
 export REPOSITORY_OWNER="your-workspace"

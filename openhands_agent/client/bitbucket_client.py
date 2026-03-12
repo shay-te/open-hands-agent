@@ -56,12 +56,14 @@ class BitbucketClient(PullRequestClientBase):
         destination_branch: str | None,
         description: str,
     ) -> dict[str, Any]:
-        return {
+        payload = {
             PullRequestFields.TITLE: title,
             PullRequestFields.DESCRIPTION: description,
             'source': {'branch': {'name': source_branch}},
-            'destination': {'branch': {'name': destination_branch}},
         }
+        if destination_branch:
+            payload['destination'] = {'branch': {'name': destination_branch}}
+        return payload
 
     @staticmethod
     def _normalize_pr(payload: dict[str, Any]) -> dict[str, str]:

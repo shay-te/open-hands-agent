@@ -113,18 +113,54 @@ class YouTrackClientTests(unittest.TestCase):
                     params={
                         'query': 'project: PROJ assignee: me State: {Todo}, {Open}',
                         'fields': 'idReadable,summary,description',
+                        '$top': 100,
                     },
                 ),
                 unittest.mock.call(
                     '/api/issues/PROJ-1/comments',
-                    params={'fields': YouTrackClient.COMMENT_FIELDS},
+                    params={'fields': YouTrackClient.COMMENT_FIELDS, '$top': 100},
                 ),
                 unittest.mock.call(
                     '/api/issues/PROJ-1/attachments',
-                    params={'fields': YouTrackClient.ATTACHMENT_FIELDS},
+                    params={'fields': YouTrackClient.ATTACHMENT_FIELDS, '$top': 100},
                 ),
                 unittest.mock.call('/api/files/notes.txt'),
             ],
+        )
+
+    def test_get_assigned_tasks_reads_absolute_text_attachment_urls_directly(self) -> None:
+        client = YouTrackClient('https://youtrack.example', 'yt-token')
+        issue_response = mock_response(json_data=[
+            {'idReadable': 'PROJ-1', 'summary': 'Fix bug', 'description': 'Details'}
+        ])
+        comments_response = mock_response(json_data=[])
+        attachments_response = mock_response(json_data=[
+            {
+                YouTrackAttachmentFields.NAME: 'notes.txt',
+                YouTrackAttachmentFields.MIME_TYPE: 'text/plain',
+                YouTrackAttachmentFields.CHARSET: 'utf-8',
+                YouTrackAttachmentFields.URL: 'https://files.youtrack.example/api/files/notes.txt',
+            }
+        ])
+        text_attachment_response = mock_response(text='Absolute URL attachment')
+
+        with patch.object(
+            client,
+            '_get',
+            side_effect=[issue_response, comments_response, attachments_response],
+        ) as mock_get, patch.object(
+            client.session,
+            'get',
+            return_value=text_attachment_response,
+        ) as mock_session_get:
+            tasks = get_assigned_tasks_with_defaults(client)
+
+        self.assertIn('Absolute URL attachment', tasks[0].description)
+        mock_get.assert_called()
+        mock_session_get.assert_called_once_with(
+            'https://files.youtrack.example/api/files/notes.txt',
+            headers={'Authorization': 'Bearer yt-token'},
+            timeout=30,
         )
 
     def test_get_assigned_tasks_handles_non_dict_comment_author(self) -> None:

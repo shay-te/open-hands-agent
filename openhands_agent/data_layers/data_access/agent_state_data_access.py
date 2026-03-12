@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import tempfile
 import threading
 from datetime import datetime, timezone
@@ -100,16 +101,25 @@ class AgentStateDataAccess(DataAccess):
 
     def _write_state(self, state: dict) -> None:
         self._path.parent.mkdir(parents=True, exist_ok=True)
-        with tempfile.NamedTemporaryFile(
-            'w',
-            encoding='utf-8',
-            dir=self._path.parent,
-            delete=False,
-        ) as handle:
-            json.dump(state, handle, indent=2, sort_keys=True)
-            handle.write('\n')
-            temp_path = Path(handle.name)
-        temp_path.replace(self._path)
+        temp_path: Path | None = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                'w',
+                encoding='utf-8',
+                dir=self._path.parent,
+                prefix=f'{self._path.name}.',
+                suffix='.tmp',
+                delete=False,
+            ) as handle:
+                json.dump(state, handle, indent=2, sort_keys=True)
+                handle.write('\n')
+                handle.flush()
+                os.fsync(handle.fileno())
+                temp_path = Path(handle.name)
+            os.replace(temp_path, self._path)
+        finally:
+            if temp_path is not None and temp_path.exists():
+                temp_path.unlink(missing_ok=True)
 
     @staticmethod
     def _empty_state() -> dict:

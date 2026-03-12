@@ -17,6 +17,7 @@ def _install_core_lib_stubs() -> None:
             self.headers = None
             self.timeout = None
             self.auth = None
+            self.session = types.SimpleNamespace(get=self._get, post=self._post, put=self._put, delete=self._delete)
 
         def set_headers(self, headers: dict) -> None:
             self.headers = headers
@@ -26,6 +27,17 @@ def _install_core_lib_stubs() -> None:
 
         def set_auth(self, auth: dict) -> None:
             self.auth = auth
+
+        def process_kwargs(self, **kwargs) -> dict:
+            if self.headers:
+                if 'headers' in kwargs:
+                    kwargs['headers'] = {**kwargs['headers'], **self.headers}
+                else:
+                    kwargs['headers'] = self.headers
+            kwargs['timeout'] = kwargs.get('timeout', self.timeout)
+            if self.auth:
+                kwargs['auth'] = self.auth
+            return kwargs
 
         def _get(self, *args, **kwargs):
             raise NotImplementedError

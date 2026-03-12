@@ -239,7 +239,7 @@ class OpenHandsClientTests(unittest.TestCase):
             result = implement_task_with_defaults(client)
 
         self.assertEqual(result[ImplementationFields.COMMIT_MESSAGE], 'Implement PROJ-1')
-        self.assertTrue(result[ImplementationFields.SUCCESS])
+        self.assertFalse(result[ImplementationFields.SUCCESS])
 
     def test_implement_task_uses_defaults_for_non_dict_payload(self) -> None:
         client = OpenHandsClient('https://openhands.example', 'oh-token')
@@ -250,7 +250,7 @@ class OpenHandsClientTests(unittest.TestCase):
 
         self.assertEqual(result['summary'], '')
         self.assertEqual(result[ImplementationFields.COMMIT_MESSAGE], 'Implement PROJ-1')
-        self.assertTrue(result[ImplementationFields.SUCCESS])
+        self.assertFalse(result[ImplementationFields.SUCCESS])
 
     def test_fix_review_comment_raises_after_retry_exhaustion(self) -> None:
         client = OpenHandsClient('https://openhands.example', 'oh-token')
@@ -276,7 +276,7 @@ class OpenHandsClientTests(unittest.TestCase):
 
         self.assertEqual(result['summary'], '')
         self.assertEqual(result[ImplementationFields.COMMIT_MESSAGE], 'Address review comments')
-        self.assertTrue(result[ImplementationFields.SUCCESS])
+        self.assertFalse(result[ImplementationFields.SUCCESS])
 
     def test_test_task_uses_defaults_for_non_dict_payload(self) -> None:
         client = OpenHandsClient('https://openhands.example', 'oh-token')
@@ -286,7 +286,21 @@ class OpenHandsClientTests(unittest.TestCase):
             result = test_task_with_defaults(client)
 
         self.assertEqual(result['summary'], '')
-        self.assertTrue(result[ImplementationFields.SUCCESS])
+        self.assertFalse(result[ImplementationFields.SUCCESS])
+
+    def test_success_flag_treats_false_string_as_false(self) -> None:
+        client = OpenHandsClient('https://openhands.example', 'oh-token')
+        response = mock_response(
+            json_data={
+                'summary': 'Implemented task',
+                ImplementationFields.SUCCESS: 'false',
+            }
+        )
+
+        with patch.object(client, '_post', return_value=response):
+            result = implement_task_with_defaults(client)
+
+        self.assertFalse(result[ImplementationFields.SUCCESS])
 
     def test_implement_task_does_not_retry_non_transient_exception(self) -> None:
         client = OpenHandsClient('https://openhands.example', 'oh-token')

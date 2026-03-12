@@ -1,6 +1,8 @@
 from typing import Any
+from urllib.parse import urlparse
 
 from openhands_agent.client.retrying_client_base import RetryingClientBase
+from openhands_agent.client.retry_utils import run_with_retry
 from openhands_agent.data_layers.data.task import Task
 from openhands_agent.fields import (
     YouTrackAttachmentFields,
@@ -56,7 +58,7 @@ class YouTrackClient(RetryingClientBase):
         query = self._build_assigned_tasks_query(project, assignee, states)
         response = self._get_with_retry(
             '/api/issues',
-            params={'query': query, 'fields': 'idReadable,summary,description'},
+            params={'query': query, 'fields': 'idReadable,summary,description', '$top': 100},
         )
         response.raise_for_status()
         tasks: list[Task] = []
@@ -157,7 +159,7 @@ class YouTrackClient(RetryingClientBase):
         try:
             response = self._get_with_retry(
                 f'/api/issues/{issue_id}/{suffix}',
-                params={'fields': fields},
+                params={'fields': fields, '$top': 100},
             )
             response.raise_for_status()
             return self._json_list(response)
@@ -236,7 +238,7 @@ class YouTrackClient(RetryingClientBase):
             return ''
 
         try:
-            response = self._get_with_retry(url)
+            response = self._get_attachment_with_retry(str(url))
             response.raise_for_status()
             content = getattr(response, 'text', '')
             if isinstance(content, str) and content:
@@ -255,6 +257,15 @@ class YouTrackClient(RetryingClientBase):
                 self._attachment_name(attachment),
             )
             return None
+
+    def _get_attachment_with_retry(self, url: str):
+        parsed_url = urlparse(url)
+        if parsed_url.scheme and parsed_url.netloc:
+            return run_with_retry(
+                lambda: self.session.get(url, **self.process_kwargs()),
+                self.max_retries,
+            )
+        return self._get_with_retry(url)
 
     @staticmethod
     def _is_text_attachment(attachment: dict[str, Any]) -> bool:

@@ -13,6 +13,7 @@ class ValidateEnvTests(unittest.TestCase):
                 'YOUTRACK_BASE_URL': 'https://youtrack.example',
                 'YOUTRACK_TOKEN': 'yt-token',
                 'YOUTRACK_PROJECT': 'PROJ',
+                'YOUTRACK_ASSIGNEE': 'developer',
                 'REPOSITORY_ID': 'client',
                 'REPOSITORY_BASE_URL': 'https://bitbucket.example',
                 'REPOSITORY_LOCAL_PATH': '.',
@@ -32,6 +33,7 @@ class ValidateEnvTests(unittest.TestCase):
                 'YOUTRACK_BASE_URL': 'https://youtrack.example',
                 'YOUTRACK_TOKEN': 'yt-token',
                 'YOUTRACK_PROJECT': 'PROJ',
+                'YOUTRACK_ASSIGNEE': 'developer',
                 'REPOSITORY_ID': 'client',
                 'REPOSITORY_BASE_URL': 'https://bitbucket.example',
                 'REPOSITORY_LOCAL_PATH': '.',
@@ -52,6 +54,25 @@ class ValidateEnvTests(unittest.TestCase):
             'failure email is enabled but OPENHANDS_AGENT_FAILURE_EMAIL_TO is missing',
             errors,
         )
+
+    def test_validate_agent_env_requires_youtrack_assignee(self) -> None:
+        errors = validate_agent_env(
+            {
+                'YOUTRACK_BASE_URL': 'https://youtrack.example',
+                'YOUTRACK_TOKEN': 'yt-token',
+                'YOUTRACK_PROJECT': 'PROJ',
+                'REPOSITORY_ID': 'client',
+                'REPOSITORY_BASE_URL': 'https://bitbucket.example',
+                'REPOSITORY_LOCAL_PATH': '.',
+                'REPOSITORY_TOKEN': 'bb-token',
+                'REPOSITORY_OWNER': 'workspace',
+                'REPOSITORY_REPO_SLUG': 'repo',
+                'OPENHANDS_BASE_URL': 'http://localhost:3000',
+                'OPENHANDS_API_KEY': 'local',
+            }
+        )
+
+        self.assertIn('missing required agent env var: YOUTRACK_ASSIGNEE', errors)
 
     def test_validate_openhands_env_requires_api_key_for_non_bedrock_models(self) -> None:
         errors = validate_openhands_env(

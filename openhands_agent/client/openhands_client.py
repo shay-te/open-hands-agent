@@ -36,7 +36,7 @@ class OpenHandsClient(RetryingClientBase):
                 ImplementationFields.COMMIT_MESSAGE,
                 f'Implement {task.id}',
             ),
-            ImplementationFields.SUCCESS: bool(payload.get(ImplementationFields.SUCCESS, True)),
+            ImplementationFields.SUCCESS: self._success_flag(payload),
         }
         self.logger.info(
             'implementation finished for task %s with success=%s',
@@ -55,7 +55,7 @@ class OpenHandsClient(RetryingClientBase):
         payload = self._normalized_payload(response)
         result = {
             Task.summary.key: payload.get(Task.summary.key, ''),
-            ImplementationFields.SUCCESS: bool(payload.get(ImplementationFields.SUCCESS, True)),
+            ImplementationFields.SUCCESS: self._success_flag(payload),
         }
         self.logger.info(
             'testing validation finished for task %s with success=%s',
@@ -83,7 +83,7 @@ class OpenHandsClient(RetryingClientBase):
                 ImplementationFields.COMMIT_MESSAGE,
                 'Address review comments',
             ),
-            ImplementationFields.SUCCESS: bool(payload.get(ImplementationFields.SUCCESS, True)),
+            ImplementationFields.SUCCESS: self._success_flag(payload),
         }
         self.logger.info(
             'review fix finished for pull request %s comment %s with success=%s',
@@ -149,6 +149,15 @@ class OpenHandsClient(RetryingClientBase):
     def _normalized_payload(response) -> dict:
         payload = response.json() or {}
         return payload if isinstance(payload, dict) else {}
+
+    @staticmethod
+    def _success_flag(payload: dict) -> bool:
+        value = payload.get(ImplementationFields.SUCCESS, False)
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            return value.strip().lower() in {'1', 'true', 'yes', 'on'}
+        return bool(value)
 
     @staticmethod
     def _review_comment_context_text(comment: ReviewComment) -> str:
