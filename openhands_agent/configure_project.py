@@ -480,8 +480,7 @@ def _prompt_discovered_repository(
     )
     discovered = _discover_git_repositories(projects_root)
     if not discovered:
-        print(f'No git repositories were found under {projects_root}. Falling back to manual entry.')
-        return None
+        raise ValueError(f'no git repositories were found under {projects_root}')
 
     print('Discovered repositories:')
     for index, repository in enumerate(discovered, start=1):
@@ -828,8 +827,15 @@ def _read_git_remote_url(repository_path: Path) -> str:
     if config_path is None or not config_path.exists():
         return ''
 
-    parser = configparser.RawConfigParser()
-    parser.read(config_path, encoding='utf-8')
+    parser = configparser.RawConfigParser(strict=False)
+    try:
+        parser.read(config_path, encoding='utf-8')
+    except configparser.Error as exc:
+        print(
+            f'Warning: could not parse git config at {config_path}: {exc}. '
+            'Repository discovery will continue without remote metadata.'
+        )
+        return ''
     if parser.has_option('remote "origin"', 'url'):
         return parser.get('remote "origin"', 'url').strip()
 

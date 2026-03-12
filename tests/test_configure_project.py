@@ -175,6 +175,35 @@ class ConfigureProjectTests(unittest.TestCase):
                 ),
             )
 
+    def test_prompt_repository_raises_when_scanned_folder_has_no_git_repositories(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with self._patch_prompts(
+                {
+                    'Scan a projects folder for checked-out repositories': True,
+                    'Projects folder to scan for repositories': temp_dir,
+                }
+            ):
+                with self.assertRaisesRegex(ValueError, 'no git repositories were found under'):
+                    configure_project._prompt_repository({}, 'github')
+
+    def test_read_git_remote_url_tolerates_duplicate_git_config_options(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repository_path = Path(temp_dir) / 'task-core-lib'
+            git_dir = repository_path / '.git'
+            git_dir.mkdir(parents=True)
+            (git_dir / 'config').write_text(
+                '[remote "origin"]\n'
+                '\turl = git@github.com:acme/task-core-lib.git\n'
+                '[branch "master"]\n'
+                '\tvscode-merge-base = origin/master\n'
+                '\tvscode-merge-base = origin/main\n',
+                encoding='utf-8',
+            )
+
+            result = configure_project._read_git_remote_url(repository_path)
+
+            self.assertEqual(result, 'git@github.com:acme/task-core-lib.git')
+
     def test_render_selected_repository_compose_override_mounts_selected_paths_read_only(self) -> None:
         rendered = configure_project.render_selected_repository_compose_override(
             ['/tmp/client', '/tmp/backend']
