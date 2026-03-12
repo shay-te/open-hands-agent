@@ -17,13 +17,17 @@ def main(cfg: DictConfig) -> int:
     app.logger = getattr(app, 'logger', None) or logger
     app.logger.info('starting openhands agent')
     try:
-        results = app.service.process_assigned_tasks()
+        results = []
+        for task in app.service.get_assigned_tasks():
+            result = app.service.process_assigned_task(task)
+            if result is not None:
+                results.append(result)
     except Exception as exc:
-        app.logger.exception('failed to process assigned tasks')
+        app.logger.exception('failed to process assigned task')
         try:
-            app.service.notification_service.notify_failure('process_assigned_tasks', exc)
+            app.service.notification_service.notify_failure('process_assigned_task', exc)
         except Exception:
-            app.logger.exception('failed to send failure notification for process_assigned_tasks')
+            app.logger.exception('failed to send failure notification for process_assigned_task')
         raise
     app.logger.info('processed %s tasks', len(results))
     return 0
