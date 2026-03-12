@@ -157,36 +157,35 @@ class AgentServiceTests(unittest.TestCase):
         self.assertIn('[openhands]', str(exc_context.exception))
         self.assertIn('[openhands_testing]', str(exc_context.exception))
 
-    def test_process_assigned_tasks_creates_prs_for_all_selected_repositories(self) -> None:
-        results = self.service.process_assigned_tasks()
+    def test_process_assigned_task_creates_prs_for_all_selected_repositories(self) -> None:
+        task = self.task_data_access.get_assigned_tasks()[0]
+        results = self.service.process_assigned_task(task)
 
         self.assertEqual(
             results,
-            [
-                {
-                    'id': 'PROJ-1',
-                    StatusFields.STATUS: StatusFields.READY_FOR_REVIEW,
-                    PullRequestFields.PULL_REQUESTS: [
-                        {
-                            PullRequestFields.REPOSITORY_ID: 'client',
-                            PullRequestFields.ID: '17',
-                            PullRequestFields.TITLE: 'PROJ-1: Fix bug',
-                            PullRequestFields.URL: 'https://bitbucket/pr/17',
-                            PullRequestFields.SOURCE_BRANCH: 'feature/proj-1/client',
-                            PullRequestFields.DESTINATION_BRANCH: 'master',
-                        },
-                        {
-                            PullRequestFields.REPOSITORY_ID: 'backend',
-                            PullRequestFields.ID: '18',
-                            PullRequestFields.TITLE: 'PROJ-1: Fix bug',
-                            PullRequestFields.URL: 'https://github/pr/18',
-                            PullRequestFields.SOURCE_BRANCH: 'feature/proj-1/backend',
-                            PullRequestFields.DESTINATION_BRANCH: 'main',
-                        },
-                    ],
-                    PullRequestFields.FAILED_REPOSITORIES: [],
-                }
-            ],
+            {
+                'id': 'PROJ-1',
+                StatusFields.STATUS: StatusFields.READY_FOR_REVIEW,
+                PullRequestFields.PULL_REQUESTS: [
+                    {
+                        PullRequestFields.REPOSITORY_ID: 'client',
+                        PullRequestFields.ID: '17',
+                        PullRequestFields.TITLE: 'PROJ-1: Fix bug',
+                        PullRequestFields.URL: 'https://bitbucket/pr/17',
+                        PullRequestFields.SOURCE_BRANCH: 'feature/proj-1/client',
+                        PullRequestFields.DESTINATION_BRANCH: 'master',
+                    },
+                    {
+                        PullRequestFields.REPOSITORY_ID: 'backend',
+                        PullRequestFields.ID: '18',
+                        PullRequestFields.TITLE: 'PROJ-1: Fix bug',
+                        PullRequestFields.URL: 'https://github/pr/18',
+                        PullRequestFields.SOURCE_BRANCH: 'feature/proj-1/backend',
+                        PullRequestFields.DESTINATION_BRANCH: 'main',
+                    },
+                ],
+                PullRequestFields.FAILED_REPOSITORIES: [],
+            },
         )
         self.repository_service.resolve_task_repositories.assert_called_once()
         self.openhands_client.test_task.assert_called_once()
@@ -231,16 +230,14 @@ class AgentServiceTests(unittest.TestCase):
             },
         )
 
-    def test_process_assigned_tasks_skips_when_no_tasks_exist(self) -> None:
+    def test_get_assigned_tasks_returns_empty_list_when_no_tasks_exist(self) -> None:
         self.task_client.get_assigned_tasks.return_value = []
 
-        results = self.service.process_assigned_tasks()
+        results = self.service.get_assigned_tasks()
 
         self.assertEqual(results, [])
-        self.openhands_client.implement_task.assert_not_called()
-        self.openhands_client.test_task.assert_not_called()
 
-    def test_process_assigned_tasks_skips_already_processed_tasks(self) -> None:
+    def test_process_assigned_task_skips_already_processed_tasks(self) -> None:
         state_data_access = types.SimpleNamespace(
             is_task_processed=Mock(return_value=True),
             get_processed_task=Mock(
@@ -262,36 +259,36 @@ class AgentServiceTests(unittest.TestCase):
             self.notification_service,
             state_data_access=state_data_access,
         )
+        task = self.task_data_access.get_assigned_tasks()[0]
 
-        results = service.process_assigned_tasks()
+        results = service.process_assigned_task(task)
 
         self.assertEqual(
             results,
-            [
-                {
-                    'id': 'PROJ-1',
-                    StatusFields.STATUS: StatusFields.SKIPPED,
-                    PullRequestFields.PULL_REQUESTS: [
-                        {
-                            PullRequestFields.REPOSITORY_ID: 'client',
-                            PullRequestFields.ID: '17',
-                        }
-                    ],
-                    PullRequestFields.FAILED_REPOSITORIES: [],
-                }
-            ],
+            {
+                'id': 'PROJ-1',
+                StatusFields.STATUS: StatusFields.SKIPPED,
+                PullRequestFields.PULL_REQUESTS: [
+                    {
+                        PullRequestFields.REPOSITORY_ID: 'client',
+                        PullRequestFields.ID: '17',
+                    }
+                ],
+                PullRequestFields.FAILED_REPOSITORIES: [],
+            },
         )
         self.repository_service.resolve_task_repositories.assert_not_called()
         self.openhands_client.implement_task.assert_not_called()
 
-    def test_process_assigned_tasks_skips_execution_without_success_flag(self) -> None:
+    def test_process_assigned_task_skips_execution_without_success_flag(self) -> None:
         self.openhands_client.implement_task.return_value = {}
         self.service.logger = Mock()
+        task = self.task_data_access.get_assigned_tasks()[0]
 
         with patch.object(self.service, 'logger', self.service.logger):
-            results = self.service.process_assigned_tasks()
+            results = self.service.process_assigned_task(task)
 
-        self.assertEqual(results, [])
+        self.assertIsNone(results)
         self.openhands_client.test_task.assert_not_called()
         self.repository_service.create_pull_request.assert_not_called()
         self.task_client.move_issue_to_state.assert_not_called()
@@ -301,27 +298,29 @@ class AgentServiceTests(unittest.TestCase):
             'PROJ-1',
         )
 
-    def test_process_assigned_tasks_handles_ambiguous_or_missing_repository_scope(self) -> None:
+    def test_process_assigned_task_handles_ambiguous_or_missing_repository_scope(self) -> None:
         self.repository_service.resolve_task_repositories.side_effect = ValueError('no configured repository matched task PROJ-1')
+        task = self.task_data_access.get_assigned_tasks()[0]
 
-        results = self.service.process_assigned_tasks()
+        results = self.service.process_assigned_task(task)
 
-        self.assertEqual(results, [])
+        self.assertIsNone(results)
         self.task_client.add_comment.assert_called_once()
         self.assertIn('could not safely process this task', self.task_client.add_comment.call_args.args[1])
         self.assertEqual(self.email_core_lib.send.call_count, 2)
 
-    def test_process_assigned_tasks_reports_testing_failures_before_pr_creation(self) -> None:
+    def test_process_assigned_task_reports_testing_failures_before_pr_creation(self) -> None:
         self.openhands_client.test_task.return_value = {
             ImplementationFields.SUCCESS: False,
             'summary': 'backend tests are still failing',
         }
         self.service.logger = Mock()
+        task = self.task_data_access.get_assigned_tasks()[0]
 
         with patch.object(self.service, 'logger', self.service.logger):
-            results = self.service.process_assigned_tasks()
+            results = self.service.process_assigned_task(task)
 
-        self.assertEqual(results[0][StatusFields.STATUS], StatusFields.TESTING_FAILED)
+        self.assertEqual(results[StatusFields.STATUS], StatusFields.TESTING_FAILED)
         self.repository_service.create_pull_request.assert_not_called()
         self.task_client.move_issue_to_state.assert_not_called()
         self.assertEqual(self.email_core_lib.send.call_count, 2)
@@ -331,7 +330,7 @@ class AgentServiceTests(unittest.TestCase):
             'backend tests are still failing',
         )
 
-    def test_process_assigned_tasks_reports_partial_pr_failures_without_moving_review(self) -> None:
+    def test_process_assigned_task_reports_partial_pr_failures_without_moving_review(self) -> None:
         self.repository_service.create_pull_request.side_effect = [
             {
                 PullRequestFields.REPOSITORY_ID: 'client',
@@ -343,28 +342,31 @@ class AgentServiceTests(unittest.TestCase):
             },
             RuntimeError('github down'),
         ]
+        task = self.task_data_access.get_assigned_tasks()[0]
 
-        results = self.service.process_assigned_tasks()
+        results = self.service.process_assigned_task(task)
 
-        self.assertEqual(results[0][StatusFields.STATUS], StatusFields.PARTIAL_FAILURE)
-        self.assertEqual(results[0][PullRequestFields.FAILED_REPOSITORIES], ['backend'])
+        self.assertEqual(results[StatusFields.STATUS], StatusFields.PARTIAL_FAILURE)
+        self.assertEqual(results[PullRequestFields.FAILED_REPOSITORIES], ['backend'])
         self.task_client.move_issue_to_state.assert_not_called()
         self.assertEqual(self.email_core_lib.send.call_count, 2)
 
-    def test_process_assigned_tasks_raises_when_move_to_review_fails(self) -> None:
+    def test_process_assigned_task_raises_when_move_to_review_fails(self) -> None:
         self.task_client.move_issue_to_state.side_effect = RuntimeError('state update failed')
+        task = self.task_data_access.get_assigned_tasks()[0]
 
         with self.assertRaisesRegex(RuntimeError, 'state update failed'):
-            self.service.process_assigned_tasks()
+            self.service.process_assigned_task(task)
 
-    def test_process_assigned_tasks_ignores_completion_notification_failures(self) -> None:
+    def test_process_assigned_task_ignores_completion_notification_failures(self) -> None:
         self.notification_service.notify_task_ready_for_review = Mock(side_effect=RuntimeError('smtp failed'))
         self.service.logger = Mock()
+        task = self.task_data_access.get_assigned_tasks()[0]
 
         with patch.object(self.service, 'logger', self.service.logger):
-            results = self.service.process_assigned_tasks()
+            results = self.service.process_assigned_task(task)
 
-        self.assertEqual(results[0][StatusFields.STATUS], StatusFields.READY_FOR_REVIEW)
+        self.assertEqual(results[StatusFields.STATUS], StatusFields.READY_FOR_REVIEW)
         self.service.logger.exception.assert_called_once_with(
             'failed to send completion notification for task %s',
             'PROJ-1',

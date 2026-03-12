@@ -30,7 +30,8 @@ class ProcessAssignedTasksJobTests(unittest.TestCase):
     def test_run_prints_results_to_stdout(self) -> None:
         results = [{'id': '17', 'url': 'https://bitbucket/pr/17'}]
         self.openhands_core_lib.service = Mock()
-        self.openhands_core_lib.service.process_assigned_tasks.return_value = results
+        self.openhands_core_lib.service.get_assigned_tasks.return_value = ['task-1']
+        self.openhands_core_lib.service.process_assigned_task.return_value = results[0]
         self.openhands_core_lib.service.notification_service = Mock()
         self.job.initialized(self.openhands_core_lib)
         stdout = io.StringIO()
@@ -44,7 +45,7 @@ class ProcessAssignedTasksJobTests(unittest.TestCase):
     def test_run_sends_failure_notification_before_reraising(self) -> None:
         notification_service = Mock()
         self.openhands_core_lib.service = Mock()
-        self.openhands_core_lib.service.process_assigned_tasks.side_effect = RuntimeError('service down')
+        self.openhands_core_lib.service.get_assigned_tasks.side_effect = RuntimeError('service down')
         self.openhands_core_lib.service.notification_service = notification_service
         self.job.logger = Mock()
         self.job.initialized(self.openhands_core_lib)
@@ -61,7 +62,7 @@ class ProcessAssignedTasksJobTests(unittest.TestCase):
         notification_service = Mock()
         notification_service.notify_failure.side_effect = RuntimeError('mailer down')
         self.openhands_core_lib.service = Mock()
-        self.openhands_core_lib.service.process_assigned_tasks.side_effect = RuntimeError('service down')
+        self.openhands_core_lib.service.get_assigned_tasks.side_effect = RuntimeError('service down')
         self.openhands_core_lib.service.notification_service = notification_service
         self.job.logger = Mock()
         self.job.initialized(self.openhands_core_lib)
@@ -70,3 +71,26 @@ class ProcessAssignedTasksJobTests(unittest.TestCase):
             self.job.run()
 
         self.assertEqual(self.job.logger.exception.call_count, 2)
+
+    def test_run_loops_over_each_assigned_task(self) -> None:
+        self.openhands_core_lib.service = Mock()
+        self.openhands_core_lib.service.get_assigned_tasks.return_value = ['task-1', 'task-2']
+        self.openhands_core_lib.service.process_assigned_task.side_effect = [
+            {'id': '17'},
+            {'id': '18'},
+        ]
+        self.openhands_core_lib.service.notification_service = Mock()
+        self.job.initialized(self.openhands_core_lib)
+        stdout = io.StringIO()
+
+        with redirect_stdout(stdout):
+            self.job.run()
+
+        self.assertEqual(
+            self.openhands_core_lib.service.process_assigned_task.call_args_list[0].args,
+            ('task-1',),
+        )
+        self.assertEqual(
+            self.openhands_core_lib.service.process_assigned_task.call_args_list[1].args,
+            ('task-2',),
+        )

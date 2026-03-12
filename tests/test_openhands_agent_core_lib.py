@@ -105,7 +105,8 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
         ), patch(
             'openhands_agent.openhands_agent_core_lib.AgentService'
         ) as mock_service_cls:
-            mock_service_cls.return_value.process_assigned_tasks.return_value = [{"id": "17"}]
+            mock_service_cls.return_value.get_assigned_tasks.return_value = ["task-1"]
+            mock_service_cls.return_value.process_assigned_task.return_value = {"id": "17"}
             app = OpenHandsAgentCoreLib(self.cfg)
 
         mock_service_cls.return_value.validate_connections.assert_called_once_with()

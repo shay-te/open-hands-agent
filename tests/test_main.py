@@ -15,7 +15,10 @@ class MainTests(unittest.TestCase):
     def test_main_returns_zero_on_success(self) -> None:
         app = types.SimpleNamespace(
             logger=Mock(),
-            service=types.SimpleNamespace(process_assigned_tasks=Mock(return_value=[{'id': '17'}])),
+            service=types.SimpleNamespace(
+                get_assigned_tasks=Mock(return_value=['task-1']),
+                process_assigned_task=Mock(return_value={'id': '17'}),
+            ),
         )
 
         with patch('openhands_agent.main.OpenHandsAgentInstance.init') as mock_init, patch(
@@ -26,7 +29,8 @@ class MainTests(unittest.TestCase):
 
         self.assertEqual(result, 0)
         mock_init.assert_called_once_with(self.cfg)
-        app.service.process_assigned_tasks.assert_called_once_with()
+        app.service.get_assigned_tasks.assert_called_once_with()
+        app.service.process_assigned_task.assert_called_once_with('task-1')
         app.logger.info.assert_any_call('starting openhands agent')
 
     def test_main_sends_failure_notification_before_reraising(self) -> None:
@@ -34,7 +38,7 @@ class MainTests(unittest.TestCase):
         app = types.SimpleNamespace(
             logger=Mock(),
             service=types.SimpleNamespace(
-                process_assigned_tasks=Mock(side_effect=RuntimeError('service down')),
+                get_assigned_tasks=Mock(side_effect=RuntimeError('service down')),
                 notification_service=notification_service,
             ),
         )
@@ -47,7 +51,7 @@ class MainTests(unittest.TestCase):
                 main(self.cfg)
 
         notification_service.notify_failure.assert_called_once()
-        app.logger.exception.assert_called_once_with('failed to process assigned tasks')
+        app.logger.exception.assert_called_once_with('failed to process assigned task')
 
     def test_main_preserves_original_error_when_failure_notification_breaks(self) -> None:
         notification_service = types.SimpleNamespace(
@@ -56,7 +60,7 @@ class MainTests(unittest.TestCase):
         app = types.SimpleNamespace(
             logger=Mock(),
             service=types.SimpleNamespace(
-                process_assigned_tasks=Mock(side_effect=RuntimeError('service down')),
+                get_assigned_tasks=Mock(side_effect=RuntimeError('service down')),
                 notification_service=notification_service,
             ),
         )
@@ -74,7 +78,10 @@ class MainTests(unittest.TestCase):
         configured_logger = Mock()
         app = types.SimpleNamespace(
             logger=None,
-            service=types.SimpleNamespace(process_assigned_tasks=Mock(return_value=[])),
+            service=types.SimpleNamespace(
+                get_assigned_tasks=Mock(return_value=[]),
+                process_assigned_task=Mock(),
+            ),
         )
 
         with patch('openhands_agent.main.configure_logger', return_value=configured_logger), patch(
