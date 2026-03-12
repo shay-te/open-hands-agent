@@ -16,6 +16,7 @@ from openhands_agent.fields import (
     PullRequestFields,
     StatusFields,
 )
+from openhands_agent.data_layers.service.testing_service import TestingService
 from utils import build_review_comment_payload, build_task, build_test_cfg
 
 
@@ -32,15 +33,23 @@ class AgentServiceTests(unittest.TestCase):
         self.task_client = task_client
         self.task_data_access = TaskDataAccess(self.cfg.openhands_agent.youtrack, task_client)
         self.openhands_client = types.SimpleNamespace(
+            validate_connection=Mock(),
             implement_task=Mock(
                 return_value={
                     ImplementationFields.SUCCESS: True,
                     'summary': 'Implemented task across repos',
                 }
             ),
+            test_task=Mock(
+                return_value={
+                    ImplementationFields.SUCCESS: True,
+                    'summary': 'Testing agent validated the implementation',
+                }
+            ),
             fix_review_comment=Mock(return_value={ImplementationFields.SUCCESS: True}),
         )
         self.implementation_service = ImplementationService(self.openhands_client)
+        self.testing_service = TestingService(self.openhands_client)
         self.repository_service = types.SimpleNamespace(
             validate_connections=Mock(),
             resolve_task_repositories=Mock(return_value=[self.client_repo, self.backend_repo]),
@@ -81,15 +90,25 @@ class AgentServiceTests(unittest.TestCase):
         self.service = AgentService(
             self.task_data_access,
             self.implementation_service,
+            self.testing_service,
             self.repository_service,
             self.notification_service,
         )
 
     def test_init_rejects_missing_notification_service(self) -> None:
+        with self.assertRaisesRegex(ValueError, 'testing_service is required'):
+            AgentService(
+                self.task_data_access,
+                self.implementation_service,
+                None,
+                self.repository_service,
+                self.notification_service,
+            )
         with self.assertRaisesRegex(ValueError, 'notification_service is required'):
             AgentService(
                 self.task_data_access,
                 self.implementation_service,
+                self.testing_service,
                 self.repository_service,
                 None,
             )
@@ -105,7 +124,7 @@ class AgentServiceTests(unittest.TestCase):
             assignee='me',
             states=['Todo', 'Open'],
         )
-        self.openhands_client.validate_connection.assert_called_once_with()
+        self.assertEqual(self.openhands_client.validate_connection.call_count, 2)
         self.repository_service.validate_connections.assert_called_once_with()
 
     def test_validate_connections_raises_with_service_stack_traces(self) -> None:
@@ -116,9 +135,10 @@ class AgentServiceTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, 'startup dependency validation failed') as exc_context:
             self.service.validate_connections()
 
-        self.assertEqual(self.service.logger.exception.call_count, 2)
+        self.assertEqual(self.service.logger.exception.call_count, 3)
         self.assertIn('[youtrack]', str(exc_context.exception))
         self.assertIn('[openhands]', str(exc_context.exception))
+        self.assertIn('[openhands_testing]', str(exc_context.exception))
 
     def test_process_assigned_tasks_creates_prs_for_all_selected_repositories(self) -> None:
         results = self.service.process_assigned_tasks()
@@ -152,6 +172,7 @@ class AgentServiceTests(unittest.TestCase):
             ],
         )
         self.repository_service.resolve_task_repositories.assert_called_once()
+        self.openhands_client.test_task.assert_called_once()
         self.repository_service.create_pull_request.assert_any_call(
             self.client_repo,
             title='PROJ-1: Fix bug',
@@ -200,6 +221,7 @@ class AgentServiceTests(unittest.TestCase):
 
         self.assertEqual(results, [])
         self.openhands_client.implement_task.assert_not_called()
+        self.openhands_client.test_task.assert_not_called()
 
     def test_process_assigned_tasks_skips_execution_without_success_flag(self) -> None:
         self.openhands_client.implement_task.return_value = {}
@@ -209,6 +231,7 @@ class AgentServiceTests(unittest.TestCase):
             results = self.service.process_assigned_tasks()
 
         self.assertEqual(results, [])
+        self.openhands_client.test_task.assert_not_called()
         self.repository_service.create_pull_request.assert_not_called()
         self.task_client.move_issue_to_state.assert_not_called()
         self.email_core_lib.send.assert_not_called()
@@ -226,6 +249,26 @@ class AgentServiceTests(unittest.TestCase):
         self.task_client.add_comment.assert_called_once()
         self.assertIn('could not safely process this task', self.task_client.add_comment.call_args.args[1])
         self.assertEqual(self.email_core_lib.send.call_count, 2)
+
+    def test_process_assigned_tasks_reports_testing_failures_before_pr_creation(self) -> None:
+        self.openhands_client.test_task.return_value = {
+            ImplementationFields.SUCCESS: False,
+            'summary': 'backend tests are still failing',
+        }
+        self.service.logger = Mock()
+
+        with patch.object(self.service, 'logger', self.service.logger):
+            results = self.service.process_assigned_tasks()
+
+        self.assertEqual(results[0][StatusFields.STATUS], StatusFields.TESTING_FAILED)
+        self.repository_service.create_pull_request.assert_not_called()
+        self.task_client.move_issue_to_state.assert_not_called()
+        self.assertEqual(self.email_core_lib.send.call_count, 2)
+        self.service.logger.warning.assert_called_once_with(
+            'testing failed for task %s: %s',
+            'PROJ-1',
+            'backend tests are still failing',
+        )
 
     def test_process_assigned_tasks_reports_partial_pr_failures_without_moving_review(self) -> None:
         self.repository_service.create_pull_request.side_effect = [

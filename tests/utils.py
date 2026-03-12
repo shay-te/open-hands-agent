@@ -135,10 +135,6 @@ def build_test_cfg() -> types.SimpleNamespace:
                 name='openhands-config',
                 base_url='https://openhands.example',
                 api_key='oh-token',
-                pre_pull_request_commands=[
-                    'Write tests that challenge the new code as much as possible.',
-                    'Make sure the tests are green. If not, fix them before creating the pull request.',
-                ],
             ),
             repository=types.SimpleNamespace(
                 name='repository-config',
@@ -260,6 +256,10 @@ def create_pull_request_with_defaults(
 
 def implement_task_with_defaults(client, task: Task | None = None):
     return client.implement_task(task or build_task())
+
+
+def test_task_with_defaults(client, task: Task | None = None):
+    return client.test_task(task or build_task())
 
 
 def fix_review_comment_with_defaults(

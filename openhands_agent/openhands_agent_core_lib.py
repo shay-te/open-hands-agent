@@ -16,6 +16,7 @@ from openhands_agent.data_layers.service.implementation_service import (
 )
 from openhands_agent.data_layers.service.notification_service import NotificationService
 from openhands_agent.data_layers.service.repository_service import RepositoryService
+from openhands_agent.data_layers.service.testing_service import TestingService
 from openhands_agent.create_db import build_alembic_config
 from openhands_agent.logging_utils import configure_logger
 
@@ -55,20 +56,17 @@ class OpenHandsAgentCoreLib(CoreLib):
         CoreLib.connection_factory_registry.get_or_reg(self.config.core_lib.data.sqlalchemy)
         _email_core_lib = EmailCoreLib(cfg) if hasattr(cfg.core_lib, 'email_core_lib') else None
         _youtrack_client = YouTrackClient(open_cfg.youtrack.base_url, open_cfg.youtrack.token, retry_cfg.max_retries)
-        _openhands_client = OpenHandsClient(
-            open_cfg.openhands.base_url,
-            open_cfg.openhands.api_key,
-            retry_cfg.max_retries,
-            getattr(open_cfg.openhands, 'pre_pull_request_commands', None),
-        )
+        _openhands_client = OpenHandsClient(open_cfg.openhands.base_url, open_cfg.openhands.api_key, retry_cfg.max_retries)
         repositories_cfg = getattr(open_cfg, 'repositories', None) or [open_cfg.repository]
         _task_data_access = TaskDataAccess(open_cfg.youtrack, _youtrack_client)
         _implementation_service = ImplementationService(_openhands_client)
+        _testing_service = TestingService(_openhands_client)
         _repository_service = RepositoryService(repositories_cfg, retry_cfg.max_retries)
         notification_service = NotificationService(app_name=self.config.core_lib.app.name, email_core_lib=_email_core_lib, failure_email_cfg=getattr(open_cfg, 'failure_email', None), completion_email_cfg=getattr(open_cfg, 'completion_email', None))
         self.service = AgentService(
             task_data_access=_task_data_access,
             implementation_service=_implementation_service,
+            testing_service=_testing_service,
             repository_service=_repository_service,
             notification_service=notification_service,
         )

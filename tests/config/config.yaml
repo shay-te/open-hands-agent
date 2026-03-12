@@ -73,6 +73,3 @@ openhands_agent:
   openhands:
     base_url: http://localhost:3000
     api_key: test-openhands-api-key
-    pre_pull_request_commands:
-      - Write tests that challenge the new code as much as possible.
-      - Make sure the tests are green. If not, fix them before creating the pull request.

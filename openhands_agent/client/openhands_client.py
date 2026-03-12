@@ -5,22 +5,13 @@ from openhands_agent.fields import ImplementationFields, PullRequestFields
 
 
 class OpenHandsClient(RetryingClientBase):
-    DEFAULT_PRE_PULL_REQUEST_COMMANDS = [
-        'Write tests that challenge the new code as much as possible.',
-        'Make sure the tests are green. If not, fix them before creating the pull request.',
-    ]
-
     def __init__(
         self,
         base_url: str,
         api_key: str,
         max_retries: int = 3,
-        pre_pull_request_commands: list[str] | None = None,
     ) -> None:
         super().__init__(base_url, api_key, timeout=300, max_retries=max_retries)
-        self._pre_pull_request_commands = list(
-            pre_pull_request_commands or self.DEFAULT_PRE_PULL_REQUEST_COMMANDS
-        )
 
     def validate_connection(self) -> None:
         response = self._get_with_retry('/api/sessions')
@@ -45,6 +36,25 @@ class OpenHandsClient(RetryingClientBase):
         }
         self.logger.info(
             'implementation finished for task %s with success=%s',
+            task.id,
+            result[ImplementationFields.SUCCESS],
+        )
+        return result
+
+    def test_task(self, task: Task) -> dict[str, str | bool]:
+        self.logger.info('requesting testing validation for task %s', task.id)
+        response = self._post_with_retry(
+            '/api/sessions',
+            json={'prompt': self._build_testing_prompt(task)},
+        )
+        response.raise_for_status()
+        payload = self._normalized_payload(response)
+        result = {
+            Task.summary.key: payload.get(Task.summary.key, ''),
+            ImplementationFields.SUCCESS: bool(payload.get(ImplementationFields.SUCCESS, True)),
+        }
+        self.logger.info(
+            'testing validation finished for task %s with success=%s',
             task.id,
             result[ImplementationFields.SUCCESS],
         )
@@ -81,16 +91,23 @@ class OpenHandsClient(RetryingClientBase):
 
     def _build_implementation_prompt(self, task: Task) -> str:
         repository_scope = self._repository_scope_text(task)
-        prompt = (
+        return (
             f'Implement task {task.id}: {task.summary}\n\n'
             f'{task.description}\n\n'
             f'{repository_scope}'
         )
-        if not self._pre_pull_request_commands:
-            return prompt
 
-        commands = '\n'.join(f'- {command}' for command in self._pre_pull_request_commands)
-        return f'{prompt}\n\nBefore creating the pull request:\n{commands}'
+    def _build_testing_prompt(self, task: Task) -> str:
+        repository_scope = self._repository_scope_text(task)
+        return (
+            f'Validate the implementation for task {task.id}: {task.summary}\n\n'
+            f'{task.description}\n\n'
+            f'{repository_scope}\n\n'
+            'Act as a separate testing agent.\n'
+            'Write additional tests when needed, challenge the new code with edge cases, '
+            'run the relevant tests, and fix any test failures you can resolve safely.\n'
+            'Do not create a pull request. Return success=false if the changes are not ready.'
+        )
 
     @staticmethod
     def _repository_scope_text(task: Task) -> str:

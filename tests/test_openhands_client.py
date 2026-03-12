@@ -13,6 +13,7 @@ from utils import (
     fix_review_comment_with_defaults,
     implement_task_with_defaults,
     mock_response,
+    test_task_with_defaults,
 )
 
 
@@ -35,36 +36,22 @@ class OpenHandsClientTests(unittest.TestCase):
         response.raise_for_status.assert_called_once_with()
         mock_get.assert_called_once_with('/api/sessions')
 
-    def test_implement_task_prompt_includes_default_pre_pull_request_commands(self) -> None:
+    def test_implement_task_prompt_does_not_embed_testing_commands(self) -> None:
         client = OpenHandsClient('https://openhands.example', 'oh-token')
 
         prompt = client._build_implementation_prompt(build_task())
 
-        self.assertIn('Before creating the pull request:', prompt)
-        self.assertIn(
-            '- Write tests that challenge the new code as much as possible.',
-            prompt,
-        )
-        self.assertIn(
-            '- Make sure the tests are green. If not, fix them before creating the pull request.',
-            prompt,
-        )
+        self.assertNotIn('Before creating the pull request:', prompt)
+        self.assertNotIn('Act as a separate testing agent.', prompt)
 
-    def test_implement_task_prompt_uses_configured_pre_pull_request_commands(self) -> None:
-        client = OpenHandsClient(
-            'https://openhands.example',
-            'oh-token',
-            pre_pull_request_commands=['Run targeted tests', 'Fix failing tests'],
-        )
+    def test_testing_prompt_describes_separate_testing_agent(self) -> None:
+        client = OpenHandsClient('https://openhands.example', 'oh-token')
 
-        prompt = client._build_implementation_prompt(build_task())
+        prompt = client._build_testing_prompt(build_task())
 
-        self.assertIn('- Run targeted tests', prompt)
-        self.assertIn('- Fix failing tests', prompt)
-        self.assertNotIn(
-            '- Write tests that challenge the new code as much as possible.',
-            prompt,
-        )
+        self.assertIn('Act as a separate testing agent.', prompt)
+        self.assertIn('Write additional tests when needed', prompt)
+        self.assertIn('Do not create a pull request.', prompt)
 
     def test_implement_task_posts_prompt(self) -> None:
         client = OpenHandsClient('https://openhands.example', 'oh-token')
@@ -100,10 +87,42 @@ class OpenHandsClientTests(unittest.TestCase):
         self.assertNotIn('headers', kwargs)
         self.assertNotIn('timeout', kwargs)
         self.assertIn('Implement task PROJ-1: Fix bug', kwargs['json']['prompt'])
-        self.assertIn('Before creating the pull request:', kwargs['json']['prompt'])
+        self.assertNotIn('Before creating the pull request:', kwargs['json']['prompt'])
         client.logger.info.assert_any_call('requesting implementation for task %s', 'PROJ-1')
         client.logger.info.assert_any_call(
             'implementation finished for task %s with success=%s',
+            'PROJ-1',
+            True,
+        )
+
+    def test_test_task_posts_testing_prompt(self) -> None:
+        client = OpenHandsClient('https://openhands.example', 'oh-token')
+        client.logger = Mock()
+        response = mock_response(json_data={
+            'summary': 'Added tests and validated the implementation',
+            ImplementationFields.SUCCESS: True,
+        })
+
+        with patch.object(client, 'logger', client.logger), patch.object(
+            client,
+            '_post',
+            return_value=response,
+        ) as mock_post:
+            result = test_task_with_defaults(client)
+
+        response.raise_for_status.assert_called_once_with()
+        self.assertEqual(
+            result,
+            {
+                'summary': 'Added tests and validated the implementation',
+                ImplementationFields.SUCCESS: True,
+            },
+        )
+        self.assertIn('Act as a separate testing agent.', mock_post.call_args.kwargs['json']['prompt'])
+        self.assertIn('Do not create a pull request.', mock_post.call_args.kwargs['json']['prompt'])
+        client.logger.info.assert_any_call('requesting testing validation for task %s', 'PROJ-1')
+        client.logger.info.assert_any_call(
+            'testing validation finished for task %s with success=%s',
             'PROJ-1',
             True,
         )
@@ -173,6 +192,20 @@ class OpenHandsClientTests(unittest.TestCase):
         self.assertTrue(result[ImplementationFields.SUCCESS])
         self.assertEqual(mock_post.call_count, 2)
 
+    def test_test_task_retries_on_timeout(self) -> None:
+        client = OpenHandsClient('https://openhands.example', 'oh-token')
+        response = mock_response(json_data={ImplementationFields.SUCCESS: True})
+
+        with patch.object(
+            client,
+            '_post',
+            side_effect=[ClientTimeout('gateway timeout'), response],
+        ) as mock_post:
+            result = test_task_with_defaults(client)
+
+        self.assertTrue(result[ImplementationFields.SUCCESS])
+        self.assertEqual(mock_post.call_count, 2)
+
     def test_implement_task_uses_defaults_for_null_payload(self) -> None:
         client = OpenHandsClient('https://openhands.example', 'oh-token')
         response = mock_response(json_data=None)
@@ -218,6 +251,16 @@ class OpenHandsClientTests(unittest.TestCase):
 
         self.assertEqual(result['summary'], '')
         self.assertEqual(result[ImplementationFields.COMMIT_MESSAGE], 'Address review comments')
+        self.assertTrue(result[ImplementationFields.SUCCESS])
+
+    def test_test_task_uses_defaults_for_non_dict_payload(self) -> None:
+        client = OpenHandsClient('https://openhands.example', 'oh-token')
+        response = mock_response(json_data=['unexpected'])
+
+        with patch.object(client, '_post', return_value=response):
+            result = test_task_with_defaults(client)
+
+        self.assertEqual(result['summary'], '')
         self.assertTrue(result[ImplementationFields.SUCCESS])
 
     def test_implement_task_does_not_retry_non_transient_exception(self) -> None:

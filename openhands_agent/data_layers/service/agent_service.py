@@ -12,19 +12,24 @@ from openhands_agent.fields import (
 from openhands_agent.data_layers.service.implementation_service import ImplementationService
 from openhands_agent.data_layers.service.notification_service import NotificationService
 from openhands_agent.data_layers.service.repository_service import RepositoryService
+from openhands_agent.data_layers.service.testing_service import TestingService
 
 class AgentService:
     def __init__(
         self,
         task_data_access: TaskDataAccess,
         implementation_service: ImplementationService,
+        testing_service: TestingService,
         repository_service: RepositoryService,
         notification_service: NotificationService,
     ) -> None:
+        if testing_service is None:
+            raise ValueError('testing_service is required')
         if notification_service is None:
             raise ValueError('notification_service is required')
         self._task_data_access = task_data_access
         self._implementation_service = implementation_service
+        self._testing_service = testing_service
         self._repository_service = repository_service
         self._notification_service = notification_service
         self._pull_request_context_map: dict[str, list[dict[str, str]]] = {}
@@ -38,6 +43,7 @@ class AgentService:
         validations = [
             ('youtrack', self._task_data_access.validate_connection),
             ('openhands', self._implementation_service.validate_connection),
+            ('openhands_testing', self._testing_service.validate_connection),
             ('repositories', self._repository_service.validate_connections),
         ]
         failures: list[str] = []
@@ -79,6 +85,18 @@ class AgentService:
             execution = self._implementation_service.implement_task(task) or {}
             if not self._implementation_succeeded(execution):
                 self.logger.warning('implementation failed for task %s', task.id)
+                continue
+            testing = self._testing_service.test_task(task) or {}
+            if not self._testing_succeeded(testing):
+                self._handle_testing_failure(task, testing)
+                results.append(
+                    {
+                        Task.id.key: task.id,
+                        StatusFields.STATUS: StatusFields.TESTING_FAILED,
+                        PullRequestFields.PULL_REQUESTS: [],
+                        PullRequestFields.FAILED_REPOSITORIES: [],
+                    }
+                )
                 continue
 
             pull_requests, failed_repositories = self._create_pull_requests(
@@ -154,6 +172,10 @@ class AgentService:
     def _implementation_succeeded(execution: dict[str, str | bool]) -> bool:
         return bool(execution.get(ImplementationFields.SUCCESS, False))
 
+    @staticmethod
+    def _testing_succeeded(testing: dict[str, str | bool]) -> bool:
+        return bool(testing.get(ImplementationFields.SUCCESS, False))
+
     def _create_pull_requests(
         self,
         task: Task,
@@ -208,6 +230,11 @@ class AgentService:
             self._notification_service.notify_task_ready_for_review(task, pull_requests)
         except Exception:
             self.logger.exception('failed to send completion notification for task %s', task.id)
+
+    def _handle_testing_failure(self, task: Task, testing: dict[str, str | bool]) -> None:
+        summary = str(testing.get(Task.summary.key) or 'testing agent reported the task is not ready')
+        self.logger.warning('testing failed for task %s: %s', task.id, summary)
+        self._handle_task_failure(task, RuntimeError(summary))
 
     def _handle_task_failure(self, task: Task, error: Exception) -> None:
         try:

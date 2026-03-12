@@ -30,6 +30,8 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
         ) as mock_task_da_cls, patch(
             'openhands_agent.openhands_agent_core_lib.ImplementationService'
         ) as mock_impl_service_cls, patch(
+            'openhands_agent.openhands_agent_core_lib.TestingService'
+        ) as mock_testing_service_cls, patch(
             'openhands_agent.openhands_agent_core_lib.RepositoryService'
         ) as mock_repository_service_cls, patch(
             'openhands_agent.openhands_agent_core_lib.NotificationService'
@@ -49,7 +51,6 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
             self.cfg.openhands_agent.openhands.base_url,
             self.cfg.openhands_agent.openhands.api_key,
             self.cfg.openhands_agent.retry.max_retries,
-            self.cfg.openhands_agent.openhands.pre_pull_request_commands,
         )
         mock_repository_service_cls.assert_called_once_with(
             self.cfg.openhands_agent.repositories,
@@ -57,6 +58,7 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
         )
         mock_task_da_cls.assert_called_once_with(self.cfg.openhands_agent.youtrack, mock_youtrack_client_cls.return_value)
         mock_impl_service_cls.assert_called_once_with(mock_openhands_client_cls.return_value)
+        mock_testing_service_cls.assert_called_once_with(mock_openhands_client_cls.return_value)
         mock_notification_service_cls.assert_called_once_with(
             app_name=self.cfg.core_lib.app.name,
             email_core_lib=mock_email_core_lib_cls.return_value,
@@ -66,6 +68,7 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
         mock_service_cls.assert_called_once_with(
             task_data_access=mock_task_da_cls.return_value,
             implementation_service=mock_impl_service_cls.return_value,
+            testing_service=mock_testing_service_cls.return_value,
             repository_service=mock_repository_service_cls.return_value,
             notification_service=mock_notification_service_cls.return_value,
         )
@@ -87,6 +90,8 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
             'openhands_agent.openhands_agent_core_lib.TaskDataAccess'
         ), patch(
             'openhands_agent.openhands_agent_core_lib.ImplementationService'
+        ), patch(
+            'openhands_agent.openhands_agent_core_lib.TestingService'
         ), patch(
             'openhands_agent.openhands_agent_core_lib.NotificationService'
         ), patch(
@@ -113,6 +118,8 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
             'openhands_agent.openhands_agent_core_lib.TaskDataAccess'
         ), patch(
             'openhands_agent.openhands_agent_core_lib.ImplementationService'
+        ), patch(
+            'openhands_agent.openhands_agent_core_lib.TestingService'
         ), patch(
             'openhands_agent.openhands_agent_core_lib.NotificationService'
         ), patch(
@@ -143,6 +150,8 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
             'openhands_agent.openhands_agent_core_lib.TaskDataAccess'
         ), patch(
             'openhands_agent.openhands_agent_core_lib.ImplementationService'
+        ), patch(
+            'openhands_agent.openhands_agent_core_lib.TestingService'
         ), patch(
             'openhands_agent.openhands_agent_core_lib.NotificationService'
         ) as mock_notification_service_cls, patch(

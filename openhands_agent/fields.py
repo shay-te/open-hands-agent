@@ -21,6 +21,7 @@ class StatusFields:
     READY_FOR_REVIEW = 'ready_for_review'
     PARTIAL_FAILURE = 'partial_failure'
     SKIPPED = 'skipped'
+    TESTING_FAILED = 'testing_failed'
 
 
 class EmailFields:

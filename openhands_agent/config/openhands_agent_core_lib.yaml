@@ -73,6 +73,3 @@ openhands_agent:
   openhands:
     base_url: ${oc.env:OPENHANDS_BASE_URL}
     api_key: ${oc.env:OPENHANDS_API_KEY}
-    pre_pull_request_commands:
-      - Write tests that challenge the new code as much as possible.
-      - Make sure the tests are green. If not, fix them before creating the pull request.
