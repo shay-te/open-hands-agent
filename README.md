@@ -131,6 +131,81 @@ The email body text comes from [completion_email.txt](/Users/shaytessler/Desktop
 
 ## How To Use
 
+### Full First-Run Checklist
+
+If a developer is starting from zero, these are the steps:
+
+1. Clone the repository.
+2. Change into the repository directory.
+3. Copy `.env.example` to `.env`.
+4. Fill in YouTrack credentials.
+5. Fill in Bitbucket credentials.
+6. Fill in OpenHands server settings.
+7. Fill in OpenHands LLM provider settings.
+8. Fill in email settings if notifications are enabled.
+9. Decide whether to run locally or with Docker Compose.
+10. Create a virtual environment for local development.
+11. Install the package in editable mode.
+12. Run the test suite.
+13. Validate the environment values.
+14. Create or upgrade the database schema.
+15. Start the application.
+16. Confirm the agent can connect to YouTrack, OpenHands, and Bitbucket.
+
+What is automated now:
+
+- `./scripts/bootstrap.sh`
+  - creates `.env` from `.env.example` if needed
+  - creates `.venv` if needed
+  - installs the project
+  - runs the tests
+- `make doctor`
+  - validates agent and OpenHands env vars
+- `make run`
+  - loads `.env`
+  - starts the app
+- Docker entrypoint
+  - waits for OpenHands
+  - starts the app
+- Startup
+  - creates the SQLAlchemy schema automatically because `core_lib.data.sqlalchemy.create_db` is enabled
+
+Still manual:
+
+- filling real secrets in `.env`
+- choosing the LLM/provider/model
+- choosing whether to use local run or Docker
+
+### Quick Commands
+
+1. Bootstrap the repo:
+
+```bash
+make bootstrap
+```
+
+2. Fill `.env`
+
+3. Validate config:
+
+```bash
+make doctor
+```
+
+4. Run locally:
+
+```bash
+make run
+```
+
+5. Or run with Docker:
+
+```bash
+make compose-up
+```
+
+### Manual Flow
+
 1. Install the project dependencies in your environment.
 
 ```bash
@@ -191,6 +266,8 @@ If you need to create or upgrade the database schema first, run:
 ```bash
 python -m openhands_agent.create_db
 ```
+
+Normal startup already creates the configured SQLAlchemy tables automatically because `core_lib.data.sqlalchemy.create_db` is set to `true`.
 
 ### Docker Compose
 

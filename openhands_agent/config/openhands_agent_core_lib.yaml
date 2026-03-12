@@ -5,7 +5,7 @@ core_lib:
   data:
     sqlalchemy:
       log_queries: false
-      create_db: false
+      create_db: true
       session:
         pool_recycle: 3600
         pool_pre_ping: false

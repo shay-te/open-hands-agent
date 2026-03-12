@@ -44,7 +44,7 @@ def build_test_cfg() -> types.SimpleNamespace:
             data=types.SimpleNamespace(
                 sqlalchemy=types.SimpleNamespace(
                     log_queries=False,
-                    create_db=False,
+                    create_db=True,
                     session=types.SimpleNamespace(
                         pool_recycle=3600,
                         pool_pre_ping=False,

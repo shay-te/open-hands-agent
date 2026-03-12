@@ -44,3 +44,20 @@ class DeploymentFilesTests(unittest.TestCase):
             'Add edge-case coverage for malformed payloads, retries, timeouts, and degraded downstream behavior when relevant.',
             agents_text,
         )
+
+    def test_repo_includes_bootstrap_automation_files(self) -> None:
+        bootstrap_text = (REPO_ROOT / 'scripts' / 'bootstrap.sh').read_text(encoding='utf-8')
+        run_local_text = (REPO_ROOT / 'scripts' / 'run-local.sh').read_text(encoding='utf-8')
+        makefile_text = (REPO_ROOT / 'Makefile').read_text(encoding='utf-8')
+        config_text = (
+            REPO_ROOT / 'openhands_agent' / 'config' / 'openhands_agent_core_lib.yaml'
+        ).read_text(encoding='utf-8')
+
+        self.assertIn('cp .env.example .env', bootstrap_text)
+        self.assertIn('.venv/bin/python -m unittest discover -s tests', bootstrap_text)
+        self.assertNotIn('openhands_agent.validate_env --mode agent', run_local_text)
+        self.assertNotIn('openhands_agent.create_db', run_local_text)
+        self.assertIn('bootstrap:', makefile_text)
+        self.assertIn('doctor:', makefile_text)
+        self.assertIn('run:', makefile_text)
+        self.assertIn('create_db: true', config_text)
