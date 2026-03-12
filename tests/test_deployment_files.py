@@ -36,5 +36,11 @@ class DeploymentFilesTests(unittest.TestCase):
     def test_agents_file_exists_for_openhands_rules(self) -> None:
         agents_text = (REPO_ROOT / 'AGENTS.md').read_text(encoding='utf-8')
 
+        self.assertIn('Keep orchestration logic in services.', agents_text)
+        self.assertIn('Prefer constants from `fields.py` over free-text field names.', agents_text)
         self.assertIn('Write tests for new behavior when possible.', agents_text)
         self.assertIn('Run the relevant tests before opening a pull request.', agents_text)
+        self.assertIn(
+            'Add edge-case coverage for malformed payloads, retries, timeouts, and degraded downstream behavior when relevant.',
+            agents_text,
+        )
