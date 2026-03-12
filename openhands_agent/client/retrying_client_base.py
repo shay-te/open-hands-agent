@@ -24,3 +24,13 @@ class RetryingClientBase(ClientBase):
 
     def _post_with_retry(self, path: str, **kwargs):
         return run_with_retry(lambda: self._post(path, **kwargs), self.max_retries)
+
+    def _put_with_retry(self, path: str, **kwargs):
+        return run_with_retry(lambda: self._put(path, **kwargs), self.max_retries)
+
+    def _patch(self, path: str, **kwargs):
+        url = f'{self.base_url.rstrip("/")}/{path.lstrip("/")}'
+        return self.session.patch(url, **self.process_kwargs(**kwargs))
+
+    def _patch_with_retry(self, path: str, **kwargs):
+        return run_with_retry(lambda: self._patch(path, **kwargs), self.max_retries)

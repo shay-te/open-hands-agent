@@ -55,16 +55,14 @@ class OpenHandsAgentCoreLib(CoreLib):
         self.logger = configure_logger(cfg.core_lib.app.name)
         open_cfg = cfg.openhands_agent
         retry_cfg = open_cfg.retry
-        ticket_system = str(
-            getattr(open_cfg, 'ticket_system', 'youtrack') or 'youtrack'
-        ).strip().lower()
-        ticket_cfg = getattr(open_cfg, ticket_system, None)
+        issue_platform = self._issue_platform(open_cfg)
+        ticket_cfg = self._issue_platform_config(open_cfg, issue_platform)
         if ticket_cfg is None:
-            raise ValueError(f'missing ticket system config for: {ticket_system}')
+            raise ValueError(f'missing issue platform config for: {issue_platform}')
 
         CoreLib.connection_factory_registry.get_or_reg(self.config.core_lib.data.sqlalchemy)
         _email_core_lib = EmailCoreLib(cfg) if hasattr(cfg.core_lib, 'email_core_lib') else None
-        _ticket_client = build_ticket_client(ticket_system, ticket_cfg, retry_cfg.max_retries)
+        _ticket_client = build_ticket_client(issue_platform, ticket_cfg, retry_cfg.max_retries)
         _implementation_openhands_client = OpenHandsClient(
             open_cfg.openhands.base_url,
             open_cfg.openhands.api_key,
@@ -91,3 +89,25 @@ class OpenHandsAgentCoreLib(CoreLib):
             state_data_access=_state_data_access,
         )
         self.service.validate_connections()
+
+    @staticmethod
+    def _issue_platform(open_cfg: DictConfig) -> str:
+        return str(
+            getattr(open_cfg, 'issue_platform', '')
+            or getattr(open_cfg, 'ticket_system', '')
+            or 'youtrack'
+        ).strip().lower()
+
+    @staticmethod
+    def _issue_platform_config(open_cfg: DictConfig, issue_platform: str):
+        config_name = {
+            'youtrack': 'youtrack',
+            'jira': 'jira',
+            'github': 'github_issues',
+            'github_issues': 'github_issues',
+            'gitlab': 'gitlab_issues',
+            'gitlab_issues': 'gitlab_issues',
+            'bitbucket': 'bitbucket_issues',
+            'bitbucket_issues': 'bitbucket_issues',
+        }.get(issue_platform, issue_platform)
+        return getattr(open_cfg, config_name, None)

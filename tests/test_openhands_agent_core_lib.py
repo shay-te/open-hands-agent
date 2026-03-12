@@ -201,6 +201,7 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
     def test_builds_jira_ticket_client_when_configured(self) -> None:
         cfg = build_test_cfg()
         cfg.openhands_agent.ticket_system = 'jira'
+        cfg.openhands_agent.issue_platform = ''
 
         with patch(
             'openhands_agent.openhands_agent_core_lib.CoreLib.connection_factory_registry.get_or_reg'
@@ -230,6 +231,42 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
         mock_build_ticket_client.assert_called_once_with(
             'jira',
             cfg.openhands_agent.jira,
+            cfg.openhands_agent.retry.max_retries,
+        )
+
+    def test_issue_platform_takes_precedence_over_legacy_ticket_system(self) -> None:
+        cfg = build_test_cfg()
+        cfg.openhands_agent.ticket_system = 'youtrack'
+        cfg.openhands_agent.issue_platform = 'github'
+
+        with patch(
+            'openhands_agent.openhands_agent_core_lib.CoreLib.connection_factory_registry.get_or_reg'
+        ), patch(
+            'openhands_agent.openhands_agent_core_lib.EmailCoreLib'
+        ), patch(
+            'openhands_agent.openhands_agent_core_lib.build_ticket_client'
+        ) as mock_build_ticket_client, patch(
+            'openhands_agent.openhands_agent_core_lib.OpenHandsClient'
+        ), patch(
+            'openhands_agent.openhands_agent_core_lib.AgentStateDataAccess'
+        ), patch(
+            'openhands_agent.openhands_agent_core_lib.RepositoryService'
+        ), patch(
+            'openhands_agent.openhands_agent_core_lib.TaskDataAccess'
+        ), patch(
+            'openhands_agent.openhands_agent_core_lib.ImplementationService'
+        ), patch(
+            'openhands_agent.openhands_agent_core_lib.TestingService'
+        ), patch(
+            'openhands_agent.openhands_agent_core_lib.NotificationService'
+        ), patch(
+            'openhands_agent.openhands_agent_core_lib.AgentService'
+        ):
+            OpenHandsAgentCoreLib(cfg)
+
+        mock_build_ticket_client.assert_called_once_with(
+            'github',
+            cfg.openhands_agent.github_issues,
             cfg.openhands_agent.retry.max_retries,
         )
 

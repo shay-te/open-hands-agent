@@ -17,7 +17,13 @@ def _install_core_lib_stubs() -> None:
             self.headers = None
             self.timeout = None
             self.auth = None
-            self.session = types.SimpleNamespace(get=self._get, post=self._post, put=self._put, delete=self._delete)
+            self.session = types.SimpleNamespace(
+                get=self._get,
+                post=self._post,
+                put=self._put,
+                patch=self._put,
+                delete=self._delete,
+            )
 
         def set_headers(self, headers: dict) -> None:
             self.headers = headers

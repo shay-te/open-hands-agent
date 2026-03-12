@@ -77,7 +77,7 @@ class ValidateEnvTests(unittest.TestCase):
     def test_validate_agent_env_accepts_jira_configuration(self) -> None:
         errors = validate_agent_env(
             {
-                'OPENHANDS_AGENT_TICKET_SYSTEM': 'jira',
+                'OPENHANDS_AGENT_ISSUE_PLATFORM': 'jira',
                 'JIRA_BASE_URL': 'https://jira.example',
                 'JIRA_TOKEN': 'jira-token',
                 'JIRA_PROJECT': 'PROJ',
@@ -95,10 +95,75 @@ class ValidateEnvTests(unittest.TestCase):
 
         self.assertEqual(errors, [])
 
-    def test_validate_agent_env_rejects_unknown_ticket_system(self) -> None:
-        errors = validate_agent_env({'OPENHANDS_AGENT_TICKET_SYSTEM': 'linear'})
+    def test_validate_agent_env_accepts_github_issues_configuration(self) -> None:
+        errors = validate_agent_env(
+            {
+                'OPENHANDS_AGENT_ISSUE_PLATFORM': 'github',
+                'GITHUB_ISSUES_BASE_URL': 'https://api.github.com',
+                'GITHUB_ISSUES_TOKEN': 'gh-token',
+                'GITHUB_ISSUES_OWNER': 'workspace',
+                'GITHUB_ISSUES_REPO': 'repo',
+                'GITHUB_ISSUES_ASSIGNEE': 'octocat',
+                'REPOSITORY_ID': 'client',
+                'REPOSITORY_BASE_URL': 'https://bitbucket.example',
+                'REPOSITORY_LOCAL_PATH': '.',
+                'REPOSITORY_TOKEN': 'bb-token',
+                'REPOSITORY_OWNER': 'workspace',
+                'REPOSITORY_REPO_SLUG': 'repo',
+                'OPENHANDS_BASE_URL': 'http://localhost:3000',
+                'OPENHANDS_API_KEY': 'local',
+            }
+        )
 
-        self.assertIn('unsupported ticket system: linear', errors)
+        self.assertEqual(errors, [])
+
+    def test_validate_agent_env_accepts_gitlab_issues_configuration(self) -> None:
+        errors = validate_agent_env(
+            {
+                'OPENHANDS_AGENT_ISSUE_PLATFORM': 'gitlab',
+                'GITLAB_ISSUES_BASE_URL': 'https://gitlab.example/api/v4',
+                'GITLAB_ISSUES_TOKEN': 'gl-token',
+                'GITLAB_ISSUES_PROJECT': 'group/repo',
+                'GITLAB_ISSUES_ASSIGNEE': 'developer',
+                'REPOSITORY_ID': 'client',
+                'REPOSITORY_BASE_URL': 'https://bitbucket.example',
+                'REPOSITORY_LOCAL_PATH': '.',
+                'REPOSITORY_TOKEN': 'bb-token',
+                'REPOSITORY_OWNER': 'workspace',
+                'REPOSITORY_REPO_SLUG': 'repo',
+                'OPENHANDS_BASE_URL': 'http://localhost:3000',
+                'OPENHANDS_API_KEY': 'local',
+            }
+        )
+
+        self.assertEqual(errors, [])
+
+    def test_validate_agent_env_accepts_bitbucket_issues_configuration(self) -> None:
+        errors = validate_agent_env(
+            {
+                'OPENHANDS_AGENT_ISSUE_PLATFORM': 'bitbucket',
+                'BITBUCKET_ISSUES_BASE_URL': 'https://api.bitbucket.org/2.0',
+                'BITBUCKET_ISSUES_TOKEN': 'bb-token',
+                'BITBUCKET_ISSUES_WORKSPACE': 'workspace',
+                'BITBUCKET_ISSUES_REPO_SLUG': 'repo',
+                'BITBUCKET_ISSUES_ASSIGNEE': 'reviewer',
+                'REPOSITORY_ID': 'client',
+                'REPOSITORY_BASE_URL': 'https://bitbucket.example',
+                'REPOSITORY_LOCAL_PATH': '.',
+                'REPOSITORY_TOKEN': 'bb-token',
+                'REPOSITORY_OWNER': 'workspace',
+                'REPOSITORY_REPO_SLUG': 'repo',
+                'OPENHANDS_BASE_URL': 'http://localhost:3000',
+                'OPENHANDS_API_KEY': 'local',
+            }
+        )
+
+        self.assertEqual(errors, [])
+
+    def test_validate_agent_env_rejects_unknown_issue_platform(self) -> None:
+        errors = validate_agent_env({'OPENHANDS_AGENT_ISSUE_PLATFORM': 'linear'})
+
+        self.assertIn('unsupported issue platform: linear', errors)
 
     def test_validate_openhands_env_requires_api_key_for_non_bedrock_models(self) -> None:
         errors = validate_openhands_env(

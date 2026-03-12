@@ -42,10 +42,14 @@ def _missing(env: dict[str, str], keys: list[str]) -> list[str]:
 
 def validate_agent_env(env: dict[str, str]) -> list[str]:
     errors = []
-    ticket_system = str(env.get('OPENHANDS_AGENT_TICKET_SYSTEM', 'youtrack') or 'youtrack').strip().lower()
-    if ticket_system not in {'youtrack', 'jira'}:
-        errors.append(f'unsupported ticket system: {ticket_system}')
-    required = _required_agent_keys(ticket_system)
+    issue_platform = str(
+        env.get('OPENHANDS_AGENT_ISSUE_PLATFORM')
+        or env.get('OPENHANDS_AGENT_TICKET_SYSTEM')
+        or 'youtrack'
+    ).strip().lower()
+    if issue_platform not in {'youtrack', 'jira', 'github', 'gitlab', 'bitbucket'}:
+        errors.append(f'unsupported issue platform: {issue_platform}')
+    required = _required_agent_keys(issue_platform)
     for key in _missing(env, required):
         errors.append(f'missing required agent env var: {key}')
 
@@ -74,7 +78,7 @@ def validate_agent_env(env: dict[str, str]) -> list[str]:
     return errors
 
 
-def _required_agent_keys(ticket_system: str) -> list[str]:
+def _required_agent_keys(issue_platform: str) -> list[str]:
     shared_required = [
         'REPOSITORY_ID',
         'REPOSITORY_BASE_URL',
@@ -85,12 +89,38 @@ def _required_agent_keys(ticket_system: str) -> list[str]:
         'OPENHANDS_BASE_URL',
         'OPENHANDS_API_KEY',
     ]
-    if ticket_system == 'jira':
+    if issue_platform == 'jira':
         return [
             'JIRA_BASE_URL',
             'JIRA_TOKEN',
             'JIRA_PROJECT',
             'JIRA_ASSIGNEE',
+            *shared_required,
+        ]
+    if issue_platform == 'github':
+        return [
+            'GITHUB_ISSUES_BASE_URL',
+            'GITHUB_ISSUES_TOKEN',
+            'GITHUB_ISSUES_OWNER',
+            'GITHUB_ISSUES_REPO',
+            'GITHUB_ISSUES_ASSIGNEE',
+            *shared_required,
+        ]
+    if issue_platform == 'gitlab':
+        return [
+            'GITLAB_ISSUES_BASE_URL',
+            'GITLAB_ISSUES_TOKEN',
+            'GITLAB_ISSUES_PROJECT',
+            'GITLAB_ISSUES_ASSIGNEE',
+            *shared_required,
+        ]
+    if issue_platform == 'bitbucket':
+        return [
+            'BITBUCKET_ISSUES_BASE_URL',
+            'BITBUCKET_ISSUES_TOKEN',
+            'BITBUCKET_ISSUES_WORKSPACE',
+            'BITBUCKET_ISSUES_REPO_SLUG',
+            'BITBUCKET_ISSUES_ASSIGNEE',
             *shared_required,
         ]
     return [

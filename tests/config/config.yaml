@@ -28,6 +28,7 @@ core_lib:
       slack_email_error_url: ""
 
 openhands_agent:
+  issue_platform: youtrack
   ticket_system: youtrack
   retry:
     max_retries: 5
@@ -72,6 +73,38 @@ openhands_agent:
     issue_states:
       - To Do
       - Open
+  github_issues:
+    base_url: https://api.github.com
+    token: test-github-issues-token
+    owner: test-owner
+    repo: test-repo
+    project: test-repo
+    assignee: octocat
+    review_state_field: labels
+    review_state: In Review
+    issue_states:
+      - open
+  gitlab_issues:
+    base_url: http://localhost:8083/api/v4
+    token: test-gitlab-issues-token
+    project: group/test-repo
+    assignee: developer
+    review_state_field: labels
+    review_state: In Review
+    issue_states:
+      - opened
+  bitbucket_issues:
+    base_url: https://api.bitbucket.org/2.0
+    token: test-bitbucket-issues-token
+    workspace: test-workspace
+    repo_slug: test-repo
+    project: test-repo
+    assignee: reviewer
+    review_state_field: state
+    review_state: resolved
+    issue_states:
+      - new
+      - open
   repositories:
     - id: client
       display_name: Client

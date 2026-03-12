@@ -2,7 +2,7 @@ from openhands_agent.client.retrying_client_base import RetryingClientBase
 
 
 class TicketClientBase(RetryingClientBase):
-    provider_name = 'ticket_system'
+    provider_name = 'issue_platform'
 
     def validate_connection(self, project: str, assignee: str, states: list[str]) -> None:
         raise NotImplementedError

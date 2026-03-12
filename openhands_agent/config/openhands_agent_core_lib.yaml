@@ -28,6 +28,7 @@ core_lib:
       slack_email_error_url: ${oc.env:SLACK_WEBHOOK_URL_ERRORS_EMAIL,""}
 
 openhands_agent:
+  issue_platform: ${oc.env:OPENHANDS_AGENT_ISSUE_PLATFORM,""}
   ticket_system: ${oc.env:OPENHANDS_AGENT_TICKET_SYSTEM,"youtrack"}
   retry:
     max_retries: ${oc.env:OPENHANDS_AGENT_MAX_RETRIES,3}
@@ -72,6 +73,38 @@ openhands_agent:
     issue_states:
       - To Do
       - Open
+  github_issues:
+    base_url: ${oc.env:GITHUB_ISSUES_BASE_URL,"https://api.github.com"}
+    token: ${oc.env:GITHUB_ISSUES_TOKEN,""}
+    owner: ${oc.env:GITHUB_ISSUES_OWNER,""}
+    repo: ${oc.env:GITHUB_ISSUES_REPO,""}
+    project: ${oc.env:GITHUB_ISSUES_REPO,""}
+    assignee: ${oc.env:GITHUB_ISSUES_ASSIGNEE,""}
+    review_state_field: ${oc.env:GITHUB_ISSUES_REVIEW_STATE_FIELD,"labels"}
+    review_state: ${oc.env:GITHUB_ISSUES_REVIEW_STATE,"In Review"}
+    issue_states:
+      - open
+  gitlab_issues:
+    base_url: ${oc.env:GITLAB_ISSUES_BASE_URL,"https://gitlab.com/api/v4"}
+    token: ${oc.env:GITLAB_ISSUES_TOKEN,""}
+    project: ${oc.env:GITLAB_ISSUES_PROJECT,""}
+    assignee: ${oc.env:GITLAB_ISSUES_ASSIGNEE,""}
+    review_state_field: ${oc.env:GITLAB_ISSUES_REVIEW_STATE_FIELD,"labels"}
+    review_state: ${oc.env:GITLAB_ISSUES_REVIEW_STATE,"In Review"}
+    issue_states:
+      - opened
+  bitbucket_issues:
+    base_url: ${oc.env:BITBUCKET_ISSUES_BASE_URL,"https://api.bitbucket.org/2.0"}
+    token: ${oc.env:BITBUCKET_ISSUES_TOKEN,""}
+    workspace: ${oc.env:BITBUCKET_ISSUES_WORKSPACE,""}
+    repo_slug: ${oc.env:BITBUCKET_ISSUES_REPO_SLUG,""}
+    project: ${oc.env:BITBUCKET_ISSUES_REPO_SLUG,""}
+    assignee: ${oc.env:BITBUCKET_ISSUES_ASSIGNEE,""}
+    review_state_field: ${oc.env:BITBUCKET_ISSUES_REVIEW_STATE_FIELD,"state"}
+    review_state: ${oc.env:BITBUCKET_ISSUES_REVIEW_STATE,"resolved"}
+    issue_states:
+      - new
+      - open
   repositories:
     - id: ${oc.env:REPOSITORY_ID,"primary"}
       display_name: ${oc.env:REPOSITORY_DISPLAY_NAME,"Primary Repository"}

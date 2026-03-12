@@ -35,8 +35,52 @@ class TicketClientFactoryTests(unittest.TestCase):
             5,
         )
 
+    def test_builds_github_issues_client(self) -> None:
+        cfg = build_test_cfg()
+
+        with patch('openhands_agent.client.ticket_client_factory.GitHubIssuesClient') as mock_client_cls:
+            client = build_ticket_client('github', cfg.openhands_agent.github_issues, 5)
+
+        self.assertIs(client, mock_client_cls.return_value)
+        mock_client_cls.assert_called_once_with(
+            cfg.openhands_agent.github_issues.base_url,
+            cfg.openhands_agent.github_issues.token,
+            cfg.openhands_agent.github_issues.owner,
+            cfg.openhands_agent.github_issues.repo,
+            5,
+        )
+
+    def test_builds_gitlab_issues_client(self) -> None:
+        cfg = build_test_cfg()
+
+        with patch('openhands_agent.client.ticket_client_factory.GitLabIssuesClient') as mock_client_cls:
+            client = build_ticket_client('gitlab', cfg.openhands_agent.gitlab_issues, 5)
+
+        self.assertIs(client, mock_client_cls.return_value)
+        mock_client_cls.assert_called_once_with(
+            cfg.openhands_agent.gitlab_issues.base_url,
+            cfg.openhands_agent.gitlab_issues.token,
+            cfg.openhands_agent.gitlab_issues.project,
+            5,
+        )
+
+    def test_builds_bitbucket_issues_client(self) -> None:
+        cfg = build_test_cfg()
+
+        with patch('openhands_agent.client.ticket_client_factory.BitbucketIssuesClient') as mock_client_cls:
+            client = build_ticket_client('bitbucket', cfg.openhands_agent.bitbucket_issues, 5)
+
+        self.assertIs(client, mock_client_cls.return_value)
+        mock_client_cls.assert_called_once_with(
+            cfg.openhands_agent.bitbucket_issues.base_url,
+            cfg.openhands_agent.bitbucket_issues.token,
+            cfg.openhands_agent.bitbucket_issues.workspace,
+            cfg.openhands_agent.bitbucket_issues.repo_slug,
+            5,
+        )
+
     def test_rejects_unknown_ticket_system(self) -> None:
         cfg = build_test_cfg()
 
-        with self.assertRaisesRegex(ValueError, 'unsupported ticket system'):
+        with self.assertRaisesRegex(ValueError, 'unsupported issue platform'):
             build_ticket_client('linear', cfg.openhands_agent.youtrack, 5)

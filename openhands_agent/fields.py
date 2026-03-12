@@ -107,3 +107,59 @@ class JiraTransitionFields:
     ID = 'id'
     NAME = 'name'
     TO = 'to'
+
+
+class GitHubIssueFields:
+    NUMBER = 'number'
+    TITLE = 'title'
+    BODY = 'body'
+    STATE = 'state'
+    LABELS = 'labels'
+    ASSIGNEES = 'assignees'
+    LOGIN = 'login'
+    PULL_REQUEST = 'pull_request'
+    NAME = 'name'
+
+
+class GitHubCommentFields:
+    BODY = 'body'
+    USER = 'user'
+    LOGIN = 'login'
+
+
+class GitLabIssueFields:
+    IID = 'iid'
+    TITLE = 'title'
+    DESCRIPTION = 'description'
+    STATE = 'state'
+    LABELS = 'labels'
+    ASSIGNEES = 'assignees'
+    USERNAME = 'username'
+    NAME = 'name'
+
+
+class GitLabCommentFields:
+    BODY = 'body'
+    AUTHOR = 'author'
+    USERNAME = 'username'
+    NAME = 'name'
+    SYSTEM = 'system'
+
+
+class BitbucketIssueFields:
+    ID = 'id'
+    TITLE = 'title'
+    CONTENT = 'content'
+    RAW = 'raw'
+    STATE = 'state'
+    ASSIGNEE = 'assignee'
+    DISPLAY_NAME = 'display_name'
+    NICKNAME = 'nickname'
+
+
+class BitbucketIssueCommentFields:
+    CONTENT = 'content'
+    RAW = 'raw'
+    USER = 'user'
+    DISPLAY_NAME = 'display_name'
+    NICKNAME = 'nickname'
