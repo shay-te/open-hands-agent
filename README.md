@@ -103,6 +103,23 @@ export OPENHANDS_LLM_CACHING_PROMPT=""
 export AWS_ACCESS_KEY_ID=""
 export AWS_SECRET_ACCESS_KEY=""
 export AWS_REGION_NAME=""
+export AWS_BEARER_TOKEN_BEDROCK=""
+```
+
+For Bedrock specifically, you can use either standard AWS credentials or a Bedrock bearer token, all from env vars before OpenHands starts:
+
+```bash
+export OPENHANDS_LLM_MODEL="bedrock/anthropic.claude-3-sonnet-20240229-v1:0"
+export AWS_ACCESS_KEY_ID="..."
+export AWS_SECRET_ACCESS_KEY="..."
+export AWS_REGION_NAME="us-west-2"
+```
+
+or:
+
+```bash
+export OPENHANDS_LLM_MODEL="bedrock/anthropic.claude-3-sonnet-20240229-v1:0"
+export AWS_BEARER_TOKEN_BEDROCK="..."
 ```
 
 Allowed YouTrack stages are configured in `openhands_agent/config/openhands_agent_core_lib.yaml` under `openhands_agent.youtrack.issue_states`. By default the agent only processes tasks assigned to `YOUTRACK_ASSIGNEE` that are in `Todo` or `Open`.
@@ -198,6 +215,8 @@ The compose file uses the official OpenHands image and runtime image pattern fro
 Before running `docker compose up --build`, export the same environment variables listed above for YouTrack, Bitbucket, OpenHands, retries, and failure email settings.
 
 If you use `.env`, Docker Compose will load it automatically, so you can keep both the agent config and the OpenHands LLM config in one place and avoid manual setup in the OpenHands UI for the env-supported options.
+
+OpenHands behavioral rules are also supported from this repo through [AGENTS.md](/Users/shaytessler/Desktop/dev/openhands-agent/AGENTS.md). That lets you keep coding/testing instructions in the project instead of configuring them manually in OpenHands.
 
 What happens when it runs:
 
