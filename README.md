@@ -62,38 +62,38 @@ make doctor
 make run
 ```
 
-Then fill in the values you need. The most important variables are:
+Then fill in `.env`. The most important entries are:
 
-```bash
-export YOUTRACK_BASE_URL="https://your-company.youtrack.cloud"
-export YOUTRACK_TOKEN="..."
-export YOUTRACK_PROJECT="PROJ"
-export YOUTRACK_ASSIGNEE="your-youtrack-login"
-export REPOSITORY_ID="client"
-export REPOSITORY_DISPLAY_NAME="Client"
-export REPOSITORY_LOCAL_PATH="./client"
-export REPOSITORY_BASE_URL="https://api.bitbucket.org/2.0"
-export REPOSITORY_TOKEN="..."
-export REPOSITORY_OWNER="your-workspace"
-export REPOSITORY_REPO_SLUG="your-repo"
-export REPOSITORY_DESTINATION_BRANCH=""
-export OPENHANDS_BASE_URL="http://localhost:3000"
-export OPENHANDS_API_KEY="..."
-export OPENHANDS_AGENT_MAX_RETRIES="5"
-export OPENHANDS_AGENT_FAILURE_EMAIL_ENABLED="true"
-export OPENHANDS_AGENT_FAILURE_EMAIL_TEMPLATE_ID="42"
-export OPENHANDS_AGENT_FAILURE_EMAIL_TO="ops@example.com"
-export OPENHANDS_AGENT_FAILURE_EMAIL_SENDER_NAME="OpenHands Agent"
-export OPENHANDS_AGENT_FAILURE_EMAIL_SENDER_EMAIL="noreply@example.com"
-export OPENHANDS_AGENT_COMPLETION_EMAIL_ENABLED="true"
-export OPENHANDS_AGENT_COMPLETION_EMAIL_TEMPLATE_ID="77"
-export OPENHANDS_AGENT_COMPLETION_EMAIL_TO="reviewers@example.com"
-export OPENHANDS_AGENT_COMPLETION_EMAIL_SENDER_NAME="OpenHands Agent"
-export OPENHANDS_AGENT_COMPLETION_EMAIL_SENDER_EMAIL="noreply@example.com"
-export YOUTRACK_REVIEW_STATE_FIELD="State"
-export YOUTRACK_REVIEW_STATE="In Review"
-export EMAIL_CORE_LIB_SEND_IN_BLUE_API_KEY="..."
-export SLACK_WEBHOOK_URL_ERRORS_EMAIL=""
+```dotenv
+YOUTRACK_BASE_URL=https://your-company.youtrack.cloud
+YOUTRACK_TOKEN=...
+YOUTRACK_PROJECT=PROJ
+YOUTRACK_ASSIGNEE=your-youtrack-login
+REPOSITORY_ID=client
+REPOSITORY_DISPLAY_NAME=Client
+REPOSITORY_LOCAL_PATH=./client
+REPOSITORY_BASE_URL=https://api.bitbucket.org/2.0
+REPOSITORY_TOKEN=...
+REPOSITORY_OWNER=your-workspace
+REPOSITORY_REPO_SLUG=your-repo
+REPOSITORY_DESTINATION_BRANCH=
+OPENHANDS_BASE_URL=http://localhost:3000
+OPENHANDS_API_KEY=...
+OPENHANDS_AGENT_MAX_RETRIES=5
+OPENHANDS_AGENT_FAILURE_EMAIL_ENABLED=true
+OPENHANDS_AGENT_FAILURE_EMAIL_TEMPLATE_ID=42
+OPENHANDS_AGENT_FAILURE_EMAIL_TO=ops@example.com
+OPENHANDS_AGENT_FAILURE_EMAIL_SENDER_NAME=OpenHands Agent
+OPENHANDS_AGENT_FAILURE_EMAIL_SENDER_EMAIL=noreply@example.com
+OPENHANDS_AGENT_COMPLETION_EMAIL_ENABLED=true
+OPENHANDS_AGENT_COMPLETION_EMAIL_TEMPLATE_ID=77
+OPENHANDS_AGENT_COMPLETION_EMAIL_TO=reviewers@example.com
+OPENHANDS_AGENT_COMPLETION_EMAIL_SENDER_NAME=OpenHands Agent
+OPENHANDS_AGENT_COMPLETION_EMAIL_SENDER_EMAIL=noreply@example.com
+YOUTRACK_REVIEW_STATE_FIELD=State
+YOUTRACK_REVIEW_STATE=In Review
+EMAIL_CORE_LIB_SEND_IN_BLUE_API_KEY=...
+SLACK_WEBHOOK_URL_ERRORS_EMAIL=
 ```
 
 The pull-request provider is selected automatically from `REPOSITORY_BASE_URL`.
@@ -109,41 +109,41 @@ If `destination_branch` is empty, the agent infers the repository default branch
 
 OpenHands itself can now be configured from this project too. Put its LLM settings in `.env` and `docker compose` will pass them into the `openhands` container:
 
-```bash
-export OPENHANDS_LLM_MODEL="openai/gpt-4o"
-export OPENHANDS_LLM_API_KEY="..."
+```dotenv
+OPENHANDS_LLM_MODEL=openai/gpt-4o
+OPENHANDS_LLM_API_KEY=...
 ```
 
 Optional advanced OpenHands settings supported by this compose file:
 
-```bash
-export OPENHANDS_LLM_BASE_URL=""
-export OPENHANDS_LLM_API_VERSION=""
-export OPENHANDS_LLM_NUM_RETRIES=""
-export OPENHANDS_LLM_TIMEOUT=""
-export OPENHANDS_LLM_DISABLE_VISION=""
-export OPENHANDS_LLM_DROP_PARAMS=""
-export OPENHANDS_LLM_CACHING_PROMPT=""
-export AWS_ACCESS_KEY_ID=""
-export AWS_SECRET_ACCESS_KEY=""
-export AWS_REGION_NAME=""
-export AWS_BEARER_TOKEN_BEDROCK=""
+```dotenv
+OPENHANDS_LLM_BASE_URL=
+OPENHANDS_LLM_API_VERSION=
+OPENHANDS_LLM_NUM_RETRIES=
+OPENHANDS_LLM_TIMEOUT=
+OPENHANDS_LLM_DISABLE_VISION=
+OPENHANDS_LLM_DROP_PARAMS=
+OPENHANDS_LLM_CACHING_PROMPT=
+AWS_ACCESS_KEY_ID=
+AWS_SECRET_ACCESS_KEY=
+AWS_REGION_NAME=
+AWS_BEARER_TOKEN_BEDROCK=
 ```
 
 For Bedrock specifically, you can use either standard AWS credentials or a Bedrock bearer token, all from env vars before OpenHands starts:
 
-```bash
-export OPENHANDS_LLM_MODEL="bedrock/anthropic.claude-3-sonnet-20240229-v1:0"
-export AWS_ACCESS_KEY_ID="..."
-export AWS_SECRET_ACCESS_KEY="..."
-export AWS_REGION_NAME="us-west-2"
+```dotenv
+OPENHANDS_LLM_MODEL=bedrock/anthropic.claude-3-sonnet-20240229-v1:0
+AWS_ACCESS_KEY_ID=...
+AWS_SECRET_ACCESS_KEY=...
+AWS_REGION_NAME=us-west-2
 ```
 
 or:
 
-```bash
-export OPENHANDS_LLM_MODEL="bedrock/anthropic.claude-3-sonnet-20240229-v1:0"
-export AWS_BEARER_TOKEN_BEDROCK="..."
+```dotenv
+OPENHANDS_LLM_MODEL=bedrock/anthropic.claude-3-sonnet-20240229-v1:0
+AWS_BEARER_TOKEN_BEDROCK=...
 ```
 
 Allowed YouTrack stages are configured in `openhands_agent/config/openhands_agent_core_lib.yaml` under `openhands_agent.youtrack.issue_states`. By default the agent only processes tasks assigned to `YOUTRACK_ASSIGNEE` that are in `Todo` or `Open`.
@@ -248,25 +248,7 @@ make compose-up
 pip install -e .
 ```
 
-2. Export the required environment variables.
-
-```bash
-export YOUTRACK_BASE_URL="https://your-company.youtrack.cloud"
-export YOUTRACK_TOKEN="..."
-export YOUTRACK_PROJECT="PROJ"
-export YOUTRACK_ASSIGNEE="your-youtrack-login"
-export REPOSITORY_ID="client"
-export REPOSITORY_LOCAL_PATH="./client"
-export REPOSITORY_BASE_URL="https://api.bitbucket.org/2.0"
-export REPOSITORY_TOKEN="..."
-export REPOSITORY_OWNER="your-workspace"
-export REPOSITORY_REPO_SLUG="your-repo"
-export REPOSITORY_DESTINATION_BRANCH=""
-export OPENHANDS_BASE_URL="http://localhost:3000"
-export OPENHANDS_API_KEY="..."
-export YOUTRACK_REVIEW_STATE_FIELD="State"
-export YOUTRACK_REVIEW_STATE="In Review"
-```
+2. Fill `.env` instead of exporting variables one by one. Start from `.env.example` and update the values you need there.
 
 3. Adjust `openhands_agent/config/openhands_agent_core_lib.yaml` if you want different allowed YouTrack stages, a different review column, or review-ready email recipients.
 
@@ -294,9 +276,12 @@ openhands_agent:
       - Open
 ```
 
-4. Run the agent.
+4. Load `.env` in your shell and run the agent.
 
 ```bash
+set -a
+source .env
+set +a
 python -m openhands_agent.main
 ```
 
@@ -328,7 +313,7 @@ The compose file uses the official OpenHands image and runtime image pattern fro
 - https://docs.all-hands.dev/usage/local-setup
 - https://github.com/OpenHands/OpenHands
 
-Before running `docker compose up --build`, export the same environment variables listed above for YouTrack, the first configured repository, OpenHands, retries, and failure email settings.
+Before running `docker compose up --build`, make sure `.env` contains the YouTrack, repository, OpenHands, retry, and optional email settings you want Docker Compose to pass through.
 
 If you use `.env`, Docker Compose will load it automatically, so you can keep both the agent config and the OpenHands LLM config in one place and avoid manual setup in the OpenHands UI for the env-supported options.
 
