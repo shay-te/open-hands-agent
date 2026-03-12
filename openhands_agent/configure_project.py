@@ -421,22 +421,37 @@ def _prompt_repository(
 def _prompt_repository_fields(
     defaults: dict[str, str],
     code_platform: str,
+    *,
+    prompt_for_local_path: bool = True,
+    prompt_for_repository_identity: bool = True,
 ) -> dict[str, str]:
-    local_path = _normalize_repository_path(
-        input_str(
-            'Local path to the checked-out repository',
-            default=_default_str(defaults, 'REPOSITORY_LOCAL_PATH', fallback='.'),
+    local_path = _normalize_repository_path(_default_str(defaults, 'REPOSITORY_LOCAL_PATH', fallback='.'))
+    if prompt_for_local_path:
+        local_path = _normalize_repository_path(
+            input_str(
+                'Local path to the checked-out repository',
+                default=local_path,
+            )
         )
+    repository_id = _default_str(defaults, 'REPOSITORY_ID', fallback='primary')
+    repository_display_name = _default_str(
+        defaults,
+        'REPOSITORY_DISPLAY_NAME',
+        fallback='Primary Repository',
     )
-    values = {
-        'REPOSITORY_ID': input_str(
+    if prompt_for_repository_identity:
+        repository_id = input_str(
             'Repository id',
-            default=_default_str(defaults, 'REPOSITORY_ID', fallback='primary'),
-        ),
-        'REPOSITORY_DISPLAY_NAME': input_str(
+            default=repository_id,
+        )
+        repository_display_name = input_str(
             'Repository display name',
-            default=_default_str(defaults, 'REPOSITORY_DISPLAY_NAME', fallback='Primary Repository'),
-        ),
+            default=repository_display_name,
+        )
+
+    values = {
+        'REPOSITORY_ID': repository_id,
+        'REPOSITORY_DISPLAY_NAME': repository_display_name,
         'REPOSITORY_LOCAL_PATH': local_path,
         'REPOSITORY_BASE_URL': input_str(
             f'{code_platform.capitalize()} API base URL',
@@ -508,7 +523,12 @@ def _prompt_discovered_repository(
     discovered_defaults.update(
         _repository_defaults_from_discovery(discovered[primary_index - 1], code_platform)
     )
-    values = _prompt_repository_fields(discovered_defaults, code_platform)
+    values = _prompt_repository_fields(
+        discovered_defaults,
+        code_platform,
+        prompt_for_local_path=False,
+        prompt_for_repository_identity=False,
+    )
     allowed_paths = [
         values['REPOSITORY_LOCAL_PATH'],
         *[

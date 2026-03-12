@@ -150,11 +150,8 @@ class ConfigureProjectTests(unittest.TestCase):
                 {
                     'Scan a projects folder for checked-out repositories': True,
                     'Projects folder to scan for repositories': str(projects_root),
-                    'Repository numbers to grant OpenHands access': '1',
-                    'Additional repository numbers to grant OpenHands access (comma-separated, optional)': '2',
-                    'Repository id': 'backend',
-                    'Repository display name': 'Backend',
-                    'Local path to the checked-out repository': str(backend_repo),
+                    'Repository numbers to grant OpenHands access': '1, 2',
+                    'Additional repository numbers to grant OpenHands access (comma-separated, optional)': '1, 2',
                     'Github API base URL': 'https://api.github.com',
                     'Github repository token': 'gh-token',
                     'Repository owner, workspace, or group': 'acme',
@@ -165,6 +162,8 @@ class ConfigureProjectTests(unittest.TestCase):
                 values = configure_project._prompt_repository({}, 'github')
 
             self.assertEqual(values['REPOSITORY_LOCAL_PATH'], str(backend_repo.resolve()))
+            self.assertEqual(values['REPOSITORY_ID'], 'backend')
+            self.assertEqual(values['REPOSITORY_DISPLAY_NAME'], 'Backend')
             self.assertEqual(
                 values['OPENHANDS_SANDBOX_VOLUMES'],
                 ','.join(
@@ -185,6 +184,11 @@ class ConfigureProjectTests(unittest.TestCase):
             ):
                 with self.assertRaisesRegex(ValueError, 'no git repositories were found under'):
                     configure_project._prompt_repository({}, 'github')
+
+    def test_parse_repository_numbers_supports_spaces(self) -> None:
+        numbers = configure_project._parse_repository_numbers('1, 3 ,4,5, 10', 10)
+
+        self.assertEqual(numbers, [1, 3, 4, 5, 10])
 
     def test_read_git_remote_url_tolerates_duplicate_git_config_options(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
