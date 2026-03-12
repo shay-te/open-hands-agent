@@ -90,6 +90,33 @@ class TaskDataAccessTests(unittest.TestCase):
             'In Review',
         )
 
+    def test_uses_explicit_review_config_and_parses_string_issue_states(self) -> None:
+        config = types.SimpleNamespace(
+            base_url="https://jira.example",
+            token="jira-token",
+            project="PROJ",
+            assignee="me",
+            issue_states="To Do, In Progress",
+            review_state_field='status',
+            review_state='Code Review',
+        )
+        client = Mock()
+
+        data_access = TaskDataAccess(config, client)
+        data_access.get_assigned_tasks()
+        data_access.move_task_to_review('PROJ-1')
+
+        client.get_assigned_tasks.assert_called_once_with(
+            project='PROJ',
+            assignee='me',
+            states=['To Do', 'In Progress'],
+        )
+        client.move_issue_to_state.assert_called_once_with(
+            'PROJ-1',
+            'status',
+            'Code Review',
+        )
+
 
 class PullRequestDataAccessTests(unittest.TestCase):
     def test_passes_repository_settings_to_client_call(self) -> None:

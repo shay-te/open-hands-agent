@@ -394,8 +394,9 @@ def main(argv: list[str] | None = None) -> int:
         print('The file was written, but a few required values still need attention:')
         for error in errors:
             print(f'- {error}')
-    else:
-        print('Configuration looks valid. Next: make doctor && make run')
+        return 1
+
+    print('Configuration looks valid. Next: make doctor && make run')
     return 0
 
 

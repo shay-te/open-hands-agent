@@ -103,7 +103,7 @@ class AgentServiceTests(unittest.TestCase):
             self.notification_service,
         )
 
-    def test_init_rejects_missing_notification_service(self) -> None:
+    def test_init_rejects_missing_testing_service(self) -> None:
         with self.assertRaisesRegex(ValueError, 'testing_service is required'):
             AgentService(
                 self.task_data_access,
@@ -112,6 +112,8 @@ class AgentServiceTests(unittest.TestCase):
                 self.repository_service,
                 self.notification_service,
             )
+
+    def test_init_rejects_missing_notification_service(self) -> None:
         with self.assertRaisesRegex(ValueError, 'notification_service is required'):
             AgentService(
                 self.task_data_access,

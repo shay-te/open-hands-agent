@@ -59,7 +59,7 @@ openhands_agent:
     assignee: ${oc.env:YOUTRACK_ASSIGNEE,me}
     review_state_field: ${oc.env:YOUTRACK_REVIEW_STATE_FIELD,"State"}
     review_state: ${oc.env:YOUTRACK_REVIEW_STATE,"In Review"}
-    issue_states: ${oc.decode:${oc.env:YOUTRACK_ISSUE_STATES,'["Todo", "Open"]'}}
+    issue_states: ${oc.env:YOUTRACK_ISSUE_STATES,"Todo,Open"}
   jira:
     base_url: ${oc.env:JIRA_BASE_URL,""}
     token: ${oc.env:JIRA_TOKEN,""}
@@ -68,7 +68,7 @@ openhands_agent:
     assignee: ${oc.env:JIRA_ASSIGNEE,""}
     review_state_field: ${oc.env:JIRA_REVIEW_STATE_FIELD,"status"}
     review_state: ${oc.env:JIRA_REVIEW_STATE,"In Review"}
-    issue_states: ${oc.decode:${oc.env:JIRA_ISSUE_STATES,'["To Do", "Open"]'}}
+    issue_states: ${oc.env:JIRA_ISSUE_STATES,"To Do,Open"}
   github_issues:
     base_url: ${oc.env:GITHUB_ISSUES_BASE_URL,"https://api.github.com"}
     token: ${oc.env:GITHUB_ISSUES_TOKEN,""}
@@ -78,7 +78,7 @@ openhands_agent:
     assignee: ${oc.env:GITHUB_ISSUES_ASSIGNEE,""}
     review_state_field: ${oc.env:GITHUB_ISSUES_REVIEW_STATE_FIELD,"labels"}
     review_state: ${oc.env:GITHUB_ISSUES_REVIEW_STATE,"In Review"}
-    issue_states: ${oc.decode:${oc.env:GITHUB_ISSUES_ISSUE_STATES,'["open"]'}}
+    issue_states: ${oc.env:GITHUB_ISSUES_ISSUE_STATES,"open"}
   gitlab_issues:
     base_url: ${oc.env:GITLAB_ISSUES_BASE_URL,"https://gitlab.com/api/v4"}
     token: ${oc.env:GITLAB_ISSUES_TOKEN,""}
@@ -86,7 +86,7 @@ openhands_agent:
     assignee: ${oc.env:GITLAB_ISSUES_ASSIGNEE,""}
     review_state_field: ${oc.env:GITLAB_ISSUES_REVIEW_STATE_FIELD,"labels"}
     review_state: ${oc.env:GITLAB_ISSUES_REVIEW_STATE,"In Review"}
-    issue_states: ${oc.decode:${oc.env:GITLAB_ISSUES_ISSUE_STATES,'["opened"]'}}
+    issue_states: ${oc.env:GITLAB_ISSUES_ISSUE_STATES,"opened"}
   bitbucket_issues:
     base_url: ${oc.env:BITBUCKET_ISSUES_BASE_URL,"https://api.bitbucket.org/2.0"}
     token: ${oc.env:BITBUCKET_ISSUES_TOKEN,""}
@@ -96,7 +96,7 @@ openhands_agent:
     assignee: ${oc.env:BITBUCKET_ISSUES_ASSIGNEE,""}
     review_state_field: ${oc.env:BITBUCKET_ISSUES_REVIEW_STATE_FIELD,"state"}
     review_state: ${oc.env:BITBUCKET_ISSUES_REVIEW_STATE,"resolved"}
-    issue_states: ${oc.decode:${oc.env:BITBUCKET_ISSUES_ISSUE_STATES,'["new", "open"]'}}
+    issue_states: ${oc.env:BITBUCKET_ISSUES_ISSUE_STATES,"new,open"}
   repositories:
     - id: ${oc.env:REPOSITORY_ID,"primary"}
       display_name: ${oc.env:REPOSITORY_DISPLAY_NAME,"Primary Repository"}

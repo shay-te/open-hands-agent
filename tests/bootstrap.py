@@ -1,5 +1,6 @@
 import sys
 import types
+import typing
 
 
 def _install_core_lib_stubs() -> None:
@@ -21,7 +22,7 @@ def _install_core_lib_stubs() -> None:
                 get=self._get,
                 post=self._post,
                 put=self._put,
-                patch=self._put,
+                patch=self._patch,
                 delete=self._delete,
             )
 
@@ -52,6 +53,9 @@ def _install_core_lib_stubs() -> None:
             raise NotImplementedError
 
         def _put(self, *args, **kwargs):
+            raise NotImplementedError
+
+        def _patch(self, *args, **kwargs):
             raise NotImplementedError
 
         def _delete(self, *args, **kwargs):
@@ -409,10 +413,21 @@ def _install_pydantic_stub() -> None:
 
     class BaseModel:
         def __init__(self, **data) -> None:
-            for field in self.__annotations__:
-                if field not in data:
-                    raise ValidationError(f"missing field: {field}")
-                setattr(self, field, data[field])
+            hints = typing.get_type_hints(type(self), include_extras=True)
+            for field, hint in hints.items():
+                if field in data:
+                    setattr(self, field, data[field])
+                    continue
+
+                if field in type(self).__dict__:
+                    setattr(self, field, getattr(type(self), field))
+                    continue
+
+                if _is_optional_type(hint):
+                    setattr(self, field, None)
+                    continue
+
+                raise ValidationError(f"missing field: {field}")
 
         @classmethod
         def model_validate(cls, data):
@@ -426,6 +441,13 @@ def _install_pydantic_stub() -> None:
     pydantic_module.BaseModel = BaseModel
     pydantic_module.ValidationError = ValidationError
     sys.modules["pydantic"] = pydantic_module
+
+
+def _is_optional_type(annotation) -> bool:
+    origin = typing.get_origin(annotation)
+    if origin in {typing.Union, types.UnionType}:
+        return type(None) in typing.get_args(annotation)
+    return False
 
 
 _install_core_lib_stubs()

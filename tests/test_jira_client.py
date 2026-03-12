@@ -141,3 +141,17 @@ class JiraClientTests(unittest.TestCase):
             '/rest/api/3/issue/PROJ-1/transitions',
             json={'transition': {'id': '31'}},
         )
+
+    def test_move_issue_to_review_raises_when_transition_is_missing(self) -> None:
+        client = JiraClient('https://jira.example', 'jira-token')
+        transitions_response = mock_response(
+            json_data={
+                'transitions': [
+                    {'id': '31', 'name': 'Done', 'to': {'name': 'Done'}}
+                ]
+            }
+        )
+
+        with patch.object(client, '_get', return_value=transitions_response):
+            with self.assertRaisesRegex(ValueError, 'unknown jira transition: In Review'):
+                client.move_issue_to_state('PROJ-1', 'status', 'In Review')

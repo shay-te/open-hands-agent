@@ -45,6 +45,16 @@ class RetryTests(unittest.TestCase):
         self.assertEqual(result, 'ok')
         mock_sleep.assert_called_once_with(1.0)
 
+    def test_run_with_retry_raises_after_exhausting_all_retries(self) -> None:
+        operation = Mock(side_effect=ConnectTimeout('always fails'))
+
+        with patch('openhands_agent.client.retry_utils.time.sleep') as mock_sleep:
+            with self.assertRaises(ConnectTimeout):
+                run_with_retry(operation, 3)
+
+        self.assertEqual(operation.call_count, 3)
+        self.assertEqual(mock_sleep.call_count, 2)
+
     def test_retry_delay_uses_retry_after_header_for_rate_limits(self) -> None:
         response = type(
             'Response',
@@ -53,3 +63,30 @@ class RetryTests(unittest.TestCase):
         )()
 
         self.assertEqual(_retry_delay_seconds(0, response), 3.0)
+
+    def test_retry_delay_falls_back_to_exponential_backoff_without_retry_after(self) -> None:
+        response = type(
+            'Response',
+            (),
+            {'status_code': 429, 'headers': {}},
+        )()
+
+        self.assertEqual(_retry_delay_seconds(2, response), 4.0)
+
+    def test_retry_delay_falls_back_to_exponential_backoff_for_invalid_retry_after(self) -> None:
+        response = type(
+            'Response',
+            (),
+            {'status_code': 429, 'headers': {'Retry-After': 'abc'}},
+        )()
+
+        self.assertEqual(_retry_delay_seconds(1, response), 2.0)
+
+    def test_retry_delay_falls_back_to_exponential_backoff_for_non_rate_limited_response(self) -> None:
+        response = type(
+            'Response',
+            (),
+            {'status_code': 503, 'headers': {'Retry-After': '3'}},
+        )()
+
+        self.assertEqual(_retry_delay_seconds(0, response), 1.0)

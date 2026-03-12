@@ -87,7 +87,10 @@ class TaskDataAccess(DataAccess):
 
     def _configured_issue_states(self) -> list[str]:
         if hasattr(self._config, 'issue_states'):
-            return list(self._config.issue_states)
+            issue_states = self._config.issue_states
+            if isinstance(issue_states, str):
+                return [state.strip() for state in issue_states.split(',') if state.strip()]
+            return [str(state).strip() for state in issue_states if str(state).strip()]
         return [self._config.issue_state]
 
     def _configured_review_state_field(self) -> str:

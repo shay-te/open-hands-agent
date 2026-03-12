@@ -18,10 +18,9 @@ class _FakePrompter:
         self._responses = responses
 
     def _get(self, message: str):
-        for key, value in self._responses.items():
-            if key in message:
-                return value
-        raise AssertionError(f'unexpected prompt: {message}')
+        if message not in self._responses:
+            raise AssertionError(f'unexpected prompt: {message}')
+        return self._responses[message]
 
     def input_yes_no(self, message: str, default: bool = True) -> bool:
         return bool(self._get(message))
@@ -248,6 +247,87 @@ class ConfigureProjectTests(unittest.TestCase):
             self.assertEqual(written_env['OPENHANDS_AGENT_ISSUE_PLATFORM'], 'youtrack')
             self.assertEqual(written_env['YOUTRACK_ISSUE_STATES'], 'Todo,Open')
             self.assertEqual(written_env['OPENHANDS_LLM_API_KEY'], 'llm-key')
+
+    def test_main_returns_non_zero_when_configuration_is_still_invalid(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            template_path = temp_path / '.env.example'
+            output_path = temp_path / '.env'
+            template_path.write_text(
+                'OPENHANDS_AGENT_ISSUE_PLATFORM=youtrack\n'
+                'OPENHANDS_AGENT_TICKET_SYSTEM=youtrack\n'
+                'YOUTRACK_BASE_URL=\n'
+                'YOUTRACK_TOKEN=\n'
+                'YOUTRACK_PROJECT=\n'
+                'YOUTRACK_ASSIGNEE=\n'
+                'YOUTRACK_REVIEW_STATE_FIELD=State\n'
+                'YOUTRACK_REVIEW_STATE=In Review\n'
+                'YOUTRACK_ISSUE_STATES=Todo,Open\n'
+                'REPOSITORY_ID=\n'
+                'REPOSITORY_DISPLAY_NAME=\n'
+                'REPOSITORY_LOCAL_PATH=.\n'
+                'REPOSITORY_BASE_URL=\n'
+                'REPOSITORY_TOKEN=\n'
+                'REPOSITORY_OWNER=\n'
+                'REPOSITORY_REPO_SLUG=\n'
+                'REPOSITORY_DESTINATION_BRANCH=\n'
+                'OPENHANDS_BASE_URL=http://localhost:3000\n'
+                'OPENHANDS_API_KEY=local\n'
+                'OPENHANDS_AGENT_MAX_RETRIES=5\n'
+                'OPENHANDS_AGENT_STATE_FILE=openhands_agent_state.json\n'
+                'OPENHANDS_LLM_MODEL=\n'
+                'OPENHANDS_LLM_API_KEY=\n'
+                'OPENHANDS_LLM_BASE_URL=\n'
+                'OPENHANDS_AGENT_FAILURE_EMAIL_ENABLED=false\n'
+                'OPENHANDS_AGENT_FAILURE_EMAIL_TEMPLATE_ID=0\n'
+                'OPENHANDS_AGENT_FAILURE_EMAIL_TO=\n'
+                'OPENHANDS_AGENT_FAILURE_EMAIL_SENDER_NAME=OpenHands Agent\n'
+                'OPENHANDS_AGENT_FAILURE_EMAIL_SENDER_EMAIL=noreply@example.com\n'
+                'OPENHANDS_AGENT_COMPLETION_EMAIL_ENABLED=false\n'
+                'OPENHANDS_AGENT_COMPLETION_EMAIL_TEMPLATE_ID=0\n'
+                'OPENHANDS_AGENT_COMPLETION_EMAIL_TO=\n'
+                'OPENHANDS_AGENT_COMPLETION_EMAIL_SENDER_NAME=OpenHands Agent\n'
+                'OPENHANDS_AGENT_COMPLETION_EMAIL_SENDER_EMAIL=noreply@example.com\n'
+                'EMAIL_CORE_LIB_SEND_IN_BLUE_API_KEY=\n'
+                'SLACK_WEBHOOK_URL_ERRORS_EMAIL=\n',
+                encoding='utf-8',
+            )
+
+            fake_prompter = _FakePrompter(
+                {
+                    'Where are your tasks tracked': 'youtrack',
+                    'Which platform hosts your source code': 'bitbucket',
+                    'YouTrack base URL': 'https://youtrack.example',
+                    'YouTrack token': '',
+                    'YouTrack assignee login': 'me',
+                    'YouTrack project key': 'PROJ',
+                    'YouTrack review state field': 'State',
+                    'YouTrack review state value': 'In Review',
+                    'YouTrack issue states to process': ['Todo', 'Open'],
+                    'Repository id': 'client',
+                    'Repository display name': 'Client',
+                    'Local path to the checked-out repository': '.',
+                    'Bitbucket API base URL': 'https://api.bitbucket.org/2.0',
+                    'Bitbucket repository token': 'bb-token',
+                    'Repository owner, workspace, or group': 'workspace',
+                    'Repository name or slug': 'repo',
+                    'Set an explicit destination branch': False,
+                    'OpenHands base URL': 'http://localhost:3000',
+                    'OpenHands API key': 'local',
+                    'Maximum retries for external API calls': 5,
+                    'State file path': 'openhands_agent_state.json',
+                    'OpenHands LLM model': '',
+                    'OpenHands LLM API key': '',
+                    'OpenHands LLM base URL': '',
+                    'Enable failure notification emails': False,
+                    'Enable completion notification emails': False,
+                }
+            )
+
+            with patch('openhands_agent.configure_project.PromptAdapter', return_value=fake_prompter):
+                exit_code = main(['--template', str(template_path), '--output', str(output_path)])
+
+            self.assertEqual(exit_code, 1)
 
 
 if __name__ == '__main__':
