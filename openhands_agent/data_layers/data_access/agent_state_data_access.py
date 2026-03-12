@@ -116,6 +116,7 @@ class AgentStateDataAccess(DataAccess):
         return {
             'processed_tasks': {},
             'pull_request_contexts': {},
+            'processed_review_comments': {},
         }
 
     def _normalize_state(self, payload: object) -> dict:
@@ -124,12 +125,18 @@ class AgentStateDataAccess(DataAccess):
 
         processed_tasks = payload.get('processed_tasks', {})
         pull_request_contexts = payload.get('pull_request_contexts', {})
-        if not isinstance(processed_tasks, dict) or not isinstance(pull_request_contexts, dict):
+        processed_review_comments = payload.get('processed_review_comments', {})
+        if (
+            not isinstance(processed_tasks, dict)
+            or not isinstance(pull_request_contexts, dict)
+            or not isinstance(processed_review_comments, dict)
+        ):
             raise ValueError(f'invalid agent state file: {self._path}')
 
         return {
             'processed_tasks': processed_tasks,
             'pull_request_contexts': pull_request_contexts,
+            'processed_review_comments': processed_review_comments,
         }
 
     @staticmethod
@@ -146,3 +153,57 @@ class AgentStateDataAccess(DataAccess):
                 }
             )
         return serialized_pull_requests
+
+    def list_pull_request_contexts(self) -> list[dict[str, str]]:
+        state = self._read_state()
+        contexts: list[dict[str, str]] = []
+        for pull_request_id, pull_request_contexts in state['pull_request_contexts'].items():
+            if not isinstance(pull_request_contexts, list):
+                continue
+            for context in pull_request_contexts:
+                if not isinstance(context, dict):
+                    continue
+                repository_id = str(context.get(PullRequestFields.REPOSITORY_ID, '') or '').strip()
+                branch_name = str(context.get(Task.branch_name.key, '') or '').strip()
+                if repository_id and branch_name:
+                    contexts.append(
+                        {
+                            PullRequestFields.ID: str(pull_request_id),
+                            PullRequestFields.REPOSITORY_ID: repository_id,
+                            Task.branch_name.key: branch_name,
+                        }
+                    )
+        return contexts
+
+    def is_review_comment_processed(
+        self,
+        repository_id: str,
+        pull_request_id: str,
+        comment_id: str,
+    ) -> bool:
+        state = self._read_state()
+        repository_comments = state['processed_review_comments'].get(str(repository_id), {})
+        if not isinstance(repository_comments, dict):
+            return False
+        comment_ids = repository_comments.get(str(pull_request_id), [])
+        if not isinstance(comment_ids, list):
+            return False
+        return str(comment_id) in {str(value) for value in comment_ids}
+
+    def mark_review_comment_processed(
+        self,
+        repository_id: str,
+        pull_request_id: str,
+        comment_id: str,
+    ) -> None:
+        def mutate(state: dict) -> None:
+            repository_comments = state['processed_review_comments'].setdefault(
+                str(repository_id),
+                {},
+            )
+            comment_ids = repository_comments.setdefault(str(pull_request_id), [])
+            normalized_comment_id = str(comment_id)
+            if normalized_comment_id not in comment_ids:
+                comment_ids.append(normalized_comment_id)
+
+        self._update_state(mutate)

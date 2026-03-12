@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 
 from openhands_agent.client.retrying_client_base import RetryingClientBase
+from openhands_agent.data_layers.data.review_comment import ReviewComment
 
 
 class PullRequestClientBase(RetryingClientBase, ABC):
@@ -20,4 +21,13 @@ class PullRequestClientBase(RetryingClientBase, ABC):
         destination_branch: str | None = None,
         description: str = '',
     ) -> dict[str, str]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def list_pull_request_comments(
+        self,
+        repo_owner: str,
+        repo_slug: str,
+        pull_request_id: str,
+    ) -> list[ReviewComment]:
         raise NotImplementedError

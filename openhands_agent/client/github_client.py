@@ -1,6 +1,7 @@
 from typing import Any
 
 from openhands_agent.client.pull_request_client_base import PullRequestClientBase
+from openhands_agent.data_layers.data.review_comment import ReviewComment
 from openhands_agent.fields import PullRequestFields
 
 
@@ -35,6 +36,19 @@ class GitHubClient(PullRequestClientBase):
         response.raise_for_status()
         return self._normalize_pr(response.json())
 
+    def list_pull_request_comments(
+        self,
+        repo_owner: str,
+        repo_slug: str,
+        pull_request_id: str,
+    ) -> list[ReviewComment]:
+        response = self._get_with_retry(
+            f'/repos/{repo_owner}/{repo_slug}/pulls/{pull_request_id}/comments',
+            params={'per_page': 100},
+        )
+        response.raise_for_status()
+        return self._normalize_comments(response.json(), pull_request_id)
+
     @staticmethod
     def _normalize_pr(payload: dict[str, Any]) -> dict[str, str]:
         if not isinstance(payload, dict) or 'number' not in payload:
@@ -44,3 +58,23 @@ class GitHubClient(PullRequestClientBase):
             PullRequestFields.TITLE: str(payload.get(PullRequestFields.TITLE, '')),
             PullRequestFields.URL: str(payload.get('html_url', '')),
         }
+
+    @staticmethod
+    def _normalize_comments(payload: Any, pull_request_id: str) -> list[ReviewComment]:
+        if not isinstance(payload, list):
+            return []
+
+        comments: list[ReviewComment] = []
+        for item in payload:
+            if not isinstance(item, dict):
+                continue
+            user = item.get('user') if isinstance(item.get('user'), dict) else {}
+            comments.append(
+                ReviewComment(
+                    pull_request_id=str(pull_request_id),
+                    comment_id=str(item.get('id', '')),
+                    author=str(user.get('login', '')),
+                    body=str(item.get('body', '')),
+                )
+            )
+        return [comment for comment in comments if comment.comment_id]

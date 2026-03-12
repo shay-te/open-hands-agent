@@ -32,6 +32,8 @@ class ProcessAssignedTasksJobTests(unittest.TestCase):
         self.openhands_core_lib.service = Mock()
         self.openhands_core_lib.service.get_assigned_tasks.return_value = ['task-1']
         self.openhands_core_lib.service.process_assigned_task.return_value = results[0]
+        self.openhands_core_lib.service.get_new_pull_request_comments.return_value = []
+        self.openhands_core_lib.service.process_review_comment = Mock()
         self.openhands_core_lib.service.notification_service = Mock()
         self.job.initialized(self.openhands_core_lib)
         stdout = io.StringIO()
@@ -46,6 +48,7 @@ class ProcessAssignedTasksJobTests(unittest.TestCase):
         notification_service = Mock()
         self.openhands_core_lib.service = Mock()
         self.openhands_core_lib.service.get_assigned_tasks.side_effect = RuntimeError('service down')
+        self.openhands_core_lib.service.get_new_pull_request_comments.return_value = []
         self.openhands_core_lib.service.notification_service = notification_service
         self.job.logger = Mock()
         self.job.initialized(self.openhands_core_lib)
@@ -63,6 +66,7 @@ class ProcessAssignedTasksJobTests(unittest.TestCase):
         notification_service.notify_failure.side_effect = RuntimeError('mailer down')
         self.openhands_core_lib.service = Mock()
         self.openhands_core_lib.service.get_assigned_tasks.side_effect = RuntimeError('service down')
+        self.openhands_core_lib.service.get_new_pull_request_comments.return_value = []
         self.openhands_core_lib.service.notification_service = notification_service
         self.job.logger = Mock()
         self.job.initialized(self.openhands_core_lib)
@@ -79,6 +83,8 @@ class ProcessAssignedTasksJobTests(unittest.TestCase):
             {'id': '17'},
             {'id': '18'},
         ]
+        self.openhands_core_lib.service.get_new_pull_request_comments.return_value = []
+        self.openhands_core_lib.service.process_review_comment = Mock()
         self.openhands_core_lib.service.notification_service = Mock()
         self.job.initialized(self.openhands_core_lib)
         stdout = io.StringIO()
@@ -93,4 +99,32 @@ class ProcessAssignedTasksJobTests(unittest.TestCase):
         self.assertEqual(
             self.openhands_core_lib.service.process_assigned_task.call_args_list[1].args,
             ('task-2',),
+        )
+
+    def test_run_loops_over_new_pull_request_comments_after_tasks(self) -> None:
+        self.openhands_core_lib.service = Mock()
+        self.openhands_core_lib.service.get_assigned_tasks.return_value = ['task-1']
+        self.openhands_core_lib.service.process_assigned_task.return_value = {'id': '17'}
+        self.openhands_core_lib.service.get_new_pull_request_comments.return_value = [
+            'comment-1',
+            'comment-2',
+        ]
+        self.openhands_core_lib.service.process_review_comment.side_effect = [
+            {'status': 'updated'},
+            {'status': 'updated'},
+        ]
+        self.openhands_core_lib.service.notification_service = Mock()
+        self.job.initialized(self.openhands_core_lib)
+        stdout = io.StringIO()
+
+        with redirect_stdout(stdout):
+            self.job.run()
+
+        self.assertEqual(
+            self.openhands_core_lib.service.process_review_comment.call_args_list[0].args,
+            ('comment-1',),
+        )
+        self.assertEqual(
+            self.openhands_core_lib.service.process_review_comment.call_args_list[1].args,
+            ('comment-2',),
         )

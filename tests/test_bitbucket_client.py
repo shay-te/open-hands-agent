@@ -168,3 +168,30 @@ class BitbucketClientTests(unittest.TestCase):
                 'destination': {'branch': {'name': 'main'}},
             },
         )
+
+    def test_list_pull_request_comments_normalizes_response(self) -> None:
+        client = BitbucketClient('https://bitbucket.example', 'bb-token')
+        response = mock_response(
+            json_data={
+                'values': [
+                    {
+                        'id': 99,
+                        'content': {'raw': 'Please rename this variable.'},
+                        'user': {'display_name': 'reviewer'},
+                    }
+                ]
+            }
+        )
+
+        with patch.object(client, '_get', return_value=response) as mock_get:
+            comments = client.list_pull_request_comments('workspace', 'repo', '17')
+
+        self.assertEqual(len(comments), 1)
+        self.assertEqual(comments[0].pull_request_id, '17')
+        self.assertEqual(comments[0].comment_id, '99')
+        self.assertEqual(comments[0].author, 'reviewer')
+        self.assertEqual(comments[0].body, 'Please rename this variable.')
+        mock_get.assert_called_once_with(
+            '/repositories/workspace/repo/pullrequests/17/comments',
+            params={'pagelen': 100, 'sort': 'created_on'},
+        )

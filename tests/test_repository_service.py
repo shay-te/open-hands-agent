@@ -142,3 +142,21 @@ class RepositoryServiceTests(unittest.TestCase):
             service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
             with self.assertRaisesRegex(ValueError, 'missing local repository path'):
                 service.validate_connections()
+
+    def test_list_pull_request_comments_uses_repository_data_access(self) -> None:
+        repository = self.cfg.openhands_agent.repositories[0]
+
+        with patch(
+            'openhands_agent.data_layers.service.repository_service.build_pull_request_client'
+        ) as mock_build_client:
+            mock_build_client.return_value.list_pull_request_comments.return_value = ['comment']
+            service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+
+            comments = service.list_pull_request_comments(repository, '17')
+
+        self.assertEqual(comments, ['comment'])
+        mock_build_client.return_value.list_pull_request_comments.assert_called_once_with(
+            repo_owner='workspace',
+            repo_slug='repo',
+            pull_request_id='17',
+        )

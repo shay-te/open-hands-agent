@@ -7,6 +7,7 @@ from core_lib.core_lib import CoreLib
 
 from openhands_agent.data_layers.data.review_comment import ReviewComment
 from openhands_agent.data_layers.data.task import Task
+from openhands_agent.fields import ReviewCommentFields
 from openhands_agent.openhands_agent_core_lib import OpenHandsAgentCoreLib
 
 
@@ -182,10 +183,10 @@ def sync_create_start_core_lib() -> OpenHandsAgentCoreLib:
 
 def build_review_comment_payload() -> dict[str, str]:
     return {
-        'pull_request_id': '17',
-        'comment_id': '99',
-        'author': 'reviewer',
-        'body': 'Please rename this variable.',
+        ReviewCommentFields.PULL_REQUEST_ID: '17',
+        ReviewCommentFields.COMMENT_ID: '99',
+        ReviewCommentFields.AUTHOR: 'reviewer',
+        ReviewCommentFields.BODY: 'Please rename this variable.',
     }
 
 

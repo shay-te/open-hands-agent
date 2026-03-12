@@ -21,6 +21,10 @@ class ProcessAssignedTasksJob(Job):
                 result = self._data_handler.service.process_assigned_task(task)
                 if result is not None:
                     results.append(result)
+            for comment in self._data_handler.service.get_new_pull_request_comments():
+                result = self._data_handler.service.process_review_comment(comment)
+                if result is not None:
+                    results.append(result)
             print(json.dumps(results))
         except Exception as exc:
             self.logger.exception('process_assigned_tasks_job failed')

@@ -149,7 +149,7 @@ export AWS_BEARER_TOKEN_BEDROCK="..."
 Allowed YouTrack stages are configured in `openhands_agent/config/openhands_agent_core_lib.yaml` under `openhands_agent.youtrack.issue_states`. By default the agent only processes tasks assigned to `YOUTRACK_ASSIGNEE` that are in `Todo` or `Open`.
 The target YouTrack review column is configured with `openhands_agent.youtrack.review_state_field` and `openhands_agent.youtrack.review_state`. By default the agent moves completed issues to `State=In Review`.
 Retry count is configured under `openhands_agent.retry.max_retries`.
-Processed task state and pull-request comment context are persisted in `OPENHANDS_AGENT_STATE_FILE` so the agent can skip already-completed work and still resolve review comments after a restart.
+Processed task state, processed review-comment ids, and pull-request comment context are persisted in `OPENHANDS_AGENT_STATE_FILE` so the agent can skip already-completed work, poll for new review comments, and still resolve review comments after a restart.
 Failure emails are configured under `openhands_agent.failure_email` and sent through `email-core-lib`.
 Completion emails are configured under `openhands_agent.completion_email` and sent through `email-core-lib`.
 The email body text comes from [`completion_email.txt`](openhands_agent/templates/email/completion_email.txt) and [`failure_email.txt`](openhands_agent/templates/email/failure_email.txt), rendered with template variables at runtime.
@@ -341,6 +341,7 @@ What happens when it runs:
 - It retries transient client failures up to `openhands_agent.retry.max_retries`.
 - If the overall run fails, it sends failure notifications through `email-core-lib` to the configured recipients.
 - For each eligible task, it infers the affected repositories, asks OpenHands to implement the work across that scoped workspace set, opens one pull request per repository, comments the aggregated PR summary back to YouTrack, moves the issue to the configured review state when all repositories succeed, and sends a completion email that asks for review.
+- After task processing, it polls tracked pull requests for new review comments, passes the full accumulated review-comment context into OpenHands for each unseen comment, and records processed comment ids so the same comment is not reprocessed on the next run.
 
 ### Partial Failure Behavior
 

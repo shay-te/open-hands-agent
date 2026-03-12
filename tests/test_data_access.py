@@ -189,3 +189,26 @@ class PullRequestDataAccessTests(unittest.TestCase):
             destination_branch='release',
             description='Ready for review',
         )
+
+    def test_lists_pull_request_comments_via_client(self) -> None:
+        config = types.SimpleNamespace(
+            base_url="https://bitbucket.example",
+            token="bb-token",
+            owner="workspace",
+            repo_slug="repo",
+            destination_branch="main",
+        )
+        client = types.SimpleNamespace(
+            provider_name='bitbucket',
+            list_pull_request_comments=Mock(return_value=['comment']),
+        )
+
+        data_access = PullRequestDataAccess(config, client)
+        comments = data_access.list_pull_request_comments('17')
+
+        self.assertEqual(comments, ['comment'])
+        client.list_pull_request_comments.assert_called_once_with(
+            repo_owner='workspace',
+            repo_slug='repo',
+            pull_request_id='17',
+        )

@@ -9,6 +9,7 @@ from openhands_agent.data_layers.data_access.task_data_access import TaskDataAcc
 from openhands_agent.fields import (
     ImplementationFields,
     PullRequestFields,
+    ReviewCommentFields,
     StatusFields,
 )
 from openhands_agent.data_layers.service.implementation_service import ImplementationService
@@ -146,37 +147,73 @@ class AgentService(Service):
             PullRequestFields.FAILED_REPOSITORIES: [],
         }
 
+    def get_new_pull_request_comments(self) -> list[ReviewComment]:
+        new_comments: list[ReviewComment] = []
+
+        for context in self._tracked_pull_request_contexts():
+            repository_id = context[PullRequestFields.REPOSITORY_ID]
+            pull_request_id = context[PullRequestFields.ID]
+            try:
+                repository = self._repository_service.get_repository(repository_id)
+                comments = self._repository_service.list_pull_request_comments(
+                    repository,
+                    pull_request_id,
+                )
+            except Exception:
+                self.logger.exception(
+                    'failed to fetch pull request comments for repository %s pull request %s',
+                    repository_id,
+                    pull_request_id,
+                )
+                continue
+
+            comment_context: list[dict[str, str]] = []
+            for comment in comments:
+                comment_context.append(self._comment_context_entry(comment))
+                setattr(comment, PullRequestFields.REPOSITORY_ID, repository_id)
+                setattr(comment, ReviewCommentFields.ALL_COMMENTS, list(comment_context))
+                if self._is_review_comment_processed(
+                    repository_id,
+                    pull_request_id,
+                    comment.comment_id,
+                ):
+                    continue
+                new_comments.append(comment)
+
+        return new_comments
+
     def handle_pull_request_comment(self, payload: dict) -> dict[str, str]:
         comment = self._implementation_service.review_comment_from_payload(payload)
+        return self.process_review_comment(comment)
+
+    def process_review_comment(self, comment: ReviewComment) -> dict[str, str]:
         self.logger.info(
             'processing review comment %s for pull request %s',
             comment.comment_id,
             comment.pull_request_id,
         )
-        pull_request_contexts = self._pull_request_context_map.get(comment.pull_request_id, [])
-        if not pull_request_contexts:
-            pull_request_contexts = self._load_persisted_pull_request_contexts(
-                comment.pull_request_id
-            )
-        if not pull_request_contexts:
+        repository_id = str(getattr(comment, PullRequestFields.REPOSITORY_ID, '') or '').strip()
+        context = self._pull_request_context(comment.pull_request_id, repository_id)
+        if context is None:
             raise ValueError(f'unknown pull request id: {comment.pull_request_id}')
-        if len(pull_request_contexts) > 1:
-            raise ValueError(
-                f'ambiguous pull request id across repositories: {comment.pull_request_id}'
-            )
-        context = pull_request_contexts[0]
         branch_name = context[Task.branch_name.key]
-        setattr(comment, PullRequestFields.REPOSITORY_ID, context[PullRequestFields.REPOSITORY_ID])
+        repository_id = context[PullRequestFields.REPOSITORY_ID]
+        setattr(comment, PullRequestFields.REPOSITORY_ID, repository_id)
 
         execution = self._implementation_service.fix_review_comment(comment, branch_name) or {}
         if not execution.get(ImplementationFields.SUCCESS, False):
             raise RuntimeError(f'failed to address comment {comment.comment_id}')
+        self._mark_review_comment_processed(
+            repository_id,
+            comment.pull_request_id,
+            comment.comment_id,
+        )
 
         return {
             StatusFields.STATUS: StatusFields.UPDATED,
-            ReviewComment.pull_request_id.key: comment.pull_request_id,
+            ReviewCommentFields.PULL_REQUEST_ID: comment.pull_request_id,
             Task.branch_name.key: branch_name,
-            PullRequestFields.REPOSITORY_ID: context[PullRequestFields.REPOSITORY_ID],
+            PullRequestFields.REPOSITORY_ID: repository_id,
         }
 
     @staticmethod
@@ -249,6 +286,30 @@ class AgentService(Service):
                 pull_request_id,
             )
 
+    def _pull_request_context(
+        self,
+        pull_request_id: str,
+        repository_id: str = '',
+    ) -> dict[str, str] | None:
+        pull_request_contexts = self._pull_request_context_map.get(pull_request_id, [])
+        if not pull_request_contexts:
+            pull_request_contexts = self._load_persisted_pull_request_contexts(
+                pull_request_id
+            )
+        if repository_id:
+            pull_request_contexts = [
+                context
+                for context in pull_request_contexts
+                if context[PullRequestFields.REPOSITORY_ID] == repository_id
+            ]
+        if not pull_request_contexts:
+            return None
+        if len(pull_request_contexts) > 1:
+            raise ValueError(
+                f'ambiguous pull request id across repositories: {pull_request_id}'
+            )
+        return pull_request_contexts[0]
+
     def _notify_task_ready_for_review(self, task: Task, pull_requests) -> None:
         try:
             self._notification_service.notify_task_ready_for_review(task, pull_requests)
@@ -311,6 +372,91 @@ class AgentService(Service):
                 pull_request_id,
             )
             return []
+
+    def _tracked_pull_request_contexts(self) -> list[dict[str, str]]:
+        contexts: list[dict[str, str]] = []
+        seen: set[tuple[str, str, str]] = set()
+
+        for pull_request_id, pull_request_contexts in self._pull_request_context_map.items():
+            for context in pull_request_contexts:
+                repository_id = context[PullRequestFields.REPOSITORY_ID]
+                branch_name = context[Task.branch_name.key]
+                key = (pull_request_id, repository_id, branch_name)
+                if key in seen:
+                    continue
+                seen.add(key)
+                contexts.append(
+                    {
+                        PullRequestFields.ID: pull_request_id,
+                        PullRequestFields.REPOSITORY_ID: repository_id,
+                        Task.branch_name.key: branch_name,
+                    }
+                )
+
+        if self._state_data_access is None:
+            return contexts
+
+        try:
+            persisted_contexts = self._state_data_access.list_pull_request_contexts()
+        except Exception:
+            self.logger.exception('failed to load tracked pull request contexts from state')
+            return contexts
+
+        for context in persisted_contexts:
+            key = (
+                context[PullRequestFields.ID],
+                context[PullRequestFields.REPOSITORY_ID],
+                context[Task.branch_name.key],
+            )
+            if key in seen:
+                continue
+            seen.add(key)
+            contexts.append(context)
+        return contexts
+
+    def _is_review_comment_processed(
+        self,
+        repository_id: str,
+        pull_request_id: str,
+        comment_id: str,
+    ) -> bool:
+        if self._state_data_access is None:
+            return False
+        return self._state_data_access.is_review_comment_processed(
+            repository_id,
+            pull_request_id,
+            comment_id,
+        )
+
+    def _mark_review_comment_processed(
+        self,
+        repository_id: str,
+        pull_request_id: str,
+        comment_id: str,
+    ) -> None:
+        if self._state_data_access is None:
+            return
+        try:
+            self._state_data_access.mark_review_comment_processed(
+                repository_id,
+                pull_request_id,
+                comment_id,
+            )
+        except Exception:
+            self.logger.exception(
+                'failed to persist processed review comment %s for pull request %s in repository %s',
+                comment_id,
+                pull_request_id,
+                repository_id,
+            )
+
+    @staticmethod
+    def _comment_context_entry(comment: ReviewComment) -> dict[str, str]:
+        return {
+            ReviewCommentFields.COMMENT_ID: str(comment.comment_id),
+            ReviewCommentFields.AUTHOR: str(comment.author),
+            ReviewCommentFields.BODY: str(comment.body),
+        }
 
     @staticmethod
     def _pull_request_summary_comment(

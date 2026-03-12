@@ -8,6 +8,7 @@ from openhands_agent.data_layers.data.review_comment import ReviewComment
 from openhands_agent.data_layers.service.implementation_service import (
     ImplementationService,
 )
+from openhands_agent.fields import ReviewCommentFields
 from utils import build_task
 
 
@@ -84,3 +85,33 @@ class ImplementationServiceTests(unittest.TestCase):
         self.assertEqual(comment.comment_id, "99")
         self.assertEqual(comment.author, "None")
         self.assertEqual(comment.body, "12345")
+
+    def test_review_comment_from_payload_normalizes_comment_context(self) -> None:
+        service = ImplementationService(types.SimpleNamespace())
+
+        comment = service.review_comment_from_payload(
+            {
+                ReviewCommentFields.PULL_REQUEST_ID: '17',
+                ReviewCommentFields.COMMENT_ID: '99',
+                ReviewCommentFields.AUTHOR: 'reviewer',
+                ReviewCommentFields.BODY: 'Please rename this variable.',
+                ReviewCommentFields.ALL_COMMENTS: [
+                    {
+                        ReviewCommentFields.COMMENT_ID: 98,
+                        ReviewCommentFields.AUTHOR: 'reviewer',
+                        ReviewCommentFields.BODY: 'Please add a test.',
+                    }
+                ],
+            }
+        )
+
+        self.assertEqual(
+            getattr(comment, ReviewCommentFields.ALL_COMMENTS),
+            [
+                {
+                    ReviewCommentFields.COMMENT_ID: '98',
+                    ReviewCommentFields.AUTHOR: 'reviewer',
+                    ReviewCommentFields.BODY: 'Please add a test.',
+                }
+            ],
+        )

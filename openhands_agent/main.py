@@ -22,6 +22,10 @@ def main(cfg: DictConfig) -> int:
             result = app.service.process_assigned_task(task)
             if result is not None:
                 results.append(result)
+        for comment in app.service.get_new_pull_request_comments():
+            result = app.service.process_review_comment(comment)
+            if result is not None:
+                results.append(result)
     except Exception as exc:
         app.logger.exception('failed to process assigned task')
         try:
@@ -29,7 +33,7 @@ def main(cfg: DictConfig) -> int:
         except Exception:
             app.logger.exception('failed to send failure notification for process_assigned_task')
         raise
-    app.logger.info('processed %s tasks', len(results))
+    app.logger.info('processed %s items', len(results))
     return 0
 
 

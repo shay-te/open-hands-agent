@@ -1,6 +1,7 @@
 from typing import Any
 
 from openhands_agent.client.pull_request_client_base import PullRequestClientBase
+from openhands_agent.data_layers.data.review_comment import ReviewComment
 from openhands_agent.fields import PullRequestFields
 
 
@@ -35,6 +36,19 @@ class BitbucketClient(PullRequestClientBase):
         response.raise_for_status()
         return self._normalize_pr(response.json())
 
+    def list_pull_request_comments(
+        self,
+        repo_owner: str,
+        repo_slug: str,
+        pull_request_id: str,
+    ) -> list[ReviewComment]:
+        response = self._get_with_retry(
+            f'/repositories/{repo_owner}/{repo_slug}/pullrequests/{pull_request_id}/comments',
+            params={'pagelen': 100, 'sort': 'created_on'},
+        )
+        response.raise_for_status()
+        return self._normalize_comments(response.json(), pull_request_id)
+
     @staticmethod
     def _pull_request_payload(
         title: str,
@@ -64,3 +78,27 @@ class BitbucketClient(PullRequestClientBase):
             PullRequestFields.TITLE: str(payload.get(PullRequestFields.TITLE, '')),
             PullRequestFields.URL: str(html_link.get('href', '')),
         }
+
+    @staticmethod
+    def _normalize_comments(payload: dict[str, Any], pull_request_id: str) -> list[ReviewComment]:
+        values = payload.get('values', []) if isinstance(payload, dict) else []
+        if not isinstance(values, list):
+            return []
+
+        comments: list[ReviewComment] = []
+        for item in values:
+            if not isinstance(item, dict) or item.get('deleted'):
+                continue
+            content = item.get('content') if isinstance(item.get('content'), dict) else {}
+            author = item.get('user') if isinstance(item.get('user'), dict) else {}
+            display_name = author.get('display_name', '')
+            nickname = author.get('nickname', '')
+            comments.append(
+                ReviewComment(
+                    pull_request_id=str(pull_request_id),
+                    comment_id=str(item.get('id', '')),
+                    author=str(display_name or nickname or ''),
+                    body=str(content.get('raw', '')),
+                )
+            )
+        return [comment for comment in comments if comment.comment_id]

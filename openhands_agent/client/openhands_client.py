@@ -1,7 +1,11 @@
 from openhands_agent.client.retrying_client_base import RetryingClientBase
 from openhands_agent.data_layers.data.review_comment import ReviewComment
 from openhands_agent.data_layers.data.task import Task
-from openhands_agent.fields import ImplementationFields, PullRequestFields
+from openhands_agent.fields import (
+    ImplementationFields,
+    PullRequestFields,
+    ReviewCommentFields,
+)
 
 
 class OpenHandsClient(RetryingClientBase):
@@ -134,12 +138,34 @@ class OpenHandsClient(RetryingClientBase):
     def _build_review_prompt(comment: ReviewComment, branch_name: str) -> str:
         repository_id = getattr(comment, PullRequestFields.REPOSITORY_ID, '')
         repository_context = f' in repository {repository_id}' if repository_id else ''
+        review_context = OpenHandsClient._review_comment_context_text(comment)
         return (
             f'Address pull request comment on branch {branch_name}{repository_context}.\n'
             f'Comment by {comment.author}: {comment.body}'
+            f'{review_context}'
         )
 
     @staticmethod
     def _normalized_payload(response) -> dict:
         payload = response.json() or {}
         return payload if isinstance(payload, dict) else {}
+
+    @staticmethod
+    def _review_comment_context_text(comment: ReviewComment) -> str:
+        all_comments = getattr(comment, ReviewCommentFields.ALL_COMMENTS, [])
+        if not isinstance(all_comments, list) or len(all_comments) <= 1:
+            return ''
+
+        lines: list[str] = []
+        for item in all_comments:
+            if not isinstance(item, dict):
+                continue
+            author = str(item.get(ReviewCommentFields.AUTHOR, '') or '').strip()
+            body = str(item.get(ReviewCommentFields.BODY, '') or '').strip()
+            if not body:
+                continue
+            label = author if author else 'reviewer'
+            lines.append(f'- {label}: {body}')
+        if not lines:
+            return ''
+        return '\n\nReview comment context:\n' + '\n'.join(lines)

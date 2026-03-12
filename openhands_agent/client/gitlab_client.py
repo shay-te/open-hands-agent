@@ -2,6 +2,7 @@ from typing import Any
 from urllib.parse import quote
 
 from openhands_agent.client.pull_request_client_base import PullRequestClientBase
+from openhands_agent.data_layers.data.review_comment import ReviewComment
 from openhands_agent.fields import PullRequestFields
 
 
@@ -36,6 +37,19 @@ class GitLabClient(PullRequestClientBase):
         response.raise_for_status()
         return self._normalize_pr(response.json())
 
+    def list_pull_request_comments(
+        self,
+        repo_owner: str,
+        repo_slug: str,
+        pull_request_id: str,
+    ) -> list[ReviewComment]:
+        response = self._get_with_retry(
+            f'/projects/{self._project_path(repo_owner, repo_slug)}/merge_requests/{pull_request_id}/notes',
+            params={'sort': 'asc', 'order_by': 'created_at', 'per_page': 100},
+        )
+        response.raise_for_status()
+        return self._normalize_comments(response.json(), pull_request_id)
+
     @staticmethod
     def _project_path(repo_owner: str, repo_slug: str) -> str:
         return quote(f'{repo_owner}/{repo_slug}', safe='')
@@ -49,3 +63,23 @@ class GitLabClient(PullRequestClientBase):
             PullRequestFields.TITLE: str(payload.get(PullRequestFields.TITLE, '')),
             PullRequestFields.URL: str(payload.get('web_url', '')),
         }
+
+    @staticmethod
+    def _normalize_comments(payload: Any, pull_request_id: str) -> list[ReviewComment]:
+        if not isinstance(payload, list):
+            return []
+
+        comments: list[ReviewComment] = []
+        for item in payload:
+            if not isinstance(item, dict) or item.get('system'):
+                continue
+            author = item.get('author') if isinstance(item.get('author'), dict) else {}
+            comments.append(
+                ReviewComment(
+                    pull_request_id=str(pull_request_id),
+                    comment_id=str(item.get('id', '')),
+                    author=str(author.get('username') or author.get('name') or ''),
+                    body=str(item.get('body', '')),
+                )
+            )
+        return [comment for comment in comments if comment.comment_id]

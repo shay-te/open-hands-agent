@@ -74,6 +74,13 @@ class RepositoryService(Service):
             PullRequestFields.DESTINATION_BRANCH: self.destination_branch(repository),
         }
 
+    def list_pull_request_comments(
+        self,
+        repository,
+        pull_request_id: str,
+    ) -> list[dict[str, str]]:
+        return self._data_access(repository).list_pull_request_comments(pull_request_id)
+
     def destination_branch(self, repository) -> str:
         configured_branch = str(getattr(repository, 'destination_branch', '') or '').strip()
         if configured_branch:

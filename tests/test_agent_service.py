@@ -4,6 +4,7 @@ from unittest.mock import Mock, patch
 
 import bootstrap  # noqa: F401
 
+from openhands_agent.data_layers.data.review_comment import ReviewComment
 from openhands_agent.data_layers.data_access.task_data_access import TaskDataAccess
 from openhands_agent.data_layers.service.agent_service import AgentService
 from openhands_agent.data_layers.service.implementation_service import (
@@ -14,6 +15,7 @@ from openhands_agent.fields import (
     EmailFields,
     ImplementationFields,
     PullRequestFields,
+    ReviewCommentFields,
     StatusFields,
 )
 from openhands_agent.data_layers.service.testing_service import TestingService
@@ -53,6 +55,11 @@ class AgentServiceTests(unittest.TestCase):
         self.repository_service = types.SimpleNamespace(
             validate_connections=Mock(),
             resolve_task_repositories=Mock(return_value=[self.client_repo, self.backend_repo]),
+            get_repository=Mock(side_effect=lambda repository_id: {
+                'client': self.client_repo,
+                'backend': self.backend_repo,
+            }[repository_id]),
+            list_pull_request_comments=Mock(return_value=[]),
             build_branch_name=Mock(
                 side_effect=[
                     'feature/proj-1/client',
@@ -394,6 +401,40 @@ class AgentServiceTests(unittest.TestCase):
         comment_arg = self.openhands_client.fix_review_comment.call_args.args[0]
         self.assertEqual(getattr(comment_arg, PullRequestFields.REPOSITORY_ID), 'client')
 
+    def test_process_review_comment_marks_comment_processed(self) -> None:
+        state_data_access = types.SimpleNamespace(
+            mark_review_comment_processed=Mock(),
+        )
+        service = AgentService(
+            self.task_data_access,
+            self.implementation_service,
+            self.testing_service,
+            self.repository_service,
+            self.notification_service,
+            state_data_access=state_data_access,
+        )
+        service._pull_request_context_map['17'] = [
+            {
+                PullRequestFields.REPOSITORY_ID: 'client',
+                'branch_name': 'feature/proj-1/client',
+            }
+        ]
+
+        service.process_review_comment(
+            ReviewComment(
+                pull_request_id='17',
+                comment_id='99',
+                author='reviewer',
+                body='Please rename this variable.',
+            )
+        )
+
+        state_data_access.mark_review_comment_processed.assert_called_once_with(
+            'client',
+            '17',
+            '99',
+        )
+
     def test_handle_pull_request_comment_rejects_unknown_pull_request(self) -> None:
         with self.assertRaisesRegex(ValueError, 'unknown pull request id'):
             self.service.handle_pull_request_comment(build_review_comment_payload())
@@ -407,7 +448,8 @@ class AgentServiceTests(unittest.TestCase):
                         'branch_name': 'feature/proj-1/client',
                     }
                 ]
-            )
+            ),
+            mark_review_comment_processed=Mock(),
         )
         service = AgentService(
             self.task_data_access,
@@ -438,6 +480,24 @@ class AgentServiceTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'ambiguous pull request id across repositories'):
             self.service.handle_pull_request_comment(build_review_comment_payload())
 
+    def test_handle_pull_request_comment_uses_repository_id_to_resolve_ambiguity(self) -> None:
+        self.service._pull_request_context_map['17'] = [
+            {
+                PullRequestFields.REPOSITORY_ID: 'client',
+                'branch_name': 'feature/proj-1/client',
+            },
+            {
+                PullRequestFields.REPOSITORY_ID: 'backend',
+                'branch_name': 'feature/proj-1/backend',
+            },
+        ]
+        payload = build_review_comment_payload()
+        payload[PullRequestFields.REPOSITORY_ID] = 'backend'
+
+        result = self.service.handle_pull_request_comment(payload)
+
+        self.assertEqual(result[PullRequestFields.REPOSITORY_ID], 'backend')
+
     def test_handle_pull_request_comment_raises_when_fix_fails(self) -> None:
         self.openhands_client.fix_review_comment.return_value = {ImplementationFields.SUCCESS: False}
         self.service._pull_request_context_map['17'] = [
@@ -449,3 +509,55 @@ class AgentServiceTests(unittest.TestCase):
 
         with self.assertRaisesRegex(RuntimeError, 'failed to address comment 99'):
             self.service.handle_pull_request_comment(build_review_comment_payload())
+
+    def test_get_new_pull_request_comments_returns_unprocessed_comments_with_context(self) -> None:
+        state_data_access = types.SimpleNamespace(
+            list_pull_request_contexts=Mock(
+                return_value=[
+                    {
+                        PullRequestFields.ID: '17',
+                        PullRequestFields.REPOSITORY_ID: 'client',
+                        'branch_name': 'feature/proj-1/client',
+                    }
+                ]
+            ),
+            is_review_comment_processed=Mock(side_effect=[False, True]),
+        )
+        self.repository_service.list_pull_request_comments.return_value = [
+            ReviewComment(
+                pull_request_id='17',
+                comment_id='98',
+                author='reviewer',
+                body='Please add a test.',
+            ),
+            ReviewComment(
+                pull_request_id='17',
+                comment_id='99',
+                author='reviewer',
+                body='Please rename this variable.',
+            ),
+        ]
+        service = AgentService(
+            self.task_data_access,
+            self.implementation_service,
+            self.testing_service,
+            self.repository_service,
+            self.notification_service,
+            state_data_access=state_data_access,
+        )
+
+        comments = service.get_new_pull_request_comments()
+
+        self.assertEqual(len(comments), 1)
+        self.assertEqual(comments[0].comment_id, '98')
+        self.assertEqual(getattr(comments[0], PullRequestFields.REPOSITORY_ID), 'client')
+        self.assertEqual(
+            getattr(comments[0], ReviewCommentFields.ALL_COMMENTS),
+            [
+                {
+                    ReviewCommentFields.COMMENT_ID: '98',
+                    ReviewCommentFields.AUTHOR: 'reviewer',
+                    ReviewCommentFields.BODY: 'Please add a test.',
+                }
+            ],
+        )

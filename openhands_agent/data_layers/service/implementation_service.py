@@ -5,7 +5,7 @@ from core_lib.data_layers.service.service import Service
 from openhands_agent.client.openhands_client import OpenHandsClient
 from openhands_agent.data_layers.data.review_comment import ReviewComment
 from openhands_agent.data_layers.data.task import Task
-from openhands_agent.fields import PullRequestFields
+from openhands_agent.fields import PullRequestFields, ReviewCommentFields
 
 
 class ImplementationService(Service):
@@ -23,13 +23,18 @@ class ImplementationService(Service):
     def review_comment_from_payload(self, payload: dict) -> ReviewComment:
         try:
             comment = ReviewComment(
-                pull_request_id=str(payload[ReviewComment.pull_request_id.key]),
-                comment_id=str(payload[ReviewComment.comment_id.key]),
-                author=str(payload[ReviewComment.author.key]),
-                body=str(payload[ReviewComment.body.key]),
+                pull_request_id=str(payload[ReviewCommentFields.PULL_REQUEST_ID]),
+                comment_id=str(payload[ReviewCommentFields.COMMENT_ID]),
+                author=str(payload[ReviewCommentFields.AUTHOR]),
+                body=str(payload[ReviewCommentFields.BODY]),
             )
             if PullRequestFields.REPOSITORY_ID in payload:
                 setattr(comment, PullRequestFields.REPOSITORY_ID, str(payload[PullRequestFields.REPOSITORY_ID]))
+            setattr(
+                comment,
+                ReviewCommentFields.ALL_COMMENTS,
+                self._normalize_comment_context(payload.get(ReviewCommentFields.ALL_COMMENTS, [])),
+            )
             return comment
         except (KeyError, TypeError, ValueError) as exc:
             raise ValueError(f'invalid review comment payload: {exc}') from exc
@@ -41,3 +46,30 @@ class ImplementationService(Service):
             comment.comment_id,
         )
         return self._client.fix_review_comment(comment, branch_name)
+
+    @staticmethod
+    def _normalize_comment_context(all_comments) -> list[dict[str, str]]:
+        if not isinstance(all_comments, list):
+            return []
+
+        normalized_comments: list[dict[str, str]] = []
+        for item in all_comments:
+            if isinstance(item, ReviewComment):
+                normalized_comments.append(
+                    {
+                        ReviewCommentFields.COMMENT_ID: str(item.comment_id),
+                        ReviewCommentFields.AUTHOR: str(item.author),
+                        ReviewCommentFields.BODY: str(item.body),
+                    }
+                )
+                continue
+            if not isinstance(item, dict):
+                continue
+            normalized_comments.append(
+                {
+                    ReviewCommentFields.COMMENT_ID: str(item.get(ReviewCommentFields.COMMENT_ID, '')),
+                    ReviewCommentFields.AUTHOR: str(item.get(ReviewCommentFields.AUTHOR, '')),
+                    ReviewCommentFields.BODY: str(item.get(ReviewCommentFields.BODY, '')),
+                }
+            )
+        return normalized_comments

@@ -10,6 +10,14 @@ class PullRequestFields:
     FAILED_REPOSITORIES = 'failed_repositories'
 
 
+class ReviewCommentFields:
+    PULL_REQUEST_ID = 'pull_request_id'
+    COMMENT_ID = 'comment_id'
+    AUTHOR = 'author'
+    BODY = 'body'
+    ALL_COMMENTS = 'all_comments'
+
+
 class ImplementationFields:
     COMMIT_MESSAGE = 'commit_message'
     SUCCESS = 'success'

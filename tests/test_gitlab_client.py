@@ -83,3 +83,28 @@ class GitLabClientTests(unittest.TestCase):
         with patch.object(client, '_post', return_value=response):
             with self.assertRaisesRegex(ValueError, 'invalid pull request response payload'):
                 create_pull_request_with_defaults(client, repo_owner='group/subgroup')
+
+    def test_list_pull_request_comments_normalizes_response(self) -> None:
+        client = GitLabClient('https://gitlab.example/api/v4', 'gl-token')
+        response = mock_response(
+            json_data=[
+                {
+                    'id': 99,
+                    'body': 'Please rename this variable.',
+                    'author': {'username': 'reviewer'},
+                }
+            ]
+        )
+
+        with patch.object(client, '_get', return_value=response) as mock_get:
+            comments = client.list_pull_request_comments('group/subgroup', 'repo', '17')
+
+        self.assertEqual(len(comments), 1)
+        self.assertEqual(comments[0].pull_request_id, '17')
+        self.assertEqual(comments[0].comment_id, '99')
+        self.assertEqual(comments[0].author, 'reviewer')
+        self.assertEqual(comments[0].body, 'Please rename this variable.')
+        mock_get.assert_called_once_with(
+            '/projects/group%2Fsubgroup%2Frepo/merge_requests/17/notes',
+            params={'sort': 'asc', 'order_by': 'created_at', 'per_page': 100},
+        )

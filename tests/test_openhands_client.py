@@ -4,7 +4,7 @@ from unittest.mock import Mock, patch
 import bootstrap  # noqa: F401
 
 from openhands_agent.client.openhands_client import OpenHandsClient
-from openhands_agent.fields import ImplementationFields
+from openhands_agent.fields import ImplementationFields, ReviewCommentFields
 from utils import (
     ClientTimeout,
     assert_client_headers_and_timeout,
@@ -162,6 +162,31 @@ class OpenHandsClientTests(unittest.TestCase):
             '99',
             True,
         )
+
+    def test_fix_review_comment_prompt_includes_prior_comment_context(self) -> None:
+        client = OpenHandsClient('https://openhands.example', 'oh-token')
+        comment = build_review_comment()
+        setattr(
+            comment,
+            ReviewCommentFields.ALL_COMMENTS,
+            [
+                {
+                    ReviewCommentFields.COMMENT_ID: '98',
+                    ReviewCommentFields.AUTHOR: 'reviewer',
+                    ReviewCommentFields.BODY: 'Please add a test.',
+                },
+                {
+                    ReviewCommentFields.COMMENT_ID: '99',
+                    ReviewCommentFields.AUTHOR: 'reviewer',
+                    ReviewCommentFields.BODY: 'Please rename this variable.',
+                },
+            ],
+        )
+
+        prompt = client._build_review_prompt(comment, 'feature/proj-1')
+
+        self.assertIn('Review comment context:', prompt)
+        self.assertIn('- reviewer: Please add a test.', prompt)
 
     def test_implement_task_retries_on_timeout(self) -> None:
         client = OpenHandsClient('https://openhands.example', 'oh-token')

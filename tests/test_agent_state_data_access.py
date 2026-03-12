@@ -25,6 +25,7 @@ class AgentStateDataAccessTests(unittest.TestCase):
                 {
                     'processed_tasks': {},
                     'pull_request_contexts': {},
+                    'processed_review_comments': {},
                 },
             )
 
@@ -64,6 +65,26 @@ class AgentStateDataAccessTests(unittest.TestCase):
                     }
                 ],
             )
+            self.assertEqual(
+                data_access.list_pull_request_contexts(),
+                [
+                    {
+                        PullRequestFields.ID: '17',
+                        PullRequestFields.REPOSITORY_ID: 'client',
+                        'branch_name': 'feature/proj-1/client',
+                    }
+                ],
+            )
+
+    def test_marks_review_comments_processed(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            data_access = AgentStateDataAccess(str(Path(tmp_dir) / 'state.json'))
+            data_access.validate()
+
+            data_access.mark_review_comment_processed('client', '17', '99')
+
+            self.assertTrue(data_access.is_review_comment_processed('client', '17', '99'))
+            self.assertFalse(data_access.is_review_comment_processed('client', '17', '100'))
 
     def test_rejects_invalid_json_payloads(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

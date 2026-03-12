@@ -16,6 +16,12 @@ pull_request_rule_validator = RuleValidator(
     ]
 )
 
+pull_request_comment_rule_validator = RuleValidator(
+    [
+        ValueRuleValidator(PullRequestFields.ID, str),
+    ]
+)
+
 
 class PullRequestDataAccess(DataAccess):
     def __init__(self, config: DictConfig, client: PullRequestClientBase) -> None:
@@ -54,4 +60,16 @@ class PullRequestDataAccess(DataAccess):
             repo_slug=self._config.repo_slug,
             destination_branch=destination_branch or self._config.destination_branch,
             description=description,
+        )
+
+    def list_pull_request_comments(self, pull_request_id: str) -> list[dict[str, str]]:
+        pull_request_comment_rule_validator.validate(
+            {
+                PullRequestFields.ID: pull_request_id,
+            }
+        )
+        return self._client.list_pull_request_comments(
+            repo_owner=self._config.owner,
+            repo_slug=self._config.repo_slug,
+            pull_request_id=pull_request_id,
         )

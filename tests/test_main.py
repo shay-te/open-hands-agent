@@ -18,6 +18,8 @@ class MainTests(unittest.TestCase):
             service=types.SimpleNamespace(
                 get_assigned_tasks=Mock(return_value=['task-1']),
                 process_assigned_task=Mock(return_value={'id': '17'}),
+                get_new_pull_request_comments=Mock(return_value=['comment-1']),
+                process_review_comment=Mock(return_value={'status': 'updated'}),
             ),
         )
 
@@ -31,6 +33,8 @@ class MainTests(unittest.TestCase):
         mock_init.assert_called_once_with(self.cfg)
         app.service.get_assigned_tasks.assert_called_once_with()
         app.service.process_assigned_task.assert_called_once_with('task-1')
+        app.service.get_new_pull_request_comments.assert_called_once_with()
+        app.service.process_review_comment.assert_called_once_with('comment-1')
         app.logger.info.assert_any_call('starting openhands agent')
 
     def test_main_sends_failure_notification_before_reraising(self) -> None:
@@ -39,6 +43,7 @@ class MainTests(unittest.TestCase):
             logger=Mock(),
             service=types.SimpleNamespace(
                 get_assigned_tasks=Mock(side_effect=RuntimeError('service down')),
+                get_new_pull_request_comments=Mock(return_value=[]),
                 notification_service=notification_service,
             ),
         )
@@ -61,6 +66,7 @@ class MainTests(unittest.TestCase):
             logger=Mock(),
             service=types.SimpleNamespace(
                 get_assigned_tasks=Mock(side_effect=RuntimeError('service down')),
+                get_new_pull_request_comments=Mock(return_value=[]),
                 notification_service=notification_service,
             ),
         )
@@ -81,6 +87,8 @@ class MainTests(unittest.TestCase):
             service=types.SimpleNamespace(
                 get_assigned_tasks=Mock(return_value=[]),
                 process_assigned_task=Mock(),
+                get_new_pull_request_comments=Mock(return_value=[]),
+                process_review_comment=Mock(),
             ),
         )
 
