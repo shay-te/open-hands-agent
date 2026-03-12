@@ -58,12 +58,18 @@ openhands_agent:
     issue_states:
       - Todo
       - Open
-  repository:
-    base_url: http://localhost:8081
-    token: test-bitbucket-token
-    owner: test-workspace
-    repo_slug: test-repo
-    destination_branch: main
+  repositories:
+    - id: client
+      display_name: Client
+      local_path: .
+      provider_base_url: http://localhost:8081
+      token: test-bitbucket-token
+      owner: test-workspace
+      repo_slug: test-repo
+      destination_branch: ""
+      aliases:
+        - client
+        - frontend
   openhands:
     base_url: http://localhost:3000
     api_key: test-openhands-api-key

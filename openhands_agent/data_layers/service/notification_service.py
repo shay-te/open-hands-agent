@@ -47,14 +47,16 @@ class NotificationService:
     def notify_task_ready_for_review(
         self,
         task: Task,
-        pull_request: dict[str, str],
+        pull_requests,
     ) -> bool:
-        pull_request_url = pull_request.get(PullRequestFields.URL, '')
+        normalized_pull_requests = self._normalized_pull_requests(pull_requests)
+        first_pull_request = normalized_pull_requests[0] if normalized_pull_requests else {}
         template_params = {
             EmailFields.TASK_ID: task.id,
             EmailFields.TASK_SUMMARY: task.summary,
-            EmailFields.PULL_REQUEST_URL: pull_request_url,
-            EmailFields.PULL_REQUEST_TITLE: pull_request.get(PullRequestFields.TITLE, ''),
+            EmailFields.PULL_REQUEST_URL: first_pull_request.get(PullRequestFields.URL, ''),
+            EmailFields.PULL_REQUEST_TITLE: first_pull_request.get(PullRequestFields.TITLE, ''),
+            EmailFields.PULL_REQUEST_SUMMARY: self._pull_request_summary(normalized_pull_requests),
         }
         return self._send_configured_email(
             self._completion_email_cfg,
@@ -135,3 +137,22 @@ class NotificationService:
             self.logger.exception('failed to load email template %s', template_name)
             return ''
         return Template(template_text).safe_substitute(template_params).rstrip('\n')
+
+    @staticmethod
+    def _normalized_pull_requests(pull_requests) -> list[dict[str, str]]:
+        if isinstance(pull_requests, dict):
+            return [pull_requests]
+        if not isinstance(pull_requests, list):
+            return []
+        return [pull_request for pull_request in pull_requests if isinstance(pull_request, dict)]
+
+    @staticmethod
+    def _pull_request_summary(pull_requests: list[dict[str, str]]) -> str:
+        lines = []
+        for pull_request in pull_requests:
+            repository_label = pull_request.get(PullRequestFields.REPOSITORY_ID, 'repository')
+            title = pull_request.get(PullRequestFields.TITLE, '')
+            url = pull_request.get(PullRequestFields.URL, '')
+            lines.append(f'- {repository_label}: {title}')
+            lines.append(url)
+        return '\n'.join(line for line in lines if line)

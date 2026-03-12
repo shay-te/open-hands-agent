@@ -16,7 +16,7 @@ assigned_task_rule_validator = RuleValidator(
 pull_request_comment_rule_validator = RuleValidator(
     [
         ValueRuleValidator('issue_id', str),
-        ValueRuleValidator('pull_request_url', str),
+        ValueRuleValidator('comment', str),
     ]
 )
 
@@ -56,14 +56,17 @@ class TaskDataAccess:
             states=states or self._configured_issue_states(),
         )
 
-    def add_pull_request_comment(self, issue_id: str, pull_request_url: str) -> None:
+    def add_comment(self, issue_id: str, comment: str) -> None:
         pull_request_comment_rule_validator.validate(
             {
                 'issue_id': issue_id,
-                'pull_request_url': pull_request_url,
+                'comment': comment,
             }
         )
-        self._client.add_pull_request_comment(issue_id, pull_request_url)
+        self._client.add_comment(issue_id, comment)
+
+    def add_pull_request_comment(self, issue_id: str, pull_request_url: str) -> None:
+        self.add_comment(issue_id, f'Pull request created: {pull_request_url}')
 
     def move_task_to_review(self, issue_id: str) -> None:
         move_to_review_rule_validator.validate(

@@ -1,5 +1,4 @@
 I am done with task $task_id: $task_summary.
 Please review it.
 
-Pull request: $pull_request_title
-$pull_request_url
+$pull_request_summary

@@ -21,10 +21,13 @@ class DeploymentFilesTests(unittest.TestCase):
             'OPENHANDS_AGENT_COMPLETION_EMAIL_ENABLED: ${OPENHANDS_AGENT_COMPLETION_EMAIL_ENABLED:-false}',
             compose_text,
         )
+        self.assertIn('REPOSITORY_LOCAL_PATH: ${REPOSITORY_LOCAL_PATH:-.}', compose_text)
 
     def test_env_example_includes_openhands_llm_variables(self) -> None:
         env_example_text = (REPO_ROOT / '.env.example').read_text(encoding='utf-8')
 
+        self.assertIn('REPOSITORY_ID=', env_example_text)
+        self.assertIn('REPOSITORY_LOCAL_PATH=', env_example_text)
         self.assertIn('REPOSITORY_BASE_URL=', env_example_text)
         self.assertIn('REPOSITORY_TOKEN=', env_example_text)
         self.assertIn('REPOSITORY_OWNER=', env_example_text)
@@ -65,3 +68,4 @@ class DeploymentFilesTests(unittest.TestCase):
         self.assertIn('doctor:', makefile_text)
         self.assertIn('run:', makefile_text)
         self.assertIn('create_db: true', config_text)
+        self.assertIn('repositories:', config_text)

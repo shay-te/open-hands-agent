@@ -5,6 +5,9 @@ class PullRequestFields:
     SOURCE_BRANCH = 'source_branch'
     DESTINATION_BRANCH = 'destination_branch'
     DESCRIPTION = 'description'
+    REPOSITORY_ID = 'repository_id'
+    PULL_REQUESTS = 'pull_requests'
+    FAILED_REPOSITORIES = 'failed_repositories'
 
 
 class ImplementationFields:
@@ -15,6 +18,9 @@ class ImplementationFields:
 class StatusFields:
     STATUS = 'status'
     UPDATED = 'updated'
+    READY_FOR_REVIEW = 'ready_for_review'
+    PARTIAL_FAILURE = 'partial_failure'
+    SKIPPED = 'skipped'
 
 
 class EmailFields:
@@ -28,6 +34,18 @@ class EmailFields:
     TASK_SUMMARY = 'task_summary'
     PULL_REQUEST_TITLE = 'pull_request_title'
     PULL_REQUEST_URL = 'pull_request_url'
+    PULL_REQUEST_SUMMARY = 'pull_request_summary'
+
+
+class RepositoryFields:
+    ID = 'id'
+    DISPLAY_NAME = 'display_name'
+    LOCAL_PATH = 'local_path'
+    PROVIDER_BASE_URL = 'provider_base_url'
+    OWNER = 'owner'
+    REPO_SLUG = 'repo_slug'
+    DESTINATION_BRANCH = 'destination_branch'
+    ALIASES = 'aliases'
 
 
 class YouTrackAttachmentFields:

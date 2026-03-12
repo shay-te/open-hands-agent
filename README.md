@@ -9,8 +9,8 @@ The agent is designed to:
    When loading a task, the agent also reads issue comments, text attachments, and screenshot attachment metadata so OpenHands gets more complete context.
 2. Read each task definition.
 3. Ask OpenHands to implement the required changes.
-4. Create a pull request in Bitbucket.
-5. Add the pull request link back to YouTrack, move the issue to the configured review state, and send a review-ready email.
+4. Create one pull request per affected repository.
+5. Add the aggregated pull request summary back to YouTrack, move the issue to the configured review state, and send a review-ready email.
 6. Listen to pull request comments and trigger follow-up fixes.
 
 ## Structure
@@ -60,16 +60,14 @@ export YOUTRACK_BASE_URL="https://your-company.youtrack.cloud"
 export YOUTRACK_TOKEN="..."
 export YOUTRACK_PROJECT="PROJ"
 export YOUTRACK_ASSIGNEE="me"
+export REPOSITORY_ID="client"
+export REPOSITORY_DISPLAY_NAME="Client"
+export REPOSITORY_LOCAL_PATH="/workspace/client"
 export REPOSITORY_BASE_URL="https://api.bitbucket.org/2.0"
 export REPOSITORY_TOKEN="..."
 export REPOSITORY_OWNER="your-workspace"
 export REPOSITORY_REPO_SLUG="your-repo"
-
-The pull-request provider is selected automatically from `REPOSITORY_BASE_URL`.
-Supported providers:
-- Bitbucket: `https://api.bitbucket.org/2.0`
-- GitHub: `https://api.github.com`
-- GitLab: `https://gitlab.com/api/v4`
+export REPOSITORY_DESTINATION_BRANCH=""
 export OPENHANDS_BASE_URL="http://localhost:3000"
 export OPENHANDS_API_KEY="..."
 export OPENHANDS_AGENT_MAX_RETRIES="5"
@@ -88,6 +86,16 @@ export YOUTRACK_REVIEW_STATE="In Review"
 export EMAIL_CORE_LIB_SEND_IN_BLUE_API_KEY="..."
 export SLACK_WEBHOOK_URL_ERRORS_EMAIL=""
 ```
+
+The pull-request provider is selected automatically from `REPOSITORY_BASE_URL`.
+Supported providers:
+- Bitbucket: `https://api.bitbucket.org/2.0`
+- GitHub: `https://api.github.com`
+- GitLab: `https://gitlab.com/api/v4`
+
+For multi-repository tasks, add more entries under `openhands_agent.repositories` in `openhands_agent/config/openhands_agent_core_lib.yaml`. Each repository entry needs `id`, `display_name`, `local_path`, `provider_base_url`, `token`, `owner`, `repo_slug`, and optional `destination_branch` plus `aliases`.
+
+If `destination_branch` is empty, the agent infers the repository default branch from the local git checkout, so `main` vs `master` does not need to be hardcoded when the local repo already knows it.
 
 OpenHands itself can now be configured from this project too. Put its LLM settings in `.env` and `docker compose` will pass them into the `openhands` container:
 
@@ -145,18 +153,19 @@ If a developer is starting from zero, these are the steps:
 2. Change into the repository directory.
 3. Copy `.env.example` to `.env`.
 4. Fill in YouTrack credentials.
-5. Fill in Bitbucket credentials.
-6. Fill in OpenHands server settings.
-7. Fill in OpenHands LLM provider settings.
-8. Fill in email settings if notifications are enabled.
-9. Decide whether to run locally or with Docker Compose.
-10. Create a virtual environment for local development.
-11. Install the package in editable mode.
-12. Run the test suite.
-13. Validate the environment values.
-14. Create or upgrade the database schema.
-15. Start the application.
-16. Confirm the agent can connect to YouTrack, OpenHands, and Bitbucket.
+5. Fill in the first repository entry credentials and local path.
+6. Add more repository entries in the config file if tasks can span multiple repos.
+7. Fill in OpenHands server settings.
+8. Fill in OpenHands LLM provider settings.
+9. Fill in email settings if notifications are enabled.
+10. Decide whether to run locally or with Docker Compose.
+11. Create a virtual environment for local development.
+12. Install the package in editable mode.
+13. Run the test suite.
+14. Validate the environment values.
+15. Create or upgrade the database schema.
+16. Start the application.
+17. Confirm the agent can connect to YouTrack, OpenHands, and every configured repository.
 
 What is automated now:
 
@@ -225,10 +234,13 @@ export YOUTRACK_BASE_URL="https://your-company.youtrack.cloud"
 export YOUTRACK_TOKEN="..."
 export YOUTRACK_PROJECT="PROJ"
 export YOUTRACK_ASSIGNEE="me"
+export REPOSITORY_ID="client"
+export REPOSITORY_LOCAL_PATH="/workspace/client"
 export REPOSITORY_BASE_URL="https://api.bitbucket.org/2.0"
 export REPOSITORY_TOKEN="..."
 export REPOSITORY_OWNER="your-workspace"
 export REPOSITORY_REPO_SLUG="your-repo"
+export REPOSITORY_DESTINATION_BRANCH=""
 export OPENHANDS_BASE_URL="http://localhost:3000"
 export OPENHANDS_API_KEY="..."
 export YOUTRACK_REVIEW_STATE_FIELD="State"
@@ -295,7 +307,7 @@ The compose file uses the official OpenHands image and runtime image pattern fro
 - https://docs.all-hands.dev/usage/local-setup
 - https://github.com/OpenHands/OpenHands
 
-Before running `docker compose up --build`, export the same environment variables listed above for YouTrack, Bitbucket, OpenHands, retries, and failure email settings.
+Before running `docker compose up --build`, export the same environment variables listed above for YouTrack, the first configured repository, OpenHands, retries, and failure email settings.
 
 If you use `.env`, Docker Compose will load it automatically, so you can keep both the agent config and the OpenHands LLM config in one place and avoid manual setup in the OpenHands UI for the env-supported options.
 
@@ -308,7 +320,7 @@ What happens when it runs:
 - It enriches the task context with YouTrack comments, text attachment contents, and screenshot attachment references.
 - It retries transient client failures up to `openhands_agent.retry.max_retries`.
 - If the overall run fails, it sends failure notifications through `email-core-lib` to the configured recipients.
-- For each eligible task, it asks OpenHands to implement the work, opens a Bitbucket pull request, comments the PR URL back to YouTrack, moves the issue to the configured review state, and sends a completion email that asks for review.
+- For each eligible task, it infers the affected repositories, asks OpenHands to implement the work across that scoped workspace set, opens one pull request per repository, comments the aggregated PR summary back to YouTrack, moves the issue to the configured review state when all repositories succeed, and sends a completion email that asks for review.
 
 ## Testing
 
@@ -329,9 +341,9 @@ python3 -m unittest discover -s tests -p 'test_notification_service.py'
 
 - `core-lib` application wrapper for the agent.
 - `core-lib`-style `client`, `data_layers/data`, `data_layers/data_access`, and `data_layers/service` packages.
-- Data-access wrappers around YouTrack, OpenHands, and Bitbucket integrations.
+- Data-access wrappers around YouTrack, OpenHands, and repository provider integrations.
 - A service layer that orchestrates the full task-to-PR flow.
-- A webhook-style handler for Bitbucket PR comments.
+- A webhook-style handler for pull-request review comments.
 - A job entrypoint for processing assigned tasks plus a `tests/config` Hydra scaffold.
 
 ## What Still Needs Completion

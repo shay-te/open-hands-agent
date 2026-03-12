@@ -1,7 +1,7 @@
 from openhands_agent.client.retrying_client_base import RetryingClientBase
 from openhands_agent.data_layers.data.review_comment import ReviewComment
 from openhands_agent.data_layers.data.task import Task
-from openhands_agent.fields import ImplementationFields
+from openhands_agent.fields import ImplementationFields, PullRequestFields
 
 
 class OpenHandsClient(RetryingClientBase):
@@ -80,10 +80,11 @@ class OpenHandsClient(RetryingClientBase):
         return result
 
     def _build_implementation_prompt(self, task: Task) -> str:
+        repository_scope = self._repository_scope_text(task)
         prompt = (
             f'Implement task {task.id}: {task.summary}\n\n'
             f'{task.description}\n\n'
-            f'Work on branch {task.branch_name}.'
+            f'{repository_scope}'
         )
         if not self._pre_pull_request_commands:
             return prompt
@@ -92,9 +93,32 @@ class OpenHandsClient(RetryingClientBase):
         return f'{prompt}\n\nBefore creating the pull request:\n{commands}'
 
     @staticmethod
+    def _repository_scope_text(task: Task) -> str:
+        repository_branches = getattr(task, 'repository_branches', {}) or {}
+        repositories = getattr(task, 'repositories', []) or []
+        if not repositories:
+            return f'Work on branch {task.branch_name}.'
+
+        repository_lines = []
+        for repository in repositories:
+            branch_name = repository_branches.get(repository.id, task.branch_name)
+            destination_branch = str(getattr(repository, 'destination_branch', '') or '').strip()
+            destination_text = (
+                destination_branch if destination_branch else 'the repository default branch'
+            )
+            repository_lines.append(
+                f'- {repository.id} at {repository.local_path}: '
+                f'use branch {branch_name} and open the pull request into {destination_text}.'
+            )
+        lines = '\n'.join(repository_lines)
+        return f'Only modify these repositories:\n{lines}'
+
+    @staticmethod
     def _build_review_prompt(comment: ReviewComment, branch_name: str) -> str:
+        repository_id = getattr(comment, PullRequestFields.REPOSITORY_ID, '')
+        repository_context = f' in repository {repository_id}' if repository_id else ''
         return (
-            f'Address pull request comment on branch {branch_name}.\n'
+            f'Address pull request comment on branch {branch_name}{repository_context}.\n'
             f'Comment by {comment.author}: {comment.body}'
         )
 

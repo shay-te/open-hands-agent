@@ -36,6 +36,30 @@ def assert_client_headers_and_timeout(
 
 
 def build_test_cfg() -> types.SimpleNamespace:
+    repositories = [
+        types.SimpleNamespace(
+            id='client',
+            display_name='Client',
+            local_path='.',
+            provider_base_url='https://bitbucket.example',
+            token='bb-token',
+            owner='workspace',
+            repo_slug='repo',
+            destination_branch='',
+            aliases=['client', 'frontend'],
+        ),
+        types.SimpleNamespace(
+            id='backend',
+            display_name='Backend',
+            local_path='.',
+            provider_base_url='https://github.example/api/v3',
+            token='gh-token',
+            owner='workspace',
+            repo_slug='backend',
+            destination_branch='main',
+            aliases=['backend', 'api'],
+        ),
+    ]
     return types.SimpleNamespace(
         core_lib=types.SimpleNamespace(
             app=types.SimpleNamespace(
@@ -124,6 +148,7 @@ def build_test_cfg() -> types.SimpleNamespace:
                 repo_slug='repo',
                 destination_branch='main',
             ),
+            repositories=repositories,
         )
     )
 
@@ -170,13 +195,20 @@ def build_task(
     summary: str = 'Fix bug',
     description: str = 'Details',
     branch_name: str = 'feature/proj-1',
+    repositories: list | None = None,
+    repository_branches: dict | None = None,
 ) -> Task:
-    return Task(
+    task = Task(
         id=task_id,
         summary=summary,
         description=description,
         branch_name=branch_name,
     )
+    if repositories is not None:
+        task.repositories = repositories
+    if repository_branches is not None:
+        task.repository_branches = repository_branches
+    return task
 
 
 def build_review_comment(

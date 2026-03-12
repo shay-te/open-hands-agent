@@ -58,12 +58,18 @@ openhands_agent:
     issue_states:
       - Todo
       - Open
-  repository:
-    base_url: ${oc.env:REPOSITORY_BASE_URL}
-    token: ${oc.env:REPOSITORY_TOKEN}
-    owner: ${oc.env:REPOSITORY_OWNER}
-    repo_slug: ${oc.env:REPOSITORY_REPO_SLUG}
-    destination_branch: ${oc.env:REPOSITORY_DESTINATION_BRANCH,"main"}
+  repositories:
+    - id: ${oc.env:REPOSITORY_ID,"primary"}
+      display_name: ${oc.env:REPOSITORY_DISPLAY_NAME,"Primary Repository"}
+      local_path: ${oc.env:REPOSITORY_LOCAL_PATH,"."}
+      provider_base_url: ${oc.env:REPOSITORY_BASE_URL}
+      token: ${oc.env:REPOSITORY_TOKEN}
+      owner: ${oc.env:REPOSITORY_OWNER}
+      repo_slug: ${oc.env:REPOSITORY_REPO_SLUG}
+      destination_branch: ${oc.env:REPOSITORY_DESTINATION_BRANCH,""}
+      aliases:
+        - ${oc.env:REPOSITORY_ID,"primary"}
+        - ${oc.env:REPOSITORY_REPO_SLUG,""}
   openhands:
     base_url: ${oc.env:OPENHANDS_BASE_URL}
     api_key: ${oc.env:OPENHANDS_API_KEY}

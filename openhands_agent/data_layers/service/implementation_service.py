@@ -3,6 +3,7 @@ import logging
 from openhands_agent.client.openhands_client import OpenHandsClient
 from openhands_agent.data_layers.data.review_comment import ReviewComment
 from openhands_agent.data_layers.data.task import Task
+from openhands_agent.fields import PullRequestFields
 
 
 class ImplementationService:
@@ -19,12 +20,15 @@ class ImplementationService:
 
     def review_comment_from_payload(self, payload: dict) -> ReviewComment:
         try:
-            return ReviewComment(
+            comment = ReviewComment(
                 pull_request_id=str(payload[ReviewComment.pull_request_id.key]),
                 comment_id=str(payload[ReviewComment.comment_id.key]),
                 author=str(payload[ReviewComment.author.key]),
                 body=str(payload[ReviewComment.body.key]),
             )
+            if PullRequestFields.REPOSITORY_ID in payload:
+                setattr(comment, PullRequestFields.REPOSITORY_ID, str(payload[PullRequestFields.REPOSITORY_ID]))
+            return comment
         except (KeyError, TypeError, ValueError) as exc:
             raise ValueError(f'invalid review comment payload: {exc}') from exc
 

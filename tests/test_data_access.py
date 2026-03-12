@@ -35,9 +35,9 @@ class TaskDataAccessTests(unittest.TestCase):
             assignee='me',
             states=['Todo', 'Open'],
         )
-        client.add_pull_request_comment.assert_called_once_with(
+        client.add_comment.assert_called_once_with(
             'PROJ-1',
-            'https://bitbucket/pr/1',
+            'Pull request created: https://bitbucket/pr/1',
         )
         client.move_issue_to_state.assert_called_once_with(
             'PROJ-1',

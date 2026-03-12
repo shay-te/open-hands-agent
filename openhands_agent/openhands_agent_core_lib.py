@@ -8,17 +8,14 @@ from core_lib.core_lib import CoreLib
 from email_core_lib.email_core_lib import EmailCoreLib
 
 from openhands_agent.client.openhands_client import OpenHandsClient
-from openhands_agent.client.pull_request_client_factory import build_pull_request_client
 from openhands_agent.client.youtrack_client import YouTrackClient
-from openhands_agent.data_layers.data_access.pull_request_data_access import (
-    PullRequestDataAccess,
-)
 from openhands_agent.data_layers.data_access.task_data_access import TaskDataAccess
 from openhands_agent.data_layers.service.agent_service import AgentService
 from openhands_agent.data_layers.service.implementation_service import (
     ImplementationService,
 )
 from openhands_agent.data_layers.service.notification_service import NotificationService
+from openhands_agent.data_layers.service.repository_service import RepositoryService
 from openhands_agent.create_db import build_alembic_config
 from openhands_agent.logging_utils import configure_logger
 
@@ -64,15 +61,15 @@ class OpenHandsAgentCoreLib(CoreLib):
             retry_cfg.max_retries,
             getattr(open_cfg.openhands, 'pre_pull_request_commands', None),
         )
-        _pull_request_client = build_pull_request_client(open_cfg.repository, retry_cfg.max_retries)
+        repositories_cfg = getattr(open_cfg, 'repositories', None) or [open_cfg.repository]
         _task_data_access = TaskDataAccess(open_cfg.youtrack, _youtrack_client)
         _implementation_service = ImplementationService(_openhands_client)
-        _pull_request_data_access = PullRequestDataAccess(open_cfg.repository, _pull_request_client)
+        _repository_service = RepositoryService(repositories_cfg, retry_cfg.max_retries)
         notification_service = NotificationService(app_name=self.config.core_lib.app.name, email_core_lib=_email_core_lib, failure_email_cfg=getattr(open_cfg, 'failure_email', None), completion_email_cfg=getattr(open_cfg, 'completion_email', None))
         self.service = AgentService(
             task_data_access=_task_data_access,
             implementation_service=_implementation_service,
-            pull_request_data_access=_pull_request_data_access,
+            repository_service=_repository_service,
             notification_service=notification_service,
         )
         self.service.validate_connections()

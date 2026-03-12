@@ -68,12 +68,15 @@ class YouTrackClient(RetryingClientBase):
                 continue
         return tasks
 
-    def add_pull_request_comment(self, issue_id: str, pull_request_url: str) -> None:
+    def add_comment(self, issue_id: str, comment: str) -> None:
         response = self._post_with_retry(
             f'/api/issues/{issue_id}/comments',
-            json={'text': f'Pull request created: {pull_request_url}'},
+            json={'text': comment},
         )
         response.raise_for_status()
+
+    def add_pull_request_comment(self, issue_id: str, pull_request_url: str) -> None:
+        self.add_comment(issue_id, f'Pull request created: {pull_request_url}')
 
     def move_issue_to_state(self, issue_id: str, field_name: str, state_name: str) -> None:
         field = self._get_issue_custom_field(issue_id, field_name)

@@ -24,6 +24,7 @@ class NotificationServiceTests(unittest.TestCase):
         result = self.service.notify_task_ready_for_review(
             build_task(),
             {
+                PullRequestFields.REPOSITORY_ID: 'client',
                 PullRequestFields.ID: '17',
                 PullRequestFields.TITLE: 'PROJ-1: Fix bug',
                 PullRequestFields.URL: 'https://bitbucket/pr/17',
@@ -41,7 +42,7 @@ class NotificationServiceTests(unittest.TestCase):
             (
                 'I am done with task PROJ-1: Fix bug.\n'
                 'Please review it.\n\n'
-                'Pull request: PROJ-1: Fix bug\n'
+                '- client: PROJ-1: Fix bug\n'
                 'https://bitbucket/pr/17'
             ),
         )
