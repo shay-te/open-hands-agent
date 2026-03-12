@@ -352,7 +352,7 @@ class ConfigureProjectTests(unittest.TestCase):
             self.assertTrue(compose_override_path.exists())
             self.assertIn(':ro', compose_override_path.read_text(encoding='utf-8'))
 
-    def test_main_returns_non_zero_when_configuration_is_still_invalid(self) -> None:
+    def test_main_returns_zero_when_configuration_is_still_invalid(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             template_path = temp_path / '.env.example'
@@ -441,7 +441,8 @@ class ConfigureProjectTests(unittest.TestCase):
                     ]
                 )
 
-            self.assertEqual(exit_code, 1)
+            self.assertEqual(exit_code, 0)
+            self.assertTrue(output_path.exists())
 
     @staticmethod
     def _create_git_repository(path: Path, remote_url: str) -> None:

@@ -320,7 +320,8 @@ def main(argv: list[str] | None = None) -> int:
         print('The file was written, but a few required values still need attention:')
         for error in errors:
             print(f'- {error}')
-        return 1
+        print('Run make doctor after filling the remaining values.')
+        return 0
 
     print('Configuration looks valid. Next: make doctor && make run')
     return 0
