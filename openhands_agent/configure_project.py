@@ -6,19 +6,23 @@ import os
 from pathlib import Path
 import re
 from dataclasses import dataclass
-from urllib.parse import urlparse
-
-from core_lib.helpers.command_line import (
-    input_string as core_input_string,
-    input_yes_no as core_input_yes_no,
-)
-from core_lib.helpers.validation import is_int as core_is_int
 
 from openhands_agent.validate_env import (
     _read_env_file,
     validate_agent_env,
     validate_openhands_env,
 )
+
+try:
+    from core_lib.helpers.command_line import (
+        input_string as core_input_string,
+        input_yes_no as core_input_yes_no,
+    )
+    from core_lib.helpers.validation import is_int as core_is_int
+except (ImportError, ModuleNotFoundError):
+    core_input_string = None
+    core_input_yes_no = None
+    core_is_int = None
 
 
 ISSUE_PLATFORMS = ['youtrack', 'jira', 'github', 'gitlab', 'bitbucket']
@@ -135,7 +139,9 @@ class DiscoveredRepository:
 
 
 def input_yes_no(message: str, default: bool = True) -> bool:
-    return bool(core_input_yes_no(message, default=default))
+    if core_input_yes_no is not None:
+        return bool(core_input_yes_no(message, default=default))
+    return _input_yes_no_local(message, default=default)
 
 
 def input_bool(message: str, default: bool = True) -> bool:
@@ -147,7 +153,7 @@ def input_str(
     default: str | None = None,
     allow_empty: bool = False,
 ) -> str:
-    if default is None and not allow_empty:
+    if core_input_string is not None and default is None and not allow_empty:
         return str(core_input_string(f'{message}: '))
     return _input_str_local(message, default=default, allow_empty=allow_empty)
 
@@ -162,7 +168,7 @@ def input_int(message: str, default: int | None = None) -> int:
         candidate = str(value).strip()
         if not candidate and default is not None:
             return default
-        if core_is_int(candidate):
+        if _is_int(candidate):
             return int(candidate)
         print('Please enter a valid integer.')
 
@@ -224,6 +230,33 @@ def _input_str_local(
         if allow_empty:
             return ''
         print('This value is required.')
+
+
+def _input_yes_no_local(message: str, default: bool = True) -> bool:
+    default_hint = 'Yes' if default else 'No'
+    while True:
+        raw_value = _input_str_local(
+            f'{message}, Yes/No (enter for {default_hint})',
+            default='',
+            allow_empty=True,
+        ).strip().lower()
+        if not raw_value:
+            return default
+        if raw_value in {'y', 'yes'}:
+            return True
+        if raw_value in {'n', 'no'}:
+            return False
+        print('Please answer Yes or No.')
+
+
+def _is_int(value: str) -> bool:
+    if core_is_int is not None:
+        return bool(core_is_int(value))
+    try:
+        int(value)
+    except ValueError:
+        return False
+    return True
 
 
 def build_configuration_values(
