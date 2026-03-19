@@ -33,6 +33,7 @@ class DeploymentFilesTests(unittest.TestCase):
         )
         self.assertIn('SANDBOX_VOLUMES: ${OPENHANDS_SANDBOX_VOLUMES:-}', compose_text)
         self.assertIn('OH_WEB_URL: ${OPENHANDS_WEB_URL:-}', compose_text)
+        self.assertIn('OH_PERSISTENCE_DIR: /.openhands', compose_text)
         self.assertIn(
             'OPENHANDS_AGENT_ISSUE_PLATFORM: ${OPENHANDS_AGENT_ISSUE_PLATFORM:-}',
             compose_text,
