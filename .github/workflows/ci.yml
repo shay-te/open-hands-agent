@@ -16,7 +16,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install project
-        run: python -m pip install -e .
+        run: sh ./scripts/install-python-deps.sh python editable
 
       - name: Run unit tests
         run: python -m unittest discover -s tests
@@ -31,4 +31,4 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y shellcheck
 
       - name: Lint shell scripts
-        run: shellcheck scripts/bootstrap.sh scripts/run-local.sh docker/entrypoint-run.sh docker/entrypoint-install.sh
+        run: shellcheck scripts/bootstrap.sh scripts/install-python-deps.sh scripts/run-local.sh docker/entrypoint-run.sh docker/entrypoint-install.sh

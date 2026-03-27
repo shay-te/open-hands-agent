@@ -22,8 +22,7 @@ if [ ! -x .venv/bin/python ]; then
   run_step python3 -m venv .venv
 fi
 
-run_step .venv/bin/python -m pip install --upgrade pip
-run_step .venv/bin/python -m pip install -e .
+run_step sh ./scripts/install-python-deps.sh .venv/bin/python editable
 run_step .venv/bin/python -m unittest discover -s tests
 
 cat <<'EOF'

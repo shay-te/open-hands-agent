@@ -7,8 +7,7 @@ WORKDIR /app
 
 COPY . .
 
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir . && \
+RUN sh /app/scripts/install-python-deps.sh python && \
     chmod +x /app/docker/entrypoint-run.sh /app/docker/entrypoint-install.sh
 
 CMD ["/app/docker/entrypoint-run.sh"]

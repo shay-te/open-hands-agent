@@ -113,10 +113,15 @@ class DeploymentFilesTests(unittest.TestCase):
         config_text = (
             REPO_ROOT / 'openhands_agent' / 'config' / 'openhands_agent_core_lib.yaml'
         ).read_text(encoding='utf-8')
+        install_deps_text = (
+            REPO_ROOT / 'scripts' / 'install-python-deps.sh'
+        ).read_text(encoding='utf-8')
 
         self.assertIn('cp .env.example .env', bootstrap_text)
-        self.assertIn('.venv/bin/python -m pip install -e .', bootstrap_text)
+        self.assertIn('sh ./scripts/install-python-deps.sh .venv/bin/python editable', bootstrap_text)
         self.assertIn('.venv/bin/python -m unittest discover -s tests', bootstrap_text)
+        self.assertIn('hydra-core>=1.3.2', install_deps_text)
+        self.assertIn('core-lib>=0.2.0', install_deps_text)
         self.assertNotIn('openhands_agent.validate_env --mode agent', run_local_text)
         self.assertIn('openhands_agent.install', run_local_text)
         self.assertIn('bootstrap:', makefile_text)
@@ -150,6 +155,6 @@ class DeploymentFilesTests(unittest.TestCase):
 
         self.assertIn('python -m unittest discover -s tests', workflow_text)
         self.assertIn(
-            'shellcheck scripts/bootstrap.sh scripts/run-local.sh docker/entrypoint-run.sh docker/entrypoint-install.sh',
+            'shellcheck scripts/bootstrap.sh scripts/install-python-deps.sh scripts/run-local.sh docker/entrypoint-run.sh docker/entrypoint-install.sh',
             workflow_text,
         )
