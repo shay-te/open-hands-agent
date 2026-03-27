@@ -22,13 +22,13 @@ class RepositoryService(Service):
         self.logger = logging.getLogger(self.__class__.__name__)
         self._max_retries = max_retries
         self._repositories = self._load_repositories(repositories_config)
-        self._validate_inventory()
 
     @property
     def repositories(self) -> list[object]:
         return list(self._repositories)
 
     def validate_connections(self) -> None:
+        self._validate_inventory()
         for repository in self._repositories:
             self._validate_local_path(repository)
 

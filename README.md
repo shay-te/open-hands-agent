@@ -419,7 +419,7 @@ The compose file uses the current official OpenHands container image pattern fro
 
 Before running `docker compose up --build`, make sure `.env` contains the selected issue-platform settings, repository settings, OpenHands settings, retry settings, and optional email settings you want Docker Compose to pass through.
 `make configure` also writes `.docker-compose.selected-repos.yaml`; `make compose-up` automatically includes it so the agent container only sees the repository folders you selected, while OpenHands runtime containers get the matching `OPENHANDS_SANDBOX_VOLUMES` scope.
-For the default SQLite setup, the compose file stores the database under `/data` in a named Docker volume so the `install` and `openhands-agent` containers use the same file. If you use Postgres or another external database, override `OPENHANDS_AGENT_DB_PATH` and the related DB env vars in `.env`.
+For the default SQLite setup, the compose file stores the database under `data/` in the agent container working directory, backed by a named Docker volume shared by the `install` and `openhands-agent` containers. If you use Postgres or another external database, override `OPENHANDS_AGENT_DB_PATH` and the related DB env vars in `.env`.
 
 If you use `.env`, Docker Compose will load it automatically, so you can keep both the agent config and the OpenHands LLM config in one place and avoid manual setup in the OpenHands UI for the env-supported options.
 The OpenHands container always stores its internal state at `/.openhands`; `OPENHANDS_STATE_DIR` only controls which host folder is mounted there, so prefer an absolute host path when overriding it.

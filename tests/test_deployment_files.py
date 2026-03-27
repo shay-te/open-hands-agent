@@ -48,11 +48,11 @@ class DeploymentFilesTests(unittest.TestCase):
         )
         self.assertIn('REPOSITORY_ROOT_PATH: ${REPOSITORY_ROOT_PATH:-.}', compose_text)
         self.assertIn(
-            'OPENHANDS_AGENT_STATE_FILE: ${OPENHANDS_AGENT_STATE_FILE:-/data/openhands_agent_state.json}',
+            'OPENHANDS_AGENT_STATE_FILE: ${OPENHANDS_AGENT_STATE_FILE:-data/openhands_agent_state.json}',
             compose_text,
         )
         self.assertIn(
-            'OPENHANDS_AGENT_DB_PATH: ${OPENHANDS_AGENT_DB_PATH:-/data}',
+            'OPENHANDS_AGENT_DB_PATH: ${OPENHANDS_AGENT_DB_PATH:-data}',
             compose_text,
         )
 
@@ -134,7 +134,7 @@ class DeploymentFilesTests(unittest.TestCase):
         self.assertIn('python -m openhands_agent.install', install_entrypoint_text)
         self.assertIn('install:', compose_text)
         self.assertIn('/app/docker/entrypoint-install.sh', compose_text)
-        self.assertIn('openhands-agent-data:/data', compose_text)
+        self.assertIn('openhands-agent-data:/app/data', compose_text)
         self.assertIn('docker.openhands.dev/openhands/openhands:1.5', compose_text)
         self.assertIn(
             'AGENT_SERVER_IMAGE_REPOSITORY: ${OPENHANDS_AGENT_SERVER_IMAGE_REPOSITORY:-ghcr.io/openhands/agent-server}',

@@ -190,6 +190,23 @@ class AgentServiceTests(unittest.TestCase):
             str(exc_context.exception),
         )
 
+    def test_validate_connections_reports_repository_inventory_errors_gracefully(self) -> None:
+        self.task_client.validate_connection = Mock()
+        self.openhands_client.validate_connection = Mock()
+        self.repository_service.validate_connections = Mock(
+            side_effect=ValueError('at least one repository must be configured')
+        )
+        self.service.logger = Mock()
+
+        with self.assertRaisesRegex(RuntimeError, 'startup dependency validation failed') as exc_context:
+            self.service.validate_connections()
+
+        self.assertIn(
+            '- unable to validate repositories: at least one repository must be configured',
+            str(exc_context.exception),
+        )
+        self.assertIn('[repositories]', str(exc_context.exception))
+
     def test_process_assigned_task_creates_prs_for_all_selected_repositories(self) -> None:
         task = self.task_data_access.get_assigned_tasks()[0]
         results = self.service.process_assigned_task(task)

@@ -15,7 +15,7 @@ class RepositoryServiceTests(unittest.TestCase):
     def setUp(self) -> None:
         self.cfg = build_test_cfg()
 
-    def test_rejects_duplicate_repository_ids(self) -> None:
+    def test_validate_connections_rejects_duplicate_repository_ids(self) -> None:
         repositories = [
             types.SimpleNamespace(
                 id='client',
@@ -41,10 +41,12 @@ class RepositoryServiceTests(unittest.TestCase):
             ),
         ]
 
-        with self.assertRaisesRegex(ValueError, 'duplicate repository id'):
-            RepositoryService(repositories, 3)
+        service = RepositoryService(repositories, 3)
 
-    def test_rejects_duplicate_aliases(self) -> None:
+        with self.assertRaisesRegex(ValueError, 'duplicate repository id'):
+            service.validate_connections()
+
+    def test_validate_connections_rejects_duplicate_aliases(self) -> None:
         repositories = [
             types.SimpleNamespace(
                 id='client',
@@ -70,8 +72,10 @@ class RepositoryServiceTests(unittest.TestCase):
             ),
         ]
 
+        service = RepositoryService(repositories, 3)
+
         with self.assertRaisesRegex(ValueError, 'duplicate repository alias'):
-            RepositoryService(repositories, 3)
+            service.validate_connections()
 
     def test_resolves_multiple_repositories_from_task_text(self) -> None:
         service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
@@ -201,6 +205,12 @@ class RepositoryServiceTests(unittest.TestCase):
             service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
             with self.assertRaisesRegex(ValueError, 'missing local repository path'):
                 service.validate_connections()
+
+    def test_validate_connections_requires_at_least_one_repository(self) -> None:
+        service = RepositoryService([], 3)
+
+        with self.assertRaisesRegex(ValueError, 'at least one repository must be configured'):
+            service.validate_connections()
 
     def test_list_pull_request_comments_returns_empty_without_provider_api(self) -> None:
         repository = self.cfg.openhands_agent.repositories[0]

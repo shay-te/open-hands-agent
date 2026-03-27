@@ -38,12 +38,12 @@ x-openhands-agent-env: &openhands-agent-env
   OPENHANDS_AGENT_DB_PASSWORD: ${OPENHANDS_AGENT_DB_PASSWORD:-}
   OPENHANDS_AGENT_DB_HOST: ${OPENHANDS_AGENT_DB_HOST:-}
   OPENHANDS_AGENT_DB_PORT: ${OPENHANDS_AGENT_DB_PORT:-}
-  OPENHANDS_AGENT_DB_PATH: ${OPENHANDS_AGENT_DB_PATH:-/data}
+  OPENHANDS_AGENT_DB_PATH: ${OPENHANDS_AGENT_DB_PATH:-data}
   OPENHANDS_AGENT_DB_FILE: ${OPENHANDS_AGENT_DB_FILE:-openhands_agent.db}
   OPENHANDS_BASE_URL: http://openhands:3000
   OPENHANDS_API_KEY: ${OPENHANDS_API_KEY:-local}
   OPENHANDS_AGENT_MAX_RETRIES: ${OPENHANDS_AGENT_MAX_RETRIES:-5}
-  OPENHANDS_AGENT_STATE_FILE: ${OPENHANDS_AGENT_STATE_FILE:-/data/openhands_agent_state.json}
+  OPENHANDS_AGENT_STATE_FILE: ${OPENHANDS_AGENT_STATE_FILE:-data/openhands_agent_state.json}
   OPENHANDS_AGENT_FAILURE_EMAIL_ENABLED: ${OPENHANDS_AGENT_FAILURE_EMAIL_ENABLED:-false}
   OPENHANDS_AGENT_FAILURE_EMAIL_TEMPLATE_ID: ${OPENHANDS_AGENT_FAILURE_EMAIL_TEMPLATE_ID:-0}
   OPENHANDS_AGENT_FAILURE_EMAIL_TO: ${OPENHANDS_AGENT_FAILURE_EMAIL_TO:-}
@@ -89,7 +89,7 @@ services:
     entrypoint: ["/app/docker/entrypoint-install.sh"]
     environment: *openhands-agent-env
     volumes:
-      - openhands-agent-data:/data
+      - openhands-agent-data:/app/data
     restart: "no"
 
   openhands-agent:
@@ -103,7 +103,7 @@ services:
         condition: service_completed_successfully
     environment: *openhands-agent-env
     volumes:
-      - openhands-agent-data:/data
+      - openhands-agent-data:/app/data
 
 volumes:
   openhands-agent-data:
