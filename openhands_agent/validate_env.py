@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import os
 from pathlib import Path
 
 
 TRUE_VALUES = {'1', 'true', 'yes', 'on'}
+logger = logging.getLogger(__name__)
 
 
 def _read_env_file(path: str | None) -> dict[str, str]:
@@ -174,6 +176,7 @@ def validate_environment(
 
 
 def main() -> int:
+    logging.basicConfig(level=logging.INFO, format='%(message)s')
     parser = argparse.ArgumentParser(description='Validate openhands-agent environment.')
     parser.add_argument(
         '--mode',
@@ -187,10 +190,10 @@ def main() -> int:
     errors = _validate(args.mode, env)
     if errors:
         for error in errors:
-            print(error)
+            logger.info(error)
         return 1
 
-    print(f'{args.mode} environment validation passed')
+    logger.info('%s environment validation passed', args.mode)
     return 0
 
 

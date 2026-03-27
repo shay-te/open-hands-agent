@@ -1,9 +1,7 @@
-import io
 import json
 import types
 import unittest
 from unittest.mock import Mock
-from contextlib import redirect_stdout
 
 import bootstrap  # noqa: F401
 
@@ -27,7 +25,7 @@ class ProcessAssignedTasksJobTests(unittest.TestCase):
         with self.assertRaises(AssertionError):
             self.job.initialized(types.SimpleNamespace())
 
-    def test_run_prints_results_to_stdout(self) -> None:
+    def test_run_logs_results(self) -> None:
         results = [{'id': '17', 'url': 'https://bitbucket/pr/17'}]
         self.openhands_core_lib.service = Mock()
         self.openhands_core_lib.service.get_assigned_tasks.return_value = ['task-1']
@@ -35,14 +33,12 @@ class ProcessAssignedTasksJobTests(unittest.TestCase):
         self.openhands_core_lib.service.get_new_pull_request_comments.return_value = []
         self.openhands_core_lib.service.process_review_comment = Mock()
         self.openhands_core_lib.service.notification_service = Mock()
+        self.job.logger = Mock()
         self.job.initialized(self.openhands_core_lib)
-        stdout = io.StringIO()
-
-        with redirect_stdout(stdout):
-            returned_results = self.job.run()
+        returned_results = self.job.run()
 
         self.assertIsNone(returned_results)
-        self.assertEqual(stdout.getvalue().strip(), json.dumps(results))
+        self.job.logger.info.assert_called_once_with(json.dumps(results))
 
     def test_run_sends_failure_notification_before_reraising(self) -> None:
         notification_service = Mock()
@@ -86,11 +82,9 @@ class ProcessAssignedTasksJobTests(unittest.TestCase):
         self.openhands_core_lib.service.get_new_pull_request_comments.return_value = []
         self.openhands_core_lib.service.process_review_comment = Mock()
         self.openhands_core_lib.service.notification_service = Mock()
+        self.job.logger = Mock()
         self.job.initialized(self.openhands_core_lib)
-        stdout = io.StringIO()
-
-        with redirect_stdout(stdout):
-            self.job.run()
+        self.job.run()
 
         self.assertEqual(
             self.openhands_core_lib.service.process_assigned_task.call_args_list[0].args,
@@ -114,11 +108,9 @@ class ProcessAssignedTasksJobTests(unittest.TestCase):
             {'status': 'updated'},
         ]
         self.openhands_core_lib.service.notification_service = Mock()
+        self.job.logger = Mock()
         self.job.initialized(self.openhands_core_lib)
-        stdout = io.StringIO()
-
-        with redirect_stdout(stdout):
-            self.job.run()
+        self.job.run()
 
         self.assertEqual(
             self.openhands_core_lib.service.process_review_comment.call_args_list[0].args,

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import os
 from pathlib import Path
 import re
@@ -29,6 +30,7 @@ except (ImportError, ModuleNotFoundError):
 
 ISSUE_PLATFORMS = ['youtrack', 'jira', 'github', 'gitlab', 'bitbucket']
 UNQUOTED_ENV_VALUE_PATTERN = re.compile(r'^[A-Za-z0-9_./:@%+=,\-~]*$')
+logger = logging.getLogger(__name__)
 ISSUE_PLATFORM_DETAILS = {
     'youtrack': {
         'label': 'YouTrack',
@@ -149,7 +151,7 @@ def input_int(message: str, default: int | None = None) -> int:
             return default
         if _is_int(candidate):
             return int(candidate)
-        print('Please enter a valid integer.')
+        logger.info('Please enter a valid integer.')
 
 
 def input_enum(
@@ -163,10 +165,10 @@ def input_enum(
         None,
     )
     while True:
-        print(message)
+        logger.info(message)
         for number, value in options_by_number.items():
             suffix = ' (default)' if number == default_number else ''
-            print(f'{number}. {value}{suffix}')
+            logger.info('%s. %s%s', number, value, suffix)
         raw_value = _input_str_local(
             'Select an option by number',
             default=default_number,
@@ -175,7 +177,7 @@ def input_enum(
         selected = options_by_number.get(raw_value)
         if selected is not None:
             return selected
-        print(f'Please choose one of: {", ".join(options_by_number)}')
+        logger.info('Please choose one of: %s', ", ".join(options_by_number))
 
 
 def input_list(
@@ -208,7 +210,7 @@ def _input_str_local(
             return default
         if allow_empty:
             return ''
-        print('This value is required.')
+        logger.info('This value is required.')
 
 
 def _input_yes_no_local(message: str, default: bool = True) -> bool:
@@ -225,7 +227,7 @@ def _input_yes_no_local(message: str, default: bool = True) -> bool:
             return True
         if raw_value in {'n', 'no'}:
             return False
-        print('Please answer Yes or No.')
+        logger.info('Please answer Yes or No.')
 
 
 def _is_int(value: str) -> bool:
@@ -291,6 +293,7 @@ def _format_env_value(value: object) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
+    logging.basicConfig(level=logging.INFO, format='%(message)s')
     parser = argparse.ArgumentParser(description='Interactively create the openhands-agent .env file.')
     parser.add_argument('--template', default='.env.example')
     parser.add_argument('--output', default='.env')
@@ -313,7 +316,7 @@ def main(argv: list[str] | None = None) -> int:
         f'{output_path} already exists. Overwrite it',
         default=True,
     ):
-        print('Configuration cancelled.')
+        logger.info('Configuration cancelled.')
         return 1
 
     values = current_env.copy()
@@ -329,17 +332,17 @@ def main(argv: list[str] | None = None) -> int:
 
     errors = validate_agent_env(values)
     errors.extend(validate_openhands_env(values))
-    print(f'Wrote configuration to {output_path}')
+    logger.info('Wrote configuration to %s', output_path)
     if selected_paths:
-        print(f'Wrote Docker Compose repository mounts to {compose_override_path}')
+        logger.info('Wrote Docker Compose repository mounts to %s', compose_override_path)
     if errors:
-        print('The file was written, but a few required values still need attention:')
+        logger.info('The file was written, but a few required values still need attention:')
         for error in errors:
-            print(f'- {error}')
-        print('Run make doctor after filling the remaining values.')
+            logger.info('- %s', error)
+        logger.info('Run make doctor after filling the remaining values.')
         return 0
 
-    print('Configuration looks valid. Next: make doctor && make run')
+    logger.info('Configuration looks valid. Next: make doctor && make run')
     return 0
 
 
@@ -456,10 +459,10 @@ def _prompt_discovered_repository(
     if not discovered:
         raise ValueError(f'no git repositories were found under {projects_root}')
 
-    print('Discovered repositories:')
+    logger.info('Discovered repositories:')
     for index, repository in enumerate(discovered, start=1):
         remote_suffix = f' ({repository.remote_url})' if repository.remote_url else ''
-        print(f'{index}. {repository.local_path}{remote_suffix}')
+        logger.info('%s. %s%s', index, repository.local_path, remote_suffix)
 
     discovered_defaults = dict(defaults)
     discovered_defaults['REPOSITORY_ROOT_PATH'] = projects_root
@@ -685,13 +688,13 @@ def _prompt_repository_numbers(
         try:
             numbers = _parse_repository_numbers(raw_value, candidate_count)
         except ValueError as exc:
-            print(str(exc))
+            logger.info('%s', exc)
             continue
         if numbers:
             return numbers
         if allow_empty:
             return []
-        print('Select at least one repository number.')
+        logger.info('Select at least one repository number.')
 
 
 def _parse_repository_numbers(raw_value: str, candidate_count: int) -> list[int]:

@@ -30,7 +30,7 @@ class ProcessAssignedTasksJob(Job):
     def run(self) -> None:
         try:
             results = collect_processing_results(self._data_handler.service)
-            print(json.dumps(results))
+            self.logger.info(json.dumps(results))
         except Exception as exc:
             self.logger.exception('process_assigned_tasks_job failed')
             try:
