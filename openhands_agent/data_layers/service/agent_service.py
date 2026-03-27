@@ -3,6 +3,7 @@ import traceback
 
 from core_lib.data_layers.service.service import Service
 
+from openhands_agent.client.retry_utils import is_retryable_exception
 from openhands_agent.data_layers.data.review_comment import ReviewComment
 from openhands_agent.data_layers.data.task import Task
 from openhands_agent.data_layers.data_access.task_data_access import TaskDataAccess
@@ -51,29 +52,68 @@ class AgentService(Service):
 
     def validate_connections(self) -> None:
         validations = [
-            (self._task_data_access.provider_name, self._task_data_access.validate_connection),
-            ('openhands', self._implementation_service.validate_connection),
-            ('openhands_testing', self._testing_service.validate_connection),
-            ('repositories', self._repository_service.validate_connections),
+            (
+                self._task_data_access.provider_name,
+                self._task_data_access.validate_connection,
+                self._retry_count(getattr(self._task_data_access, '_client', None)),
+            ),
+            (
+                'openhands',
+                self._implementation_service.validate_connection,
+                self._retry_count(getattr(self._implementation_service, '_client', None)),
+            ),
+            (
+                'openhands_testing',
+                self._testing_service.validate_connection,
+                self._retry_count(getattr(self._testing_service, '_client', None)),
+            ),
+            ('repositories', self._repository_service.validate_connections, 1),
         ]
         if self._state_data_access is not None:
-            validations.append(('state', self._state_data_access.validate))
-        failures: list[str] = []
+            validations.append(('state', self._state_data_access.validate, 1))
+        summaries: list[str] = []
+        details: list[str] = []
 
-        for service_name, validate in validations:
+        for service_name, validate, max_retries in validations:
             try:
                 validate()
                 self.logger.info('validated %s connection', service_name)
-            except Exception:
+            except Exception as exc:
                 self.logger.exception('failed to validate %s connection', service_name)
-                failures.append(
+                summaries.append(
+                    self._validation_failure_summary(service_name, exc, max_retries)
+                )
+                details.append(
                     f'[{service_name}]\n{traceback.format_exc().rstrip()}'
                 )
 
-        if failures:
+        if details:
             raise RuntimeError(
-                'startup dependency validation failed:\n\n' + '\n\n'.join(failures)
+                'startup dependency validation failed:\n\n'
+                + '\n'.join(f'- {summary}' for summary in summaries)
+                + '\n\nDetails:\n\n'
+                + '\n\n'.join(details)
             )
+
+    @staticmethod
+    def _validation_failure_summary(
+        service_name: str,
+        exc: Exception,
+        max_retries: int,
+    ) -> str:
+        if is_retryable_exception(exc):
+            return (
+                f'unable to connect to {service_name} '
+                f'(tried {max(1, max_retries)} times)'
+            )
+        return f'unable to validate {service_name}: {exc}'
+
+    @staticmethod
+    def _retry_count(client) -> int:
+        try:
+            return max(1, int(getattr(client, 'max_retries', 1)))
+        except (TypeError, ValueError):
+            return 1
 
     def get_assigned_tasks(self) -> list[Task]:
         return self._task_data_access.get_assigned_tasks()

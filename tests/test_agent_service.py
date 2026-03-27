@@ -164,9 +164,31 @@ class AgentServiceTests(unittest.TestCase):
             self.service.validate_connections()
 
         self.assertEqual(self.service.logger.exception.call_count, 3)
+        self.assertIn('- unable to validate youtrack: youtrack down', str(exc_context.exception))
+        self.assertIn('- unable to validate openhands: openhands down', str(exc_context.exception))
+        self.assertIn('- unable to validate openhands_testing: openhands down', str(exc_context.exception))
+        self.assertIn('Details:', str(exc_context.exception))
         self.assertIn('[youtrack]', str(exc_context.exception))
         self.assertIn('[openhands]', str(exc_context.exception))
         self.assertIn('[openhands_testing]', str(exc_context.exception))
+
+    def test_validate_connections_summarizes_retryable_failures_with_attempt_count(self) -> None:
+        self.task_client.validate_connection = Mock()
+        self.openhands_client.max_retries = 5
+        self.openhands_client.validate_connection = Mock(side_effect=ConnectionError('connection refused'))
+        self.service.logger = Mock()
+
+        with self.assertRaisesRegex(RuntimeError, 'startup dependency validation failed') as exc_context:
+            self.service.validate_connections()
+
+        self.assertIn(
+            '- unable to connect to openhands (tried 5 times)',
+            str(exc_context.exception),
+        )
+        self.assertIn(
+            '- unable to connect to openhands_testing (tried 5 times)',
+            str(exc_context.exception),
+        )
 
     def test_process_assigned_task_creates_prs_for_all_selected_repositories(self) -> None:
         task = self.task_data_access.get_assigned_tasks()[0]
