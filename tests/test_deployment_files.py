@@ -75,6 +75,16 @@ class DeploymentFilesTests(unittest.TestCase):
             'OPENHANDS_AGENT_DB_PATH: ${OPENHANDS_AGENT_DB_PATH:-data}',
             compose_text,
         )
+        self.assertIn('OH_AGENT_SERVER_ENV: >-', compose_text)
+        self.assertIn(
+            '"OH_SANDBOX_VOLUMES":"${OPENHANDS_SANDBOX_VOLUMES:-}"',
+            compose_text,
+        )
+        self.assertIn(
+            '"LLM_AWS_ACCESS_KEY_ID":"${AWS_ACCESS_KEY_ID:-}"',
+            compose_text,
+        )
+        self.assertIn('OH_PERSISTENCE_DIR: /data', compose_text)
 
     def test_env_example_includes_openhands_llm_variables(self) -> None:
         env_example_text = (REPO_ROOT / '.env.example').read_text(encoding='utf-8')
@@ -155,6 +165,7 @@ class DeploymentFilesTests(unittest.TestCase):
         self.assertIn('install:', compose_text)
         self.assertIn('/app/docker/entrypoint-install.sh', compose_text)
         self.assertIn('openhands-agent-data:/app/data', compose_text)
+        self.assertIn('${REPOSITORY_ROOT_PATH:-.}:${REPOSITORY_ROOT_PATH:-.}:ro', compose_text)
         self.assertIn('docker.openhands.dev/openhands/openhands:1.5', compose_text)
         self.assertIn(
             'AGENT_SERVER_IMAGE_REPOSITORY: ${OPENHANDS_AGENT_SERVER_IMAGE_REPOSITORY:-ghcr.io/openhands/agent-server}',

@@ -77,6 +77,20 @@ services:
   openhands:
     image: docker.openhands.dev/openhands/openhands:1.5
     pull_policy: always
+    environment:
+      LLM_MODEL: ${OPENHANDS_LLM_MODEL:-}
+      LLM_API_KEY: ${OPENHANDS_LLM_API_KEY:-}
+      LLM_BASE_URL: ${OPENHANDS_LLM_BASE_URL:-}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_REGION_NAME: ${AWS_REGION_NAME:-}
+      AWS_DEFAULT_REGION: ${AWS_REGION_NAME:-}
+      AWS_REGION: ${AWS_REGION_NAME:-}
+      AWS_BEARER_TOKEN_BEDROCK: ${AWS_BEARER_TOKEN_BEDROCK:-}
+      SANDBOX_VOLUMES: ${OPENHANDS_SANDBOX_VOLUMES:-}
+      OH_AGENT_SERVER_ENV: >-
+        {"LLM_MODEL":"${OPENHANDS_LLM_MODEL:-}","LLM_API_KEY":"${OPENHANDS_LLM_API_KEY:-}","LLM_BASE_URL":"${OPENHANDS_LLM_BASE_URL:-}","AWS_ACCESS_KEY_ID":"${AWS_ACCESS_KEY_ID:-}","AWS_SECRET_ACCESS_KEY":"${AWS_SECRET_ACCESS_KEY:-}","AWS_REGION_NAME":"${AWS_REGION_NAME:-}","AWS_DEFAULT_REGION":"${AWS_REGION_NAME:-}","AWS_REGION":"${AWS_REGION_NAME:-}","LLM_AWS_ACCESS_KEY_ID":"${AWS_ACCESS_KEY_ID:-}","LLM_AWS_SECRET_ACCESS_KEY":"${AWS_SECRET_ACCESS_KEY:-}","LLM_AWS_REGION_NAME":"${AWS_REGION_NAME:-}","AWS_BEARER_TOKEN_BEDROCK":"${AWS_BEARER_TOKEN_BEDROCK:-}","OH_SANDBOX_VOLUMES":"${OPENHANDS_SANDBOX_VOLUMES:-}"}
+      OH_PERSISTENCE_DIR: /data
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./docker_data/openhands:/data
@@ -109,6 +123,7 @@ services:
     environment: *openhands-agent-env
     volumes:
       - openhands-agent-data:/app/data
+      - ${REPOSITORY_ROOT_PATH:-.}:${REPOSITORY_ROOT_PATH:-.}:ro
 
 volumes:
   openhands-agent-data:
