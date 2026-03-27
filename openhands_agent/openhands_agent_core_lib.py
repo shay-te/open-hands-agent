@@ -55,13 +55,26 @@ class OpenHandsAgentCoreLib(CoreLib):
         self.logger = configure_logger(cfg.core_lib.app.name)
         open_cfg = cfg.openhands_agent
         retry_cfg = open_cfg.retry
-        issue_platform = self._issue_platform(open_cfg)
-        ticket_cfg = self._issue_platform_config(open_cfg, issue_platform)
+        issue_platform = str(
+            open_cfg.issue_platform
+            or open_cfg.ticket_system
+            or 'youtrack'
+        ).strip().lower()
+        ticket_cfg = {
+            'youtrack': open_cfg.youtrack,
+            'jira': open_cfg.jira,
+            'github': open_cfg.github_issues,
+            'github_issues': open_cfg.github_issues,
+            'gitlab': open_cfg.gitlab_issues,
+            'gitlab_issues': open_cfg.gitlab_issues,
+            'bitbucket': open_cfg.bitbucket_issues,
+            'bitbucket_issues': open_cfg.bitbucket_issues,
+        }.get(issue_platform)
         if ticket_cfg is None:
             raise ValueError(f'missing issue platform config for: {issue_platform}')
 
         CoreLib.connection_factory_registry.get_or_reg(self.config.core_lib.data.sqlalchemy)
-        _email_core_lib = EmailCoreLib(cfg) if hasattr(cfg.core_lib, 'email_core_lib') else None
+        _email_core_lib = EmailCoreLib(cfg)
         _ticket_client = build_ticket_client(issue_platform, ticket_cfg, retry_cfg.max_retries)
         _implementation_openhands_client = OpenHandsClient(
             open_cfg.openhands.base_url,
@@ -78,7 +91,12 @@ class OpenHandsAgentCoreLib(CoreLib):
         _testing_service = TestingService(_testing_openhands_client)
         _repository_service = RepositoryService(open_cfg, retry_cfg.max_retries)
         _state_data_access = AgentStateDataAccess(open_cfg.state.file_path)
-        notification_service = NotificationService(app_name=self.config.core_lib.app.name, email_core_lib=_email_core_lib, failure_email_cfg=getattr(open_cfg, 'failure_email', None), completion_email_cfg=getattr(open_cfg, 'completion_email', None))
+        notification_service = NotificationService(
+            app_name=self.config.core_lib.app.name,
+            email_core_lib=_email_core_lib,
+            failure_email_cfg=open_cfg.failure_email,
+            completion_email_cfg=open_cfg.completion_email,
+        )
         self.service = AgentService(
             task_data_access=_task_data_access,
             implementation_service=_implementation_service,
@@ -88,25 +106,3 @@ class OpenHandsAgentCoreLib(CoreLib):
             state_data_access=_state_data_access,
         )
         self.service.validate_connections()
-
-    @staticmethod
-    def _issue_platform(open_cfg: DictConfig) -> str:
-        return str(
-            getattr(open_cfg, 'issue_platform', '')
-            or getattr(open_cfg, 'ticket_system', '')
-            or 'youtrack'
-        ).strip().lower()
-
-    @staticmethod
-    def _issue_platform_config(open_cfg: DictConfig, issue_platform: str):
-        config_name = {
-            'youtrack': 'youtrack',
-            'jira': 'jira',
-            'github': 'github_issues',
-            'github_issues': 'github_issues',
-            'gitlab': 'gitlab_issues',
-            'gitlab_issues': 'gitlab_issues',
-            'bitbucket': 'bitbucket_issues',
-            'bitbucket_issues': 'bitbucket_issues',
-        }.get(issue_platform, issue_platform)
-        return getattr(open_cfg, config_name, None)

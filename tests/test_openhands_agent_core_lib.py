@@ -1,7 +1,5 @@
 import unittest
 from unittest.mock import Mock, patch
-import types
-
 import bootstrap  # noqa: F401
 
 from openhands_agent.openhands_agent_core_lib import OpenHandsAgentCoreLib
@@ -160,44 +158,6 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
         mock_service_cls.return_value.validate_connections.assert_called_once_with()
         self.assertIs(app.service, mock_service_cls.return_value)
 
-    def test_builds_without_email_core_lib_config(self) -> None:
-        cfg = build_test_cfg()
-        cfg.core_lib = types.SimpleNamespace(
-            app=cfg.core_lib.app,
-            data=cfg.core_lib.data,
-        )
-
-        with patch(
-            'openhands_agent.openhands_agent_core_lib.CoreLib.connection_factory_registry.get_or_reg'
-        ), patch(
-            'openhands_agent.openhands_agent_core_lib.build_ticket_client'
-        ), patch(
-            'openhands_agent.openhands_agent_core_lib.OpenHandsClient'
-        ), patch(
-            'openhands_agent.openhands_agent_core_lib.AgentStateDataAccess'
-        ), patch(
-            'openhands_agent.openhands_agent_core_lib.RepositoryService'
-        ), patch(
-            'openhands_agent.openhands_agent_core_lib.TaskDataAccess'
-        ), patch(
-            'openhands_agent.openhands_agent_core_lib.ImplementationService'
-        ), patch(
-            'openhands_agent.openhands_agent_core_lib.TestingService'
-        ), patch(
-            'openhands_agent.openhands_agent_core_lib.NotificationService'
-        ) as mock_notification_service_cls, patch(
-            'openhands_agent.openhands_agent_core_lib.AgentService'
-        ) as mock_service_cls:
-            OpenHandsAgentCoreLib(cfg)
-
-        mock_notification_service_cls.assert_called_once_with(
-            app_name=cfg.core_lib.app.name,
-            email_core_lib=None,
-            failure_email_cfg=cfg.openhands_agent.failure_email,
-            completion_email_cfg=cfg.openhands_agent.completion_email,
-        )
-        mock_service_cls.return_value.validate_connections.assert_called_once_with()
-
     def test_builds_jira_ticket_client_when_configured(self) -> None:
         cfg = build_test_cfg()
         cfg.openhands_agent.ticket_system = 'jira'
@@ -269,6 +229,37 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
             cfg.openhands_agent.github_issues,
             cfg.openhands_agent.retry.max_retries,
         )
+
+    def test_always_instantiates_email_core_lib_directly(self) -> None:
+        cfg = build_test_cfg()
+        delattr(cfg.core_lib, 'email_core_lib')
+
+        with patch(
+            'openhands_agent.openhands_agent_core_lib.CoreLib.connection_factory_registry.get_or_reg'
+        ), patch(
+            'openhands_agent.openhands_agent_core_lib.EmailCoreLib'
+        ) as mock_email_core_lib_cls, patch(
+            'openhands_agent.openhands_agent_core_lib.build_ticket_client'
+        ), patch(
+            'openhands_agent.openhands_agent_core_lib.OpenHandsClient'
+        ), patch(
+            'openhands_agent.openhands_agent_core_lib.AgentStateDataAccess'
+        ), patch(
+            'openhands_agent.openhands_agent_core_lib.RepositoryService'
+        ), patch(
+            'openhands_agent.openhands_agent_core_lib.TaskDataAccess'
+        ), patch(
+            'openhands_agent.openhands_agent_core_lib.ImplementationService'
+        ), patch(
+            'openhands_agent.openhands_agent_core_lib.TestingService'
+        ), patch(
+            'openhands_agent.openhands_agent_core_lib.NotificationService'
+        ), patch(
+            'openhands_agent.openhands_agent_core_lib.AgentService'
+        ):
+            OpenHandsAgentCoreLib(cfg)
+
+        mock_email_core_lib_cls.assert_called_once_with(cfg)
 
     def test_install_upgrades_database_to_head(self) -> None:
         with patch(

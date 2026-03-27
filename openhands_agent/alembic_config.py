@@ -5,20 +5,17 @@ from core_lib.data_layers.data.data_helpers import build_url
 from omegaconf import DictConfig
 
 
-def _to_mapping(data) -> dict:
-    if isinstance(data, dict):
-        return dict(data)
-    if hasattr(data, 'items'):
-        return dict(data.items())
-    return {
-        key: getattr(data, key)
-        for key in dir(data)
-        if not key.startswith('_') and not callable(getattr(data, key))
-    }
-
-
 def _build_sqlalchemy_url(cfg: DictConfig) -> str:
-    return build_url(**_to_mapping(cfg.core_lib.data.sqlalchemy.config.url))
+    url_cfg = cfg.core_lib.data.sqlalchemy.config.url
+    return build_url(
+        protocol=url_cfg.protocol,
+        username=url_cfg.username,
+        password=url_cfg.password,
+        host=url_cfg.host,
+        port=url_cfg.port,
+        path=url_cfg.path,
+        file=url_cfg.file,
+    )
 
 
 def build_alembic_config(cfg: DictConfig) -> Config:
