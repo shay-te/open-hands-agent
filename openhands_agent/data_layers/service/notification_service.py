@@ -18,13 +18,7 @@ class NotificationService(Service):
     ) -> None:
         assert email_core_lib is not None, 'email_core_lib is required'
         assert failure_email_cfg is not None, 'failure_email_cfg is required'
-        assert getattr(failure_email_cfg, 'enabled', False), 'failure_email_cfg must be enabled'
         assert completion_email_cfg is not None, 'completion_email_cfg is required'
-        assert getattr(
-            completion_email_cfg,
-            'enabled',
-            False,
-        ), 'completion_email_cfg must be enabled'
         self._app_name = app_name
         self._email_core_lib = email_core_lib
         self._failure_email_cfg = failure_email_cfg

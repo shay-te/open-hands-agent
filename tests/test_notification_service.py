@@ -47,15 +47,16 @@ class NotificationServiceTests(unittest.TestCase):
             ),
         )
 
-    def test_init_requires_enabled_failure_email_config(self) -> None:
+    def test_init_allows_disabled_failure_email_config(self) -> None:
         self.cfg.openhands_agent.failure_email.enabled = False
-        with self.assertRaisesRegex(AssertionError, 'failure_email_cfg must be enabled'):
-            NotificationService(
-                app_name=self.cfg.core_lib.app.name,
-                email_core_lib=self.email_core_lib,
-                failure_email_cfg=self.cfg.openhands_agent.failure_email,
-                completion_email_cfg=self.cfg.openhands_agent.completion_email,
-            )
+        service = NotificationService(
+            app_name=self.cfg.core_lib.app.name,
+            email_core_lib=self.email_core_lib,
+            failure_email_cfg=self.cfg.openhands_agent.failure_email,
+            completion_email_cfg=self.cfg.openhands_agent.completion_email,
+        )
+
+        self.assertIsInstance(service, NotificationService)
 
     def test_notify_failure_renders_message_from_template(self) -> None:
         result = self.service.notify_failure(
@@ -107,15 +108,16 @@ class NotificationServiceTests(unittest.TestCase):
         self.assertFalse(result)
         self.assertEqual(self.email_core_lib.send.call_count, 2)
 
-    def test_init_requires_enabled_completion_email_config(self) -> None:
+    def test_init_allows_disabled_completion_email_config(self) -> None:
         self.cfg.openhands_agent.completion_email.enabled = False
-        with self.assertRaisesRegex(AssertionError, 'completion_email_cfg must be enabled'):
-            NotificationService(
-                app_name=self.cfg.core_lib.app.name,
-                email_core_lib=self.email_core_lib,
-                failure_email_cfg=self.cfg.openhands_agent.failure_email,
-                completion_email_cfg=self.cfg.openhands_agent.completion_email,
-            )
+        service = NotificationService(
+            app_name=self.cfg.core_lib.app.name,
+            email_core_lib=self.email_core_lib,
+            failure_email_cfg=self.cfg.openhands_agent.failure_email,
+            completion_email_cfg=self.cfg.openhands_agent.completion_email,
+        )
+
+        self.assertIsInstance(service, NotificationService)
 
     def test_init_requires_email_core_lib(self) -> None:
         with self.assertRaisesRegex(AssertionError, 'email_core_lib is required'):
