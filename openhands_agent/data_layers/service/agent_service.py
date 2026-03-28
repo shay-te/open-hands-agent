@@ -133,7 +133,10 @@ class AgentService(Service):
             repositories = self._repository_service.resolve_task_repositories(task)
         except Exception as exc:
             self.logger.exception('failed to resolve repositories for task %s', task.id)
-            self._handle_task_failure(task, exc)
+            if self._is_repository_detection_failure(exc):
+                self._handle_repository_detection_failure(task, exc)
+            else:
+                self._handle_task_failure(task, exc)
             return None
 
         repository_branches = {
@@ -143,12 +146,22 @@ class AgentService(Service):
         task.branch_name = next(iter(repository_branches.values()))
         setattr(task, 'repositories', repositories)
         setattr(task, 'repository_branches', repository_branches)
-        execution = self._implementation_service.implement_task(task) or {}
+        try:
+            execution = self._implementation_service.implement_task(task) or {}
+        except Exception as exc:
+            self.logger.exception('implementation request failed for task %s', task.id)
+            self._handle_task_failure(task, exc)
+            return None
         if not self._implementation_succeeded(execution):
             self._handle_implementation_failure(task, execution)
             return None
 
-        testing = self._testing_service.test_task(task) or {}
+        try:
+            testing = self._testing_service.test_task(task) or {}
+        except Exception as exc:
+            self.logger.exception('testing request failed for task %s', task.id)
+            self._handle_task_failure(task, exc)
+            return None
         if not self._testing_succeeded(testing):
             self._handle_testing_failure(task, testing)
             return {
@@ -408,6 +421,24 @@ class AgentService(Service):
             )
         except Exception:
             self.logger.exception('failed to send failure notification for task %s', task.id)
+
+    def _handle_repository_detection_failure(self, task: Task, error: Exception) -> None:
+        try:
+            self._task_data_access.add_comment(
+                task.id,
+                'OpenHands agent skipped this task because it could not detect which repository '
+                f'to use from the task content: {error}. '
+                'Please mention the repository name or alias in the task summary or description.',
+            )
+        except Exception:
+            self.logger.exception(
+                'failed to add repository detection comment for task %s',
+                task.id,
+            )
+
+    @staticmethod
+    def _is_repository_detection_failure(error: Exception) -> bool:
+        return isinstance(error, ValueError) and 'no configured repository matched task' in str(error)
 
     def _is_task_processed(self, task_id: str) -> bool:
         if self._state_data_access is None:

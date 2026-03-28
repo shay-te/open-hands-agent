@@ -366,8 +366,9 @@ class AgentServiceTests(unittest.TestCase):
 
         self.assertIsNone(results)
         self.task_client.add_comment.assert_called_once()
-        self.assertIn('could not safely process this task', self.task_client.add_comment.call_args.args[1])
-        self.assertEqual(self.email_core_lib.send.call_count, 2)
+        self.assertIn('could not detect which repository to use', self.task_client.add_comment.call_args.args[1])
+        self.assertIn('Please mention the repository name or alias', self.task_client.add_comment.call_args.args[1])
+        self.email_core_lib.send.assert_not_called()
 
     def test_process_assigned_task_reports_testing_failures_before_pr_creation(self) -> None:
         self.openhands_client.test_task.return_value = {
@@ -388,6 +389,40 @@ class AgentServiceTests(unittest.TestCase):
             'testing failed for task %s: %s',
             'PROJ-1',
             'backend tests are still failing',
+        )
+
+    def test_process_assigned_task_handles_implementation_request_errors(self) -> None:
+        self.openhands_client.implement_task.side_effect = RuntimeError('openhands down')
+        self.service.logger = Mock()
+        task = self.task_data_access.get_assigned_tasks()[0]
+
+        with patch.object(self.service, 'logger', self.service.logger):
+            results = self.service.process_assigned_task(task)
+
+        self.assertIsNone(results)
+        self.task_client.add_comment.assert_called_once()
+        self.assertIn('openhands down', self.task_client.add_comment.call_args.args[1])
+        self.assertEqual(self.email_core_lib.send.call_count, 2)
+        self.service.logger.exception.assert_called_once_with(
+            'implementation request failed for task %s',
+            'PROJ-1',
+        )
+
+    def test_process_assigned_task_handles_testing_request_errors(self) -> None:
+        self.openhands_client.test_task.side_effect = RuntimeError('testing sandbox down')
+        self.service.logger = Mock()
+        task = self.task_data_access.get_assigned_tasks()[0]
+
+        with patch.object(self.service, 'logger', self.service.logger):
+            results = self.service.process_assigned_task(task)
+
+        self.assertIsNone(results)
+        self.task_client.add_comment.assert_called_once()
+        self.assertIn('testing sandbox down', self.task_client.add_comment.call_args.args[1])
+        self.assertEqual(self.email_core_lib.send.call_count, 2)
+        self.service.logger.exception.assert_called_once_with(
+            'testing request failed for task %s',
+            'PROJ-1',
         )
 
     def test_process_assigned_task_reports_partial_pr_failures_without_moving_review(self) -> None:

@@ -144,6 +144,7 @@ class RepositoryServiceTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'no configured repository matched task PROJ-1'):
             service.resolve_task_repositories(task)
 
+
     def test_does_not_match_repository_alias_inside_hyphenated_word(self) -> None:
         service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
         task = build_task(description='Improve non-client rendering flow')
