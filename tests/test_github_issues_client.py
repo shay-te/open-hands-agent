@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 from openhands_agent.client.github_issues_client import GitHubIssuesClient
 from openhands_agent.data_layers.data.task import Task
-from openhands_agent.fields import GitHubCommentFields, GitHubIssueFields
+from openhands_agent.fields import GitHubCommentFields, GitHubIssueFields, TaskCommentFields
 from utils import mock_response
 
 
@@ -99,6 +99,21 @@ class GitHubIssuesClientTests(unittest.TestCase):
         self.assertEqual(len(tasks), 1)
         self.assertIn('reviewer: Please add tests.', tasks[0].description)
         self.assertNotIn('could not safely process this task', tasks[0].description)
+        self.assertEqual(
+            getattr(tasks[0], TaskCommentFields.ALL_COMMENTS),
+            [
+                {
+                    TaskCommentFields.AUTHOR: 'shay',
+                    TaskCommentFields.BODY: (
+                        'OpenHands agent could not safely process this task: timeout'
+                    ),
+                },
+                {
+                    TaskCommentFields.AUTHOR: 'reviewer',
+                    TaskCommentFields.BODY: 'Please add tests.',
+                },
+            ],
+        )
 
     def test_add_comment_posts_expected_payload(self) -> None:
         client = GitHubIssuesClient('https://api.github.com', 'gh-token', 'workspace', 'repo')

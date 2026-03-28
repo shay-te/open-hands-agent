@@ -11,6 +11,7 @@ from unittest.mock import Mock, patch, MagicMock
 import tempfile
 import os
 from pathlib import Path
+import types
 
 
 from openhands_agent.data_layers.service.agent_service import AgentService
@@ -46,6 +47,9 @@ class TestAgentEndToEndIntegration(unittest.TestCase):
         self.mock_state_data_access = Mock(spec=AgentStateDataAccess)
         self.mock_state_data_access.is_task_processed.return_value = False
         self.mock_state_data_access.get_processed_task.return_value = {}
+        self.mock_repository_service.prepare_task_repositories.side_effect = (
+            lambda repositories: repositories
+        )
         
     def test_complete_workflow_with_valid_task(self):
         """Test complete workflow from task ingestion to PR creation."""
@@ -53,9 +57,13 @@ class TestAgentEndToEndIntegration(unittest.TestCase):
         task = build_task()
         
         # Configure mock services to behave as expected
-        self.mock_repository_service.resolve_task_repositories.return_value = [
-            Mock(id='test-repo', display_name='Test Repository', local_path='/tmp/test')
-        ]
+        repository = types.SimpleNamespace(
+            id='test-repo',
+            display_name='Test Repository',
+            local_path='/tmp/test',
+            destination_branch='main',
+        )
+        self.mock_repository_service.resolve_task_repositories.return_value = [repository]
         
         # Mock the OpenHands implementation service
         mock_pr_result = {
@@ -102,6 +110,9 @@ class TestAgentEndToEndIntegration(unittest.TestCase):
             # Verify the expected calls were made
             self.mock_implementation_service.implement_task.assert_called_once_with(task)
             self.mock_repository_service.resolve_task_repositories.assert_called_once_with(task)
+            self.mock_repository_service.prepare_task_repositories.assert_called_once_with(
+                [repository]
+            )
             
             self.assertTrue(True)  # Test passes
             

@@ -59,12 +59,30 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
             ),
         )
         self.assertEqual(
+            mock_openhands_client_cls.call_args_list[0].kwargs,
+            {
+                'llm_settings': {
+                    'llm_model': self.cfg.openhands_agent.openhands.llm_model,
+                    'llm_base_url': self.cfg.openhands_agent.openhands.llm_base_url,
+                }
+            },
+        )
+        self.assertEqual(
             mock_openhands_client_cls.call_args_list[1].args,
             (
                 self.cfg.openhands_agent.openhands.base_url,
                 self.cfg.openhands_agent.openhands.api_key,
                 self.cfg.openhands_agent.retry.max_retries,
             ),
+        )
+        self.assertEqual(
+            mock_openhands_client_cls.call_args_list[1].kwargs,
+            {
+                'llm_settings': {
+                    'llm_model': self.cfg.openhands_agent.openhands.llm_model,
+                    'llm_base_url': self.cfg.openhands_agent.openhands.llm_base_url,
+                }
+            },
         )
         mock_repository_service_cls.assert_called_once_with(
             self.cfg.openhands_agent,

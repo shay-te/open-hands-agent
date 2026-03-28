@@ -5,6 +5,7 @@ from unittest.mock import patch
 from openhands_agent.client.youtrack_client import YouTrackClient
 from openhands_agent.data_layers.data.task import Task
 from openhands_agent.fields import (
+    TaskCommentFields,
     YouTrackAttachmentFields,
     YouTrackCommentFields,
     YouTrackCustomFieldFields,
@@ -228,6 +229,29 @@ class YouTrackClientTests(unittest.TestCase):
         self.assertIn('Product Manager: Please keep the fix minimal.', tasks[0].description)
         self.assertNotIn('could not safely process this task', tasks[0].description)
         self.assertNotIn('could not detect which repository', tasks[0].description)
+        self.assertEqual(
+            getattr(tasks[0], TaskCommentFields.ALL_COMMENTS),
+            [
+                {
+                    TaskCommentFields.AUTHOR: 'shay',
+                    TaskCommentFields.BODY: (
+                        'OpenHands agent could not safely process this task: timeout'
+                    ),
+                },
+                {
+                    TaskCommentFields.AUTHOR: 'shay',
+                    TaskCommentFields.BODY: (
+                        'OpenHands agent skipped this task because it could not detect '
+                        'which repository to use from the task content: no configured '
+                        'repository matched task PROJ-1.'
+                    ),
+                },
+                {
+                    TaskCommentFields.AUTHOR: 'Product Manager',
+                    TaskCommentFields.BODY: 'Please keep the fix minimal.',
+                },
+            ],
+        )
 
     def test_get_assigned_tasks_stringifies_non_string_description_and_comment_text(self) -> None:
         client = YouTrackClient('https://youtrack.example', 'yt-token')

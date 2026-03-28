@@ -80,11 +80,13 @@ class OpenHandsAgentCoreLib(CoreLib):
             open_cfg.openhands.base_url,
             open_cfg.openhands.api_key,
             retry_cfg.max_retries,
+            llm_settings=self._openhands_llm_settings(open_cfg.openhands),
         )
         _testing_openhands_client = OpenHandsClient(
             open_cfg.openhands.base_url,
             open_cfg.openhands.api_key,
             retry_cfg.max_retries,
+            llm_settings=self._openhands_llm_settings(open_cfg.openhands),
         )
         _task_data_access = TaskDataAccess(ticket_cfg, _ticket_client)
         _implementation_service = ImplementationService(_implementation_openhands_client)
@@ -106,3 +108,10 @@ class OpenHandsAgentCoreLib(CoreLib):
             state_data_access=_state_data_access,
         )
         self.service.validate_connections()
+
+    @staticmethod
+    def _openhands_llm_settings(openhands_cfg: DictConfig) -> dict[str, str]:
+        return {
+            'llm_model': str(getattr(openhands_cfg, 'llm_model', '') or '').strip(),
+            'llm_base_url': str(getattr(openhands_cfg, 'llm_base_url', '') or '').strip(),
+        }

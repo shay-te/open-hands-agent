@@ -7,7 +7,7 @@ from omegaconf import DictConfig, OmegaConf
 
 from openhands_agent.data_layers.data.review_comment import ReviewComment
 from openhands_agent.data_layers.data.task import Task
-from openhands_agent.fields import ReviewCommentFields
+from openhands_agent.fields import ReviewCommentFields, TaskCommentFields
 from openhands_agent.openhands_agent_core_lib import OpenHandsAgentCoreLib
 
 
@@ -115,6 +115,8 @@ def build_test_cfg() -> DictConfig:
                     'token': 'yt-token',
                     'project': 'PROJ',
                     'assignee': 'me',
+                    'progress_state_field': 'State',
+                    'progress_state': 'In Progress',
                     'review_state_field': 'State',
                     'review_state': 'In Review',
                     'issue_states': ['Todo', 'Open'],
@@ -127,6 +129,8 @@ def build_test_cfg() -> DictConfig:
                     'email': 'dev@example.com',
                     'project': 'PROJ',
                     'assignee': 'developer',
+                    'progress_state_field': 'status',
+                    'progress_state': 'In Progress',
                     'review_state_field': 'status',
                     'review_state': 'In Review',
                     'issue_states': ['To Do', 'Open'],
@@ -140,6 +144,8 @@ def build_test_cfg() -> DictConfig:
                     'repo': 'issues-repo',
                     'project': 'issues-repo',
                     'assignee': 'octocat',
+                    'progress_state_field': 'labels',
+                    'progress_state': 'In Progress',
                     'review_state_field': 'labels',
                     'review_state': 'In Review',
                     'issue_states': ['open'],
@@ -151,6 +157,8 @@ def build_test_cfg() -> DictConfig:
                     'token': 'gitlab-issues-token',
                     'project': 'group/issues-repo',
                     'assignee': 'developer',
+                    'progress_state_field': 'labels',
+                    'progress_state': 'In Progress',
                     'review_state_field': 'labels',
                     'review_state': 'In Review',
                     'issue_states': ['opened'],
@@ -164,6 +172,8 @@ def build_test_cfg() -> DictConfig:
                     'repo_slug': 'issues-repo',
                     'project': 'issues-repo',
                     'assignee': 'reviewer',
+                    'progress_state_field': 'state',
+                    'progress_state': 'open',
                     'review_state_field': 'state',
                     'review_state': 'resolved',
                     'issue_states': ['new', 'open'],
@@ -172,6 +182,8 @@ def build_test_cfg() -> DictConfig:
                     'name': 'openhands-config',
                     'base_url': 'https://openhands.example',
                     'api_key': 'oh-token',
+                    'llm_model': 'bedrock/qwen.qwen3-coder-480b-a35b-v1:0',
+                    'llm_base_url': '',
                 },
                 'repository': {
                     'name': 'repository-config',
@@ -254,6 +266,7 @@ def build_task(
     branch_name: str = 'feature/proj-1',
     repositories: list | None = None,
     repository_branches: dict | None = None,
+    comments: list[dict[str, str]] | None = None,
 ) -> Task:
     task = Task(
         id=task_id,
@@ -265,6 +278,8 @@ def build_task(
         task.repositories = repositories
     if repository_branches is not None:
         task.repository_branches = repository_branches
+    if comments is not None:
+        setattr(task, TaskCommentFields.ALL_COMMENTS, comments)
     return task
 
 

@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 from openhands_agent.client.bitbucket_issues_client import BitbucketIssuesClient
 from openhands_agent.data_layers.data.task import Task
+from openhands_agent.fields import TaskCommentFields
 from utils import mock_response
 
 
@@ -100,6 +101,21 @@ class BitbucketIssuesClientTests(unittest.TestCase):
         self.assertEqual(len(tasks), 1)
         self.assertIn('Reviewer: Please add tests.', tasks[0].description)
         self.assertNotIn('could not safely process this task', tasks[0].description)
+        self.assertEqual(
+            getattr(tasks[0], TaskCommentFields.ALL_COMMENTS),
+            [
+                {
+                    TaskCommentFields.AUTHOR: 'shay',
+                    TaskCommentFields.BODY: (
+                        'OpenHands agent could not safely process this task: timeout'
+                    ),
+                },
+                {
+                    TaskCommentFields.AUTHOR: 'Reviewer',
+                    TaskCommentFields.BODY: 'Please add tests.',
+                },
+            ],
+        )
 
     def test_add_comment_posts_raw_content_payload(self) -> None:
         client = BitbucketIssuesClient('https://api.bitbucket.org/2.0', 'bb-token', 'workspace', 'repo')

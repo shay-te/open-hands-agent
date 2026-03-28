@@ -1,4 +1,5 @@
 import unittest
+import types
 from unittest.mock import Mock, call, patch
 
 from openhands_agent.client.openhands_client import OpenHandsClient
@@ -28,11 +29,103 @@ class OpenHandsClientTests(unittest.TestCase):
         client = OpenHandsClient('https://openhands.example', 'oh-token')
         response = mock_response(json_data=1)
 
-        with patch.object(client, '_get', return_value=response) as mock_get:
+        with patch.object(client, '_get', return_value=response) as mock_get, patch.object(
+            client,
+            '_post',
+        ) as mock_post:
             client.validate_connection()
 
         response.raise_for_status.assert_called_once_with()
         mock_get.assert_called_once_with('/api/v1/app-conversations/count')
+        mock_post.assert_not_called()
+
+    def test_accepts_llm_settings_as_positional_argument(self) -> None:
+        client = OpenHandsClient(
+            'https://openhands.example',
+            'oh-token',
+            3,
+            {
+                'llm_model': 'openai/gpt-4o',
+                'llm_base_url': 'https://api.openai.com/v1',
+            },
+        )
+
+        self.assertEqual(
+            client._settings_update_payload(),
+            {
+                'llm_model': 'openai/gpt-4o',
+                'llm_base_url': 'https://api.openai.com/v1',
+            },
+        )
+
+    def test_validate_connection_syncs_llm_settings_to_openhands(self) -> None:
+        client = OpenHandsClient(
+            'https://openhands.example',
+            'oh-token',
+            llm_settings={
+                'llm_model': 'bedrock/qwen.qwen3-coder-480b-a35b-v1:0',
+            },
+        )
+        count_response = mock_response(json_data=1)
+        settings_response = mock_response()
+
+        with patch.object(client, '_get', return_value=count_response) as mock_get, patch.object(
+            client,
+            '_post',
+            return_value=settings_response,
+        ) as mock_post:
+            client.validate_connection()
+
+        mock_get.assert_called_once_with('/api/v1/app-conversations/count')
+        mock_post.assert_called_once_with(
+            '/api/settings',
+            json={
+                'llm_model': 'bedrock/qwen.qwen3-coder-480b-a35b-v1:0',
+            },
+        )
+        settings_response.raise_for_status.assert_called_once_with()
+
+    def test_validate_connection_syncs_base_url_without_persisting_api_key(self) -> None:
+        client = OpenHandsClient(
+            'https://openhands.example',
+            'oh-token',
+            llm_settings={
+                'llm_model': 'openai/gpt-4o',
+                'llm_base_url': 'https://api.openai.com/v1',
+            },
+        )
+
+        with patch.object(client, '_get', return_value=mock_response(json_data=1)), patch.object(
+            client,
+            '_post',
+            return_value=mock_response(),
+        ) as mock_post:
+            client.validate_connection()
+
+        mock_post.assert_called_once_with(
+            '/api/settings',
+            json={
+                'llm_model': 'openai/gpt-4o',
+                'llm_base_url': 'https://api.openai.com/v1',
+            },
+        )
+
+    def test_validate_connection_skips_settings_sync_without_llm_model(self) -> None:
+        client = OpenHandsClient(
+            'https://openhands.example',
+            'oh-token',
+            llm_settings={
+                'llm_base_url': 'https://api.openai.com/v1',
+            },
+        )
+
+        with patch.object(client, '_get', return_value=mock_response(json_data=1)), patch.object(
+            client,
+            '_post',
+        ) as mock_post:
+            client.validate_connection()
+
+        mock_post.assert_not_called()
 
     def test_implement_task_prompt_does_not_embed_testing_commands(self) -> None:
         client = OpenHandsClient('https://openhands.example', 'oh-token')
@@ -40,9 +133,31 @@ class OpenHandsClientTests(unittest.TestCase):
         prompt = client._build_implementation_prompt(build_task())
 
         self.assertNotIn('Act as a separate testing agent.', prompt)
-        self.assertIn('return only JSON', prompt)
-        self.assertIn('commit_message: the commit message to use.', prompt)
+        self.assertIn('When you finish, use the finish tool.', prompt)
+        self.assertIn('Do not pass extra finish-tool arguments', prompt)
         self.assertIn('Files changed:', prompt)
+        self.assertIn('pull the latest changes from the repository default branch', prompt)
+
+    def test_repository_scope_instructions_pull_base_branch_then_create_task_branch(self) -> None:
+        client = OpenHandsClient('https://openhands.example', 'oh-token')
+        repository = types.SimpleNamespace(
+            id='client',
+            local_path='/workspace/project',
+            destination_branch='main',
+        )
+        task = build_task(
+            task_id='UNA-222',
+            branch_name='UNA-222',
+            repositories=[repository],
+            repository_branches={'client': 'UNA-222'},
+        )
+
+        prompt = client._build_implementation_prompt(task)
+
+        self.assertIn('Only modify these repositories:', prompt)
+        self.assertIn('first pull the latest changes from main', prompt)
+        self.assertIn('create and work on a new branch named UNA-222', prompt)
+        self.assertIn('open the pull request into main', prompt)
 
     def test_testing_prompt_describes_separate_testing_agent(self) -> None:
         client = OpenHandsClient('https://openhands.example', 'oh-token')
@@ -52,7 +167,7 @@ class OpenHandsClientTests(unittest.TestCase):
         self.assertIn('Act as a separate testing agent.', prompt)
         self.assertIn('Write additional tests when needed', prompt)
         self.assertIn('Do not create a pull request.', prompt)
-        self.assertIn('return only JSON', prompt)
+        self.assertIn('When you finish, use the finish tool.', prompt)
 
     def test_implement_task_uses_v1_conversation_flow(self) -> None:
         client = OpenHandsClient('https://openhands.example', 'oh-token')
@@ -345,7 +460,184 @@ class OpenHandsClientTests(unittest.TestCase):
 
         self.assertIn('Review comment context:', prompt)
         self.assertIn('- reviewer: Please add a test.', prompt)
-        self.assertIn('return only JSON', prompt)
+        self.assertIn('When you finish, use the finish tool.', prompt)
+
+    def test_run_prompt_parses_finish_action_event_payload(self) -> None:
+        client = OpenHandsClient('https://openhands.example', 'oh-token')
+
+        with patch.object(
+            client,
+            '_post',
+            return_value=mock_response(json_data={'id': 'start-1', 'status': 'WORKING'}),
+        ), patch.object(
+            client,
+            '_get',
+            side_effect=[
+                mock_response(
+                    json_data=[
+                        {
+                            'id': 'start-1',
+                            'status': 'READY',
+                            'app_conversation_id': 'conversation-1',
+                        }
+                    ]
+                ),
+                mock_response(
+                    json_data=[
+                        {
+                            'id': 'conversation-1',
+                            'execution_status': 'finished',
+                        }
+                    ]
+                ),
+                mock_response(
+                    json_data={
+                        'items': [
+                            {
+                                'kind': 'ActionEvent',
+                                'source': 'agent',
+                                'tool_name': 'finish',
+                                'summary': 'Files changed:\n- src/constants.js\n  Updated icon mapping.',
+                                'action': {
+                                    'kind': 'FinishAction',
+                                    'message': 'Implementation complete.',
+                                    'summary': 'Files changed:\n- src/constants.js\n  Updated icon mapping.',
+                                },
+                                'tool_call': {
+                                    'arguments': (
+                                        '{"message":"Implementation complete.",'
+                                        '"summary":"Files changed:\\n- src/constants.js\\n  Updated icon mapping."}'
+                                    )
+                                },
+                            }
+                        ]
+                    }
+                ),
+            ],
+        ):
+            result = implement_task_with_defaults(client)
+
+        self.assertEqual(result[ImplementationFields.SUCCESS], True)
+        self.assertEqual(
+            result['summary'],
+            'Files changed:\n- src/constants.js\n  Updated icon mapping.',
+        )
+
+    def test_run_prompt_parses_finish_action_from_action_payload_without_tool_arguments(self) -> None:
+        client = OpenHandsClient('https://openhands.example', 'oh-token')
+
+        with patch.object(
+            client,
+            '_post',
+            return_value=mock_response(json_data={'id': 'start-1', 'status': 'WORKING'}),
+        ), patch.object(
+            client,
+            '_get',
+            side_effect=[
+                mock_response(
+                    json_data=[
+                        {
+                            'id': 'start-1',
+                            'status': 'READY',
+                            'app_conversation_id': 'conversation-1',
+                        }
+                    ]
+                ),
+                mock_response(
+                    json_data=[
+                        {
+                            'id': 'conversation-1',
+                            'execution_status': 'finished',
+                        }
+                    ]
+                ),
+                mock_response(
+                    json_data={
+                        'items': [
+                            {
+                                'kind': 'ActionEvent',
+                                'source': 'agent',
+                                'tool_name': 'finish',
+                                'action': {
+                                    'kind': 'FinishAction',
+                                    'summary': 'Files changed:\n- src/api.ts\n  Hardened retries.',
+                                    'message': 'Done.',
+                                },
+                            }
+                        ]
+                    }
+                ),
+            ],
+        ):
+            result = implement_task_with_defaults(client)
+
+        self.assertTrue(result[ImplementationFields.SUCCESS])
+        self.assertEqual(
+            result['summary'],
+            'Files changed:\n- src/api.ts\n  Hardened retries.',
+        )
+
+    def test_run_prompt_finds_parseable_result_even_when_newest_event_is_not_json(self) -> None:
+        client = OpenHandsClient('https://openhands.example', 'oh-token')
+
+        with patch.object(
+            client,
+            '_post',
+            return_value=mock_response(json_data={'id': 'start-1', 'status': 'WORKING'}),
+        ), patch.object(
+            client,
+            '_get',
+            side_effect=[
+                mock_response(
+                    json_data=[
+                        {
+                            'id': 'start-1',
+                            'status': 'READY',
+                            'app_conversation_id': 'conversation-1',
+                        }
+                    ]
+                ),
+                mock_response(
+                    json_data=[
+                        {
+                            'id': 'conversation-1',
+                            'execution_status': 'finished',
+                        }
+                    ]
+                ),
+                mock_response(
+                    json_data={
+                        'items': [
+                            {
+                                'kind': 'MessageEvent',
+                                'source': 'agent',
+                                'llm_message': {
+                                    'role': 'assistant',
+                                    'content': [{'text': 'still working, hold on'}],
+                                },
+                            },
+                            {
+                                'kind': 'ActionEvent',
+                                'source': 'agent',
+                                'tool_name': 'finish',
+                                'tool_call': {
+                                    'arguments': (
+                                        '{"success": true, "summary": "Files changed:\\n- src/app.ts\\n  Fixed flow."}'
+                                    )
+                                },
+                            },
+                        ]
+                    }
+                ),
+            ],
+        ):
+            result = implement_task_with_defaults(client)
+
+        self.assertTrue(result[ImplementationFields.SUCCESS])
+        self.assertEqual(
+            result['summary'],
+            'Files changed:\n- src/app.ts\n  Fixed flow.',
+        )
 
     def test_implement_task_retries_on_timeout(self) -> None:
         client = OpenHandsClient('https://openhands.example', 'oh-token')
@@ -568,6 +860,87 @@ class OpenHandsClientTests(unittest.TestCase):
             with self.assertRaisesRegex(
                 ValueError,
                 'did not return a parseable result',
+            ):
+                implement_task_with_defaults(client)
+
+    def test_run_prompt_raises_when_start_task_errors(self) -> None:
+        client = OpenHandsClient('https://openhands.example', 'oh-token')
+
+        with patch.object(
+            client,
+            '_post',
+            return_value=mock_response(json_data={'id': 'start-1', 'status': 'WORKING'}),
+        ), patch.object(
+            client,
+            '_get',
+            return_value=mock_response(
+                json_data=[
+                    {
+                        'id': 'start-1',
+                        'status': 'ERROR',
+                        'detail': 'sandbox failed to boot',
+                    }
+                ]
+            ),
+        ):
+            with self.assertRaisesRegex(RuntimeError, 'sandbox failed to boot'):
+                implement_task_with_defaults(client)
+
+    def test_run_prompt_raises_when_start_task_ready_without_conversation_id(self) -> None:
+        client = OpenHandsClient('https://openhands.example', 'oh-token')
+
+        with patch.object(
+            client,
+            '_post',
+            return_value=mock_response(json_data={'id': 'start-1', 'status': 'WORKING'}),
+        ), patch.object(
+            client,
+            '_get',
+            return_value=mock_response(
+                json_data=[
+                    {
+                        'id': 'start-1',
+                        'status': 'READY',
+                    }
+                ]
+            ),
+        ):
+            with self.assertRaisesRegex(ValueError, 'without a conversation id'):
+                implement_task_with_defaults(client)
+
+    def test_run_prompt_raises_when_conversation_reports_failed_status(self) -> None:
+        client = OpenHandsClient('https://openhands.example', 'oh-token')
+
+        with patch.object(
+            client,
+            '_post',
+            return_value=mock_response(json_data={'id': 'start-1', 'status': 'WORKING'}),
+        ), patch.object(
+            client,
+            '_get',
+            side_effect=[
+                mock_response(
+                    json_data=[
+                        {
+                            'id': 'start-1',
+                            'status': 'READY',
+                            'app_conversation_id': 'conversation-1',
+                        }
+                    ]
+                ),
+                mock_response(
+                    json_data=[
+                        {
+                            'id': 'conversation-1',
+                            'execution_status': 'failed',
+                        }
+                    ]
+                ),
+            ],
+        ):
+            with self.assertRaisesRegex(
+                RuntimeError,
+                'conversation failed with status: failed',
             ):
                 implement_task_with_defaults(client)
 

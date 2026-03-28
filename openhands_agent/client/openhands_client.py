@@ -14,6 +14,7 @@ from openhands_agent.fields import (
 
 class OpenHandsClient(RetryingClientBase):
     _APP_CONVERSATIONS_PATH = '/api/v1/app-conversations'
+    _SETTINGS_PATH = '/api/settings'
     _START_TASKS_PATH = '/api/v1/app-conversations/start-tasks'
     _EVENTS_PATH_TEMPLATE = '/api/v1/conversation/{conversation_id}/events/search'
     _START_TASK_READY = 'READY'
@@ -39,12 +40,15 @@ class OpenHandsClient(RetryingClientBase):
         base_url: str,
         api_key: str,
         max_retries: int = 3,
+        llm_settings: dict[str, str] | None = None,
     ) -> None:
         super().__init__(base_url, api_key, timeout=300, max_retries=max_retries)
+        self._llm_settings = dict(llm_settings or {})
 
     def validate_connection(self) -> None:
         response = self._get_with_retry(f'{self._APP_CONVERSATIONS_PATH}/count')
         response.raise_for_status()
+        self._sync_runtime_settings()
 
     def implement_task(
         self,
@@ -138,18 +142,17 @@ class OpenHandsClient(RetryingClientBase):
             f'Implement task {task.id}: {task.summary}\n\n'
             f'{task.description}\n\n'
             f'{repository_scope}\n\n'
-            'When you finish, return only JSON with these keys:\n'
-            '- success: true when the implementation is ready for testing, otherwise false.\n'
-            '- summary: the pull request description.\n'
-            '- commit_message: the commit message to use.\n\n'
+            'When you finish, use the finish tool.\n'
+            '- Put the pull request description in summary.\n'
+            '- Put any extra implementation details in message.\n'
+            '- Do not pass extra finish-tool arguments beyond the supported fields.\n\n'
             'The summary must list every changed file and, under each file name, add a short explanation of what changed.\n'
             'Use this format inside summary:\n'
             'Files changed:\n'
             '- path/to/file.ext\n'
             '  Short explanation.\n'
             '- another/file.ext\n'
-            '  Short explanation.\n\n'
-            'Return JSON only. Do not wrap it in markdown.'
+            '  Short explanation.\n'
         )
 
     def _build_testing_prompt(self, task: Task) -> str:
@@ -162,10 +165,10 @@ class OpenHandsClient(RetryingClientBase):
             'Write additional tests when needed, challenge the new code with edge cases, '
             'run the relevant tests, and fix any test failures you can resolve safely.\n'
             'Do not create a pull request.\n'
-            'When you finish, return only JSON with these keys:\n'
-            '- success: true when the implementation is ready for review, otherwise false.\n'
-            '- summary: a short testing report.\n\n'
-            'Return JSON only. Do not wrap it in markdown.'
+            'When you finish, use the finish tool.\n'
+            '- Put the testing report in summary.\n'
+            '- Put any extra testing details in message.\n'
+            '- Do not pass extra finish-tool arguments beyond the supported fields.\n'
         )
 
     @staticmethod
@@ -173,7 +176,10 @@ class OpenHandsClient(RetryingClientBase):
         repository_branches = getattr(task, 'repository_branches', {}) or {}
         repositories = getattr(task, 'repositories', []) or []
         if not repositories:
-            return f'Work on branch {task.branch_name}.'
+            return (
+                'Before making changes, pull the latest changes from the repository default '
+                f'branch, then create and work on a new branch named {task.branch_name}.'
+            )
 
         repository_lines = []
         for repository in repositories:
@@ -184,7 +190,8 @@ class OpenHandsClient(RetryingClientBase):
             )
             repository_lines.append(
                 f'- {repository.id} at {repository.local_path}: '
-                f'use branch {branch_name} and open the pull request into {destination_text}.'
+                f'first pull the latest changes from {destination_text}, then create and work on '
+                f'a new branch named {branch_name}, and open the pull request into {destination_text}.'
             )
         lines = '\n'.join(repository_lines)
         return f'Only modify these repositories:\n{lines}'
@@ -198,11 +205,10 @@ class OpenHandsClient(RetryingClientBase):
             f'Address pull request comment on branch {branch_name}{repository_context}.\n'
             f'Comment by {comment.author}: {comment.body}'
             f'{review_context}\n\n'
-            'When you finish, return only JSON with these keys:\n'
-            '- success: true when the comment was addressed, otherwise false.\n'
-            '- summary: a short description of what changed.\n'
-            '- commit_message: the commit message to use.\n\n'
-            'Return JSON only. Do not wrap it in markdown.'
+            'When you finish, use the finish tool.\n'
+            '- Put a short description of what changed in summary.\n'
+            '- Put any extra details in message.\n'
+            '- Do not pass extra finish-tool arguments beyond the supported fields.\n'
         )
 
     @staticmethod
@@ -243,6 +249,24 @@ class OpenHandsClient(RetryingClientBase):
         conversation_id = self._start_conversation(prompt, title, session_id)
         payload = self._wait_for_conversation_result(conversation_id)
         payload[ImplementationFields.SESSION_ID] = conversation_id
+        return payload
+
+    def _sync_runtime_settings(self) -> None:
+        payload = self._settings_update_payload()
+        if not payload:
+            return
+        response = self._post_with_retry(self._SETTINGS_PATH, json=payload)
+        response.raise_for_status()
+
+    def _settings_update_payload(self) -> dict[str, str]:
+        llm_model = str(self._llm_settings.get('llm_model', '') or '').strip()
+        if not llm_model:
+            return {}
+
+        payload = {'llm_model': llm_model}
+        llm_base_url = str(self._llm_settings.get('llm_base_url', '') or '').strip()
+        if llm_base_url:
+            payload['llm_base_url'] = llm_base_url
         return payload
 
     def _start_conversation(self, prompt: str, title: str, session_id: str = '') -> str:
@@ -334,13 +358,74 @@ class OpenHandsClient(RetryingClientBase):
 
         for candidate_events in (events, list(reversed(events))):
             for event in candidate_events:
-                message_text = self._assistant_message_text(event)
-                if not message_text:
-                    continue
-                parsed_result = self._parse_result_json(message_text)
+                parsed_result = self._result_payload_from_event(event)
                 if parsed_result is not None:
                     return parsed_result
         raise ValueError(f'openhands conversation {conversation_id} did not return a parseable result')
+
+    def _result_payload_from_event(self, event: object) -> dict[str, str | bool] | None:
+        finish_payload = self._finish_action_payload(event)
+        if finish_payload is not None:
+            return finish_payload
+
+        message_text = self._assistant_message_text(event)
+        if not message_text:
+            return None
+        return self._parse_result_json(message_text)
+
+    @staticmethod
+    def _finish_action_payload(event: object) -> dict[str, str | bool] | None:
+        if not isinstance(event, dict):
+            return None
+        if str(event.get('kind', '') or '').strip() != 'ActionEvent':
+            return None
+        if str(event.get('source', '') or '').strip() != 'agent':
+            return None
+        if str(event.get('tool_name', '') or '').strip() != 'finish':
+            return None
+
+        parsed_arguments: dict[str, str | bool] = {}
+        tool_call = event.get('tool_call', {})
+        if isinstance(tool_call, dict):
+            arguments = str(tool_call.get('arguments', '') or '').strip()
+            if arguments:
+                try:
+                    payload = json.loads(arguments)
+                except json.JSONDecodeError:
+                    payload = None
+                if isinstance(payload, dict):
+                    parsed_arguments = payload
+
+        action = event.get('action', {})
+        if not isinstance(action, dict):
+            action = {}
+
+        summary = str(
+            parsed_arguments.get(Task.summary.key)
+            or parsed_arguments.get('summary')
+            or action.get('summary')
+            or event.get('summary')
+            or ''
+        ).strip()
+        message = str(
+            parsed_arguments.get('message')
+            or action.get('message')
+            or ''
+        ).strip()
+
+        if not summary and not message:
+            return None
+
+        result: dict[str, str | bool] = {
+            ImplementationFields.SUCCESS: OpenHandsClient._success_flag(parsed_arguments)
+            if ImplementationFields.SUCCESS in parsed_arguments
+            else True,
+            Task.summary.key: summary or message,
+        }
+        commit_message = str(parsed_arguments.get(ImplementationFields.COMMIT_MESSAGE, '') or '').strip()
+        if commit_message:
+            result[ImplementationFields.COMMIT_MESSAGE] = commit_message
+        return result
 
     @staticmethod
     def _assistant_message_text(event: object) -> str:

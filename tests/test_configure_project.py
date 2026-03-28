@@ -41,6 +41,8 @@ class ConfigureProjectTests(unittest.TestCase):
                 'YouTrack token': 'yt-token',
                 'YouTrack assignee login': 'developer',
                 'YouTrack project key': 'PROJ',
+                'YouTrack in-progress state field': 'State',
+                'YouTrack in-progress state value': 'In Progress',
                 'YouTrack review state field': 'State',
                 'YouTrack review state value': 'In Review',
                 'YouTrack issue states to process': ['Open', 'Ready for Dev'],
@@ -76,6 +78,8 @@ class ConfigureProjectTests(unittest.TestCase):
                 'Jira token': 'jira-token',
                 'Jira assignee account id or username': 'dev-user',
                 'Jira project key': 'ENG',
+                'Jira in-progress state field': 'status',
+                'Jira in-progress state value': 'In Progress',
                 'Jira review state field': 'status',
                 'Jira review state value': 'Code Review',
                 'Jira issue states to process': ['To Do', 'Selected for Development'],
@@ -230,6 +234,8 @@ class ConfigureProjectTests(unittest.TestCase):
                 'YOUTRACK_TOKEN=\n'
                 'YOUTRACK_PROJECT=\n'
                 'YOUTRACK_ASSIGNEE=\n'
+                'YOUTRACK_PROGRESS_STATE_FIELD=State\n'
+                'YOUTRACK_PROGRESS_STATE=In Progress\n'
                 'YOUTRACK_REVIEW_STATE_FIELD=State\n'
                 'YOUTRACK_REVIEW_STATE=In Review\n'
                 'YOUTRACK_ISSUE_STATES=Todo,Open\n'
@@ -262,6 +268,8 @@ class ConfigureProjectTests(unittest.TestCase):
                 'YouTrack token': 'yt-token',
                 'YouTrack assignee login': 'me',
                 'YouTrack project key': 'PROJ',
+                'YouTrack in-progress state field': 'State',
+                'YouTrack in-progress state value': 'In Progress',
                 'YouTrack review state field': 'State',
                 'YouTrack review state value': 'In Review',
                 'YouTrack issue states to process': ['Todo', 'Open'],
@@ -306,6 +314,8 @@ class ConfigureProjectTests(unittest.TestCase):
                 'YOUTRACK_TOKEN=\n'
                 'YOUTRACK_PROJECT=\n'
                 'YOUTRACK_ASSIGNEE=\n'
+                'YOUTRACK_PROGRESS_STATE_FIELD=State\n'
+                'YOUTRACK_PROGRESS_STATE=In Progress\n'
                 'YOUTRACK_REVIEW_STATE_FIELD=State\n'
                 'YOUTRACK_REVIEW_STATE=In Review\n'
                 'YOUTRACK_ISSUE_STATES=Todo,Open\n'
@@ -338,6 +348,8 @@ class ConfigureProjectTests(unittest.TestCase):
                 'YouTrack token': '',
                 'YouTrack assignee login': 'me',
                 'YouTrack project key': 'PROJ',
+                'YouTrack in-progress state field': 'State',
+                'YouTrack in-progress state value': 'In Progress',
                 'YouTrack review state field': 'State',
                 'YouTrack review state value': 'In Review',
                 'YouTrack issue states to process': ['Todo', 'Open'],

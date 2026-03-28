@@ -3,7 +3,7 @@ from urllib.parse import quote
 
 from openhands_agent.client.ticket_client_base import TicketClientBase
 from openhands_agent.data_layers.data.task import Task
-from openhands_agent.fields import GitLabCommentFields, GitLabIssueFields
+from openhands_agent.fields import GitLabCommentFields, GitLabIssueFields, TaskCommentFields
 
 
 class GitLabIssuesClient(TicketClientBase):
@@ -73,13 +73,18 @@ class GitLabIssuesClient(TicketClientBase):
 
     def _to_task(self, payload: dict[str, Any]) -> Task:
         issue_id = str(payload[GitLabIssueFields.IID])
-        comments = self._issue_comments(issue_id)
-        return Task(
+        comment_entries = self._task_comment_entries(self._issue_comments(issue_id))
+        task = Task(
             id=issue_id,
             summary=str(payload.get(GitLabIssueFields.TITLE, '') or ''),
-            description=self._build_task_description(payload.get(GitLabIssueFields.DESCRIPTION), comments),
+            description=self._build_task_description_with_comments(
+                payload.get(GitLabIssueFields.DESCRIPTION),
+                comment_entries,
+            ),
             branch_name=f'feature/{issue_id.lower()}',
         )
+        self._set_task_comments(task, comment_entries)
+        return task
 
     def _issue_comments(self, issue_id: str) -> list[dict[str, Any]]:
         try:
@@ -93,34 +98,29 @@ class GitLabIssuesClient(TicketClientBase):
             self.logger.exception('failed to fetch comments for gitlab issue %s', issue_id)
             return []
 
-    def _build_task_description(self, description: object, comments: list[dict[str, Any]]) -> str:
-        sections = [str(description or '').strip() or 'No description provided.']
-        comment_lines = self._format_comments(comments)
-        if comment_lines:
-            sections.append('Issue comments:\n' + '\n'.join(comment_lines))
-        return '\n\n'.join(section for section in sections if section)
-
     @staticmethod
-    def _format_comments(comments: list[dict[str, Any]]) -> list[str]:
-        lines: list[str] = []
+    def _task_comment_entries(comments: list[dict[str, Any]]) -> list[dict[str, str]]:
+        entries: list[dict[str, str]] = []
         for comment in comments:
             if not isinstance(comment, dict) or comment.get(GitLabCommentFields.SYSTEM):
                 continue
             body = str(comment.get(GitLabCommentFields.BODY, '') or '').strip()
             if not body:
                 continue
-            if GitLabIssuesClient._is_agent_operational_comment(body):
-                continue
             author = comment.get(GitLabCommentFields.AUTHOR, {})
             if not isinstance(author, dict):
                 author = {}
-            author_name = str(
-                author.get(GitLabCommentFields.NAME)
-                or author.get(GitLabCommentFields.USERNAME)
-                or 'unknown'
-            ).strip()
-            lines.append(f'- {author_name}: {body}')
-        return lines
+            entries.append(
+                {
+                    TaskCommentFields.AUTHOR: str(
+                        author.get(GitLabCommentFields.NAME)
+                        or author.get(GitLabCommentFields.USERNAME)
+                        or 'unknown'
+                    ).strip(),
+                    TaskCommentFields.BODY: body,
+                }
+            )
+        return entries
 
     @staticmethod
     def _json_list(response) -> list[dict[str, Any]]:

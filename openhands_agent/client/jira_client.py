@@ -11,6 +11,7 @@ from openhands_agent.fields import (
     JiraCommentFields,
     JiraIssueFields,
     JiraTransitionFields,
+    TaskCommentFields,
 )
 
 
@@ -122,18 +123,20 @@ class JiraClient(TicketClientBase):
         fields = payload.get('fields', {})
         if not isinstance(fields, dict):
             fields = {}
-        comments = self._issue_comments(fields)
+        comment_entries = self._task_comment_entries(self._issue_comments(fields))
         attachments = self._issue_attachments(fields)
-        return Task(
+        task = Task(
             id=issue_id,
             summary=str(fields.get(JiraIssueFields.SUMMARY, '') or ''),
             description=self._build_task_description(
                 self._adf_to_text(fields.get(JiraIssueFields.DESCRIPTION)),
-                comments,
+                comment_entries,
                 attachments,
             ),
             branch_name=f'feature/{issue_id.lower()}',
         )
+        self._set_task_comments(task, comment_entries)
+        return task
 
     @staticmethod
     def _build_assigned_tasks_query(project: str, assignee: str, states: list[str]) -> str:
@@ -159,14 +162,11 @@ class JiraClient(TicketClientBase):
     def _build_task_description(
         self,
         description: str,
-        comments: list[dict[str, Any]],
+        comment_entries: list[dict[str, str]],
         attachments: list[dict[str, Any]],
     ) -> str:
         sections = [description.strip() or 'No description provided.']
-
-        comment_lines = self._format_comments(comments)
-        if comment_lines:
-            sections.append('Issue comments:\n' + '\n'.join(comment_lines))
+        self._append_comment_section(sections, comment_entries)
 
         text_attachment_lines = self._format_text_attachments(attachments)
         if text_attachment_lines:
@@ -176,24 +176,31 @@ class JiraClient(TicketClientBase):
         if screenshot_lines:
             sections.append('Screenshot attachments:\n' + '\n'.join(screenshot_lines))
 
-        return '\n\n'.join(section for section in sections if section)
+        return self._join_task_description_sections(sections)
 
-    def _format_comments(self, comments: list[dict[str, Any]]) -> list[str]:
-        lines: list[str] = []
+    def _task_comment_entries(
+        self,
+        comments: list[dict[str, Any]],
+    ) -> list[dict[str, str]]:
+        entries: list[dict[str, str]] = []
         for comment in comments:
             if not isinstance(comment, dict):
                 continue
             body = self._adf_to_text(comment.get(JiraCommentFields.BODY))
             if not body:
                 continue
-            if self._is_agent_operational_comment(body):
-                continue
             author = comment.get(JiraCommentFields.AUTHOR, {})
             if not isinstance(author, dict):
                 author = {}
-            author_name = str(author.get(JiraCommentFields.DISPLAY_NAME, '') or 'unknown').strip()
-            lines.append(f'- {author_name}: {body}')
-        return lines
+            entries.append(
+                {
+                    TaskCommentFields.AUTHOR: str(
+                        author.get(JiraCommentFields.DISPLAY_NAME, '') or 'unknown'
+                    ).strip(),
+                    TaskCommentFields.BODY: body,
+                }
+            )
+        return entries
 
     def _format_text_attachments(self, attachments: list[dict[str, Any]]) -> list[str]:
         lines: list[str] = []

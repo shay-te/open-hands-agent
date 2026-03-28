@@ -60,6 +60,8 @@ openhands_agent:
     token: ${oc.env:YOUTRACK_TOKEN}
     project: ${oc.env:YOUTRACK_PROJECT}
     assignee: ${oc.env:YOUTRACK_ASSIGNEE,me}
+    progress_state_field: ${oc.env:YOUTRACK_PROGRESS_STATE_FIELD,"State"}
+    progress_state: ${oc.env:YOUTRACK_PROGRESS_STATE,"In Progress"}
     review_state_field: ${oc.env:YOUTRACK_REVIEW_STATE_FIELD,"State"}
     review_state: ${oc.env:YOUTRACK_REVIEW_STATE,"In Review"}
     issue_states: ${oc.env:YOUTRACK_ISSUE_STATES,"Todo,Open"}
@@ -69,6 +71,8 @@ openhands_agent:
     email: ${oc.env:JIRA_EMAIL,""}
     project: ${oc.env:JIRA_PROJECT,""}
     assignee: ${oc.env:JIRA_ASSIGNEE,""}
+    progress_state_field: ${oc.env:JIRA_PROGRESS_STATE_FIELD,"status"}
+    progress_state: ${oc.env:JIRA_PROGRESS_STATE,"In Progress"}
     review_state_field: ${oc.env:JIRA_REVIEW_STATE_FIELD,"status"}
     review_state: ${oc.env:JIRA_REVIEW_STATE,"In Review"}
     issue_states: ${oc.env:JIRA_ISSUE_STATES,"To Do,Open"}
@@ -79,6 +83,8 @@ openhands_agent:
     repo: ${oc.env:GITHUB_ISSUES_REPO,""}
     project: ${oc.env:GITHUB_ISSUES_REPO,""}
     assignee: ${oc.env:GITHUB_ISSUES_ASSIGNEE,""}
+    progress_state_field: ${oc.env:GITHUB_ISSUES_PROGRESS_STATE_FIELD,"labels"}
+    progress_state: ${oc.env:GITHUB_ISSUES_PROGRESS_STATE,"In Progress"}
     review_state_field: ${oc.env:GITHUB_ISSUES_REVIEW_STATE_FIELD,"labels"}
     review_state: ${oc.env:GITHUB_ISSUES_REVIEW_STATE,"In Review"}
     issue_states: ${oc.env:GITHUB_ISSUES_ISSUE_STATES,"open"}
@@ -87,6 +93,8 @@ openhands_agent:
     token: ${oc.env:GITLAB_ISSUES_TOKEN,""}
     project: ${oc.env:GITLAB_ISSUES_PROJECT,""}
     assignee: ${oc.env:GITLAB_ISSUES_ASSIGNEE,""}
+    progress_state_field: ${oc.env:GITLAB_ISSUES_PROGRESS_STATE_FIELD,"labels"}
+    progress_state: ${oc.env:GITLAB_ISSUES_PROGRESS_STATE,"In Progress"}
     review_state_field: ${oc.env:GITLAB_ISSUES_REVIEW_STATE_FIELD,"labels"}
     review_state: ${oc.env:GITLAB_ISSUES_REVIEW_STATE,"In Review"}
     issue_states: ${oc.env:GITLAB_ISSUES_ISSUE_STATES,"opened"}
@@ -97,6 +105,8 @@ openhands_agent:
     repo_slug: ${oc.env:BITBUCKET_ISSUES_REPO_SLUG,""}
     project: ${oc.env:BITBUCKET_ISSUES_REPO_SLUG,""}
     assignee: ${oc.env:BITBUCKET_ISSUES_ASSIGNEE,""}
+    progress_state_field: ${oc.env:BITBUCKET_ISSUES_PROGRESS_STATE_FIELD,"state"}
+    progress_state: ${oc.env:BITBUCKET_ISSUES_PROGRESS_STATE,"open"}
     review_state_field: ${oc.env:BITBUCKET_ISSUES_REVIEW_STATE_FIELD,"state"}
     review_state: ${oc.env:BITBUCKET_ISSUES_REVIEW_STATE,"resolved"}
     issue_states: ${oc.env:BITBUCKET_ISSUES_ISSUE_STATES,"new,open"}
@@ -106,3 +116,5 @@ openhands_agent:
   openhands:
     base_url: ${oc.env:OPENHANDS_BASE_URL}
     api_key: ${oc.env:OPENHANDS_API_KEY}
+    llm_model: ${oc.env:OPENHANDS_LLM_MODEL,""}
+    llm_base_url: ${oc.env:OPENHANDS_LLM_BASE_URL,""}

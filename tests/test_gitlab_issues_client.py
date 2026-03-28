@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 from openhands_agent.client.gitlab_issues_client import GitLabIssuesClient
 from openhands_agent.data_layers.data.task import Task
-from openhands_agent.fields import GitLabCommentFields
+from openhands_agent.fields import GitLabCommentFields, TaskCommentFields
 from utils import mock_response
 
 
@@ -86,6 +86,21 @@ class GitLabIssuesClientTests(unittest.TestCase):
         self.assertEqual(len(tasks), 1)
         self.assertIn('Reviewer: Please add tests.', tasks[0].description)
         self.assertNotIn('could not safely process this task', tasks[0].description)
+        self.assertEqual(
+            getattr(tasks[0], TaskCommentFields.ALL_COMMENTS),
+            [
+                {
+                    TaskCommentFields.AUTHOR: 'shay',
+                    TaskCommentFields.BODY: (
+                        'OpenHands agent could not safely process this task: timeout'
+                    ),
+                },
+                {
+                    TaskCommentFields.AUTHOR: 'Reviewer',
+                    TaskCommentFields.BODY: 'Please add tests.',
+                },
+            ],
+        )
 
     def test_move_issue_to_review_adds_labels(self) -> None:
         client = GitLabIssuesClient('https://gitlab.example/api/v4', 'gl-token', 'group/repo')

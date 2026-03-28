@@ -16,6 +16,7 @@ from openhands_agent.fields import (
     PullRequestFields,
     ReviewCommentFields,
     StatusFields,
+    TaskCommentFields,
 )
 from openhands_agent.data_layers.service.testing_service import TestingService
 from utils import build_review_comment_payload, build_task, build_test_cfg
@@ -63,6 +64,7 @@ class AgentServiceTests(unittest.TestCase):
         self.repository_service = types.SimpleNamespace(
             validate_connections=Mock(),
             resolve_task_repositories=Mock(return_value=[self.client_repo, self.backend_repo]),
+            prepare_task_repositories=Mock(side_effect=lambda repositories: repositories),
             get_repository=Mock(side_effect=lambda repository_id: {
                 'client': self.client_repo,
                 'backend': self.backend_repo,
@@ -214,8 +216,10 @@ class AgentServiceTests(unittest.TestCase):
         self.assertIn('[repositories]', str(exc_context.exception))
 
     def test_process_assigned_task_creates_prs_for_all_selected_repositories(self) -> None:
+        self.service.logger = Mock()
         task = self.task_data_access.get_assigned_tasks()[0]
-        results = self.service.process_assigned_task(task)
+        with patch.object(self.service, 'logger', self.service.logger):
+            results = self.service.process_assigned_task(task)
 
         self.assertEqual(
             results,
@@ -257,12 +261,22 @@ class AgentServiceTests(unittest.TestCase):
             source_branch='feature/proj-1/backend',
             description=self.pr_description,
         )
-        self.task_client.add_comment.assert_called_once()
-        comment_text = self.task_client.add_comment.call_args.args[1]
-        self.assertIn('Published review links:', comment_text)
-        self.assertIn('client: https://bitbucket/pr/17', comment_text)
-        self.assertIn('backend: https://github/pr/18', comment_text)
-        self.task_client.move_issue_to_state.assert_called_once_with('PROJ-1', 'State', 'In Review')
+        self.assertEqual(self.task_client.add_comment.call_count, 2)
+        start_comment = self.task_client.add_comment.call_args_list[0].args[1]
+        self.assertIn('started working on this task', start_comment)
+        self.assertIn('client', start_comment)
+        self.assertIn('backend', start_comment)
+        summary_comment = self.task_client.add_comment.call_args_list[1].args[1]
+        self.assertIn('Published review links:', summary_comment)
+        self.assertIn('client: https://bitbucket/pr/17', summary_comment)
+        self.assertIn('backend: https://github/pr/18', summary_comment)
+        self.assertEqual(
+            self.task_client.move_issue_to_state.call_args_list,
+            [
+                unittest.mock.call('PROJ-1', 'State', 'In Progress'),
+                unittest.mock.call('PROJ-1', 'State', 'In Review'),
+            ],
+        )
         self.assertEqual(self.email_core_lib.send.call_count, 2)
         completion_email = self.email_core_lib.send.call_args_list[0].args[1]
         self.assertEqual(completion_email[EmailFields.TASK_ID], 'PROJ-1')
@@ -286,6 +300,25 @@ class AgentServiceTests(unittest.TestCase):
                     }
                 ],
             },
+        )
+        self.service.logger.info.assert_any_call(
+            'task %s: resolved repositories: %s',
+            'PROJ-1',
+            'client, backend',
+        )
+        self.service.logger.info.assert_any_call(
+            'task %s: repository preflight passed: %s',
+            'PROJ-1',
+            'client->default, backend->main',
+        )
+        self.service.logger.info.assert_any_call(
+            'task %s: planned working branches: %s',
+            'PROJ-1',
+            'client->feature/proj-1/client, backend->feature/proj-1/backend',
+        )
+        self.service.logger.info.assert_any_call(
+            'task %s: completion notification sent',
+            'PROJ-1',
         )
 
     def test_get_assigned_tasks_returns_empty_list_when_no_tasks_exist(self) -> None:
@@ -338,6 +371,66 @@ class AgentServiceTests(unittest.TestCase):
         self.repository_service.resolve_task_repositories.assert_not_called()
         self.openhands_client.implement_task.assert_not_called()
 
+    def test_process_assigned_task_skips_when_prior_failure_comment_is_still_active(self) -> None:
+        task = build_task(
+            description='Update client and backend APIs',
+            comments=[
+                {
+                    TaskCommentFields.AUTHOR: 'shay',
+                    TaskCommentFields.BODY: (
+                        'OpenHands agent stopped working on this task: gateway timeout'
+                    ),
+                },
+                {
+                    TaskCommentFields.AUTHOR: 'reviewer',
+                    TaskCommentFields.BODY: 'Please keep the fix minimal.',
+                },
+            ],
+        )
+
+        results = self.service.process_assigned_task(task)
+
+        self.assertEqual(
+            results,
+            {
+                'id': 'PROJ-1',
+                StatusFields.STATUS: StatusFields.SKIPPED,
+                PullRequestFields.PULL_REQUESTS: [],
+                PullRequestFields.FAILED_REPOSITORIES: [],
+            },
+        )
+        self.repository_service.resolve_task_repositories.assert_not_called()
+        self.openhands_client.implement_task.assert_not_called()
+        self.task_client.add_comment.assert_not_called()
+        self.task_client.move_issue_to_state.assert_not_called()
+        self.email_core_lib.send.assert_not_called()
+
+    def test_process_assigned_task_retries_after_later_retry_instruction(self) -> None:
+        task = build_task(
+            description='Update client and backend APIs',
+            comments=[
+                {
+                    TaskCommentFields.AUTHOR: 'shay',
+                    TaskCommentFields.BODY: (
+                        'OpenHands agent could not safely process this task: timeout'
+                    ),
+                },
+                {
+                    TaskCommentFields.AUTHOR: 'reviewer',
+                    TaskCommentFields.BODY: 'You can move forward and try again now.',
+                },
+            ],
+        )
+
+        results = self.service.process_assigned_task(task)
+
+        self.assertEqual(results[StatusFields.STATUS], StatusFields.READY_FOR_REVIEW)
+        self.repository_service.resolve_task_repositories.assert_called_once_with(task)
+        self.repository_service.prepare_task_repositories.assert_called_once_with(
+            [self.client_repo, self.backend_repo]
+        )
+        self.openhands_client.implement_task.assert_called_once_with(task, '')
+
     def test_process_assigned_task_skips_execution_without_success_flag(self) -> None:
         self.openhands_client.implement_task.return_value = {}
         self.service.logger = Mock()
@@ -349,8 +442,26 @@ class AgentServiceTests(unittest.TestCase):
         self.assertIsNone(results)
         self.openhands_client.test_task.assert_not_called()
         self.repository_service.create_pull_request.assert_not_called()
-        self.task_client.move_issue_to_state.assert_not_called()
-        self.task_client.add_comment.assert_called_once()
+        self.assertEqual(
+            self.task_client.move_issue_to_state.call_args_list,
+            [
+                unittest.mock.call('PROJ-1', 'State', 'In Progress'),
+                unittest.mock.call('PROJ-1', 'State', 'Todo'),
+            ],
+        )
+        self.assertEqual(self.task_client.add_comment.call_count, 2)
+        self.assertIn(
+            'started working on this task',
+            self.task_client.add_comment.call_args_list[0].args[1],
+        )
+        self.assertIn(
+            'stopped working on this task',
+            self.task_client.add_comment.call_args_list[1].args[1],
+        )
+        self.assertIn(
+            'implementation agent reported the task is not ready',
+            self.task_client.add_comment.call_args_list[1].args[1],
+        )
         self.assertEqual(self.email_core_lib.send.call_count, 2)
         self.service.logger.warning.assert_called_once_with(
             'implementation failed for task %s: %s',
@@ -370,6 +481,56 @@ class AgentServiceTests(unittest.TestCase):
         self.assertIn('Please mention the repository name or alias', self.task_client.add_comment.call_args.args[1])
         self.email_core_lib.send.assert_not_called()
 
+    def test_process_assigned_task_reports_generic_pre_start_failures_without_reopening(self) -> None:
+        self.repository_service.resolve_task_repositories.side_effect = RuntimeError('repository service down')
+        task = self.task_data_access.get_assigned_tasks()[0]
+
+        results = self.service.process_assigned_task(task)
+
+        self.assertIsNone(results)
+        self.task_client.add_comment.assert_called_once_with(
+            'PROJ-1',
+            'OpenHands agent could not safely process this task: repository service down',
+        )
+        self.task_client.move_issue_to_state.assert_not_called()
+        self.assertEqual(self.email_core_lib.send.call_count, 2)
+
+    def test_process_assigned_task_reports_repository_preparation_failures_without_reopening(self) -> None:
+        self.repository_service.prepare_task_repositories.side_effect = RuntimeError(
+            'unable to determine destination branch for repository client'
+        )
+        task = self.task_data_access.get_assigned_tasks()[0]
+
+        results = self.service.process_assigned_task(task)
+
+        self.assertIsNone(results)
+        self.task_client.add_comment.assert_called_once_with(
+            'PROJ-1',
+            'OpenHands agent could not safely process this task: '
+            'unable to determine destination branch for repository client',
+        )
+        self.task_client.move_issue_to_state.assert_not_called()
+        self.openhands_client.implement_task.assert_not_called()
+
+    def test_process_assigned_task_skips_when_task_definition_is_too_thin(self) -> None:
+        task = build_task(
+            summary='test',
+            description='No description provided.',
+        )
+
+        results = self.service.process_assigned_task(task)
+
+        self.assertIsNone(results)
+        self.task_client.add_comment.assert_called_once_with(
+            'PROJ-1',
+            'OpenHands agent skipped this task because the task definition is too thin '
+            'to work from safely. Please add a clearer description or issue comment '
+            'describing the expected change.',
+        )
+        self.task_client.move_issue_to_state.assert_not_called()
+        self.openhands_client.implement_task.assert_not_called()
+        self.email_core_lib.send.assert_not_called()
+
     def test_process_assigned_task_reports_testing_failures_before_pr_creation(self) -> None:
         self.openhands_client.test_task.return_value = {
             ImplementationFields.SUCCESS: False,
@@ -383,7 +544,26 @@ class AgentServiceTests(unittest.TestCase):
 
         self.assertEqual(results[StatusFields.STATUS], StatusFields.TESTING_FAILED)
         self.repository_service.create_pull_request.assert_not_called()
-        self.task_client.move_issue_to_state.assert_not_called()
+        self.assertEqual(
+            self.task_client.move_issue_to_state.call_args_list,
+            [
+                unittest.mock.call('PROJ-1', 'State', 'In Progress'),
+                unittest.mock.call('PROJ-1', 'State', 'Todo'),
+            ],
+        )
+        self.assertEqual(self.task_client.add_comment.call_count, 2)
+        self.assertIn(
+            'started working on this task',
+            self.task_client.add_comment.call_args_list[0].args[1],
+        )
+        self.assertIn(
+            'stopped working on this task',
+            self.task_client.add_comment.call_args_list[1].args[1],
+        )
+        self.assertIn(
+            'backend tests are still failing',
+            self.task_client.add_comment.call_args_list[1].args[1],
+        )
         self.assertEqual(self.email_core_lib.send.call_count, 2)
         self.service.logger.warning.assert_called_once_with(
             'testing failed for task %s: %s',
@@ -400,8 +580,23 @@ class AgentServiceTests(unittest.TestCase):
             results = self.service.process_assigned_task(task)
 
         self.assertIsNone(results)
-        self.task_client.add_comment.assert_called_once()
-        self.assertIn('openhands down', self.task_client.add_comment.call_args.args[1])
+        self.assertEqual(self.task_client.add_comment.call_count, 2)
+        self.assertEqual(
+            self.task_client.move_issue_to_state.call_args_list,
+            [
+                unittest.mock.call('PROJ-1', 'State', 'In Progress'),
+                unittest.mock.call('PROJ-1', 'State', 'Todo'),
+            ],
+        )
+        self.assertIn(
+            'started working on this task',
+            self.task_client.add_comment.call_args_list[0].args[1],
+        )
+        self.assertIn(
+            'stopped working on this task',
+            self.task_client.add_comment.call_args_list[1].args[1],
+        )
+        self.assertIn('openhands down', self.task_client.add_comment.call_args_list[1].args[1])
         self.assertEqual(self.email_core_lib.send.call_count, 2)
         self.service.logger.exception.assert_called_once_with(
             'implementation request failed for task %s',
@@ -417,8 +612,26 @@ class AgentServiceTests(unittest.TestCase):
             results = self.service.process_assigned_task(task)
 
         self.assertIsNone(results)
-        self.task_client.add_comment.assert_called_once()
-        self.assertIn('testing sandbox down', self.task_client.add_comment.call_args.args[1])
+        self.assertEqual(self.task_client.add_comment.call_count, 2)
+        self.assertEqual(
+            self.task_client.move_issue_to_state.call_args_list,
+            [
+                unittest.mock.call('PROJ-1', 'State', 'In Progress'),
+                unittest.mock.call('PROJ-1', 'State', 'Todo'),
+            ],
+        )
+        self.assertIn(
+            'started working on this task',
+            self.task_client.add_comment.call_args_list[0].args[1],
+        )
+        self.assertIn(
+            'stopped working on this task',
+            self.task_client.add_comment.call_args_list[1].args[1],
+        )
+        self.assertIn(
+            'testing sandbox down',
+            self.task_client.add_comment.call_args_list[1].args[1],
+        )
         self.assertEqual(self.email_core_lib.send.call_count, 2)
         self.service.logger.exception.assert_called_once_with(
             'testing request failed for task %s',
@@ -443,11 +656,52 @@ class AgentServiceTests(unittest.TestCase):
 
         self.assertEqual(results[StatusFields.STATUS], StatusFields.PARTIAL_FAILURE)
         self.assertEqual(results[PullRequestFields.FAILED_REPOSITORIES], ['backend'])
-        self.task_client.move_issue_to_state.assert_not_called()
+        self.assertEqual(
+            self.task_client.move_issue_to_state.call_args_list,
+            [
+                unittest.mock.call('PROJ-1', 'State', 'In Progress'),
+                unittest.mock.call('PROJ-1', 'State', 'Todo'),
+            ],
+        )
+        self.assertIn(
+            'stopped working on this task',
+            self.task_client.add_comment.call_args_list[-1].args[1],
+        )
+        self.assertIn(
+            'failed to create pull requests for repositories: backend',
+            self.task_client.add_comment.call_args_list[-1].args[1],
+        )
         self.assertEqual(self.email_core_lib.send.call_count, 2)
 
+    def test_process_assigned_task_continues_when_move_to_in_progress_fails(self) -> None:
+        self.task_client.move_issue_to_state.side_effect = [
+            RuntimeError('state update failed'),
+            None,
+        ]
+        self.service.logger = Mock()
+        task = self.task_data_access.get_assigned_tasks()[0]
+
+        with patch.object(self.service, 'logger', self.service.logger):
+            results = self.service.process_assigned_task(task)
+
+        self.assertEqual(results[StatusFields.STATUS], StatusFields.READY_FOR_REVIEW)
+        self.assertEqual(
+            self.task_client.move_issue_to_state.call_args_list,
+            [
+                unittest.mock.call('PROJ-1', 'State', 'In Progress'),
+                unittest.mock.call('PROJ-1', 'State', 'In Review'),
+            ],
+        )
+        self.service.logger.exception.assert_called_once_with(
+            'failed to move task %s to in progress',
+            'PROJ-1',
+        )
+
     def test_process_assigned_task_continues_when_move_to_review_fails(self) -> None:
-        self.task_client.move_issue_to_state.side_effect = RuntimeError('state update failed')
+        self.task_client.move_issue_to_state.side_effect = [
+            None,
+            RuntimeError('state update failed'),
+        ]
         self.service.logger = Mock()
         task = self.task_data_access.get_assigned_tasks()[0]
 
@@ -459,6 +713,40 @@ class AgentServiceTests(unittest.TestCase):
         self.service.logger.exception.assert_called_once_with(
             'failed to move task %s to review',
             'PROJ-1',
+        )
+
+    def test_process_assigned_task_continues_when_move_to_open_fails(self) -> None:
+        self.openhands_client.implement_task.side_effect = RuntimeError('openhands down')
+        self.task_client.move_issue_to_state.side_effect = [
+            None,
+            RuntimeError('reopen failed'),
+        ]
+        self.service.logger = Mock()
+        task = self.task_data_access.get_assigned_tasks()[0]
+
+        with patch.object(self.service, 'logger', self.service.logger):
+            results = self.service.process_assigned_task(task)
+
+        self.assertIsNone(results)
+        self.assertEqual(
+            self.task_client.move_issue_to_state.call_args_list,
+            [
+                unittest.mock.call('PROJ-1', 'State', 'In Progress'),
+                unittest.mock.call('PROJ-1', 'State', 'Todo'),
+            ],
+        )
+        self.assertEqual(
+            self.service.logger.exception.call_args_list,
+            [
+                unittest.mock.call(
+                    'implementation request failed for task %s',
+                    'PROJ-1',
+                ),
+                unittest.mock.call(
+                    'failed to move task %s back to open',
+                    'PROJ-1',
+                ),
+            ],
         )
 
     def test_process_assigned_task_ignores_completion_notification_failures(self) -> None:

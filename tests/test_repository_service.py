@@ -144,6 +144,19 @@ class RepositoryServiceTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'no configured repository matched task PROJ-1'):
             service.resolve_task_repositories(task)
 
+    def test_prepare_task_repositories_sets_resolved_destination_branch(self) -> None:
+        repository = self.cfg.openhands_agent.repositories[0]
+        repository.destination_branch = ''
+        service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+
+        with patch(
+            'openhands_agent.data_layers.service.repository_service.subprocess.run',
+            return_value=Mock(returncode=0, stdout='refs/remotes/origin/master\n'),
+        ):
+            prepared_repositories = service.prepare_task_repositories([repository])
+
+        self.assertEqual(prepared_repositories[0].destination_branch, 'master')
+
 
     def test_does_not_match_repository_alias_inside_hyphenated_word(self) -> None:
         service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
@@ -151,6 +164,22 @@ class RepositoryServiceTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, 'no configured repository matched task PROJ-1'):
             service.resolve_task_repositories(task)
+
+    def test_matches_repository_alias_surrounded_by_punctuation(self) -> None:
+        service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+        task = build_task(description='Please update (backend), then circle back.')
+
+        repositories = service.resolve_task_repositories(task)
+
+        self.assertEqual([repository.id for repository in repositories], ['backend'])
+
+    def test_matches_repository_by_display_name_from_summary(self) -> None:
+        service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+        task = build_task(summary='Client polish pass', description='Tighten UX copy.')
+
+        repositories = service.resolve_task_repositories(task)
+
+        self.assertEqual([repository.id for repository in repositories], ['client'])
 
     def test_prefers_configured_destination_branch(self) -> None:
         service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
@@ -170,6 +199,27 @@ class RepositoryServiceTests(unittest.TestCase):
             return_value=Mock(returncode=0, stdout='refs/remotes/origin/master\n'),
         ):
             self.assertEqual(service.destination_branch(repository), 'master')
+
+    def test_destination_branch_raises_when_git_cannot_infer_default_branch(self) -> None:
+        service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+        repository = self.cfg.openhands_agent.repositories[0]
+
+        with patch(
+            'openhands_agent.data_layers.service.repository_service.subprocess.run',
+            return_value=Mock(returncode=1, stdout=''),
+        ):
+            with self.assertRaisesRegex(
+                ValueError,
+                'unable to determine destination branch for repository client',
+            ):
+                service.destination_branch(repository)
+
+    def test_build_branch_name_uses_task_id(self) -> None:
+        service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+
+        branch_name = service.build_branch_name(build_task(task_id='UNA-222'), self.backend_repo)
+
+        self.assertEqual(branch_name, 'UNA-222')
 
     def test_create_pull_request_includes_repository_id_and_inferred_branch(self) -> None:
         repository = self.cfg.openhands_agent.repositories[0]
@@ -205,6 +255,16 @@ class RepositoryServiceTests(unittest.TestCase):
             service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
             with self.assertRaisesRegex(ValueError, 'missing local repository path'):
                 service.validate_connections()
+
+    def test_prepare_task_repositories_raises_when_local_path_is_missing(self) -> None:
+        service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+
+        with patch(
+            'openhands_agent.data_layers.service.repository_service.os.path.isdir',
+            return_value=False,
+        ):
+            with self.assertRaisesRegex(ValueError, 'missing local repository path'):
+                service.prepare_task_repositories([self.cfg.openhands_agent.repositories[0]])
 
     def test_validate_connections_requires_at_least_one_repository(self) -> None:
         service = RepositoryService([], 3)

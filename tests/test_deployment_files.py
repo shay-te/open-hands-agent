@@ -25,8 +25,13 @@ class DeploymentFilesTests(unittest.TestCase):
         compose_text = (REPO_ROOT / 'docker-compose.yaml').read_text(encoding='utf-8')
 
         self.assertIn('LLM_MODEL: ${OPENHANDS_LLM_MODEL:-}', compose_text)
+        self.assertIn('OPENHANDS_LLM_MODEL: ${OPENHANDS_LLM_MODEL:-}', compose_text)
         self.assertIn('LLM_API_KEY: ${OPENHANDS_LLM_API_KEY:-}', compose_text)
         self.assertIn('LLM_BASE_URL: ${OPENHANDS_LLM_BASE_URL:-}', compose_text)
+        self.assertIn('OPENHANDS_LLM_BASE_URL: ${OPENHANDS_LLM_BASE_URL:-}', compose_text)
+        self.assertIn('AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}', compose_text)
+        self.assertIn('AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}', compose_text)
+        self.assertIn('AWS_REGION_NAME: ${AWS_REGION_NAME:-}', compose_text)
         self.assertIn(
             'AWS_BEARER_TOKEN_BEDROCK: ${AWS_BEARER_TOKEN_BEDROCK:-}',
             compose_text,
@@ -50,7 +55,15 @@ class DeploymentFilesTests(unittest.TestCase):
             compose_text,
         )
         self.assertIn(
+            'YOUTRACK_PROGRESS_STATE: ${YOUTRACK_PROGRESS_STATE:-In Progress}',
+            compose_text,
+        )
+        self.assertIn(
             'JIRA_ISSUE_STATES: ${JIRA_ISSUE_STATES:-To Do,Open}',
+            compose_text,
+        )
+        self.assertIn(
+            'JIRA_PROGRESS_STATE: ${JIRA_PROGRESS_STATE:-In Progress}',
             compose_text,
         )
         self.assertIn(
@@ -58,11 +71,23 @@ class DeploymentFilesTests(unittest.TestCase):
             compose_text,
         )
         self.assertIn(
+            'GITHUB_ISSUES_PROGRESS_STATE: ${GITHUB_ISSUES_PROGRESS_STATE:-In Progress}',
+            compose_text,
+        )
+        self.assertIn(
             'GITLAB_ISSUES_ISSUE_STATES: ${GITLAB_ISSUES_ISSUE_STATES:-opened}',
             compose_text,
         )
         self.assertIn(
+            'GITLAB_ISSUES_PROGRESS_STATE: ${GITLAB_ISSUES_PROGRESS_STATE:-In Progress}',
+            compose_text,
+        )
+        self.assertIn(
             'BITBUCKET_ISSUES_ISSUE_STATES: ${BITBUCKET_ISSUES_ISSUE_STATES:-new,open}',
+            compose_text,
+        )
+        self.assertIn(
+            'BITBUCKET_ISSUES_PROGRESS_STATE: ${BITBUCKET_ISSUES_PROGRESS_STATE:-open}',
             compose_text,
         )
         self.assertIn(
@@ -101,13 +126,18 @@ class DeploymentFilesTests(unittest.TestCase):
         self.assertIn('OPENHANDS_AGENT_DB_FILE=', env_example_text)
         self.assertIn('JIRA_BASE_URL=', env_example_text)
         self.assertIn('JIRA_TOKEN=', env_example_text)
+        self.assertIn('YOUTRACK_PROGRESS_STATE=', env_example_text)
         self.assertIn('YOUTRACK_ISSUE_STATES=', env_example_text)
+        self.assertIn('JIRA_PROGRESS_STATE=', env_example_text)
         self.assertIn('JIRA_ISSUE_STATES=', env_example_text)
         self.assertIn('GITHUB_ISSUES_BASE_URL=', env_example_text)
+        self.assertIn('GITHUB_ISSUES_PROGRESS_STATE=', env_example_text)
         self.assertIn('GITHUB_ISSUES_ISSUE_STATES=', env_example_text)
         self.assertIn('GITLAB_ISSUES_BASE_URL=', env_example_text)
+        self.assertIn('GITLAB_ISSUES_PROGRESS_STATE=', env_example_text)
         self.assertIn('GITLAB_ISSUES_ISSUE_STATES=', env_example_text)
         self.assertIn('BITBUCKET_ISSUES_BASE_URL=', env_example_text)
+        self.assertIn('BITBUCKET_ISSUES_PROGRESS_STATE=', env_example_text)
         self.assertIn('BITBUCKET_ISSUES_ISSUE_STATES=', env_example_text)
         self.assertIn('OPENHANDS_BASE_URL=', env_example_text)
         self.assertIn('OPENHANDS_AGENT_STATE_FILE=', env_example_text)

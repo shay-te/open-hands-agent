@@ -18,6 +18,12 @@ class ReviewCommentFields:
     ALL_COMMENTS = 'all_comments'
 
 
+class TaskCommentFields:
+    AUTHOR = 'author'
+    BODY = 'body'
+    ALL_COMMENTS = 'all_comments'
+
+
 class ImplementationFields:
     COMMIT_MESSAGE = 'commit_message'
     SESSION_ID = 'session_id'

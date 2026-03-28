@@ -21,7 +21,7 @@ pull_request_comment_rule_validator = RuleValidator(
     ]
 )
 
-move_to_review_rule_validator = RuleValidator(
+move_task_state_rule_validator = RuleValidator(
     [
         ValueRuleValidator('issue_id', str),
     ]
@@ -72,17 +72,30 @@ class TaskDataAccess(DataAccess):
     def add_pull_request_comment(self, issue_id: str, pull_request_url: str) -> None:
         self.add_comment(issue_id, f'Pull request created: {pull_request_url}')
 
-    def move_task_to_review(self, issue_id: str) -> None:
-        move_to_review_rule_validator.validate_dict(
-            {
-                'issue_id': issue_id,
-            }
+    def move_task_to_in_progress(self, issue_id: str) -> None:
+        self._move_task_to_state(
+            issue_id,
+            self._configured_progress_state_field(),
+            self._configured_progress_state(),
         )
-        self._client.move_issue_to_state(
+
+    def move_task_to_review(self, issue_id: str) -> None:
+        self._move_task_to_state(
             issue_id,
             self._configured_review_state_field(),
             self._configured_review_state(),
         )
+
+    def move_task_to_open(self, issue_id: str) -> None:
+        self._move_task_to_state(
+            issue_id,
+            self._configured_open_state_field(),
+            self._configured_open_state(),
+        )
+
+    def _move_task_to_state(self, issue_id: str, field_name: str, state_name: str) -> None:
+        move_task_state_rule_validator.validate_dict({'issue_id': issue_id})
+        self._client.move_issue_to_state(issue_id, field_name, state_name)
 
     def _configured_issue_states(self) -> list[str]:
         if hasattr(self._config, 'issue_states'):
@@ -92,8 +105,34 @@ class TaskDataAccess(DataAccess):
             return [str(state).strip() for state in issue_states if str(state).strip()]
         return [self._config.issue_state]
 
+    def _configured_progress_state_field(self) -> str:
+        return getattr(
+            self._config,
+            'progress_state_field',
+            self._configured_review_state_field(),
+        )
+
+    def _configured_progress_state(self) -> str:
+        return getattr(self._config, 'progress_state', 'In Progress')
+
     def _configured_review_state_field(self) -> str:
         return getattr(self._config, 'review_state_field', 'State')
 
     def _configured_review_state(self) -> str:
         return getattr(self._config, 'review_state', 'In Review')
+
+    def _configured_open_state_field(self) -> str:
+        return getattr(
+            self._config,
+            'open_state_field',
+            self._configured_progress_state_field(),
+        )
+
+    def _configured_open_state(self) -> str:
+        explicit_open_state = str(getattr(self._config, 'open_state', '') or '').strip()
+        if explicit_open_state:
+            return explicit_open_state
+        configured_issue_states = self._configured_issue_states()
+        if configured_issue_states:
+            return configured_issue_states[0]
+        return 'Open'

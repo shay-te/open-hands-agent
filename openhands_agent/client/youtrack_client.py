@@ -5,6 +5,7 @@ from openhands_agent.client.retry_utils import run_with_retry
 from openhands_agent.client.ticket_client_base import TicketClientBase
 from openhands_agent.data_layers.data.task import Task
 from openhands_agent.fields import (
+    TaskCommentFields,
     YouTrackAttachmentFields,
     YouTrackCommentFields,
     YouTrackCustomFieldFields,
@@ -102,18 +103,20 @@ class YouTrackClient(TicketClientBase):
 
     def _to_task(self, payload: dict[str, Any]) -> Task:
         issue_id = payload['idReadable']
-        comments = self._get_issue_comments(issue_id)
+        comment_entries = self._task_comment_entries(self._get_issue_comments(issue_id))
         attachments = self._get_issue_attachments(issue_id)
-        return Task(
+        task = Task(
             id=issue_id,
             summary=str(payload.get(Task.summary.key, '') or ''),
             description=self._build_task_description(
                 payload.get(Task.description.key),
-                comments,
+                comment_entries,
                 attachments,
             ),
             branch_name=f'feature/{issue_id.lower()}',
         )
+        self._set_task_comments(task, comment_entries)
+        return task
 
     @staticmethod
     def _build_assigned_tasks_query(project: str, assignee: str, states: list[str]) -> str:
@@ -170,15 +173,12 @@ class YouTrackClient(TicketClientBase):
     def _build_task_description(
         self,
         description,
-        comments: list[dict[str, Any]],
+        comment_entries: list[dict[str, str]],
         attachments: list[dict[str, Any]],
     ) -> str:
         base_description = str(description or '').strip()
         sections = [base_description or 'No description provided.']
-
-        comment_lines = self._format_comments(comments)
-        if comment_lines:
-            sections.append('Issue comments:\n' + '\n'.join(comment_lines))
+        self._append_comment_section(sections, comment_entries)
 
         text_attachment_lines = self._format_text_attachments(attachments)
         if text_attachment_lines:
@@ -188,21 +188,27 @@ class YouTrackClient(TicketClientBase):
         if screenshot_lines:
             sections.append('Screenshot attachments:\n' + '\n'.join(screenshot_lines))
 
-        return '\n\n'.join(section for section in sections if section)
+        return self._join_task_description_sections(sections)
 
-    @staticmethod
-    def _format_comments(comments: list[dict[str, Any]]) -> list[str]:
-        lines: list[str] = []
+    @classmethod
+    def _task_comment_entries(
+        cls,
+        comments: list[dict[str, Any]],
+    ) -> list[dict[str, str]]:
+        entries: list[dict[str, str]] = []
         for comment in comments:
             if not isinstance(comment, dict):
                 continue
             text = str(comment.get(YouTrackCommentFields.TEXT) or '').strip()
             if not text:
                 continue
-            if YouTrackClient._is_agent_operational_comment(text):
-                continue
-            lines.append(f'- {YouTrackClient._comment_author_name(comment)}: {text}')
-        return lines
+            entries.append(
+                {
+                    TaskCommentFields.AUTHOR: cls._comment_author_name(comment),
+                    TaskCommentFields.BODY: text,
+                }
+            )
+        return entries
 
     def _format_text_attachments(self, attachments: list[dict[str, Any]]) -> list[str]:
         lines: list[str] = []

@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 from openhands_agent.client.jira_client import JiraClient
 from openhands_agent.data_layers.data.task import Task
+from openhands_agent.fields import TaskCommentFields
 from utils import assert_client_headers_and_timeout, mock_response
 
 
@@ -162,6 +163,21 @@ class JiraClientTests(unittest.TestCase):
         self.assertEqual(len(tasks), 1)
         self.assertIn('Reviewer: Please add tests.', tasks[0].description)
         self.assertNotIn('could not safely process this task', tasks[0].description)
+        self.assertEqual(
+            getattr(tasks[0], TaskCommentFields.ALL_COMMENTS),
+            [
+                {
+                    TaskCommentFields.AUTHOR: 'shay',
+                    TaskCommentFields.BODY: (
+                        'OpenHands agent could not safely process this task: timeout'
+                    ),
+                },
+                {
+                    TaskCommentFields.AUTHOR: 'Reviewer',
+                    TaskCommentFields.BODY: 'Please add tests.',
+                },
+            ],
+        )
 
     def test_add_comment_posts_plain_text_body(self) -> None:
         client = JiraClient('https://jira.example', 'jira-token')

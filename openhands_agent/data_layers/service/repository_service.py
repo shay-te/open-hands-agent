@@ -43,6 +43,14 @@ class RepositoryService(Service):
             raise ValueError(f'no configured repository matched task {task.id}')
         return matches
 
+    def prepare_task_repositories(self, repositories: list[object]) -> list[object]:
+        prepared_repositories: list[object] = []
+        for repository in repositories:
+            self._validate_local_path(repository)
+            setattr(repository, 'destination_branch', self.destination_branch(repository))
+            prepared_repositories.append(repository)
+        return prepared_repositories
+
     def get_repository(self, repository_id: str):
         for repository in self._repositories:
             if repository.id == repository_id:
@@ -50,7 +58,7 @@ class RepositoryService(Service):
         raise ValueError(f'unknown repository id: {repository_id}')
 
     def build_branch_name(self, task: Task, repository) -> str:
-        return f'feature/{task.id.lower()}/{repository.id.lower()}'
+        return str(task.id or '').strip()
 
     def create_pull_request(
         self,
