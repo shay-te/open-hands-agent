@@ -29,6 +29,16 @@ class DeploymentFilesTests(unittest.TestCase):
         self.assertIn('LLM_API_KEY: ${OPENHANDS_LLM_API_KEY:-}', compose_text)
         self.assertIn('LLM_BASE_URL: ${OPENHANDS_LLM_BASE_URL:-}', compose_text)
         self.assertIn('OPENHANDS_LLM_BASE_URL: ${OPENHANDS_LLM_BASE_URL:-}', compose_text)
+        self.assertIn(
+            'OPENHANDS_POLL_INTERVAL_SECONDS: ${OPENHANDS_POLL_INTERVAL_SECONDS:-2.0}',
+            compose_text,
+        )
+        self.assertIn(
+            'OPENHANDS_MAX_POLL_ATTEMPTS: ${OPENHANDS_MAX_POLL_ATTEMPTS:-900}',
+            compose_text,
+        )
+        self.assertIn('LOG_LEVEL: ${OPENHANDS_LOG_LEVEL:-warning}', compose_text)
+        self.assertIn('UVICORN_LOG_LEVEL: ${OPENHANDS_LOG_LEVEL:-warning}', compose_text)
         self.assertIn('AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}', compose_text)
         self.assertIn('AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}', compose_text)
         self.assertIn('AWS_REGION_NAME: ${AWS_REGION_NAME:-}', compose_text)
@@ -56,6 +66,10 @@ class DeploymentFilesTests(unittest.TestCase):
         )
         self.assertIn(
             'YOUTRACK_PROGRESS_STATE: ${YOUTRACK_PROGRESS_STATE:-In Progress}',
+            compose_text,
+        )
+        self.assertIn(
+            'YOUTRACK_REVIEW_STATE: ${YOUTRACK_REVIEW_STATE:-To Verify}',
             compose_text,
         )
         self.assertIn(
@@ -92,6 +106,10 @@ class DeploymentFilesTests(unittest.TestCase):
         )
         self.assertIn(
             'OPENHANDS_AGENT_COMPLETION_EMAIL_ENABLED: ${OPENHANDS_AGENT_COMPLETION_EMAIL_ENABLED:-false}',
+            compose_text,
+        )
+        self.assertIn(
+            'OPENHANDS_AGENT_LOG_LEVEL: ${OPENHANDS_AGENT_LOG_LEVEL:-WARNING}',
             compose_text,
         )
         self.assertIn('REPOSITORY_ROOT_PATH: ${REPOSITORY_ROOT_PATH:-.}', compose_text)
@@ -141,9 +159,13 @@ class DeploymentFilesTests(unittest.TestCase):
         self.assertIn('BITBUCKET_ISSUES_ISSUE_STATES=', env_example_text)
         self.assertIn('OPENHANDS_BASE_URL=', env_example_text)
         self.assertIn('OPENHANDS_AGENT_STATE_FILE=', env_example_text)
+        self.assertIn('OPENHANDS_AGENT_LOG_LEVEL=', env_example_text)
         self.assertIn('OPENHANDS_LLM_MODEL=', env_example_text)
         self.assertIn('OPENHANDS_LLM_API_KEY=', env_example_text)
         self.assertIn('OPENHANDS_LLM_BASE_URL=', env_example_text)
+        self.assertIn('OPENHANDS_POLL_INTERVAL_SECONDS=', env_example_text)
+        self.assertIn('OPENHANDS_MAX_POLL_ATTEMPTS=', env_example_text)
+        self.assertIn('OPENHANDS_LOG_LEVEL=', env_example_text)
         self.assertIn('EMAIL_CORE_LIB_SEND_IN_BLUE_API_KEY=', env_example_text)
         self.assertNotIn('EMIL_CORE_LIB_SEND_IN_BLUE_API_KEY=', env_example_text)
         self.assertIn('AWS_ACCESS_KEY_ID=', env_example_text)
@@ -228,6 +250,8 @@ class DeploymentFilesTests(unittest.TestCase):
         self.assertIn('create_db: true', config_text)
         self.assertIn('repositories:', config_text)
         self.assertIn('YOUTRACK_ISSUE_STATES', config_text)
+        self.assertIn('poll_interval_seconds:', config_text)
+        self.assertIn('max_poll_attempts:', config_text)
 
     def test_repo_includes_ci_workflow(self) -> None:
         workflow_text = (

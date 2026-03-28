@@ -32,8 +32,8 @@ class OpenHandsClient(RetryingClientBase):
         'error',
         'failed',
     }
-    _POLL_INTERVAL_SECONDS = 1.0
-    _MAX_POLL_ATTEMPTS = 300
+    _DEFAULT_POLL_INTERVAL_SECONDS = 2.0
+    _DEFAULT_MAX_POLL_ATTEMPTS = 900
 
     def __init__(
         self,
@@ -41,9 +41,13 @@ class OpenHandsClient(RetryingClientBase):
         api_key: str,
         max_retries: int = 3,
         llm_settings: dict[str, str] | None = None,
+        poll_interval_seconds: float = _DEFAULT_POLL_INTERVAL_SECONDS,
+        max_poll_attempts: int = _DEFAULT_MAX_POLL_ATTEMPTS,
     ) -> None:
         super().__init__(base_url, api_key, timeout=300, max_retries=max_retries)
         self._llm_settings = dict(llm_settings or {})
+        self._poll_interval_seconds = max(0.1, float(poll_interval_seconds or 0))
+        self._max_poll_attempts = max(1, int(max_poll_attempts or 0))
 
     def validate_connection(self) -> None:
         response = self._get_with_retry(f'{self._APP_CONVERSATIONS_PATH}/count')
@@ -142,6 +146,7 @@ class OpenHandsClient(RetryingClientBase):
             f'Implement task {task.id}: {task.summary}\n\n'
             f'{task.description}\n\n'
             f'{repository_scope}\n\n'
+            f'{self._tool_guardrails_text()}\n\n'
             'When you finish, use the finish tool.\n'
             '- Put the pull request description in summary.\n'
             '- Put any extra implementation details in message.\n'
@@ -161,6 +166,7 @@ class OpenHandsClient(RetryingClientBase):
             f'Validate the implementation for task {task.id}: {task.summary}\n\n'
             f'{task.description}\n\n'
             f'{repository_scope}\n\n'
+            f'{self._tool_guardrails_text()}\n\n'
             'Act as a separate testing agent.\n'
             'Write additional tests when needed, challenge the new code with edge cases, '
             'run the relevant tests, and fix any test failures you can resolve safely.\n'
@@ -177,8 +183,10 @@ class OpenHandsClient(RetryingClientBase):
         repositories = getattr(task, 'repositories', []) or []
         if not repositories:
             return (
-                'Before making changes, pull the latest changes from the repository default '
-                f'branch, then create and work on a new branch named {task.branch_name}.'
+                'Before making changes, try to pull the latest changes from the repository '
+                'default branch without interactive auth prompts. If remote access is blocked, '
+                'continue from the current local checkout and mention that limitation in your '
+                f'finish message. Then create and work on a new branch named {task.branch_name}.'
             )
 
         repository_lines = []
@@ -190,25 +198,38 @@ class OpenHandsClient(RetryingClientBase):
             )
             repository_lines.append(
                 f'- {repository.id} at {repository.local_path}: '
-                f'first pull the latest changes from {destination_text}, then create and work on '
-                f'a new branch named {branch_name}, and open the pull request into {destination_text}.'
+                f'first try to pull the latest changes from {destination_text} without '
+                'interactive auth prompts. If remote access is blocked, continue from the '
+                'current local checkout and mention that limitation in your finish message. '
+                f'Then create and work on a new branch named {branch_name}, and open the pull '
+                f'request into {destination_text}.'
             )
         lines = '\n'.join(repository_lines)
         return f'Only modify these repositories:\n{lines}'
 
-    @staticmethod
-    def _build_review_prompt(comment: ReviewComment, branch_name: str) -> str:
+    @classmethod
+    def _build_review_prompt(cls, comment: ReviewComment, branch_name: str) -> str:
         repository_id = getattr(comment, PullRequestFields.REPOSITORY_ID, '')
         repository_context = f' in repository {repository_id}' if repository_id else ''
-        review_context = OpenHandsClient._review_comment_context_text(comment)
+        review_context = cls._review_comment_context_text(comment)
         return (
             f'Address pull request comment on branch {branch_name}{repository_context}.\n'
             f'Comment by {comment.author}: {comment.body}'
             f'{review_context}\n\n'
+            f'{cls._tool_guardrails_text()}\n\n'
             'When you finish, use the finish tool.\n'
             '- Put a short description of what changed in summary.\n'
             '- Put any extra details in message.\n'
             '- Do not pass extra finish-tool arguments beyond the supported fields.\n'
+        )
+
+    @staticmethod
+    def _tool_guardrails_text() -> str:
+        return (
+            'Tool guardrails:\n'
+            '- Prefer shell commands like rg, sed -n, and cat for quick file reads.\n'
+            '- If you use the file_editor tool, always include its required command field.\n'
+            '- Never call file_editor with only path, summary, or security_risk.'
         )
 
     @staticmethod
@@ -294,7 +315,7 @@ class OpenHandsClient(RetryingClientBase):
         if not start_task_id:
             raise ValueError('openhands start task response did not include an id')
 
-        for attempt in range(self._MAX_POLL_ATTEMPTS):
+        for attempt in range(self._max_poll_attempts):
             task_info = self._get_start_task(start_task_id)
             status = str(task_info.get('status', '') or '').strip().upper()
             if status == self._START_TASK_READY:
@@ -307,7 +328,9 @@ class OpenHandsClient(RetryingClientBase):
                 raise RuntimeError(detail or 'openhands failed to start a conversation')
             self._sleep_before_next_poll(attempt)
 
-        raise TimeoutError(f'openhands did not start a conversation after {self._MAX_POLL_ATTEMPTS} polls')
+        raise TimeoutError(
+            f'openhands did not start a conversation after {self._max_poll_attempts} polls'
+        )
 
     def _get_start_task(self, start_task_id: str) -> dict:
         response = self._get_with_retry(
@@ -321,7 +344,7 @@ class OpenHandsClient(RetryingClientBase):
         raise ValueError(f'openhands start task not found: {start_task_id}')
 
     def _wait_for_conversation_result(self, conversation_id: str) -> dict[str, str | bool]:
-        for attempt in range(self._MAX_POLL_ATTEMPTS):
+        for attempt in range(self._max_poll_attempts):
             conversation = self._get_conversation(conversation_id)
             execution_status = str(conversation.get('execution_status', '') or '').strip().lower()
             if execution_status in self._FAILED_EXECUTION_STATUSES:
@@ -331,7 +354,7 @@ class OpenHandsClient(RetryingClientBase):
             self._sleep_before_next_poll(attempt)
 
         raise TimeoutError(
-            f'openhands conversation {conversation_id} did not finish after {self._MAX_POLL_ATTEMPTS} polls'
+            f'openhands conversation {conversation_id} did not finish after {self._max_poll_attempts} polls'
         )
 
     def _get_conversation(self, conversation_id: str) -> dict:
@@ -490,9 +513,9 @@ class OpenHandsClient(RetryingClientBase):
             return ''
 
     def _sleep_before_next_poll(self, attempt: int) -> None:
-        if attempt >= self._MAX_POLL_ATTEMPTS - 1:
+        if attempt >= self._max_poll_attempts - 1:
             return
-        time.sleep(self._POLL_INTERVAL_SECONDS)
+        time.sleep(self._poll_interval_seconds)
 
     @staticmethod
     def _review_comment_context_text(comment: ReviewComment) -> str:

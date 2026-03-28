@@ -310,14 +310,22 @@ class YouTrackClientTests(unittest.TestCase):
         custom_fields_response = mock_response(json_data=[
             {
                 YouTrackCustomFieldFields.NAME: 'Priority',
+                YouTrackCustomFieldFields.ID: '92-44',
                 YouTrackCustomFieldFields.TYPE: 'SingleEnumIssueCustomField',
             },
             {
+                YouTrackCustomFieldFields.ID: '92-45',
                 YouTrackCustomFieldFields.NAME: 'State',
                 YouTrackCustomFieldFields.TYPE: 'StateIssueCustomField',
+                'value': {'name': 'Open'},
             },
         ])
-        update_response = mock_response()
+        update_response = mock_response(json_data={
+            YouTrackCustomFieldFields.ID: '92-45',
+            YouTrackCustomFieldFields.NAME: 'State',
+            YouTrackCustomFieldFields.TYPE: 'StateIssueCustomField',
+            'value': {'name': 'To Verify'},
+        })
 
         with patch.object(
             client,
@@ -328,24 +336,76 @@ class YouTrackClientTests(unittest.TestCase):
             '_post',
             return_value=update_response,
         ) as mock_post:
-            move_issue_to_state_with_defaults(client)
+            move_issue_to_state_with_defaults(client, state_name='To Verify')
 
         custom_fields_response.raise_for_status.assert_called_once_with()
         update_response.raise_for_status.assert_called_once_with()
         mock_get.assert_called_once_with(
             '/api/issues/PROJ-1/customFields',
-            params={'fields': YouTrackClient.CUSTOM_FIELD_FIELDS},
+            params={'fields': YouTrackClient.DETAILED_CUSTOM_FIELD_FIELDS},
         )
         mock_post.assert_called_once_with(
-            '/api/issues/PROJ-1',
+            '/api/issues/PROJ-1/customFields/92-45',
+            params={'fields': YouTrackClient.DETAILED_CUSTOM_FIELD_FIELDS},
             json={
-                'customFields': [
+                YouTrackCustomFieldFields.ID: '92-45',
+                YouTrackCustomFieldFields.NAME: 'State',
+                YouTrackCustomFieldFields.TYPE: 'StateIssueCustomField',
+                'value': {'name': 'To Verify'},
+            },
+        )
+
+    def test_move_issue_to_state_uses_state_machine_event_when_required(self) -> None:
+        client = YouTrackClient('https://youtrack.example', 'yt-token')
+        custom_fields_response = mock_response(json_data=[
+            {
+                YouTrackCustomFieldFields.ID: '92-45',
+                YouTrackCustomFieldFields.NAME: 'State',
+                YouTrackCustomFieldFields.TYPE: 'StateMachineIssueCustomField',
+                'value': {'name': 'Open'},
+                'possibleEvents': [
                     {
-                        YouTrackCustomFieldFields.NAME: 'State',
-                        YouTrackCustomFieldFields.TYPE: 'StateIssueCustomField',
-                        'value': {'name': 'In Review'},
-                    }
-                ]
+                        YouTrackCustomFieldFields.ID: 'start-work',
+                        'presentation': 'In Progress',
+                        YouTrackCustomFieldFields.TYPE: 'Event',
+                    },
+                    {
+                        YouTrackCustomFieldFields.ID: 'to-verify',
+                        'presentation': 'To Verify',
+                        YouTrackCustomFieldFields.TYPE: 'Event',
+                    },
+                ],
+            }
+        ])
+        update_response = mock_response(json_data={
+            YouTrackCustomFieldFields.ID: '92-45',
+            YouTrackCustomFieldFields.NAME: 'State',
+            YouTrackCustomFieldFields.TYPE: 'StateMachineIssueCustomField',
+            'value': {'name': 'In Progress'},
+        })
+
+        with patch.object(client, '_get', return_value=custom_fields_response) as mock_get, patch.object(
+            client,
+            '_post',
+            return_value=update_response,
+        ) as mock_post:
+            move_issue_to_state_with_defaults(client, state_name='In Progress')
+
+        mock_get.assert_called_once_with(
+            '/api/issues/PROJ-1/customFields',
+            params={'fields': YouTrackClient.DETAILED_CUSTOM_FIELD_FIELDS},
+        )
+        mock_post.assert_called_once_with(
+            '/api/issues/PROJ-1/customFields/92-45',
+            params={'fields': YouTrackClient.DETAILED_CUSTOM_FIELD_FIELDS},
+            json={
+                YouTrackCustomFieldFields.ID: '92-45',
+                YouTrackCustomFieldFields.TYPE: 'StateMachineIssueCustomField',
+                'event': {
+                    YouTrackCustomFieldFields.ID: 'start-work',
+                    'presentation': 'In Progress',
+                    YouTrackCustomFieldFields.TYPE: 'Event',
+                },
             },
         )
 
@@ -354,6 +414,7 @@ class YouTrackClientTests(unittest.TestCase):
         custom_fields_response = mock_response(
             json_data=[
                 {
+                    YouTrackCustomFieldFields.ID: '92-44',
                     YouTrackCustomFieldFields.NAME: 'Priority',
                     YouTrackCustomFieldFields.TYPE: 'SingleEnumIssueCustomField',
                 }
@@ -367,14 +428,19 @@ class YouTrackClientTests(unittest.TestCase):
     def test_move_issue_to_state_rejects_missing_field_type(self) -> None:
         client = YouTrackClient('https://youtrack.example', 'yt-token')
         custom_fields_response = mock_response(
-            json_data=[{YouTrackCustomFieldFields.NAME: 'State'}]
+            json_data=[
+                {
+                    YouTrackCustomFieldFields.ID: '92-45',
+                    YouTrackCustomFieldFields.NAME: 'State',
+                }
+            ]
         )
 
         with patch.object(client, '_get', return_value=custom_fields_response):
             with self.assertRaisesRegex(ValueError, 'missing issue field type for: State'):
                 move_issue_to_state_with_defaults(client)
 
-    def test_move_issue_to_state_retries_on_transient_timeout(self) -> None:
+    def test_move_issue_to_state_rejects_missing_field_id(self) -> None:
         client = YouTrackClient('https://youtrack.example', 'yt-token')
         custom_fields_response = mock_response(
             json_data=[
@@ -384,14 +450,36 @@ class YouTrackClientTests(unittest.TestCase):
                 }
             ]
         )
-        update_response = mock_response()
+
+        with patch.object(client, '_get', return_value=custom_fields_response):
+            with self.assertRaisesRegex(ValueError, 'missing issue field id for: State'):
+                move_issue_to_state_with_defaults(client)
+
+    def test_move_issue_to_state_retries_on_transient_timeout(self) -> None:
+        client = YouTrackClient('https://youtrack.example', 'yt-token')
+        custom_fields_response = mock_response(
+            json_data=[
+                {
+                    YouTrackCustomFieldFields.ID: '92-45',
+                    YouTrackCustomFieldFields.NAME: 'State',
+                    YouTrackCustomFieldFields.TYPE: 'StateIssueCustomField',
+                    'value': {'name': 'Open'},
+                }
+            ]
+        )
+        update_response = mock_response(json_data={
+            YouTrackCustomFieldFields.ID: '92-45',
+            YouTrackCustomFieldFields.NAME: 'State',
+            YouTrackCustomFieldFields.TYPE: 'StateIssueCustomField',
+            'value': {'name': 'To Verify'},
+        })
 
         with patch.object(client, '_get', return_value=custom_fields_response), patch.object(
             client,
             '_post',
             side_effect=[ClientTimeout('timeout'), update_response],
         ) as mock_post:
-            move_issue_to_state_with_defaults(client)
+            move_issue_to_state_with_defaults(client, state_name='To Verify')
 
         self.assertEqual(mock_post.call_count, 2)
 
@@ -400,8 +488,10 @@ class YouTrackClientTests(unittest.TestCase):
         custom_fields_response = mock_response(
             json_data=[
                 {
+                    YouTrackCustomFieldFields.ID: '92-45',
                     YouTrackCustomFieldFields.NAME: 'State',
                     YouTrackCustomFieldFields.TYPE: 'StateIssueCustomField',
+                    'value': {'name': 'Open'},
                 }
             ]
         )
@@ -416,7 +506,7 @@ class YouTrackClientTests(unittest.TestCase):
             ],
         ):
             with self.assertRaises(ClientTimeout):
-                move_issue_to_state_with_defaults(client)
+                move_issue_to_state_with_defaults(client, state_name='To Verify')
 
     def test_get_assigned_tasks_retries_on_transient_timeout(self) -> None:
         client = YouTrackClient('https://youtrack.example', 'yt-token')

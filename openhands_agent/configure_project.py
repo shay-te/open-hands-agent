@@ -49,7 +49,7 @@ ISSUE_PLATFORM_DETAILS = {
         'default_progress_field': 'State',
         'default_progress_state': 'In Progress',
         'default_review_field': 'State',
-        'default_review_state': 'In Review',
+        'default_review_state': 'To Verify',
         'default_issue_states': ['Todo', 'Open'],
     },
     'jira': {

@@ -63,7 +63,7 @@ openhands_agent:
     progress_state_field: ${oc.env:YOUTRACK_PROGRESS_STATE_FIELD,"State"}
     progress_state: ${oc.env:YOUTRACK_PROGRESS_STATE,"In Progress"}
     review_state_field: ${oc.env:YOUTRACK_REVIEW_STATE_FIELD,"State"}
-    review_state: ${oc.env:YOUTRACK_REVIEW_STATE,"In Review"}
+    review_state: ${oc.env:YOUTRACK_REVIEW_STATE,"To Verify"}
     issue_states: ${oc.env:YOUTRACK_ISSUE_STATES,"Todo,Open"}
   jira:
     base_url: ${oc.env:JIRA_BASE_URL,""}
@@ -118,3 +118,5 @@ openhands_agent:
     api_key: ${oc.env:OPENHANDS_API_KEY}
     llm_model: ${oc.env:OPENHANDS_LLM_MODEL,""}
     llm_base_url: ${oc.env:OPENHANDS_LLM_BASE_URL,""}
+    poll_interval_seconds: ${oc.decode:${oc.env:OPENHANDS_POLL_INTERVAL_SECONDS,"2.0"}}
+    max_poll_attempts: ${oc.decode:${oc.env:OPENHANDS_MAX_POLL_ATTEMPTS,"900"}}

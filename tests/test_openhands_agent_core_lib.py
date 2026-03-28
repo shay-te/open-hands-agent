@@ -64,7 +64,9 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
                 'llm_settings': {
                     'llm_model': self.cfg.openhands_agent.openhands.llm_model,
                     'llm_base_url': self.cfg.openhands_agent.openhands.llm_base_url,
-                }
+                },
+                'poll_interval_seconds': 2.0,
+                'max_poll_attempts': 900,
             },
         )
         self.assertEqual(
@@ -81,7 +83,9 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
                 'llm_settings': {
                     'llm_model': self.cfg.openhands_agent.openhands.llm_model,
                     'llm_base_url': self.cfg.openhands_agent.openhands.llm_base_url,
-                }
+                },
+                'poll_interval_seconds': 2.0,
+                'max_poll_attempts': 900,
             },
         )
         mock_repository_service_cls.assert_called_once_with(

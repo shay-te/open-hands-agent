@@ -274,7 +274,7 @@ class AgentServiceTests(unittest.TestCase):
             self.task_client.move_issue_to_state.call_args_list,
             [
                 unittest.mock.call('PROJ-1', 'State', 'In Progress'),
-                unittest.mock.call('PROJ-1', 'State', 'In Review'),
+                unittest.mock.call('PROJ-1', 'State', 'To Verify'),
             ],
         )
         self.assertEqual(self.email_core_lib.send.call_count, 2)
@@ -673,24 +673,24 @@ class AgentServiceTests(unittest.TestCase):
         )
         self.assertEqual(self.email_core_lib.send.call_count, 2)
 
-    def test_process_assigned_task_continues_when_move_to_in_progress_fails(self) -> None:
-        self.task_client.move_issue_to_state.side_effect = [
-            RuntimeError('state update failed'),
-            None,
-        ]
+    def test_process_assigned_task_stops_when_move_to_in_progress_fails(self) -> None:
+        self.task_client.move_issue_to_state.side_effect = RuntimeError('state update failed')
         self.service.logger = Mock()
         task = self.task_data_access.get_assigned_tasks()[0]
 
         with patch.object(self.service, 'logger', self.service.logger):
             results = self.service.process_assigned_task(task)
 
-        self.assertEqual(results[StatusFields.STATUS], StatusFields.READY_FOR_REVIEW)
-        self.assertEqual(
-            self.task_client.move_issue_to_state.call_args_list,
-            [
-                unittest.mock.call('PROJ-1', 'State', 'In Progress'),
-                unittest.mock.call('PROJ-1', 'State', 'In Review'),
-            ],
+        self.assertIsNone(results)
+        self.task_client.move_issue_to_state.assert_called_once_with(
+            'PROJ-1',
+            'State',
+            'In Progress',
+        )
+        self.openhands_client.implement_task.assert_not_called()
+        self.task_client.add_comment.assert_called_once_with(
+            'PROJ-1',
+            'OpenHands agent could not safely process this task: state update failed',
         )
         self.service.logger.exception.assert_called_once_with(
             'failed to move task %s to in progress',

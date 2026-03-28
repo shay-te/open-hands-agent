@@ -81,12 +81,16 @@ class OpenHandsAgentCoreLib(CoreLib):
             open_cfg.openhands.api_key,
             retry_cfg.max_retries,
             llm_settings=self._openhands_llm_settings(open_cfg.openhands),
+            poll_interval_seconds=self._openhands_poll_interval_seconds(open_cfg.openhands),
+            max_poll_attempts=self._openhands_max_poll_attempts(open_cfg.openhands),
         )
         _testing_openhands_client = OpenHandsClient(
             open_cfg.openhands.base_url,
             open_cfg.openhands.api_key,
             retry_cfg.max_retries,
             llm_settings=self._openhands_llm_settings(open_cfg.openhands),
+            poll_interval_seconds=self._openhands_poll_interval_seconds(open_cfg.openhands),
+            max_poll_attempts=self._openhands_max_poll_attempts(open_cfg.openhands),
         )
         _task_data_access = TaskDataAccess(ticket_cfg, _ticket_client)
         _implementation_service = ImplementationService(_implementation_openhands_client)
@@ -115,3 +119,11 @@ class OpenHandsAgentCoreLib(CoreLib):
             'llm_model': str(getattr(openhands_cfg, 'llm_model', '') or '').strip(),
             'llm_base_url': str(getattr(openhands_cfg, 'llm_base_url', '') or '').strip(),
         }
+
+    @staticmethod
+    def _openhands_poll_interval_seconds(openhands_cfg: DictConfig) -> float:
+        return float(openhands_cfg.get('poll_interval_seconds', 2.0))
+
+    @staticmethod
+    def _openhands_max_poll_attempts(openhands_cfg: DictConfig) -> int:
+        return int(openhands_cfg.get('max_poll_attempts', 900))

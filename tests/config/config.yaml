@@ -61,7 +61,7 @@ openhands_agent:
     project: TEST
     assignee: me
     review_state_field: State
-    review_state: In Review
+    review_state: To Verify
     issue_states:
       - Todo
       - Open

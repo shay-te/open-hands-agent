@@ -190,7 +190,11 @@ class AgentService(Service):
         task.branch_name = next(iter(repository_branches.values()))
         setattr(task, 'repositories', repositories)
         setattr(task, 'repository_branches', repository_branches)
-        self._move_task_to_in_progress(task.id)
+        try:
+            self._move_task_to_in_progress(task.id, strict=True)
+        except Exception as exc:
+            self._handle_task_failure(task, exc)
+            return None
         self._comment_task_started(task)
         self._log_task_step(task.id, 'starting implementation')
         try:
@@ -569,29 +573,37 @@ class AgentService(Service):
         except Exception:
             self.logger.exception('failed to add started comment for task %s', task.id)
 
-    def _move_task_to_in_progress(self, task_id: str) -> None:
+    def _move_task_to_in_progress(self, task_id: str, strict: bool = False) -> bool:
         try:
             self._log_task_step(task_id, 'moving issue to in progress')
             self._task_data_access.move_task_to_in_progress(task_id)
             self._log_task_step(task_id, 'moved issue to in progress')
+            return True
         except Exception:
             self.logger.exception('failed to move task %s to in progress', task_id)
+            if strict:
+                raise
+            return False
 
-    def _move_task_to_open(self, task_id: str) -> None:
+    def _move_task_to_open(self, task_id: str) -> bool:
         try:
             self._log_task_step(task_id, 'moving issue back to open')
             self._task_data_access.move_task_to_open(task_id)
             self._log_task_step(task_id, 'moved issue back to open')
+            return True
         except Exception:
             self.logger.exception('failed to move task %s back to open', task_id)
+            return False
 
-    def _move_task_to_review(self, task_id: str) -> None:
+    def _move_task_to_review(self, task_id: str) -> bool:
         try:
             self._log_task_step(task_id, 'moving issue to review')
             self._task_data_access.move_task_to_review(task_id)
             self._log_task_step(task_id, 'moved issue to review')
+            return True
         except Exception:
             self.logger.exception('failed to move task %s to review', task_id)
+            return False
 
     @staticmethod
     def _task_started_comment(task: Task) -> str:

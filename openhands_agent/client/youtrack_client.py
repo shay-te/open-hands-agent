@@ -12,6 +12,8 @@ from openhands_agent.fields import (
 )
 
 class YouTrackClient(TicketClientBase):
+    EVENT_FIELDS = 'id,presentation,$type'
+    FIELD_VALUE_FIELDS = 'id,name,$type'
     COMMENT_FIELDS = ','.join(
         [
             YouTrackCommentFields.ID,
@@ -39,7 +41,17 @@ class YouTrackClient(TicketClientBase):
             YouTrackCustomFieldFields.TYPE,
         ]
     )
+    DETAILED_CUSTOM_FIELD_FIELDS = ','.join(
+        [
+            YouTrackCustomFieldFields.ID,
+            YouTrackCustomFieldFields.NAME,
+            YouTrackCustomFieldFields.TYPE,
+            f'value({FIELD_VALUE_FIELDS})',
+            f'possibleEvents({EVENT_FIELDS})',
+        ]
+    )
     MAX_TEXT_ATTACHMENT_CHARS = 5000
+    STATE_MACHINE_CUSTOM_FIELD_TYPE = 'StateMachineIssueCustomField'
 
     def __init__(self, base_url: str, token: str, max_retries: int = 3) -> None:
         super().__init__(base_url, token, timeout=30, max_retries=max_retries)
@@ -82,24 +94,49 @@ class YouTrackClient(TicketClientBase):
         self.add_comment(issue_id, f'Pull request created: {pull_request_url}')
 
     def move_issue_to_state(self, issue_id: str, field_name: str, state_name: str) -> None:
-        field = self._get_issue_custom_field(issue_id, field_name)
-        field_type = field.get(YouTrackCustomFieldFields.TYPE)
+        field = self._get_issue_custom_field(
+            issue_id,
+            field_name,
+            fields=self.DETAILED_CUSTOM_FIELD_FIELDS,
+        )
+        field_id = str(field.get(YouTrackCustomFieldFields.ID) or '').strip()
+        if not field_id:
+            raise ValueError(f'missing issue field id for: {field_name}')
+        field_type = str(field.get(YouTrackCustomFieldFields.TYPE) or '').strip()
         if not field_type:
             raise ValueError(f'missing issue field type for: {field_name}')
+        if self._field_value_name(field) == state_name:
+            return
 
-        response = self._post_with_retry(
-            f'/api/issues/{issue_id}',
-            json={
-                'customFields': [
-                    {
-                        YouTrackCustomFieldFields.NAME: field_name,
-                        YouTrackCustomFieldFields.TYPE: field_type,
-                        'value': {'name': state_name},
-                    }
-                ]
-            },
-        )
-        response.raise_for_status()
+        if field_type == self.STATE_MACHINE_CUSTOM_FIELD_TYPE:
+            updated_field = self._move_issue_state_machine_field(
+                issue_id,
+                field,
+                state_name,
+            )
+        else:
+            updated_field = self._move_issue_value_field(
+                issue_id,
+                field_id,
+                field_name,
+                field_type,
+                state_name,
+            )
+
+        updated_state_name = self._field_value_name(updated_field)
+        if updated_state_name != state_name:
+            verified_field = self._get_issue_custom_field(
+                issue_id,
+                field_name,
+                fields=self.DETAILED_CUSTOM_FIELD_FIELDS,
+            )
+            verified_state_name = self._field_value_name(verified_field)
+            if verified_state_name != state_name:
+                current_state = verified_state_name or updated_state_name or '<unknown>'
+                raise ValueError(
+                    f'issue {issue_id} field {field_name} did not move to state '
+                    f'{state_name}; current state is {current_state}'
+                )
 
     def _to_task(self, payload: dict[str, Any]) -> Task:
         issue_id = payload['idReadable']
@@ -125,16 +162,106 @@ class YouTrackClient(TicketClientBase):
         state_filter = ', '.join(f'{{{state}}}' for state in states)
         return f'project: {project} assignee: {assignee} State: {state_filter}'
 
-    def _get_issue_custom_field(self, issue_id: str, field_name: str) -> dict[str, Any]:
+    def _get_issue_custom_field(
+        self,
+        issue_id: str,
+        field_name: str,
+        fields: str | None = None,
+    ) -> dict[str, Any]:
         response = self._get_with_retry(
             f'/api/issues/{issue_id}/customFields',
-            params={'fields': self.CUSTOM_FIELD_FIELDS},
+            params={'fields': fields or self.CUSTOM_FIELD_FIELDS},
         )
         response.raise_for_status()
         for field in self._json_list(response):
             if isinstance(field, dict) and field.get(YouTrackCustomFieldFields.NAME) == field_name:
                 return field
         raise ValueError(f'unknown issue field: {field_name}')
+
+    def _move_issue_value_field(
+        self,
+        issue_id: str,
+        field_id: str,
+        field_name: str,
+        field_type: str,
+        state_name: str,
+    ) -> dict[str, Any]:
+        response = self._post_with_retry(
+            f'/api/issues/{issue_id}/customFields/{field_id}',
+            params={'fields': self.DETAILED_CUSTOM_FIELD_FIELDS},
+            json={
+                YouTrackCustomFieldFields.ID: field_id,
+                YouTrackCustomFieldFields.NAME: field_name,
+                YouTrackCustomFieldFields.TYPE: field_type,
+                'value': {'name': state_name},
+            },
+        )
+        response.raise_for_status()
+        payload = response.json()
+        return payload if isinstance(payload, dict) else {}
+
+    def _move_issue_state_machine_field(
+        self,
+        issue_id: str,
+        field: dict[str, Any],
+        state_name: str,
+    ) -> dict[str, Any]:
+        field_id = str(field.get(YouTrackCustomFieldFields.ID) or '').strip()
+        field_name = str(field.get(YouTrackCustomFieldFields.NAME) or '').strip() or '<unknown>'
+        event = self._matching_state_machine_event(field, state_name)
+        if event is None:
+            raise ValueError(
+                f'no YouTrack transition event matched state {state_name} for field {field_name}'
+            )
+        response = self._post_with_retry(
+            f'/api/issues/{issue_id}/customFields/{field_id}',
+            params={'fields': self.DETAILED_CUSTOM_FIELD_FIELDS},
+            json={
+                YouTrackCustomFieldFields.ID: field_id,
+                YouTrackCustomFieldFields.TYPE: self.STATE_MACHINE_CUSTOM_FIELD_TYPE,
+                'event': event,
+            },
+        )
+        response.raise_for_status()
+        payload = response.json()
+        return payload if isinstance(payload, dict) else {}
+
+    @classmethod
+    def _matching_state_machine_event(
+        cls,
+        field: dict[str, Any],
+        state_name: str,
+    ) -> dict[str, Any] | None:
+        desired_token = cls._normalized_state_token(state_name)
+        for event in field.get('possibleEvents') or []:
+            if not isinstance(event, dict):
+                continue
+            event_id = str(event.get(YouTrackCustomFieldFields.ID) or '').strip()
+            presentation = str(event.get('presentation') or '').strip()
+            if (
+                cls._normalized_state_token(presentation) != desired_token
+                and cls._normalized_state_token(event_id) != desired_token
+            ):
+                continue
+            payload = {
+                key: value
+                for key, value in event.items()
+                if key in {YouTrackCustomFieldFields.ID, 'presentation', YouTrackCustomFieldFields.TYPE}
+            }
+            payload.setdefault(YouTrackCustomFieldFields.TYPE, 'Event')
+            return payload
+        return None
+
+    @staticmethod
+    def _field_value_name(field: dict[str, Any]) -> str:
+        value = field.get('value')
+        if isinstance(value, dict):
+            return str(value.get(YouTrackCustomFieldFields.NAME) or '').strip()
+        return ''
+
+    @staticmethod
+    def _normalized_state_token(value: str) -> str:
+        return ''.join(character for character in str(value or '').lower() if character.isalnum())
 
     def _get_issue_comments(self, issue_id: str) -> list[dict[str, Any]]:
         return self._get_issue_items(

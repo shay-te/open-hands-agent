@@ -66,7 +66,7 @@ class TaskDataAccessTests(unittest.TestCase):
             progress_state_field='State',
             progress_state='In Progress',
             review_state_field='State',
-            review_state='In Review',
+            review_state='To Verify',
             issue_states=["Todo", "Open"],
         )
         data_access = TaskDataAccess(
