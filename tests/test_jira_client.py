@@ -101,6 +101,68 @@ class JiraClientTests(unittest.TestCase):
         )
         mock_session_get.assert_called_once()
 
+    def test_get_assigned_tasks_ignores_agent_operational_comments(self) -> None:
+        client = JiraClient('https://jira.example', 'jira-token')
+        response = mock_response(
+            json_data={
+                'issues': [
+                    {
+                        'key': 'PROJ-1',
+                        'fields': {
+                            'summary': 'Fix bug',
+                            'description': {
+                                'type': 'doc',
+                                'content': [
+                                    {'type': 'paragraph', 'content': [{'type': 'text', 'text': 'Details'}]}
+                                ],
+                            },
+                            'comment': {
+                                'comments': [
+                                    {
+                                        'author': {'displayName': 'shay'},
+                                        'body': {
+                                            'type': 'doc',
+                                            'content': [
+                                                {
+                                                    'type': 'paragraph',
+                                                    'content': [
+                                                        {
+                                                            'type': 'text',
+                                                            'text': 'OpenHands agent could not safely process this task: timeout',
+                                                        }
+                                                    ],
+                                                }
+                                            ],
+                                        },
+                                    },
+                                    {
+                                        'author': {'displayName': 'Reviewer'},
+                                        'body': {
+                                            'type': 'doc',
+                                            'content': [
+                                                {
+                                                    'type': 'paragraph',
+                                                    'content': [{'type': 'text', 'text': 'Please add tests.'}],
+                                                }
+                                            ],
+                                        },
+                                    },
+                                ]
+                            },
+                            'attachment': [],
+                        },
+                    }
+                ]
+            }
+        )
+
+        with patch.object(client, '_get', return_value=response):
+            tasks = client.get_assigned_tasks('PROJ', 'developer', ['To Do'])
+
+        self.assertEqual(len(tasks), 1)
+        self.assertIn('Reviewer: Please add tests.', tasks[0].description)
+        self.assertNotIn('could not safely process this task', tasks[0].description)
+
     def test_add_comment_posts_plain_text_body(self) -> None:
         client = JiraClient('https://jira.example', 'jira-token')
         response = mock_response()

@@ -113,6 +113,8 @@ class GitHubIssuesClient(TicketClientBase):
             body = str(comment.get(GitHubCommentFields.BODY, '') or '').strip()
             if not body:
                 continue
+            if GitHubIssuesClient._is_agent_operational_comment(body):
+                continue
             user = comment.get(GitHubCommentFields.USER, {})
             if not isinstance(user, dict):
                 user = {}

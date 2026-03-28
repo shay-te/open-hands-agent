@@ -64,6 +64,43 @@ class BitbucketIssuesClientTests(unittest.TestCase):
         self.assertEqual(tasks[0].id, '17')
         self.assertIn('Reviewer: Please add tests.', tasks[0].description)
 
+    def test_get_assigned_tasks_ignores_agent_operational_comments(self) -> None:
+        client = BitbucketIssuesClient('https://api.bitbucket.org/2.0', 'bb-token', 'workspace', 'repo')
+        issues_response = mock_response(
+            json_data={
+                'values': [
+                    {
+                        'id': 17,
+                        'title': 'Fix bug',
+                        'content': {'raw': 'Details'},
+                        'state': 'new',
+                        'assignee': {'nickname': 'reviewer'},
+                    }
+                ]
+            }
+        )
+        comments_response = mock_response(
+            json_data={
+                'values': [
+                    {
+                        'content': {'raw': 'OpenHands agent could not safely process this task: timeout'},
+                        'user': {'display_name': 'shay'},
+                    },
+                    {
+                        'content': {'raw': 'Please add tests.'},
+                        'user': {'display_name': 'Reviewer'},
+                    },
+                ]
+            }
+        )
+
+        with patch.object(client, '_get', side_effect=[issues_response, comments_response]):
+            tasks = client.get_assigned_tasks('repo', 'reviewer', ['new'])
+
+        self.assertEqual(len(tasks), 1)
+        self.assertIn('Reviewer: Please add tests.', tasks[0].description)
+        self.assertNotIn('could not safely process this task', tasks[0].description)
+
     def test_add_comment_posts_raw_content_payload(self) -> None:
         client = BitbucketIssuesClient('https://api.bitbucket.org/2.0', 'bb-token', 'workspace', 'repo')
         response = mock_response()

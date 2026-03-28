@@ -199,6 +199,8 @@ class YouTrackClient(TicketClientBase):
             text = str(comment.get(YouTrackCommentFields.TEXT) or '').strip()
             if not text:
                 continue
+            if YouTrackClient._is_agent_operational_comment(text):
+                continue
             lines.append(f'- {YouTrackClient._comment_author_name(comment)}: {text}')
         return lines
 

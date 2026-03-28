@@ -186,6 +186,8 @@ class JiraClient(TicketClientBase):
             body = self._adf_to_text(comment.get(JiraCommentFields.BODY))
             if not body:
                 continue
+            if self._is_agent_operational_comment(body):
+                continue
             author = comment.get(JiraCommentFields.AUTHOR, {})
             if not isinstance(author, dict):
                 author = {}

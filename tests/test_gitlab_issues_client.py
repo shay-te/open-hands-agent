@@ -55,6 +55,38 @@ class GitLabIssuesClientTests(unittest.TestCase):
         self.assertEqual(tasks[0].id, '17')
         self.assertIn('Reviewer: Please add tests.', tasks[0].description)
 
+    def test_get_assigned_tasks_ignores_agent_operational_comments(self) -> None:
+        client = GitLabIssuesClient('https://gitlab.example/api/v4', 'gl-token', 'group/repo')
+        issues_response = mock_response(
+            json_data=[
+                {
+                    'iid': 17,
+                    'title': 'Fix bug',
+                    'description': 'Details',
+                    'state': 'opened',
+                }
+            ]
+        )
+        notes_response = mock_response(
+            json_data=[
+                {
+                    GitLabCommentFields.BODY: 'OpenHands agent could not safely process this task: timeout',
+                    GitLabCommentFields.AUTHOR: {GitLabCommentFields.NAME: 'shay'},
+                },
+                {
+                    GitLabCommentFields.BODY: 'Please add tests.',
+                    GitLabCommentFields.AUTHOR: {GitLabCommentFields.NAME: 'Reviewer'},
+                },
+            ]
+        )
+
+        with patch.object(client, '_get', side_effect=[issues_response, notes_response]):
+            tasks = client.get_assigned_tasks('group/repo', 'developer', ['opened'])
+
+        self.assertEqual(len(tasks), 1)
+        self.assertIn('Reviewer: Please add tests.', tasks[0].description)
+        self.assertNotIn('could not safely process this task', tasks[0].description)
+
     def test_move_issue_to_review_adds_labels(self) -> None:
         client = GitLabIssuesClient('https://gitlab.example/api/v4', 'gl-token', 'group/repo')
         response = mock_response()

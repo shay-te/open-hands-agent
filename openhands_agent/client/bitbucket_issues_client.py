@@ -105,6 +105,8 @@ class BitbucketIssuesClient(TicketClientBase):
             body = str(content.get(BitbucketIssueCommentFields.RAW, '') or '').strip()
             if not body:
                 continue
+            if BitbucketIssuesClient._is_agent_operational_comment(body):
+                continue
             user = comment.get(BitbucketIssueCommentFields.USER, {})
             if not isinstance(user, dict):
                 user = {}

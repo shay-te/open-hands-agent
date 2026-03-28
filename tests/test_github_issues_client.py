@@ -68,6 +68,38 @@ class GitHubIssuesClientTests(unittest.TestCase):
         self.assertIn('reviewer: Please add tests.', tasks[0].description)
         self.assertEqual(mock_get.call_count, 2)
 
+    def test_get_assigned_tasks_ignores_agent_operational_comments(self) -> None:
+        client = GitHubIssuesClient('https://api.github.com', 'gh-token', 'workspace', 'repo')
+        issues_response = mock_response(
+            json_data=[
+                {
+                    GitHubIssueFields.NUMBER: 17,
+                    GitHubIssueFields.TITLE: 'Fix bug',
+                    GitHubIssueFields.BODY: 'Details',
+                    GitHubIssueFields.STATE: 'open',
+                }
+            ]
+        )
+        comments_response = mock_response(
+            json_data=[
+                {
+                    GitHubCommentFields.BODY: 'OpenHands agent could not safely process this task: timeout',
+                    GitHubCommentFields.USER: {GitHubCommentFields.LOGIN: 'shay'},
+                },
+                {
+                    GitHubCommentFields.BODY: 'Please add tests.',
+                    GitHubCommentFields.USER: {GitHubCommentFields.LOGIN: 'reviewer'},
+                },
+            ]
+        )
+
+        with patch.object(client, '_get', side_effect=[issues_response, comments_response]):
+            tasks = client.get_assigned_tasks('repo', 'octocat', ['open'])
+
+        self.assertEqual(len(tasks), 1)
+        self.assertIn('reviewer: Please add tests.', tasks[0].description)
+        self.assertNotIn('could not safely process this task', tasks[0].description)
+
     def test_add_comment_posts_expected_payload(self) -> None:
         client = GitHubIssuesClient('https://api.github.com', 'gh-token', 'workspace', 'repo')
         response = mock_response()

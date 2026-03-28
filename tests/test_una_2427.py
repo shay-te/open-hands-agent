@@ -68,10 +68,10 @@ class TestUna2427(unittest.TestCase):
             mock_upgrade.assert_called_once()
             
             mock_hydra_instance.reset_mock()
-            mock_upgrade.reset_mock()
+            mock_downgrade.reset_mock()
             
-            # Test downgrade  
-            OpenHandsAgentCoreLib.downgrade(self.cfg)
+            # Test uninstall
+            OpenHandsAgentCoreLib.uninstall(self.cfg)
             mock_hydra_instance.return_value.clear.assert_called_once_with()
             mock_downgrade.assert_called_once()
 

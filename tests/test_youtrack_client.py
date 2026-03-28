@@ -184,6 +184,51 @@ class YouTrackClientTests(unittest.TestCase):
 
         self.assertIn('- unknown: Please fix this.', tasks[0].description)
 
+    def test_get_assigned_tasks_ignores_agent_operational_comments(self) -> None:
+        client = YouTrackClient('https://youtrack.example', 'yt-token')
+        issue_response = mock_response(json_data=[
+            {'idReadable': 'PROJ-1', 'summary': 'Fix bug', 'description': 'Details'}
+        ])
+        comments_response = mock_response(json_data=[
+            {
+                YouTrackCommentFields.TEXT: (
+                    'OpenHands agent could not safely process this task: timeout'
+                ),
+                YouTrackCommentFields.AUTHOR: {
+                    YouTrackCommentFields.NAME: 'shay'
+                },
+            },
+            {
+                YouTrackCommentFields.TEXT: (
+                    'OpenHands agent skipped this task because it could not detect '
+                    'which repository to use from the task content: no configured '
+                    'repository matched task PROJ-1.'
+                ),
+                YouTrackCommentFields.AUTHOR: {
+                    YouTrackCommentFields.NAME: 'shay'
+                },
+            },
+            {
+                YouTrackCommentFields.TEXT: 'Please keep the fix minimal.',
+                YouTrackCommentFields.AUTHOR: {
+                    YouTrackCommentFields.NAME: 'Product Manager'
+                },
+            },
+        ])
+        attachments_response = mock_response(json_data=[])
+
+        with patch.object(
+            client,
+            '_get',
+            side_effect=[issue_response, comments_response, attachments_response],
+        ):
+            tasks = get_assigned_tasks_with_defaults(client, states=['Open'])
+
+        self.assertIn('Issue comments:', tasks[0].description)
+        self.assertIn('Product Manager: Please keep the fix minimal.', tasks[0].description)
+        self.assertNotIn('could not safely process this task', tasks[0].description)
+        self.assertNotIn('could not detect which repository', tasks[0].description)
+
     def test_get_assigned_tasks_stringifies_non_string_description_and_comment_text(self) -> None:
         client = YouTrackClient('https://youtrack.example', 'yt-token')
         issue_response = mock_response(json_data=[

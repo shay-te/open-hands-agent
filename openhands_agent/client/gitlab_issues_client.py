@@ -109,6 +109,8 @@ class GitLabIssuesClient(TicketClientBase):
             body = str(comment.get(GitLabCommentFields.BODY, '') or '').strip()
             if not body:
                 continue
+            if GitLabIssuesClient._is_agent_operational_comment(body):
+                continue
             author = comment.get(GitLabCommentFields.AUTHOR, {})
             if not isinstance(author, dict):
                 author = {}
