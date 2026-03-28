@@ -1,6 +1,7 @@
 import logging
 import os
 import re
+import shutil
 import subprocess
 from types import SimpleNamespace
 
@@ -29,6 +30,7 @@ class RepositoryService(Service):
 
     def validate_connections(self) -> None:
         self._validate_inventory()
+        self._validate_git_executable()
         for repository in self._repositories:
             self._validate_local_path(repository)
 
@@ -44,6 +46,7 @@ class RepositoryService(Service):
         return matches
 
     def prepare_task_repositories(self, repositories: list[object]) -> list[object]:
+        self._validate_git_executable()
         prepared_repositories: list[object] = []
         for repository in repositories:
             self._validate_local_path(repository)
@@ -240,7 +243,14 @@ class RepositoryService(Service):
                 f'missing local repository path for {repository.id}: {local_path or "<empty>"}'
             )
 
+    @staticmethod
+    def _validate_git_executable() -> None:
+        if shutil.which('git'):
+            return
+        raise RuntimeError('git executable is required but was not found on PATH')
+
     def _push_branch(self, local_path: str, branch_name: str) -> None:
+        self._validate_git_executable()
         result = subprocess.run(
             ['git', '-C', local_path, 'push', '-u', 'origin', branch_name],
             capture_output=True,
@@ -319,6 +329,7 @@ class RepositoryService(Service):
 
     @staticmethod
     def _infer_default_branch(local_path: str) -> str:
+        RepositoryService._validate_git_executable()
         commands = [
             ['git', '-C', local_path, 'symbolic-ref', 'refs/remotes/origin/HEAD'],
             ['git', '-C', local_path, 'branch', '--show-current'],

@@ -150,6 +150,9 @@ class RepositoryServiceTests(unittest.TestCase):
         service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
 
         with patch(
+            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            return_value='/usr/bin/git',
+        ), patch(
             'openhands_agent.data_layers.service.repository_service.subprocess.run',
             return_value=Mock(returncode=0, stdout='refs/remotes/origin/master\n'),
         ):
@@ -195,6 +198,9 @@ class RepositoryServiceTests(unittest.TestCase):
         repository = self.cfg.openhands_agent.repositories[0]
 
         with patch(
+            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            return_value='/usr/bin/git',
+        ), patch(
             'openhands_agent.data_layers.service.repository_service.subprocess.run',
             return_value=Mock(returncode=0, stdout='refs/remotes/origin/master\n'),
         ):
@@ -205,6 +211,9 @@ class RepositoryServiceTests(unittest.TestCase):
         repository = self.cfg.openhands_agent.repositories[0]
 
         with patch(
+            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            return_value='/usr/bin/git',
+        ), patch(
             'openhands_agent.data_layers.service.repository_service.subprocess.run',
             return_value=Mock(returncode=1, stdout=''),
         ):
@@ -225,6 +234,9 @@ class RepositoryServiceTests(unittest.TestCase):
         repository = self.cfg.openhands_agent.repositories[0]
 
         with patch(
+            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            return_value='/usr/bin/git',
+        ), patch(
             'openhands_agent.data_layers.service.repository_service.os.path.isdir',
             return_value=True,
         ), patch(
@@ -249,6 +261,9 @@ class RepositoryServiceTests(unittest.TestCase):
 
     def test_validate_connections_checks_local_paths(self) -> None:
         with patch(
+            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            return_value='/usr/bin/git',
+        ), patch(
             'openhands_agent.data_layers.service.repository_service.os.path.isdir',
             return_value=False,
         ):
@@ -260,10 +275,39 @@ class RepositoryServiceTests(unittest.TestCase):
         service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
 
         with patch(
+            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            return_value='/usr/bin/git',
+        ), patch(
             'openhands_agent.data_layers.service.repository_service.os.path.isdir',
             return_value=False,
         ):
             with self.assertRaisesRegex(ValueError, 'missing local repository path'):
+                service.prepare_task_repositories([self.cfg.openhands_agent.repositories[0]])
+
+    def test_validate_connections_requires_git_executable(self) -> None:
+        service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+
+        with patch(
+            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            return_value=None,
+        ):
+            with self.assertRaisesRegex(
+                RuntimeError,
+                'git executable is required but was not found on PATH',
+            ):
+                service.validate_connections()
+
+    def test_prepare_task_repositories_requires_git_executable(self) -> None:
+        service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+
+        with patch(
+            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            return_value=None,
+        ):
+            with self.assertRaisesRegex(
+                RuntimeError,
+                'git executable is required but was not found on PATH',
+            ):
                 service.prepare_task_repositories([self.cfg.openhands_agent.repositories[0]])
 
     def test_validate_connections_requires_at_least_one_repository(self) -> None:
