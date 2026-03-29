@@ -157,7 +157,9 @@ class OpenHandsClient(RetryingClientBase):
     @staticmethod
     def _task_conversation_title(task: Task, suffix: str = '') -> str:
         task_id = str(task.id or '').strip()
-        base_title = task_id
+        task_summary = ' '.join(str(task.summary or '').strip().split())
+        title_parts = [part for part in (task_id, task_summary) if part]
+        base_title = ' '.join(title_parts)
         if not base_title:
             base_title = 'OpenHands task'
         return f'{base_title}{suffix}'

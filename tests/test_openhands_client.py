@@ -272,7 +272,7 @@ class OpenHandsClientTests(unittest.TestCase):
         assert_client_headers_and_timeout(self, client, 'oh-token', 300)
         self.assertEqual(mock_post.call_args.args, ('/api/v1/app-conversations',))
         request_body = mock_post.call_args.kwargs['json']
-        self.assertEqual(request_body['title'], 'PROJ-1')
+        self.assertEqual(request_body['title'], 'PROJ-1 Fix bug')
         self.assertEqual(request_body['initial_message']['role'], 'user')
         self.assertIn(
             'Implement task PROJ-1: Fix bug',
@@ -298,19 +298,31 @@ class OpenHandsClientTests(unittest.TestCase):
             True,
         )
 
-    def test_task_conversation_title_uses_task_code(self) -> None:
+    def test_task_conversation_title_uses_task_code_and_summary(self) -> None:
         client = OpenHandsClient('https://openhands.example', 'oh-token')
 
         self.assertEqual(
             client._task_conversation_title(build_task(task_id='UNA-2405', summary='do xyz')),
-            'UNA-2405',
+            'UNA-2405 do xyz',
         )
         self.assertEqual(
             client._task_conversation_title(
                 build_task(task_id='UNA-2405', summary='do xyz'),
                 suffix=' [testing]',
             ),
-            'UNA-2405 [testing]',
+            'UNA-2405 do xyz [testing]',
+        )
+
+    def test_task_conversation_title_normalizes_blank_summary(self) -> None:
+        client = OpenHandsClient('https://openhands.example', 'oh-token')
+
+        self.assertEqual(
+            client._task_conversation_title(build_task(task_id='UNA-2405', summary='   ')),
+            'UNA-2405',
+        )
+        self.assertEqual(
+            client._task_conversation_title(build_task(task_id='', summary='   ')),
+            'OpenHands task',
         )
 
     def test_wait_for_conversation_result_uses_configured_poll_limit_in_timeout(self) -> None:
