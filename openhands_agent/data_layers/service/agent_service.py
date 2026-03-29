@@ -227,6 +227,11 @@ class AgentService(Service):
                 PullRequestFields.PULL_REQUESTS: [],
                 PullRequestFields.FAILED_REPOSITORIES: [],
             }
+        testing_commit_message = str(
+            testing.get(ImplementationFields.COMMIT_MESSAGE, '') or ''
+        ).strip()
+        if testing_commit_message:
+            execution[ImplementationFields.COMMIT_MESSAGE] = testing_commit_message
         self._log_task_step(task.id, 'testing validation passed')
 
         self._log_task_step(task.id, 'publishing pull requests')
@@ -364,6 +369,9 @@ class AgentService(Service):
         failed_repositories: list[str] = []
         description = str(execution.get(Task.summary.key) or '')
         session_id = str(execution.get(ImplementationFields.SESSION_ID, '') or '').strip()
+        commit_message = str(
+            execution.get(ImplementationFields.COMMIT_MESSAGE, '') or ''
+        ).strip() or f'Implement {task.id}'
 
         for repository in getattr(task, 'repositories', []) or []:
             branch_name = task.repository_branches[repository.id]
@@ -380,6 +388,7 @@ class AgentService(Service):
                     title=f'{task.id}: {task.summary}',
                     source_branch=branch_name,
                     description=description,
+                    commit_message=commit_message,
                 )
                 self._remember_pull_request_context(pull_request, branch_name, session_id)
                 pull_requests.append(pull_request)

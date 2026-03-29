@@ -154,11 +154,93 @@ class RepositoryServiceTests(unittest.TestCase):
             return_value='/usr/bin/git',
         ), patch(
             'openhands_agent.data_layers.service.repository_service.subprocess.run',
-            return_value=Mock(returncode=0, stdout='refs/remotes/origin/master\n'),
+            side_effect=[
+                Mock(returncode=0, stdout='refs/remotes/origin/master\n', stderr=''),
+                Mock(returncode=0, stdout='master\n', stderr=''),
+                Mock(returncode=0, stdout='', stderr=''),
+            ],
         ):
             prepared_repositories = service.prepare_task_repositories([repository])
 
         self.assertEqual(prepared_repositories[0].destination_branch, 'master')
+
+    def test_prepare_task_repositories_switches_clean_repository_to_destination_branch(self) -> None:
+        service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+
+        with patch(
+            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            return_value='/usr/bin/git',
+        ), patch(
+            'openhands_agent.data_layers.service.repository_service.os.path.isdir',
+            return_value=True,
+        ), patch(
+            'openhands_agent.data_layers.service.repository_service.subprocess.run',
+            side_effect=[
+                Mock(returncode=0, stdout='feature/proj-1/backend\n', stderr=''),
+                Mock(returncode=0, stdout='', stderr=''),
+                Mock(returncode=0, stdout='', stderr=''),
+                Mock(returncode=0, stdout='main\n', stderr=''),
+            ],
+        ) as mock_run:
+            prepared_repositories = service.prepare_task_repositories([self.backend_repo])
+
+        self.assertEqual(prepared_repositories[0].destination_branch, 'main')
+        self.assertEqual(
+            [call.args[0] for call in mock_run.call_args_list],
+            [
+                ['git', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
+                ['git', '-C', '.', 'status', '--porcelain'],
+                ['git', '-C', '.', 'checkout', 'main'],
+                ['git', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
+            ],
+        )
+
+    def test_prepare_task_repositories_raises_when_checkout_does_not_leave_destination_branch(self) -> None:
+        service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+
+        with patch(
+            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            return_value='/usr/bin/git',
+        ), patch(
+            'openhands_agent.data_layers.service.repository_service.os.path.isdir',
+            return_value=True,
+        ), patch(
+            'openhands_agent.data_layers.service.repository_service.subprocess.run',
+            side_effect=[
+                Mock(returncode=0, stdout='feature/proj-1/backend\n', stderr=''),
+                Mock(returncode=0, stdout='', stderr=''),
+                Mock(returncode=0, stdout='', stderr=''),
+                Mock(returncode=0, stdout='feature/proj-1/backend\n', stderr=''),
+            ],
+        ):
+            with self.assertRaisesRegex(
+                RuntimeError,
+                'repository at \\. is on branch feature/proj-1/backend instead of main',
+            ):
+                service.prepare_task_repositories([self.backend_repo])
+
+    def test_prepare_task_repositories_rejects_dirty_repository_before_next_task(self) -> None:
+        service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+
+        with patch(
+            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            return_value='/usr/bin/git',
+        ), patch(
+            'openhands_agent.data_layers.service.repository_service.os.path.isdir',
+            return_value=True,
+        ), patch(
+            'openhands_agent.data_layers.service.repository_service.subprocess.run',
+            side_effect=[
+                Mock(returncode=0, stdout='feature/proj-1/backend\n', stderr=''),
+                Mock(returncode=0, stdout=' M app.py\n', stderr=''),
+            ],
+        ):
+            with self.assertRaisesRegex(
+                RuntimeError,
+                'repository at \\. has uncommitted changes on branch feature/proj-1/backend; '
+                'refusing to start a new task',
+            ):
+                service.prepare_task_repositories([self.backend_repo])
 
     def test_prepare_task_repositories_enriches_discovered_repository_with_provider_defaults(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -187,7 +269,11 @@ class RepositoryServiceTests(unittest.TestCase):
                 return_value='/usr/bin/git',
             ), patch(
                 'openhands_agent.data_layers.service.repository_service.subprocess.run',
-                return_value=Mock(returncode=0, stdout='refs/remotes/origin/main\n'),
+                side_effect=[
+                    Mock(returncode=0, stdout='refs/remotes/origin/main\n', stderr=''),
+                    Mock(returncode=0, stdout='main\n', stderr=''),
+                    Mock(returncode=0, stdout='', stderr=''),
+                ],
             ):
                 prepared_repositories = service.prepare_task_repositories([service.repositories[0]])
 
@@ -299,7 +385,7 @@ class RepositoryServiceTests(unittest.TestCase):
         self.assertEqual(branch_name, 'UNA-222')
 
     def test_create_pull_request_uses_provider_api_and_includes_repository_metadata(self) -> None:
-        repository = self.cfg.openhands_agent.repositories[0]
+        repository = self.backend_repo
         data_access = Mock()
         data_access.create_pull_request.return_value = {
             PullRequestFields.ID: '17',
@@ -314,13 +400,14 @@ class RepositoryServiceTests(unittest.TestCase):
             'openhands_agent.data_layers.service.repository_service.os.path.isdir',
             return_value=True,
         ), patch(
+            'openhands_agent.data_layers.service.repository_service.RepositoryService._prepare_branch_for_publication',
+        ) as mock_prepare_branch, patch(
+            'openhands_agent.data_layers.service.repository_service.RepositoryService._prepare_workspace_for_task',
+        ) as mock_prepare_workspace, patch(
             'openhands_agent.data_layers.service.repository_service.RepositoryService._push_branch',
         ) as mock_push_branch, patch(
             'openhands_agent.data_layers.service.repository_service.RepositoryService._pull_request_data_access',
             return_value=data_access,
-        ), patch(
-            'openhands_agent.data_layers.service.repository_service.subprocess.run',
-            return_value=Mock(returncode=0, stdout='refs/remotes/origin/master\n'),
         ):
             service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
             result = service.create_pull_request(
@@ -328,11 +415,12 @@ class RepositoryServiceTests(unittest.TestCase):
                 title='PROJ-1: Fix bug',
                 source_branch='feature/proj-1/client',
                 description='Ready',
+                commit_message='Implement PROJ-1',
             )
 
-        self.assertEqual(result[PullRequestFields.REPOSITORY_ID], 'client')
+        self.assertEqual(result[PullRequestFields.REPOSITORY_ID], 'backend')
         self.assertEqual(result[PullRequestFields.ID], '17')
-        self.assertEqual(result[PullRequestFields.DESTINATION_BRANCH], 'master')
+        self.assertEqual(result[PullRequestFields.DESTINATION_BRANCH], 'main')
         self.assertEqual(
             result[PullRequestFields.URL],
             'https://bitbucket.org/workspace/repo/pull-requests/17',
@@ -340,10 +428,179 @@ class RepositoryServiceTests(unittest.TestCase):
         data_access.create_pull_request.assert_called_once_with(
             title='PROJ-1: Fix bug',
             source_branch='feature/proj-1/client',
-            destination_branch='master',
+            destination_branch='main',
             description='Ready',
         )
+        mock_prepare_branch.assert_called_once_with(
+            '.',
+            'feature/proj-1/client',
+            'main',
+            'Implement PROJ-1',
+        )
         mock_push_branch.assert_called_once_with('.', 'feature/proj-1/client')
+        mock_prepare_workspace.assert_called_once_with('.', 'main')
+
+    def test_create_pull_request_returns_to_destination_branch_even_when_pr_creation_fails(self) -> None:
+        repository = self.backend_repo
+        data_access = Mock()
+        data_access.create_pull_request.side_effect = RuntimeError('provider down')
+
+        with patch(
+            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            return_value='/usr/bin/git',
+        ), patch(
+            'openhands_agent.data_layers.service.repository_service.os.path.isdir',
+            return_value=True,
+        ), patch(
+            'openhands_agent.data_layers.service.repository_service.RepositoryService._prepare_branch_for_publication',
+        ), patch(
+            'openhands_agent.data_layers.service.repository_service.RepositoryService._prepare_workspace_for_task',
+        ) as mock_prepare_workspace, patch(
+            'openhands_agent.data_layers.service.repository_service.RepositoryService._push_branch',
+        ), patch(
+            'openhands_agent.data_layers.service.repository_service.RepositoryService._pull_request_data_access',
+            return_value=data_access,
+        ):
+            service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+            with self.assertRaisesRegex(RuntimeError, 'provider down'):
+                service.create_pull_request(
+                    repository,
+                    title='PROJ-1: Fix bug',
+                    source_branch='feature/proj-1/client',
+                    description='Ready',
+                    commit_message='Implement PROJ-1',
+                )
+
+        mock_prepare_workspace.assert_called_once_with('.', 'main')
+
+    def test_create_pull_request_returns_to_destination_branch_even_when_push_fails(self) -> None:
+        repository = self.backend_repo
+
+        with patch(
+            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            return_value='/usr/bin/git',
+        ), patch(
+            'openhands_agent.data_layers.service.repository_service.os.path.isdir',
+            return_value=True,
+        ), patch(
+            'openhands_agent.data_layers.service.repository_service.RepositoryService._prepare_branch_for_publication',
+        ), patch(
+            'openhands_agent.data_layers.service.repository_service.RepositoryService._prepare_workspace_for_task',
+        ) as mock_prepare_workspace, patch(
+            'openhands_agent.data_layers.service.repository_service.RepositoryService._push_branch',
+            side_effect=RuntimeError('push failed'),
+        ), patch(
+            'openhands_agent.data_layers.service.repository_service.RepositoryService._pull_request_data_access',
+        ):
+            service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+            with self.assertRaisesRegex(RuntimeError, 'push failed'):
+                service.create_pull_request(
+                    repository,
+                    title='PROJ-1: Fix bug',
+                    source_branch='feature/proj-1/client',
+                    description='Ready',
+                    commit_message='Implement PROJ-1',
+                )
+
+        mock_prepare_workspace.assert_called_once_with('.', 'main')
+
+    def test_create_pull_request_commits_remaining_changes_before_push(self) -> None:
+        repository = self.backend_repo
+        data_access = Mock()
+        data_access.create_pull_request.return_value = {
+            PullRequestFields.ID: '17',
+            PullRequestFields.TITLE: 'PROJ-1: Fix bug',
+            PullRequestFields.URL: 'https://github.example/pull/17',
+        }
+        subprocess_results = [
+            Mock(returncode=0, stdout='feature/proj-1/backend\n', stderr=''),
+            Mock(returncode=0, stdout=' M app.py\n?? tests/test_app.py\n', stderr=''),
+            Mock(returncode=0, stdout='', stderr=''),
+            Mock(returncode=0, stdout='[feature/proj-1/backend abc123] Implement PROJ-1\n', stderr=''),
+            Mock(returncode=0, stdout='main\n', stderr=''),
+            Mock(returncode=0, stdout='1\n', stderr=''),
+            Mock(returncode=0, stdout='feature/proj-1/backend\n', stderr=''),
+            Mock(returncode=0, stdout='', stderr=''),
+            Mock(returncode=0, stdout='', stderr=''),
+            Mock(returncode=0, stdout='main\n', stderr=''),
+        ]
+
+        with patch(
+            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            return_value='/usr/bin/git',
+        ), patch(
+            'openhands_agent.data_layers.service.repository_service.os.path.isdir',
+            return_value=True,
+        ), patch(
+            'openhands_agent.data_layers.service.repository_service.RepositoryService._push_branch',
+        ) as mock_push_branch, patch(
+            'openhands_agent.data_layers.service.repository_service.RepositoryService._pull_request_data_access',
+            return_value=data_access,
+        ), patch(
+            'openhands_agent.data_layers.service.repository_service.subprocess.run',
+            side_effect=subprocess_results,
+        ) as mock_run:
+            service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+            service.create_pull_request(
+                repository,
+                title='PROJ-1: Fix bug',
+                source_branch='feature/proj-1/backend',
+                description='Ready',
+                commit_message='Implement PROJ-1',
+            )
+
+        self.assertEqual(
+            [call.args[0] for call in mock_run.call_args_list],
+            [
+                ['git', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
+                ['git', '-C', '.', 'status', '--porcelain'],
+                ['git', '-C', '.', 'add', '-A'],
+                ['git', '-C', '.', 'commit', '-m', 'Implement PROJ-1'],
+                ['git', '-C', '.', 'rev-parse', '--verify', 'main'],
+                ['git', '-C', '.', 'rev-list', '--count', 'main..feature/proj-1/backend'],
+                ['git', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
+                ['git', '-C', '.', 'status', '--porcelain'],
+                ['git', '-C', '.', 'checkout', 'main'],
+                ['git', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
+            ],
+        )
+        mock_push_branch.assert_called_once_with('.', 'feature/proj-1/backend')
+
+    def test_create_pull_request_rejects_branch_without_committed_changes(self) -> None:
+        repository = self.backend_repo
+        subprocess_results = [
+            Mock(returncode=0, stdout='feature/proj-1/backend\n', stderr=''),
+            Mock(returncode=0, stdout='', stderr=''),
+            Mock(returncode=0, stdout='main\n', stderr=''),
+            Mock(returncode=0, stdout='0\n', stderr=''),
+            Mock(returncode=0, stdout='feature/proj-1/backend\n', stderr=''),
+            Mock(returncode=0, stdout='', stderr=''),
+            Mock(returncode=0, stdout='', stderr=''),
+            Mock(returncode=0, stdout='main\n', stderr=''),
+        ]
+
+        with patch(
+            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            return_value='/usr/bin/git',
+        ), patch(
+            'openhands_agent.data_layers.service.repository_service.os.path.isdir',
+            return_value=True,
+        ), patch(
+            'openhands_agent.data_layers.service.repository_service.subprocess.run',
+            side_effect=subprocess_results,
+        ):
+            service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+            with self.assertRaisesRegex(
+                RuntimeError,
+                'branch feature/proj-1/backend has no committed changes ahead of main',
+            ):
+                service.create_pull_request(
+                    repository,
+                    title='PROJ-1: Fix bug',
+                    source_branch='feature/proj-1/backend',
+                    description='Ready',
+                    commit_message='Implement PROJ-1',
+                )
 
     def test_validate_connections_checks_local_paths(self) -> None:
         with patch(

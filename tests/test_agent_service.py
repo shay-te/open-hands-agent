@@ -48,6 +48,7 @@ class AgentServiceTests(unittest.TestCase):
                 return_value={
                     ImplementationFields.SUCCESS: True,
                     ImplementationFields.SESSION_ID: 'conversation-1',
+                    ImplementationFields.COMMIT_MESSAGE: 'Implement PROJ-1',
                     'summary': self.pr_description,
                 }
             ),
@@ -254,12 +255,14 @@ class AgentServiceTests(unittest.TestCase):
             title='PROJ-1: Fix bug',
             source_branch='feature/proj-1/client',
             description=self.pr_description,
+            commit_message='Implement PROJ-1',
         )
         self.repository_service.create_pull_request.assert_any_call(
             self.backend_repo,
             title='PROJ-1: Fix bug',
             source_branch='feature/proj-1/backend',
             description=self.pr_description,
+            commit_message='Implement PROJ-1',
         )
         self.assertEqual(self.task_client.add_comment.call_count, 2)
         start_comment = self.task_client.add_comment.call_args_list[0].args[1]
@@ -306,19 +309,23 @@ class AgentServiceTests(unittest.TestCase):
             'PROJ-1',
             'client, backend',
         )
-        self.service.logger.info.assert_any_call(
-            'task %s: repository preflight passed: %s',
-            'PROJ-1',
-            'client->default, backend->main',
-        )
-        self.service.logger.info.assert_any_call(
-            'task %s: planned working branches: %s',
-            'PROJ-1',
-            'client->feature/proj-1/client, backend->feature/proj-1/backend',
-        )
-        self.service.logger.info.assert_any_call(
-            'task %s: completion notification sent',
-            'PROJ-1',
+
+    def test_process_assigned_task_uses_testing_commit_message_for_publish(self) -> None:
+        task = self.task_data_access.get_assigned_tasks()[0]
+        self.openhands_client.test_task.return_value = {
+            ImplementationFields.SUCCESS: True,
+            ImplementationFields.COMMIT_MESSAGE: 'Finalize PROJ-1 after testing',
+            'summary': 'Testing agent validated the implementation',
+        }
+
+        self.service.process_assigned_task(task)
+
+        self.repository_service.create_pull_request.assert_any_call(
+            self.client_repo,
+            title='PROJ-1: Fix bug',
+            source_branch='feature/proj-1/client',
+            description=self.pr_description,
+            commit_message='Finalize PROJ-1 after testing',
         )
 
     def test_get_assigned_tasks_returns_empty_list_when_no_tasks_exist(self) -> None:

@@ -58,6 +58,10 @@ class RepositoryService(Service):
             self._validate_local_path(repository)
             self._prepare_pull_request_api(repository)
             setattr(repository, 'destination_branch', self.destination_branch(repository))
+            self._prepare_workspace_for_task(
+                repository.local_path,
+                repository.destination_branch,
+            )
             prepared_repositories.append(repository)
         return prepared_repositories
 
@@ -76,31 +80,45 @@ class RepositoryService(Service):
         title: str,
         source_branch: str,
         description: str = '',
+        commit_message: str = '',
     ) -> dict[str, str]:
         self._validate_local_path(repository)
         self._prepare_pull_request_api(repository)
         destination_branch = self.destination_branch(repository)
-        self._push_branch(repository.local_path, source_branch)
-        pull_request = self._pull_request_data_access(repository).create_pull_request(
-            title=title,
-            source_branch=source_branch,
-            destination_branch=destination_branch,
-            description=description,
-        )
-        return {
-            PullRequestFields.REPOSITORY_ID: repository.id,
-            PullRequestFields.ID: str(pull_request.get(PullRequestFields.ID, '') or ''),
-            PullRequestFields.TITLE: str(
-                pull_request.get(PullRequestFields.TITLE, '') or title
-            ),
-            PullRequestFields.URL: str(
-                pull_request.get(PullRequestFields.URL, '')
-                or self._review_url(repository, source_branch, destination_branch)
-            ),
-            PullRequestFields.SOURCE_BRANCH: source_branch,
-            PullRequestFields.DESTINATION_BRANCH: destination_branch,
-            PullRequestFields.DESCRIPTION: description,
-        }
+        final_commit_message = str(commit_message or '').strip() or f'Implement {source_branch}'
+        try:
+            self._prepare_branch_for_publication(
+                repository.local_path,
+                source_branch,
+                destination_branch,
+                final_commit_message,
+            )
+            self._push_branch(repository.local_path, source_branch)
+            pull_request = self._pull_request_data_access(repository).create_pull_request(
+                title=title,
+                source_branch=source_branch,
+                destination_branch=destination_branch,
+                description=description,
+            )
+            return {
+                PullRequestFields.REPOSITORY_ID: repository.id,
+                PullRequestFields.ID: str(pull_request.get(PullRequestFields.ID, '') or ''),
+                PullRequestFields.TITLE: str(
+                    pull_request.get(PullRequestFields.TITLE, '') or title
+                ),
+                PullRequestFields.URL: str(
+                    pull_request.get(PullRequestFields.URL, '')
+                    or self._review_url(repository, source_branch, destination_branch)
+                ),
+                PullRequestFields.SOURCE_BRANCH: source_branch,
+                PullRequestFields.DESTINATION_BRANCH: destination_branch,
+                PullRequestFields.DESCRIPTION: description,
+            }
+        finally:
+            self._prepare_workspace_for_task(
+                repository.local_path,
+                destination_branch,
+            )
 
     def list_pull_request_comments(
         self,
@@ -357,19 +375,131 @@ class RepositoryService(Service):
             return
         raise RuntimeError('git executable is required but was not found on PATH')
 
-    def _push_branch(self, local_path: str, branch_name: str) -> None:
+    def _prepare_branch_for_publication(
+        self,
+        local_path: str,
+        branch_name: str,
+        destination_branch: str,
+        commit_message: str,
+    ) -> None:
+        current_branch = self._current_branch(local_path)
+        if current_branch != branch_name:
+            raise RuntimeError(
+                f'expected repository at {local_path} to be on branch {branch_name}, '
+                f'but found {current_branch or "<unknown>"}'
+            )
+
+        status_output = self._working_tree_status(local_path)
+        if status_output:
+            self._run_git(
+                local_path,
+                ['add', '-A'],
+                f'failed to stage changes for branch {branch_name}',
+            )
+            self._run_git(
+                local_path,
+                ['commit', '-m', commit_message],
+                f'failed to commit changes for branch {branch_name}',
+            )
+
+        comparison_ref = self._comparison_reference(local_path, destination_branch)
+        ahead_count_text = self._git_stdout(
+            local_path,
+            ['rev-list', '--count', f'{comparison_ref}..{branch_name}'],
+            f'failed to compare branch {branch_name} against {comparison_ref}',
+        )
+        try:
+            ahead_count = int(ahead_count_text or '0')
+        except ValueError as exc:
+            raise RuntimeError(
+                f'failed to parse ahead count for branch {branch_name}: '
+                f'{ahead_count_text or "<empty>"}'
+            ) from exc
+        if ahead_count < 1:
+            raise RuntimeError(
+                f'branch {branch_name} has no committed changes ahead of {comparison_ref}'
+            )
+
+    def _prepare_workspace_for_task(
+        self,
+        local_path: str,
+        destination_branch: str,
+    ) -> None:
+        current_branch = self._current_branch(local_path)
+        status_output = self._working_tree_status(local_path)
+        if status_output:
+            raise RuntimeError(
+                f'repository at {local_path} has uncommitted changes on branch '
+                f'{current_branch or "<unknown>"}; refusing to start a new task'
+            )
+        if current_branch and current_branch != destination_branch:
+            self._run_git(
+                local_path,
+                ['checkout', destination_branch],
+                f'failed to switch repository at {local_path} to {destination_branch}',
+            )
+            current_branch = self._current_branch(local_path)
+        if current_branch != destination_branch:
+            raise RuntimeError(
+                f'repository at {local_path} is on branch '
+                f'{current_branch or "<unknown>"} instead of {destination_branch}'
+            )
+
+    def _comparison_reference(self, local_path: str, destination_branch: str) -> str:
+        for reference in (destination_branch, f'origin/{destination_branch}'):
+            if self._git_reference_exists(local_path, reference):
+                return reference
+        raise RuntimeError(
+            f'destination branch {destination_branch} is not available locally'
+        )
+
+    def _current_branch(self, local_path: str) -> str:
+        return self._git_stdout(
+            local_path,
+            ['rev-parse', '--abbrev-ref', 'HEAD'],
+            f'failed to determine current branch for {local_path}',
+        )
+
+    def _working_tree_status(self, local_path: str) -> str:
+        return self._git_stdout(
+            local_path,
+            ['status', '--porcelain'],
+            f'failed to inspect working tree for repository at {local_path}',
+        )
+
+    def _git_reference_exists(self, local_path: str, reference: str) -> bool:
+        result = subprocess.run(
+            ['git', '-C', local_path, 'rev-parse', '--verify', reference],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        return result.returncode == 0
+
+    def _git_stdout(self, local_path: str, args: list[str], failure_message: str) -> str:
+        result = self._run_git(local_path, args, failure_message)
+        return result.stdout.strip()
+
+    def _run_git(self, local_path: str, args: list[str], failure_message: str):
         self._validate_git_executable()
         result = subprocess.run(
-            ['git', '-C', local_path, 'push', '-u', 'origin', branch_name],
+            ['git', '-C', local_path, *args],
             capture_output=True,
             text=True,
             check=False,
         )
         if result.returncode == 0:
-            return
+            return result
         raise RuntimeError(
-            f'failed to push branch {branch_name}: '
-            f'{result.stderr.strip() or result.stdout.strip() or "git push failed"}'
+            f'{failure_message}: '
+            f'{result.stderr.strip() or result.stdout.strip() or "git command failed"}'
+        )
+
+    def _push_branch(self, local_path: str, branch_name: str) -> None:
+        self._run_git(
+            local_path,
+            ['push', '-u', 'origin', branch_name],
+            f'failed to push branch {branch_name}',
         )
 
     def _review_url(self, repository, source_branch: str, destination_branch: str) -> str:

@@ -4,7 +4,10 @@ import unittest
 from unittest.mock import Mock
 
 
-from openhands_agent.jobs.process_assigned_tasks import ProcessAssignedTasksJob
+from openhands_agent.jobs.process_assigned_tasks import (
+    ProcessAssignedTasksJob,
+    collect_processing_results,
+)
 from openhands_agent.openhands_agent_core_lib import OpenHandsAgentCoreLib
 from utils import sync_create_start_core_lib
 
@@ -92,6 +95,28 @@ class ProcessAssignedTasksJobTests(unittest.TestCase):
         self.assertEqual(
             self.openhands_core_lib.service.process_assigned_task.call_args_list[1].args,
             ('task-2',),
+        )
+
+    def test_collect_processing_results_processes_tasks_strictly_in_order(self) -> None:
+        service = Mock()
+        service.get_assigned_tasks.return_value = ['task-1', 'task-2']
+        service.get_new_pull_request_comments.return_value = []
+        events: list[str] = []
+
+        def process_task(task_id: str):
+            events.append(f'start:{task_id}')
+            events.append(f'end:{task_id}')
+            return {'id': task_id}
+
+        service.process_assigned_task.side_effect = process_task
+        service.process_review_comment = Mock()
+
+        results = collect_processing_results(service)
+
+        self.assertEqual(results, [{'id': 'task-1'}, {'id': 'task-2'}])
+        self.assertEqual(
+            events,
+            ['start:task-1', 'end:task-1', 'start:task-2', 'end:task-2'],
         )
 
     def test_run_loops_over_new_pull_request_comments_after_tasks(self) -> None:

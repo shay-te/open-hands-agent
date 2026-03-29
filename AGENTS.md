@@ -17,6 +17,12 @@ This repository uses OpenHands to implement YouTrack tasks and fix review commen
 - Keep the existing project structure and naming patterns.
 - Do not add dependencies unless they are clearly required.
 - Make configuration-driven behavior live in config or environment variables, not hardcoded values.
+- Process assigned tasks sequentially, one after the other.
+- Do not let work from one task leak into another task's branch, commit, pull request, or summary.
+- Before starting a new task in a repository, verify the repository is clean and on the destination branch.
+- When a task finishes, make sure all intended changes are committed and pushed before treating the task as ready for review.
+- After publishing task work, return the repository to the destination branch and verify that branch switch succeeded before any later task can start.
+- Do not mark a task as done, ready for review, or successfully published unless the branch is actually in a publishable state.
 
 ## Testing
 
@@ -33,6 +39,12 @@ This repository uses OpenHands to implement YouTrack tasks and fix review commen
 - Do not mock third-party libraries or `core-lib` behavior when the real installed package can be used directly in the test.
 - Do not add mocks just to force a preferred exception type or API shape if the real library behavior is acceptable.
 - Prefer lightweight real objects and real library calls over `Mock()` or `SimpleNamespace()` when the dependency is already cheap and deterministic.
+- Add explicit tests for workflow boundaries when they change, especially:
+  - sequential task processing
+  - clean-worktree validation before starting the next task
+  - commit and push requirements before publish
+  - returning to the destination branch after publish success or failure
+  - refusing to continue when branch or workspace validation fails
 
 ## Safety
 
@@ -44,6 +56,8 @@ This repository uses OpenHands to implement YouTrack tasks and fix review commen
 - Do not add fallback config-shape handling for required settings; access the expected config directly and let invalid config fail fast.
 - Do not add thin wrappers around upstream library methods unless they provide real domain behavior for this app.
 - Do not translate upstream exceptions into local ones unless the boundary needs a deliberate application-level contract.
+- Do not assume a task is safely published just because a branch exists or a summary was returned.
+- Fail fast when commit, push, branch-reset, or publish preconditions are not met instead of silently continuing.
 
 ## Output
 
@@ -51,6 +65,12 @@ This repository uses OpenHands to implement YouTrack tasks and fix review commen
 - Reuse existing utilities instead of duplicating logic.
 - Log failures clearly when a flow continues after an error.
 - Before opening a pull request, make sure the implementation prompt instructions were followed, especially around tests.
+- Do not present guesses, plans, or likely causes as confirmed facts.
+- In commentary and final responses, clearly separate:
+  - what was directly observed in code, logs, or tests
+  - what is an inference
+  - what is the planned fix
+- Do not say something is implemented, fixed, or validated until the code change and verification actually happened.
 
 ## Code Style
 

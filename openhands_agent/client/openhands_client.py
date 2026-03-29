@@ -94,6 +94,9 @@ class OpenHandsClient(RetryingClientBase):
             Task.summary.key: payload.get(Task.summary.key, ''),
             ImplementationFields.SUCCESS: self._success_flag(payload),
         }
+        commit_message = str(payload.get(ImplementationFields.COMMIT_MESSAGE, '') or '').strip()
+        if commit_message:
+            result[ImplementationFields.COMMIT_MESSAGE] = commit_message
         returned_session_id = self._payload_session_id(payload)
         if returned_session_id:
             result[ImplementationFields.SESSION_ID] = returned_session_id
@@ -159,6 +162,8 @@ class OpenHandsClient(RetryingClientBase):
             'When you finish, use the finish tool.\n'
             '- Put the pull request description in summary.\n'
             '- Put any extra implementation details in message.\n'
+            '- If you created or updated commits, put the final commit message in commit_message.\n'
+            '- Do not report success until all intended changes are committed on the task branch.\n'
             '- Do not pass extra finish-tool arguments beyond the supported fields.\n\n'
             'The summary must list every changed file and, under each file name, add a short explanation of what changed.\n'
             'Use this format inside summary:\n'
@@ -183,6 +188,8 @@ class OpenHandsClient(RetryingClientBase):
             'When you finish, use the finish tool.\n'
             '- Put the testing report in summary.\n'
             '- Put any extra testing details in message.\n'
+            '- If you created or updated commits, put the final commit message in commit_message.\n'
+            '- Do not report success until all intended changes are committed on the task branch.\n'
             '- Do not pass extra finish-tool arguments beyond the supported fields.\n'
         )
 
@@ -195,7 +202,8 @@ class OpenHandsClient(RetryingClientBase):
                 'Before making changes, try to pull the latest changes from the repository '
                 'default branch without interactive auth prompts. If remote access is blocked, '
                 'continue from the current local checkout and mention that limitation in your '
-                f'finish message. Then create and work on a new branch named {task.branch_name}.'
+                f'finish message. Then create and work on a new branch named {task.branch_name}. '
+                'Before you use finish, stage and commit every intended change on that task branch.'
             )
 
         repository_lines = []
@@ -211,7 +219,8 @@ class OpenHandsClient(RetryingClientBase):
                 'interactive auth prompts. If remote access is blocked, continue from the '
                 'current local checkout and mention that limitation in your finish message. '
                 f'Then create and work on a new branch named {branch_name}. Do not create the '
-                'pull request yourself; the orchestration layer will publish it after tests pass.'
+                'pull request yourself; the orchestration layer will publish it after tests pass. '
+                'Before you use finish, stage and commit every intended change on that task branch.'
             )
         lines = '\n'.join(repository_lines)
         return f'Only modify these repositories:\n{lines}'

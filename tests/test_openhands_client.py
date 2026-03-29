@@ -146,6 +146,8 @@ class OpenHandsClientTests(unittest.TestCase):
         self.assertNotIn('Act as a separate testing agent.', prompt)
         self.assertIn('When you finish, use the finish tool.', prompt)
         self.assertIn('Do not pass extra finish-tool arguments', prompt)
+        self.assertIn('put the final commit message in commit_message', prompt)
+        self.assertIn('Do not report success until all intended changes are committed', prompt)
         self.assertIn('Files changed:', prompt)
         self.assertIn('pull the latest changes from the repository default branch', prompt)
         self.assertIn('Prefer shell commands like rg, sed -n, and cat', prompt)
@@ -178,6 +180,7 @@ class OpenHandsClientTests(unittest.TestCase):
         self.assertIn('without interactive auth prompts', prompt)
         self.assertIn('continue from the current local checkout', prompt)
         self.assertIn('create and work on a new branch named UNA-222', prompt)
+        self.assertIn('stage and commit every intended change on that task branch', prompt)
         self.assertIn('Do not create the pull request yourself', prompt)
 
     def test_testing_prompt_describes_separate_testing_agent(self) -> None:
@@ -189,6 +192,8 @@ class OpenHandsClientTests(unittest.TestCase):
         self.assertIn('Write additional tests when needed', prompt)
         self.assertIn('Do not create a pull request.', prompt)
         self.assertIn('When you finish, use the finish tool.', prompt)
+        self.assertIn('put the final commit message in commit_message', prompt)
+        self.assertIn('Do not report success until all intended changes are committed', prompt)
         self.assertIn('always include its required command field', prompt)
         self.assertIn('command "str_replace"', prompt)
         self.assertIn('Never use create_pr', prompt)
@@ -434,6 +439,7 @@ class OpenHandsClientTests(unittest.TestCase):
             '_run_prompt',
             return_value={
                 'summary': 'Added tests and validated the implementation',
+                ImplementationFields.COMMIT_MESSAGE: 'Finalize PROJ-1',
                 ImplementationFields.SUCCESS: True,
                 ImplementationFields.SESSION_ID: 'conversation-2',
             },
@@ -444,6 +450,7 @@ class OpenHandsClientTests(unittest.TestCase):
             result,
             {
                 'summary': 'Added tests and validated the implementation',
+                ImplementationFields.COMMIT_MESSAGE: 'Finalize PROJ-1',
                 ImplementationFields.SUCCESS: True,
                 ImplementationFields.SESSION_ID: 'conversation-2',
             },
