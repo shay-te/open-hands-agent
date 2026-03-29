@@ -166,9 +166,13 @@ def _validate_repository_provider_env(env: dict[str, str]) -> list[str]:
 
 def validate_openhands_env(env: dict[str, str]) -> list[str]:
     errors = []
+    if not str(env.get('OH_SECRET_KEY', '')).strip():
+        errors.append('missing required OpenHands env var: OH_SECRET_KEY')
+
     model = str(env.get('OPENHANDS_LLM_MODEL', '')).strip()
     if not model:
-        return ['missing required OpenHands env var: OPENHANDS_LLM_MODEL']
+        errors.append('missing required OpenHands env var: OPENHANDS_LLM_MODEL')
+        return errors
 
     if model.startswith('bedrock/'):
         has_bearer = bool(str(env.get('AWS_BEARER_TOKEN_BEDROCK', '')).strip())

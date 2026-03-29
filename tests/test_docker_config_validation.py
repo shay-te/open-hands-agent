@@ -58,6 +58,7 @@ class TestDockerConfigValidation(unittest.TestCase):
             validate_environment(mode='agent')
 
     @patch.dict(os.environ, {
+        'OH_SECRET_KEY': 'docker-secret',
         'OPENHANDS_LLM_MODEL': 'anthropic.claude-haiku-4-5-20251001-v1:0',
         'AWS_ACCESS_KEY_ID': 'test-key-id',
         'AWS_SECRET_ACCESS_KEY': 'test-secret-key',
@@ -86,6 +87,7 @@ class TestDockerConfigValidation(unittest.TestCase):
 
     @patch.dict(os.environ, {
         # Valid credentials
+        'OH_SECRET_KEY': 'docker-secret',
         'AWS_ACCESS_KEY_ID': 'AKIAIOSFODNN7EXAMPLE',
         'AWS_SECRET_ACCESS_KEY': 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY',
         'AWS_REGION_NAME': 'us-west-2',

@@ -5,6 +5,7 @@ import logging
 import os
 from pathlib import Path
 import re
+import secrets
 
 from openhands_agent.repository_discovery import (
     discover_git_repositories,
@@ -500,6 +501,10 @@ def _prompt_openhands(
         'OPENHANDS_API_KEY': input_str(
             'OpenHands API key',
             default=_default_str(defaults, 'OPENHANDS_API_KEY', fallback='local'),
+        ),
+        'OH_SECRET_KEY': input_str(
+            'OpenHands secret key',
+            default=_default_str(defaults, 'OH_SECRET_KEY', fallback=secrets.token_hex(32)),
         ),
         'OPENHANDS_AGENT_MAX_RETRIES': str(
             input_int(

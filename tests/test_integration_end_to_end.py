@@ -194,6 +194,7 @@ class TestAgentEndToEndIntegration(unittest.TestCase):
         
         # Simulate what would be used in docker-compose context
         test_env = {
+            'OH_SECRET_KEY': 'integration-secret',
             'OPENHANDS_LLM_MODEL': 'openai/gpt-4o-mini',
             'OPENHANDS_LLM_API_KEY': 'test-llm-key',
             'OPENHANDS_BASE_URL': 'http://openhands:3000',

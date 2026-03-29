@@ -94,8 +94,9 @@ services:
     image: docker.openhands.dev/openhands/openhands:1.5
     pull_policy: always
     environment:
-      LOG_LEVEL: ${OPENHANDS_LOG_LEVEL:-warning}
-      UVICORN_LOG_LEVEL: ${OPENHANDS_LOG_LEVEL:-warning}
+      LOG_LEVEL: ${OPENHANDS_LOG_LEVEL:-error}
+      UVICORN_LOG_LEVEL: ${OPENHANDS_LOG_LEVEL:-error}
+      OH_SECRET_KEY: ${OH_SECRET_KEY:-}
       AGENT_SERVER_IMAGE_REPOSITORY: ${OPENHANDS_AGENT_SERVER_IMAGE_REPOSITORY:-ghcr.io/openhands/agent-server}
       AGENT_SERVER_IMAGE_TAG: ${OPENHANDS_AGENT_SERVER_IMAGE_TAG:-1.12.0-python}
       LLM_MODEL: ${OPENHANDS_LLM_MODEL:-}

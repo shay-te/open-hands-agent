@@ -50,6 +50,7 @@ class ConfigureProjectTests(unittest.TestCase):
                 'Projects root folder containing checked-out repositories': './client',
                 'OpenHands base URL': 'http://localhost:3000',
                 'OpenHands API key': 'local',
+                'OpenHands secret key': 'openhands-secret',
                 'Maximum retries for external API calls': 5,
                 'State file path': 'openhands_agent_state.json',
                 'OpenHands LLM model': 'openai/gpt-4o',
@@ -67,6 +68,7 @@ class ConfigureProjectTests(unittest.TestCase):
         self.assertEqual(values['REPOSITORY_ROOT_PATH'], str(Path('./client').resolve()))
         self.assertNotIn('OPENHANDS_SANDBOX_VOLUMES', values)
         self.assertEqual(values['OPENHANDS_LLM_API_KEY'], 'llm-key')
+        self.assertEqual(values['OH_SECRET_KEY'], 'openhands-secret')
         self.assertEqual(self._validate_agent_env(values), [])
         self.assertEqual(validate_openhands_env(values), [])
 
@@ -88,6 +90,7 @@ class ConfigureProjectTests(unittest.TestCase):
                 'Projects root folder containing checked-out repositories': '.',
                 'OpenHands base URL': 'http://localhost:3000',
                 'OpenHands API key': 'local',
+                'OpenHands secret key': 'openhands-secret',
                 'Maximum retries for external API calls': 7,
                 'State file path': 'state.json',
                 'OpenHands LLM model': 'bedrock/anthropic.claude-3-sonnet-20240229-v1:0',
@@ -110,6 +113,7 @@ class ConfigureProjectTests(unittest.TestCase):
         self.assertEqual(values['AWS_BEARER_TOKEN_BEDROCK'], 'bedrock-token')
         self.assertEqual(values['OPENHANDS_LLM_API_KEY'], '')
         self.assertEqual(values['OPENHANDS_AGENT_FAILURE_EMAIL_ENABLED'], 'true')
+        self.assertEqual(values['OH_SECRET_KEY'], 'openhands-secret')
         self.assertEqual(self._validate_agent_env(values), [])
         self.assertEqual(validate_openhands_env(values), [])
 
@@ -247,6 +251,7 @@ class ConfigureProjectTests(unittest.TestCase):
                 'REPOSITORY_ROOT_PATH=.\n'
                 'OPENHANDS_BASE_URL=http://localhost:3000\n'
                 'OPENHANDS_API_KEY=local\n'
+                'OH_SECRET_KEY=\n'
                 'OPENHANDS_AGENT_MAX_RETRIES=5\n'
                 'OPENHANDS_AGENT_STATE_FILE=openhands_agent_state.json\n'
                 'OPENHANDS_LLM_MODEL=\n'
@@ -282,6 +287,7 @@ class ConfigureProjectTests(unittest.TestCase):
                 'Projects root folder containing checked-out repositories': '.',
                 'OpenHands base URL': 'http://localhost:3000',
                 'OpenHands API key': 'local',
+                'OpenHands secret key': 'openhands-secret',
                 'Maximum retries for external API calls': 5,
                 'State file path': 'openhands_agent_state.json',
                 'OpenHands LLM model': 'openai/gpt-4o',
@@ -305,6 +311,7 @@ class ConfigureProjectTests(unittest.TestCase):
             written_env = _read_env_file(str(output_path))
             self.assertEqual(written_env['OPENHANDS_AGENT_ISSUE_PLATFORM'], 'youtrack')
             self.assertEqual(written_env['YOUTRACK_ISSUE_STATES'], 'Todo,Open')
+            self.assertEqual(written_env['OH_SECRET_KEY'], 'openhands-secret')
             self.assertEqual(written_env['OPENHANDS_LLM_API_KEY'], 'llm-key')
 
     def test_main_returns_zero_when_configuration_is_still_invalid(self) -> None:
@@ -327,6 +334,7 @@ class ConfigureProjectTests(unittest.TestCase):
                 'REPOSITORY_ROOT_PATH=.\n'
                 'OPENHANDS_BASE_URL=http://localhost:3000\n'
                 'OPENHANDS_API_KEY=local\n'
+                'OH_SECRET_KEY=\n'
                 'OPENHANDS_AGENT_MAX_RETRIES=5\n'
                 'OPENHANDS_AGENT_STATE_FILE=openhands_agent_state.json\n'
                 'OPENHANDS_LLM_MODEL=\n'
@@ -362,6 +370,7 @@ class ConfigureProjectTests(unittest.TestCase):
                 'Projects root folder containing checked-out repositories': '.',
                 'OpenHands base URL': 'http://localhost:3000',
                 'OpenHands API key': 'local',
+                'OpenHands secret key': 'openhands-secret',
                 'Maximum retries for external API calls': 5,
                 'State file path': 'openhands_agent_state.json',
                 'OpenHands LLM model': '',

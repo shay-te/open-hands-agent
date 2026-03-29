@@ -309,11 +309,17 @@ class YouTrackClient(TicketClientBase):
 
         text_attachment_lines = self._format_text_attachments(attachments)
         if text_attachment_lines:
-            sections.append('Text attachments:\n' + '\n\n'.join(text_attachment_lines))
+            sections.append(
+                f'{self.UNTRUSTED_TEXT_ATTACHMENTS_SECTION_TITLE}:\n'
+                + '\n\n'.join(text_attachment_lines)
+            )
 
         screenshot_lines = self._format_screenshot_attachments(attachments)
         if screenshot_lines:
-            sections.append('Screenshot attachments:\n' + '\n'.join(screenshot_lines))
+            sections.append(
+                f'{self.UNTRUSTED_SCREENSHOT_ATTACHMENTS_SECTION_TITLE}:\n'
+                + '\n'.join(screenshot_lines)
+            )
 
         return self._join_task_description_sections(sections)
 

@@ -37,8 +37,9 @@ class DeploymentFilesTests(unittest.TestCase):
             'OPENHANDS_MAX_POLL_ATTEMPTS: ${OPENHANDS_MAX_POLL_ATTEMPTS:-900}',
             compose_text,
         )
-        self.assertIn('LOG_LEVEL: ${OPENHANDS_LOG_LEVEL:-warning}', compose_text)
-        self.assertIn('UVICORN_LOG_LEVEL: ${OPENHANDS_LOG_LEVEL:-warning}', compose_text)
+        self.assertIn('OH_SECRET_KEY: ${OH_SECRET_KEY:-}', compose_text)
+        self.assertIn('LOG_LEVEL: ${OPENHANDS_LOG_LEVEL:-error}', compose_text)
+        self.assertIn('UVICORN_LOG_LEVEL: ${OPENHANDS_LOG_LEVEL:-error}', compose_text)
         self.assertIn('AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}', compose_text)
         self.assertIn('AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}', compose_text)
         self.assertIn('AWS_REGION_NAME: ${AWS_REGION_NAME:-}', compose_text)
@@ -183,6 +184,7 @@ class DeploymentFilesTests(unittest.TestCase):
         self.assertIn('OPENHANDS_POLL_INTERVAL_SECONDS=', env_example_text)
         self.assertIn('OPENHANDS_MAX_POLL_ATTEMPTS=', env_example_text)
         self.assertIn('OPENHANDS_LOG_LEVEL=', env_example_text)
+        self.assertIn('OH_SECRET_KEY=', env_example_text)
         self.assertIn('EMAIL_CORE_LIB_SEND_IN_BLUE_API_KEY=', env_example_text)
         self.assertNotIn('EMIL_CORE_LIB_SEND_IN_BLUE_API_KEY=', env_example_text)
         self.assertIn('AWS_ACCESS_KEY_ID=', env_example_text)

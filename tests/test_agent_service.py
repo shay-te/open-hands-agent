@@ -426,7 +426,7 @@ class AgentServiceTests(unittest.TestCase):
                 },
                 {
                     TaskCommentFields.AUTHOR: 'reviewer',
-                    TaskCommentFields.BODY: 'You can move forward and try again now.',
+                    TaskCommentFields.BODY: 'OpenHands: retry approved for this task.',
                 },
             ],
         )
