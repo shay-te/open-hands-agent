@@ -1,5 +1,3 @@
-import logging
-
 from alembic import command
 from hydra.core.global_hydra import GlobalHydra
 from omegaconf import DictConfig
@@ -23,7 +21,7 @@ from openhands_agent.data_layers.service.testing_service import TestingService
 from openhands_agent.alembic_config import build_alembic_config
 from openhands_agent.logging_utils import configure_logger
 
-logger = logging.getLogger(__name__)
+logger = configure_logger('OpenHandsAgentCoreLib')
 
 
 class OpenHandsAgentCoreLib(CoreLib):

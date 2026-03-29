@@ -3,7 +3,7 @@ from urllib.parse import quote
 
 from openhands_agent.client.pull_request_client_base import PullRequestClientBase
 from openhands_agent.data_layers.data.review_comment import ReviewComment
-from openhands_agent.fields import PullRequestFields
+from openhands_agent.fields import PullRequestFields, ReviewCommentFields
 
 
 class GitLabClient(PullRequestClientBase):
@@ -43,12 +43,36 @@ class GitLabClient(PullRequestClientBase):
         repo_slug: str,
         pull_request_id: str,
     ) -> list[ReviewComment]:
-        response = self._get_with_retry(
-            f'/projects/{self._project_path(repo_owner, repo_slug)}/merge_requests/{pull_request_id}/notes',
-            params={'sort': 'asc', 'order_by': 'created_at', 'per_page': 100},
+        return self._normalize_comments(
+            self._discussion_payload(repo_owner, repo_slug, pull_request_id),
+            pull_request_id,
+        )
+
+    def resolve_review_comment(
+        self,
+        repo_owner: str,
+        repo_slug: str,
+        comment: ReviewComment,
+    ) -> None:
+        discussion_id = str(
+            getattr(comment, ReviewCommentFields.RESOLUTION_TARGET_ID, '') or ''
+        ).strip()
+        if not discussion_id:
+            discussion_id = self._discussion_id_for_comment(
+                repo_owner,
+                repo_slug,
+                str(comment.pull_request_id or ''),
+                str(comment.comment_id or ''),
+            )
+        if not discussion_id:
+            raise ValueError(
+                f'unable to determine GitLab discussion for comment {comment.comment_id}'
+            )
+        response = self._put_with_retry(
+            f'/projects/{self._project_path(repo_owner, repo_slug)}/merge_requests/{comment.pull_request_id}/discussions/{discussion_id}',
+            json={'resolved': True},
         )
         response.raise_for_status()
-        return self._normalize_comments(response.json(), pull_request_id)
 
     @staticmethod
     def _project_path(repo_owner: str, repo_slug: str) -> str:
@@ -70,16 +94,57 @@ class GitLabClient(PullRequestClientBase):
             return []
 
         comments: list[ReviewComment] = []
-        for item in payload:
-            if not isinstance(item, dict) or item.get('system'):
+        for discussion in payload:
+            if not isinstance(discussion, dict) or discussion.get('resolved'):
                 continue
-            author = item.get('author') if isinstance(item.get('author'), dict) else {}
-            comments.append(
-                ReviewComment(
+            discussion_id = str(discussion.get('id', '') or '').strip()
+            notes = discussion.get('notes', []) if isinstance(discussion.get('notes', []), list) else []
+            for item in notes:
+                if not isinstance(item, dict) or item.get('system'):
+                    continue
+                author = item.get('author') if isinstance(item.get('author'), dict) else {}
+                comment = ReviewComment(
                     pull_request_id=str(pull_request_id),
                     comment_id=str(item.get('id', '')),
                     author=str(author.get('username') or author.get('name') or ''),
                     body=str(item.get('body', '')),
                 )
-            )
+                setattr(comment, ReviewCommentFields.RESOLUTION_TARGET_ID, discussion_id)
+                setattr(comment, ReviewCommentFields.RESOLUTION_TARGET_TYPE, 'discussion')
+                setattr(comment, ReviewCommentFields.RESOLVABLE, bool(discussion_id))
+                comments.append(comment)
         return [comment for comment in comments if comment.comment_id]
+
+    def _discussion_payload(
+        self,
+        repo_owner: str,
+        repo_slug: str,
+        pull_request_id: str,
+    ) -> list[dict[str, Any]]:
+        response = self._get_with_retry(
+            f'/projects/{self._project_path(repo_owner, repo_slug)}/merge_requests/{pull_request_id}/discussions',
+            params={'per_page': 100},
+        )
+        response.raise_for_status()
+        payload = response.json() or []
+        return payload if isinstance(payload, list) else []
+
+    def _discussion_id_for_comment(
+        self,
+        repo_owner: str,
+        repo_slug: str,
+        pull_request_id: str,
+        comment_id: str,
+    ) -> str:
+        target_comment_id = str(comment_id or '').strip()
+        for discussion in self._discussion_payload(repo_owner, repo_slug, pull_request_id):
+            if not isinstance(discussion, dict):
+                continue
+            notes = discussion.get('notes', []) if isinstance(discussion.get('notes', []), list) else []
+            if any(
+                str(note.get('id', '') or '').strip() == target_comment_id
+                for note in notes
+                if isinstance(note, dict)
+            ):
+                return str(discussion.get('id', '') or '').strip()
+        return ''

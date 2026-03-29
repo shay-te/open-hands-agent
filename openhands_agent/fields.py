@@ -16,6 +16,9 @@ class ReviewCommentFields:
     AUTHOR = 'author'
     BODY = 'body'
     ALL_COMMENTS = 'all_comments'
+    RESOLUTION_TARGET_ID = 'resolution_target_id'
+    RESOLUTION_TARGET_TYPE = 'resolution_target_type'
+    RESOLVABLE = 'resolvable'
 
 
 class TaskCommentFields:

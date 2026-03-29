@@ -1,8 +1,8 @@
 import json
-import logging
 
 from core_lib.jobs.job import Job
 
+from openhands_agent.logging_utils import configure_logger
 from openhands_agent.openhands_agent_core_lib import OpenHandsAgentCoreLib
 
 
@@ -21,7 +21,7 @@ def collect_processing_results(service) -> list[dict]:
 
 class ProcessAssignedTasksJob(Job):
     def __init__(self) -> None:
-        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger = configure_logger(self.__class__.__name__)
 
     def initialized(self, data_handler: OpenHandsAgentCoreLib) -> None:
         assert isinstance(data_handler, OpenHandsAgentCoreLib)

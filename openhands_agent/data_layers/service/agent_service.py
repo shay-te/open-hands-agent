@@ -1,9 +1,9 @@
-import logging
 import traceback
 
 from core_lib.data_layers.service.service import Service
 
 from openhands_agent.client.ticket_client_base import TicketClientBase
+from openhands_agent.logging_utils import configure_logger
 from openhands_agent.client.retry_utils import is_retryable_exception
 from openhands_agent.data_layers.data.review_comment import ReviewComment
 from openhands_agent.data_layers.data.task import Task
@@ -30,7 +30,7 @@ class AgentService(Service):
         notification_service: NotificationService,
         state_data_access=None,
     ) -> None:
-        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger = configure_logger(self.__class__.__name__)
         if testing_service is None:
             raise ValueError('testing_service is required')
         if notification_service is None:
@@ -145,7 +145,7 @@ class AgentService(Service):
                 PullRequestFields.FAILED_REPOSITORIES: [],
             }
 
-        self.logger.info('processing task %s', task.id)
+        self._log_task_step(task.id, 'starting mission: %s', str(task.summary or '').strip() or task.id)
         try:
             repositories = self._repository_service.resolve_task_repositories(task)
         except Exception as exc:
@@ -310,9 +310,14 @@ class AgentService(Service):
                 self._comment_context_entry(comment)
                 for comment in comments
             ]
-            for comment in comments:
+            seen_resolution_targets: set[tuple[str, str]] = set()
+            for comment in reversed(comments):
                 setattr(comment, PullRequestFields.REPOSITORY_ID, repository_id)
                 setattr(comment, ReviewCommentFields.ALL_COMMENTS, list(comment_context))
+                resolution_key = self._review_comment_resolution_key(comment)
+                if resolution_key in seen_resolution_targets:
+                    continue
+                seen_resolution_targets.add(resolution_key)
                 if self._is_review_comment_processed(
                     repository_id,
                     pull_request_id,
@@ -349,6 +354,37 @@ class AgentService(Service):
         ) or {}
         if not execution.get(ImplementationFields.SUCCESS, False):
             raise RuntimeError(f'failed to address comment {comment.comment_id}')
+        commit_message = str(
+            execution.get(ImplementationFields.COMMIT_MESSAGE, '') or ''
+        ).strip() or 'Address review comments'
+        repository = self._repository_service.get_repository(repository_id)
+        self.logger.info(
+            'publishing review fix for pull request %s comment %s on branch %s',
+            comment.pull_request_id,
+            comment.comment_id,
+            branch_name,
+        )
+        self._repository_service.publish_review_fix(
+            repository,
+            branch_name,
+            commit_message,
+        )
+        self.logger.info(
+            'published review fix for pull request %s comment %s',
+            comment.pull_request_id,
+            comment.comment_id,
+        )
+        self.logger.info(
+            'resolving review comment %s on pull request %s',
+            comment.comment_id,
+            comment.pull_request_id,
+        )
+        self._repository_service.resolve_review_comment(repository, comment)
+        self.logger.info(
+            'resolved review comment %s on pull request %s',
+            comment.comment_id,
+            comment.pull_request_id,
+        )
         self._mark_review_comment_processed(
             repository_id,
             comment.pull_request_id,
@@ -653,7 +689,7 @@ class AgentService(Service):
         return len(summary) >= 24 or len(summary.split()) >= 4
 
     def _log_task_step(self, task_id: str, message: str, *args) -> None:
-        self.logger.info(f'task %s: {message}', task_id, *args)
+        self.logger.info(f'Mission %s: {message}', task_id, *args)
 
     @staticmethod
     def _repository_ids_text(repositories: list[object]) -> str:
@@ -854,6 +890,16 @@ class AgentService(Service):
             ReviewCommentFields.AUTHOR: str(comment.author),
             ReviewCommentFields.BODY: str(comment.body),
         }
+
+    @staticmethod
+    def _review_comment_resolution_key(comment: ReviewComment) -> tuple[str, str]:
+        resolution_target_type = str(
+            getattr(comment, ReviewCommentFields.RESOLUTION_TARGET_TYPE, '') or 'comment'
+        ).strip() or 'comment'
+        resolution_target_id = str(
+            getattr(comment, ReviewCommentFields.RESOLUTION_TARGET_ID, '') or comment.comment_id or ''
+        ).strip()
+        return resolution_target_type, resolution_target_id
 
     @staticmethod
     def _pull_request_summary_comment(

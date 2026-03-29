@@ -2,7 +2,7 @@ from typing import Any
 
 from openhands_agent.client.pull_request_client_base import PullRequestClientBase
 from openhands_agent.data_layers.data.review_comment import ReviewComment
-from openhands_agent.fields import PullRequestFields
+from openhands_agent.fields import PullRequestFields, ReviewCommentFields
 
 
 class BitbucketClient(PullRequestClientBase):
@@ -49,6 +49,22 @@ class BitbucketClient(PullRequestClientBase):
         response.raise_for_status()
         return self._normalize_comments(response.json(), pull_request_id)
 
+    def resolve_review_comment(
+        self,
+        repo_owner: str,
+        repo_slug: str,
+        comment: ReviewComment,
+    ) -> None:
+        resolution_target_id = str(
+            getattr(comment, ReviewCommentFields.RESOLUTION_TARGET_ID, '') or comment.comment_id or ''
+        ).strip()
+        if not resolution_target_id:
+            raise ValueError('bitbucket review comment id is required to resolve the thread')
+        response = self._post_with_retry(
+            f'/repositories/{repo_owner}/{repo_slug}/pullrequests/{comment.pull_request_id}/comments/{resolution_target_id}/resolve',
+        )
+        response.raise_for_status()
+
     @staticmethod
     def _pull_request_payload(
         title: str,
@@ -91,16 +107,22 @@ class BitbucketClient(PullRequestClientBase):
         for item in values:
             if not isinstance(item, dict) or item.get('deleted'):
                 continue
+            parent = item.get('parent') if isinstance(item.get('parent'), dict) else {}
+            if item.get('resolution') or parent.get('resolution'):
+                continue
             content = item.get('content') if isinstance(item.get('content'), dict) else {}
             author = item.get('user') if isinstance(item.get('user'), dict) else {}
             display_name = author.get('display_name', '')
             nickname = author.get('nickname', '')
-            comments.append(
-                ReviewComment(
-                    pull_request_id=str(pull_request_id),
-                    comment_id=str(item.get('id', '')),
-                    author=str(display_name or nickname or ''),
-                    body=str(content.get('raw', '')),
-                )
+            comment = ReviewComment(
+                pull_request_id=str(pull_request_id),
+                comment_id=str(item.get('id', '')),
+                author=str(display_name or nickname or ''),
+                body=str(content.get('raw', '')),
             )
+            resolution_target_id = str(parent.get('id', '') or item.get('id', '') or '').strip()
+            setattr(comment, ReviewCommentFields.RESOLUTION_TARGET_ID, resolution_target_id)
+            setattr(comment, ReviewCommentFields.RESOLUTION_TARGET_TYPE, 'comment')
+            setattr(comment, ReviewCommentFields.RESOLVABLE, bool(resolution_target_id))
+            comments.append(comment)
         return [comment for comment in comments if comment.comment_id]

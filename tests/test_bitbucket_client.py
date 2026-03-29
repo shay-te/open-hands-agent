@@ -3,10 +3,11 @@ from unittest.mock import patch
 
 
 from openhands_agent.client.bitbucket_client import BitbucketClient
-from openhands_agent.fields import PullRequestFields
+from openhands_agent.fields import PullRequestFields, ReviewCommentFields
 from utils import (
     ClientTimeout,
     assert_client_headers_and_timeout,
+    build_review_comment,
     create_pull_request_with_defaults,
     mock_response,
 )
@@ -203,7 +204,71 @@ class BitbucketClientTests(unittest.TestCase):
         self.assertEqual(comments[0].comment_id, '99')
         self.assertEqual(comments[0].author, 'reviewer')
         self.assertEqual(comments[0].body, 'Please rename this variable.')
+        self.assertEqual(
+            getattr(comments[0], ReviewCommentFields.RESOLUTION_TARGET_ID),
+            '99',
+        )
         mock_get.assert_called_once_with(
             '/repositories/workspace/repo/pullrequests/17/comments',
             params={'pagelen': 100, 'sort': 'created_on'},
+        )
+
+    def test_list_pull_request_comments_uses_root_comment_as_resolution_target(self) -> None:
+        client = BitbucketClient('https://bitbucket.example', 'bb-token')
+        response = mock_response(
+            json_data={
+                'values': [
+                    {
+                        'id': 101,
+                        'parent': {'id': 99},
+                        'content': {'raw': 'Follow-up reply'},
+                        'user': {'display_name': 'reviewer'},
+                    }
+                ]
+            }
+        )
+
+        with patch.object(client, '_get', return_value=response):
+            comments = client.list_pull_request_comments('workspace', 'repo', '17')
+
+        self.assertEqual(
+            getattr(comments[0], ReviewCommentFields.RESOLUTION_TARGET_ID),
+            '99',
+        )
+
+    def test_list_pull_request_comments_skips_resolved_threads(self) -> None:
+        client = BitbucketClient('https://bitbucket.example', 'bb-token')
+        response = mock_response(
+            json_data={
+                'values': [
+                    {
+                        'id': 99,
+                        'resolution': {'type': 'resolved'},
+                        'content': {'raw': 'Already handled'},
+                        'user': {'display_name': 'reviewer'},
+                    }
+                ]
+            }
+        )
+
+        with patch.object(client, '_get', return_value=response):
+            comments = client.list_pull_request_comments('workspace', 'repo', '17')
+
+        self.assertEqual(comments, [])
+
+    def test_resolve_review_comment_posts_to_resolution_endpoint(self) -> None:
+        client = BitbucketClient('https://bitbucket.example', 'bb-token')
+        response = mock_response()
+        comment = build_review_comment(
+            resolution_target_id='99',
+            resolution_target_type='comment',
+            resolvable=True,
+        )
+
+        with patch.object(client, '_post', return_value=response) as mock_post:
+            client.resolve_review_comment('workspace', 'repo', comment)
+
+        response.raise_for_status.assert_called_once_with()
+        mock_post.assert_called_once_with(
+            '/repositories/workspace/repo/pullrequests/17/comments/99/resolve',
         )

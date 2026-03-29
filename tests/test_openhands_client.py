@@ -266,7 +266,7 @@ class OpenHandsClientTests(unittest.TestCase):
         assert_client_headers_and_timeout(self, client, 'oh-token', 300)
         self.assertEqual(mock_post.call_args.args, ('/api/v1/app-conversations',))
         request_body = mock_post.call_args.kwargs['json']
-        self.assertEqual(request_body['title'], 'PROJ-1 Fix bug')
+        self.assertEqual(request_body['title'], 'PROJ-1')
         self.assertEqual(request_body['initial_message']['role'], 'user')
         self.assertIn(
             'Implement task PROJ-1: Fix bug',
@@ -292,19 +292,19 @@ class OpenHandsClientTests(unittest.TestCase):
             True,
         )
 
-    def test_task_conversation_title_uses_task_code_and_summary(self) -> None:
+    def test_task_conversation_title_uses_task_code(self) -> None:
         client = OpenHandsClient('https://openhands.example', 'oh-token')
 
         self.assertEqual(
             client._task_conversation_title(build_task(task_id='UNA-2405', summary='do xyz')),
-            'UNA-2405 do xyz',
+            'UNA-2405',
         )
         self.assertEqual(
             client._task_conversation_title(
                 build_task(task_id='UNA-2405', summary='do xyz'),
                 suffix=' [testing]',
             ),
-            'UNA-2405 do xyz [testing]',
+            'UNA-2405 [testing]',
         )
 
     def test_wait_for_conversation_result_uses_configured_poll_limit_in_timeout(self) -> None:
@@ -318,12 +318,110 @@ class OpenHandsClientTests(unittest.TestCase):
             client,
             '_get_conversation',
             return_value={'id': 'conversation-1', 'execution_status': 'running'},
+        ), patch.object(
+            client,
+            '_log_conversation_highlights',
+            return_value=True,
         ), patch('openhands_agent.client.openhands_client.time.sleep'):
             with self.assertRaisesRegex(
                 TimeoutError,
                 'openhands conversation conversation-1 did not finish after 2 polls',
             ):
                 client._wait_for_conversation_result('conversation-1')
+
+    def test_wait_for_conversation_result_logs_highlights_once_while_active(self) -> None:
+        client = OpenHandsClient('https://openhands.example', 'oh-token')
+        client.logger = Mock()
+
+        with patch.object(
+            client,
+            '_get',
+            side_effect=[
+                mock_response(
+                    json_data=[
+                        {
+                            'id': 'conversation-1',
+                            'execution_status': 'working',
+                        }
+                    ]
+                ),
+                mock_response(
+                    json_data={
+                        'items': [
+                            {
+                                'id': 'evt-1',
+                                'kind': 'ActionEvent',
+                                'source': 'agent',
+                                'tool_name': 'execute_bash',
+                                'tool_call': {
+                                    'arguments': '{"command":"git status"}',
+                                },
+                            }
+                        ]
+                    }
+                ),
+                mock_response(
+                    json_data=[
+                        {
+                            'id': 'conversation-1',
+                            'execution_status': 'working',
+                        }
+                    ]
+                ),
+                mock_response(
+                    json_data={
+                        'items': [
+                            {
+                                'id': 'evt-1',
+                                'kind': 'ActionEvent',
+                                'source': 'agent',
+                                'tool_name': 'execute_bash',
+                                'tool_call': {
+                                    'arguments': '{"command":"git status"}',
+                                },
+                            }
+                        ]
+                    }
+                ),
+                mock_response(
+                    json_data=[
+                        {
+                            'id': 'conversation-1',
+                            'execution_status': 'finished',
+                        }
+                    ]
+                ),
+                mock_response(
+                    json_data={
+                        'items': [
+                            {
+                                'kind': 'ActionEvent',
+                                'source': 'agent',
+                                'tool_name': 'finish',
+                                'tool_call': {
+                                    'arguments': '{"summary":"ok"}',
+                                },
+                            }
+                        ]
+                    }
+                ),
+            ],
+        ), patch.object(client, '_sleep_before_next_poll') as mock_sleep:
+            result = client._wait_for_conversation_result('conversation-1', 'UNA-1')
+
+        self.assertEqual(
+            result,
+            {
+                'success': True,
+                'summary': 'ok',
+            },
+        )
+        client.logger.info.assert_called_once_with(
+            'Mission %s: OpenHands %s',
+            'UNA-1',
+            'ran shell command: git status',
+        )
+        self.assertEqual(mock_sleep.call_count, 2)
 
     def test_implement_task_uses_parent_conversation_id_for_uuid_session(self) -> None:
         client = OpenHandsClient('https://openhands.example', 'oh-token')
@@ -489,6 +587,14 @@ class OpenHandsClientTests(unittest.TestCase):
             mock_run_prompt.call_args.kwargs['prompt'],
         )
         self.assertIn('always include its required command field', mock_run_prompt.call_args.kwargs['prompt'])
+        self.assertIn(
+            'put the final commit message in commit_message',
+            mock_run_prompt.call_args.kwargs['prompt'],
+        )
+        self.assertIn(
+            'Do not report success until all intended changes are committed',
+            mock_run_prompt.call_args.kwargs['prompt'],
+        )
         client.logger.info.assert_any_call(
             'requesting review fix for pull request %s comment %s',
             '17',
@@ -526,6 +632,55 @@ class OpenHandsClientTests(unittest.TestCase):
         self.assertIn('Review comment context:', prompt)
         self.assertIn('- reviewer: Please add a test.', prompt)
         self.assertIn('When you finish, use the finish tool.', prompt)
+
+    def test_event_highlight_text_describes_shell_action(self) -> None:
+        highlight = OpenHandsClient._event_highlight_text(
+            {
+                'kind': 'ActionEvent',
+                'source': 'agent',
+                'tool_name': 'execute_bash',
+                'tool_call': {
+                    'arguments': '{"command":"git status"}',
+                },
+            }
+        )
+
+        self.assertEqual(highlight, 'ran shell command: git status')
+
+    def test_event_highlight_text_describes_file_edit_action(self) -> None:
+        highlight = OpenHandsClient._event_highlight_text(
+            {
+                'kind': 'ActionEvent',
+                'source': 'agent',
+                'tool_name': 'file_editor',
+                'tool_call': {
+                    'arguments': (
+                        '{"command":"str_replace","path":"/workspace/project/src/app.js"}'
+                    ),
+                },
+            }
+        )
+
+        self.assertEqual(
+            highlight,
+            'edited /workspace/project/src/app.js with str_replace',
+        )
+
+    def test_event_highlight_text_falls_back_to_running_message_line(self) -> None:
+        highlight = OpenHandsClient._event_highlight_text(
+            {
+                'kind': 'MessageEvent',
+                'source': 'agent',
+                'llm_message': {
+                    'role': 'assistant',
+                    'content': [
+                        {'text': 'Let me inspect that first.\nRunning git diff --stat'},
+                    ],
+                },
+            }
+        )
+
+        self.assertEqual(highlight, 'Running git diff --stat')
 
     def test_run_prompt_parses_finish_action_event_payload(self) -> None:
         client = OpenHandsClient('https://openhands.example', 'oh-token')

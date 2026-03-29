@@ -4,7 +4,8 @@ from core_lib.data_layers.data_access.data_access import DataAccess
 from core_lib.rule_validator.rule_validator import RuleValidator, ValueRuleValidator
 
 from openhands_agent.client.pull_request_client_base import PullRequestClientBase
-from openhands_agent.fields import PullRequestFields
+from openhands_agent.data_layers.data.review_comment import ReviewComment
+from openhands_agent.fields import PullRequestFields, ReviewCommentFields
 
 
 pull_request_rule_validator = RuleValidator(
@@ -19,6 +20,13 @@ pull_request_rule_validator = RuleValidator(
 pull_request_comment_rule_validator = RuleValidator(
     [
         ValueRuleValidator(PullRequestFields.ID, str),
+    ]
+)
+
+review_comment_resolution_rule_validator = RuleValidator(
+    [
+        ValueRuleValidator(ReviewCommentFields.PULL_REQUEST_ID, str),
+        ValueRuleValidator(ReviewCommentFields.COMMENT_ID, str),
     ]
 )
 
@@ -71,4 +79,17 @@ class PullRequestDataAccess(DataAccess):
             repo_owner=self._config.owner,
             repo_slug=self._config.repo_slug,
             pull_request_id=pull_request_id,
+        )
+
+    def resolve_review_comment(self, comment: ReviewComment) -> None:
+        review_comment_resolution_rule_validator.validate_dict(
+            {
+                ReviewCommentFields.PULL_REQUEST_ID: comment.pull_request_id,
+                ReviewCommentFields.COMMENT_ID: comment.comment_id,
+            }
+        )
+        self._client.resolve_review_comment(
+            repo_owner=self._config.owner,
+            repo_slug=self._config.repo_slug,
+            comment=comment,
         )

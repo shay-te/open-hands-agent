@@ -7,6 +7,8 @@ from openhands_agent.data_layers.data_access.pull_request_data_access import (
     PullRequestDataAccess,
 )
 from openhands_agent.data_layers.data_access.task_data_access import TaskDataAccess
+from openhands_agent.fields import ReviewCommentFields
+from utils import build_review_comment
 
 
 class TaskDataAccessTests(unittest.TestCase):
@@ -326,3 +328,50 @@ class PullRequestDataAccessTests(unittest.TestCase):
             repo_slug='repo',
             pull_request_id='17',
         )
+
+    def test_resolves_review_comment_via_client(self) -> None:
+        config = types.SimpleNamespace(
+            base_url="https://bitbucket.example",
+            token="bb-token",
+            owner="workspace",
+            repo_slug="repo",
+            destination_branch="main",
+        )
+        comment = build_review_comment(
+            resolution_target_id='thread-99',
+            resolution_target_type='thread',
+            resolvable=True,
+        )
+        client = types.SimpleNamespace(
+            provider_name='bitbucket',
+            resolve_review_comment=Mock(),
+        )
+
+        data_access = PullRequestDataAccess(config, client)
+        data_access.resolve_review_comment(comment)
+
+        client.resolve_review_comment.assert_called_once_with(
+            repo_owner='workspace',
+            repo_slug='repo',
+            comment=comment,
+        )
+
+    def test_validates_resolve_review_comment_values(self) -> None:
+        config = types.SimpleNamespace(
+            base_url="https://bitbucket.example",
+            token="bb-token",
+            owner="workspace",
+            repo_slug="repo",
+            destination_branch="main",
+        )
+        data_access = PullRequestDataAccess(
+            config,
+            types.SimpleNamespace(
+                resolve_review_comment=Mock(),
+            ),
+        )
+        comment = build_review_comment()
+        comment.comment_id = ['99']
+
+        with self.assertRaisesRegex(PermissionError, ReviewCommentFields.COMMENT_ID):
+            data_access.resolve_review_comment(comment)

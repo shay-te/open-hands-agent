@@ -1,4 +1,3 @@
-import logging
 import os
 import re
 import shutil
@@ -13,6 +12,7 @@ from openhands_agent.client.pull_request_client_factory import build_pull_reques
 from openhands_agent.data_layers.data_access.pull_request_data_access import PullRequestDataAccess
 from openhands_agent.data_layers.data.task import Task
 from openhands_agent.fields import PullRequestFields, RepositoryFields
+from openhands_agent.logging_utils import configure_logger
 from openhands_agent.repository_discovery import (
     discover_git_repositories,
     display_name_from_repo_slug,
@@ -24,7 +24,7 @@ from openhands_agent.repository_discovery import (
 
 class RepositoryService(Service):
     def __init__(self, repositories_config, max_retries: int) -> None:
-        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger = configure_logger(self.__class__.__name__)
         self._max_retries = max_retries
         self._provider_api_defaults = self._provider_api_defaults_from_source(repositories_config)
         self._repositories = self._load_repositories(repositories_config)
@@ -86,39 +86,48 @@ class RepositoryService(Service):
         self._prepare_pull_request_api(repository)
         destination_branch = self.destination_branch(repository)
         final_commit_message = str(commit_message or '').strip() or f'Implement {source_branch}'
-        try:
-            self._prepare_branch_for_publication(
-                repository.local_path,
-                source_branch,
-                destination_branch,
-                final_commit_message,
-            )
-            self._push_branch(repository.local_path, source_branch)
-            pull_request = self._pull_request_data_access(repository).create_pull_request(
-                title=title,
-                source_branch=source_branch,
-                destination_branch=destination_branch,
-                description=description,
-            )
-            return {
-                PullRequestFields.REPOSITORY_ID: repository.id,
-                PullRequestFields.ID: str(pull_request.get(PullRequestFields.ID, '') or ''),
-                PullRequestFields.TITLE: str(
-                    pull_request.get(PullRequestFields.TITLE, '') or title
-                ),
-                PullRequestFields.URL: str(
-                    pull_request.get(PullRequestFields.URL, '')
-                    or self._review_url(repository, source_branch, destination_branch)
-                ),
-                PullRequestFields.SOURCE_BRANCH: source_branch,
-                PullRequestFields.DESTINATION_BRANCH: destination_branch,
-                PullRequestFields.DESCRIPTION: description,
-            }
-        finally:
-            self._prepare_workspace_for_task(
-                repository.local_path,
-                destination_branch,
-            )
+        self._publish_branch_updates(
+            repository.local_path,
+            source_branch,
+            destination_branch,
+            final_commit_message,
+        )
+        pull_request = self._pull_request_data_access(repository).create_pull_request(
+            title=title,
+            source_branch=source_branch,
+            destination_branch=destination_branch,
+            description=description,
+        )
+        return {
+            PullRequestFields.REPOSITORY_ID: repository.id,
+            PullRequestFields.ID: str(pull_request.get(PullRequestFields.ID, '') or ''),
+            PullRequestFields.TITLE: str(
+                pull_request.get(PullRequestFields.TITLE, '') or title
+            ),
+            PullRequestFields.URL: str(
+                pull_request.get(PullRequestFields.URL, '')
+                or self._review_url(repository, source_branch, destination_branch)
+            ),
+            PullRequestFields.SOURCE_BRANCH: source_branch,
+            PullRequestFields.DESTINATION_BRANCH: destination_branch,
+            PullRequestFields.DESCRIPTION: description,
+        }
+
+    def publish_review_fix(
+        self,
+        repository,
+        branch_name: str,
+        commit_message: str = '',
+    ) -> None:
+        self._validate_local_path(repository)
+        destination_branch = self.destination_branch(repository)
+        final_commit_message = str(commit_message or '').strip() or 'Address review comments'
+        self._publish_branch_updates(
+            repository.local_path,
+            branch_name,
+            destination_branch,
+            final_commit_message,
+        )
 
     def list_pull_request_comments(
         self,
@@ -137,6 +146,10 @@ class RepositoryService(Service):
         return self._pull_request_data_access(repository).list_pull_request_comments(
             pull_request_id
         )
+
+    def resolve_review_comment(self, repository, comment) -> None:
+        self._prepare_pull_request_api(repository)
+        self._pull_request_data_access(repository).resolve_review_comment(comment)
 
     def destination_branch(self, repository) -> str:
         configured_branch = str(getattr(repository, 'destination_branch', '') or '').strip()
@@ -419,6 +432,24 @@ class RepositoryService(Service):
             raise RuntimeError(
                 f'branch {branch_name} has no committed changes ahead of {comparison_ref}'
             )
+
+    def _publish_branch_updates(
+        self,
+        local_path: str,
+        branch_name: str,
+        destination_branch: str,
+        commit_message: str,
+    ) -> None:
+        try:
+            self._prepare_branch_for_publication(
+                local_path,
+                branch_name,
+                destination_branch,
+                commit_message,
+            )
+            self._push_branch(local_path, branch_name)
+        finally:
+            self._prepare_workspace_for_task(local_path, destination_branch)
 
     def _prepare_workspace_for_task(
         self,

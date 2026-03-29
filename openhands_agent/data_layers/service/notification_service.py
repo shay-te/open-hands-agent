@@ -1,6 +1,5 @@
 from collections.abc import Sequence
 import json
-import logging
 from importlib import resources
 from string import Template
 
@@ -8,6 +7,7 @@ from core_lib.data_layers.service.service import Service
 
 from openhands_agent.data_layers.data.task import Task
 from openhands_agent.fields import EmailFields, PullRequestFields
+from openhands_agent.logging_utils import configure_logger
 
 class NotificationService(Service):
     def __init__(
@@ -24,7 +24,7 @@ class NotificationService(Service):
         self._email_core_lib = email_core_lib
         self._failure_email_cfg = failure_email_cfg
         self._completion_email_cfg = completion_email_cfg
-        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger = configure_logger(self.__class__.__name__)
 
     def notify_failure(
         self,

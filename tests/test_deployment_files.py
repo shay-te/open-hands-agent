@@ -115,6 +115,10 @@ class DeploymentFilesTests(unittest.TestCase):
             'OPENHANDS_AGENT_LOG_LEVEL: ${OPENHANDS_AGENT_LOG_LEVEL:-warning}',
             compose_text,
         )
+        self.assertIn(
+            'OPENHANDS_AGENT_WORKFLOW_LOG_LEVEL: ${OPENHANDS_AGENT_WORKFLOW_LOG_LEVEL:-info}',
+            compose_text,
+        )
         self.assertIn('REPOSITORY_ROOT_PATH: ${REPOSITORY_ROOT_PATH:-.}', compose_text)
         self.assertIn(
             'OPENHANDS_AGENT_STATE_FILE: ${OPENHANDS_AGENT_STATE_FILE:-data/openhands_agent_state.json}',
@@ -166,6 +170,7 @@ class DeploymentFilesTests(unittest.TestCase):
         self.assertIn('OPENHANDS_BASE_URL=', env_example_text)
         self.assertIn('OPENHANDS_AGENT_STATE_FILE=', env_example_text)
         self.assertIn('OPENHANDS_AGENT_LOG_LEVEL=', env_example_text)
+        self.assertIn('OPENHANDS_AGENT_WORKFLOW_LOG_LEVEL=', env_example_text)
         self.assertIn('OPENHANDS_LLM_MODEL=', env_example_text)
         self.assertIn('OPENHANDS_LLM_API_KEY=', env_example_text)
         self.assertIn('OPENHANDS_LLM_BASE_URL=', env_example_text)

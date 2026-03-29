@@ -6,8 +6,8 @@ from unittest.mock import Mock, patch
 
 
 from openhands_agent.data_layers.service.repository_service import RepositoryService
-from openhands_agent.fields import PullRequestFields
-from utils import build_task, build_test_cfg
+from openhands_agent.fields import PullRequestFields, ReviewCommentFields
+from utils import build_review_comment, build_task, build_test_cfg
 
 
 class RepositoryServiceTests(unittest.TestCase):
@@ -746,6 +746,74 @@ class RepositoryServiceTests(unittest.TestCase):
         comments = service.list_pull_request_comments(repository, '17')
 
         self.assertEqual(comments, [])
+
+    def test_publish_review_fix_commits_pushes_and_returns_to_destination_branch(self) -> None:
+        repository = self.backend_repo
+
+        with patch(
+            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            return_value='/usr/bin/git',
+        ), patch(
+            'openhands_agent.data_layers.service.repository_service.os.path.isdir',
+            return_value=True,
+        ), patch(
+            'openhands_agent.data_layers.service.repository_service.RepositoryService._publish_branch_updates',
+        ) as mock_publish_branch_updates, patch(
+            'openhands_agent.data_layers.service.repository_service.RepositoryService.destination_branch',
+            return_value='main',
+        ):
+            service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+            service.publish_review_fix(
+                repository,
+                branch_name='feature/proj-1/backend',
+                commit_message='Address review comments',
+            )
+
+        mock_publish_branch_updates.assert_called_once_with(
+            '.',
+            'feature/proj-1/backend',
+            'main',
+            'Address review comments',
+        )
+
+    def test_resolve_review_comment_uses_provider_api(self) -> None:
+        repository = self.cfg.openhands_agent.repositories[0]
+        data_access = Mock()
+        comment = build_review_comment(
+            resolution_target_id='99',
+            resolution_target_type='comment',
+            resolvable=True,
+        )
+        service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+
+        with patch(
+            'openhands_agent.data_layers.service.repository_service.RepositoryService._pull_request_data_access',
+            return_value=data_access,
+        ):
+            service.resolve_review_comment(repository, comment)
+
+        data_access.resolve_review_comment.assert_called_once_with(comment)
+
+    def test_publish_branch_updates_returns_to_destination_branch_when_push_fails(self) -> None:
+        with patch(
+            'openhands_agent.data_layers.service.repository_service.RepositoryService._prepare_branch_for_publication',
+        ), patch(
+            'openhands_agent.data_layers.service.repository_service.RepositoryService._push_branch',
+            side_effect=RuntimeError('push failed'),
+        ), patch(
+            'openhands_agent.data_layers.service.repository_service.RepositoryService._prepare_workspace_for_task',
+        ) as mock_prepare_workspace:
+            service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+
+            with self.assertRaisesRegex(RuntimeError, 'push failed'):
+                service._publish_branch_updates(
+                    '.',
+                    'feature/proj-1/backend',
+                    'main',
+                    'Address review comments',
+                )
+
+        mock_prepare_workspace.assert_called_once_with('.', 'main')
 
     @staticmethod
     def _create_git_repository(path: Path, remote_url: str) -> None:

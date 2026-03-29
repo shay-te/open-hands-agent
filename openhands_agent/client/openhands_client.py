@@ -34,6 +34,17 @@ class OpenHandsClient(RetryingClientBase):
     }
     _DEFAULT_POLL_INTERVAL_SECONDS = 2.0
     _DEFAULT_MAX_POLL_ATTEMPTS = 900
+    _SHELL_TOOL_NAMES = {
+        'bash',
+        'execute_bash',
+        'run',
+        'run_command',
+        'shell',
+    }
+    _MESSAGE_HIGHLIGHT_PREFIXES = (
+        'Running ',
+        'Ran ',
+    )
 
     def __init__(
         self,
@@ -146,8 +157,7 @@ class OpenHandsClient(RetryingClientBase):
     @staticmethod
     def _task_conversation_title(task: Task, suffix: str = '') -> str:
         task_id = str(task.id or '').strip()
-        summary = str(task.summary or '').strip()
-        base_title = ' '.join(part for part in (task_id, summary) if part).strip()
+        base_title = task_id
         if not base_title:
             base_title = 'OpenHands task'
         return f'{base_title}{suffix}'
@@ -238,6 +248,8 @@ class OpenHandsClient(RetryingClientBase):
             'When you finish, use the finish tool.\n'
             '- Put a short description of what changed in summary.\n'
             '- Put any extra details in message.\n'
+            '- If you created or updated commits, put the final commit message in commit_message.\n'
+            '- Do not report success until all intended changes are committed on the branch.\n'
             '- Do not pass extra finish-tool arguments beyond the supported fields.\n'
         )
 
@@ -292,7 +304,7 @@ class OpenHandsClient(RetryingClientBase):
         session_id: str = '',
     ) -> dict[str, str | bool]:
         conversation_id = self._start_conversation(prompt, title, session_id)
-        payload = self._wait_for_conversation_result(conversation_id)
+        payload = self._wait_for_conversation_result(conversation_id, title)
         payload[ImplementationFields.SESSION_ID] = conversation_id
         return payload
 
@@ -367,7 +379,13 @@ class OpenHandsClient(RetryingClientBase):
             return tasks[0]
         raise ValueError(f'openhands start task not found: {start_task_id}')
 
-    def _wait_for_conversation_result(self, conversation_id: str) -> dict[str, str | bool]:
+    def _wait_for_conversation_result(
+        self,
+        conversation_id: str,
+        conversation_title: str = '',
+    ) -> dict[str, str | bool]:
+        seen_highlights: set[str] = set()
+        highlight_logging_enabled = True
         for attempt in range(self._max_poll_attempts):
             conversation = self._get_conversation(conversation_id)
             execution_status = str(conversation.get('execution_status', '') or '').strip().lower()
@@ -375,6 +393,12 @@ class OpenHandsClient(RetryingClientBase):
                 raise RuntimeError(f'openhands conversation failed with status: {execution_status}')
             if execution_status not in self._ACTIVE_EXECUTION_STATUSES:
                 return self._get_result_payload(conversation_id)
+            if highlight_logging_enabled:
+                highlight_logging_enabled = self._log_conversation_highlights(
+                    conversation_id,
+                    conversation_title,
+                    seen_highlights,
+                )
             self._sleep_before_next_poll(attempt)
 
         raise TimeoutError(
@@ -393,6 +417,16 @@ class OpenHandsClient(RetryingClientBase):
         raise ValueError(f'openhands conversation not found: {conversation_id}')
 
     def _get_result_payload(self, conversation_id: str) -> dict[str, str | bool]:
+        events = self._get_conversation_events(conversation_id)
+
+        for candidate_events in (events, list(reversed(events))):
+            for event in candidate_events:
+                parsed_result = self._result_payload_from_event(event)
+                if parsed_result is not None:
+                    return parsed_result
+        raise ValueError(f'openhands conversation {conversation_id} did not return a parseable result')
+
+    def _get_conversation_events(self, conversation_id: str) -> list[object]:
         response = self._get_with_retry(
             self._EVENTS_PATH_TEMPLATE.format(conversation_id=conversation_id),
             params={'limit': 100, 'sort_order': 'TIMESTAMP_DESC'},
@@ -402,13 +436,140 @@ class OpenHandsClient(RetryingClientBase):
         events = payload.get('items', [])
         if not isinstance(events, list):
             raise ValueError('openhands events response did not include items')
+        return events
 
-        for candidate_events in (events, list(reversed(events))):
-            for event in candidate_events:
-                parsed_result = self._result_payload_from_event(event)
-                if parsed_result is not None:
-                    return parsed_result
-        raise ValueError(f'openhands conversation {conversation_id} did not return a parseable result')
+    def _log_conversation_highlights(
+        self,
+        conversation_id: str,
+        conversation_title: str,
+        seen_highlights: set[str],
+    ) -> bool:
+        try:
+            events = self._get_conversation_events(conversation_id)
+        except Exception as exc:
+            self.logger.warning(
+                'Mission %s: live OpenHands highlights unavailable; continuing without them: %s',
+                conversation_title or conversation_id,
+                exc,
+            )
+            return False
+
+        for event in reversed(events):
+            event_key = self._event_highlight_key(event)
+            if event_key in seen_highlights:
+                continue
+            seen_highlights.add(event_key)
+            highlight = self._event_highlight_text(event)
+            if not highlight:
+                continue
+            self.logger.info(
+                'Mission %s: OpenHands %s',
+                conversation_title or conversation_id,
+                highlight,
+            )
+        return True
+
+    def _event_highlight_key(self, event: object) -> str:
+        if not isinstance(event, dict):
+            return str(event)
+        event_id = str(event.get('id', '') or '').strip()
+        if event_id:
+            return event_id
+        parts = [
+            str(event.get('kind', '') or '').strip(),
+            str(event.get('source', '') or '').strip(),
+            str(event.get('tool_name', '') or '').strip(),
+            self._assistant_message_text(event),
+        ]
+        tool_call = event.get('tool_call', {})
+        if isinstance(tool_call, dict):
+            parts.append(str(tool_call.get('arguments', '') or '').strip())
+        return '|'.join(parts)
+
+    @classmethod
+    def _event_highlight_text(cls, event: object) -> str:
+        if not isinstance(event, dict):
+            return ''
+        action_highlight = cls._action_event_highlight_text(event)
+        if action_highlight:
+            return action_highlight
+        return cls._assistant_message_highlight_text(event)
+
+    @classmethod
+    def _action_event_highlight_text(cls, event: dict) -> str:
+        if str(event.get('kind', '') or '').strip() != 'ActionEvent':
+            return ''
+        if str(event.get('source', '') or '').strip() != 'agent':
+            return ''
+
+        tool_name = str(event.get('tool_name', '') or '').strip()
+        if not tool_name or tool_name == 'finish':
+            return ''
+
+        arguments = cls._tool_call_arguments(event)
+        if tool_name in cls._SHELL_TOOL_NAMES:
+            command = cls._shell_command(arguments)
+            if command:
+                return f'ran shell command: {cls._truncate(command)}'
+            return 'ran a shell command'
+
+        if tool_name == 'file_editor':
+            file_command = str(arguments.get('command', '') or '').strip()
+            path = str(arguments.get('path', '') or '').strip()
+            if file_command in {'str_replace', 'insert'} and path:
+                return f'edited {path} with {file_command}'
+            if file_command == 'view' and path:
+                return f'viewed {path}'
+            if path:
+                return f'used file_editor on {path}'
+            return 'used file_editor'
+
+        path = str(arguments.get('path', '') or '').strip()
+        if path:
+            return f'used {tool_name} on {path}'
+        return f'used {tool_name}'
+
+    @classmethod
+    def _assistant_message_highlight_text(cls, event: dict) -> str:
+        message_text = cls._assistant_message_text(event)
+        if not message_text:
+            return ''
+        for line in message_text.splitlines():
+            stripped = line.strip()
+            if stripped.startswith(cls._MESSAGE_HIGHLIGHT_PREFIXES):
+                return cls._truncate(stripped)
+        return ''
+
+    @staticmethod
+    def _tool_call_arguments(event: dict) -> dict[str, object]:
+        tool_call = event.get('tool_call', {})
+        if not isinstance(tool_call, dict):
+            return {}
+        arguments_text = str(tool_call.get('arguments', '') or '').strip()
+        if not arguments_text:
+            return {}
+        try:
+            payload = json.loads(arguments_text)
+        except json.JSONDecodeError:
+            return {}
+        if isinstance(payload, dict):
+            return payload
+        return {}
+
+    @staticmethod
+    def _shell_command(arguments: dict[str, object]) -> str:
+        for key in ('command', 'cmd'):
+            value = str(arguments.get(key, '') or '').strip()
+            if value:
+                return value
+        return ''
+
+    @staticmethod
+    def _truncate(text: str, limit: int = 160) -> str:
+        normalized = ' '.join(str(text or '').split())
+        if len(normalized) <= limit:
+            return normalized
+        return f'{normalized[: limit - 3].rstrip()}...'
 
     def _result_payload_from_event(self, event: object) -> dict[str, str | bool] | None:
         finish_payload = self._finish_action_payload(event)

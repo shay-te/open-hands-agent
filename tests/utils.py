@@ -288,13 +288,23 @@ def build_review_comment(
     comment_id: str = '99',
     author: str = 'reviewer',
     body: str = 'Please rename this variable.',
+    resolution_target_id: str = '',
+    resolution_target_type: str = '',
+    resolvable: bool | None = None,
 ) -> ReviewComment:
-    return ReviewComment(
+    comment = ReviewComment(
         pull_request_id=pull_request_id,
         comment_id=comment_id,
         author=author,
         body=body,
     )
+    if resolution_target_id:
+        setattr(comment, ReviewCommentFields.RESOLUTION_TARGET_ID, resolution_target_id)
+    if resolution_target_type:
+        setattr(comment, ReviewCommentFields.RESOLUTION_TARGET_TYPE, resolution_target_type)
+    if resolvable is not None:
+        setattr(comment, ReviewCommentFields.RESOLVABLE, resolvable)
+    return comment
 
 
 def mock_response(

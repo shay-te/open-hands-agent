@@ -71,6 +71,8 @@ class AgentServiceTests(unittest.TestCase):
                 'backend': self.backend_repo,
             }[repository_id]),
             list_pull_request_comments=Mock(return_value=[]),
+            publish_review_fix=Mock(),
+            resolve_review_comment=Mock(),
             build_branch_name=Mock(
                 side_effect=[
                     'feature/proj-1/client',
@@ -305,7 +307,7 @@ class AgentServiceTests(unittest.TestCase):
             },
         )
         self.service.logger.info.assert_any_call(
-            'task %s: resolved repositories: %s',
+            'Mission %s: resolved repositories: %s',
             'PROJ-1',
             'client, backend',
         )
@@ -825,11 +827,83 @@ class AgentServiceTests(unittest.TestCase):
             )
         )
 
+        self.repository_service.publish_review_fix.assert_called_once_with(
+            self.client_repo,
+            'feature/proj-1/client',
+            'Address review comments',
+        )
+        self.repository_service.resolve_review_comment.assert_called_once()
         state_data_access.mark_review_comment_processed.assert_called_once_with(
             'client',
             '17',
             '99',
         )
+
+    def test_process_review_comment_does_not_mark_processed_when_publish_fails(self) -> None:
+        state_data_access = types.SimpleNamespace(
+            mark_review_comment_processed=Mock(),
+        )
+        self.repository_service.publish_review_fix.side_effect = RuntimeError('push failed')
+        service = AgentService(
+            self.task_data_access,
+            self.implementation_service,
+            self.testing_service,
+            self.repository_service,
+            self.notification_service,
+            state_data_access=state_data_access,
+        )
+        service._pull_request_context_map['17'] = [
+            {
+                PullRequestFields.REPOSITORY_ID: 'client',
+                'branch_name': 'feature/proj-1/client',
+            }
+        ]
+
+        with self.assertRaisesRegex(RuntimeError, 'push failed'):
+            service.process_review_comment(
+                ReviewComment(
+                    pull_request_id='17',
+                    comment_id='99',
+                    author='reviewer',
+                    body='Please rename this variable.',
+                )
+            )
+
+        self.repository_service.resolve_review_comment.assert_not_called()
+        state_data_access.mark_review_comment_processed.assert_not_called()
+
+    def test_process_review_comment_does_not_mark_processed_when_resolution_fails(self) -> None:
+        state_data_access = types.SimpleNamespace(
+            mark_review_comment_processed=Mock(),
+        )
+        self.repository_service.resolve_review_comment.side_effect = RuntimeError('provider down')
+        service = AgentService(
+            self.task_data_access,
+            self.implementation_service,
+            self.testing_service,
+            self.repository_service,
+            self.notification_service,
+            state_data_access=state_data_access,
+        )
+        service._pull_request_context_map['17'] = [
+            {
+                PullRequestFields.REPOSITORY_ID: 'client',
+                'branch_name': 'feature/proj-1/client',
+            }
+        ]
+
+        with self.assertRaisesRegex(RuntimeError, 'provider down'):
+            service.process_review_comment(
+                ReviewComment(
+                    pull_request_id='17',
+                    comment_id='99',
+                    author='reviewer',
+                    body='Please rename this variable.',
+                )
+            )
+
+        self.repository_service.publish_review_fix.assert_called_once()
+        state_data_access.mark_review_comment_processed.assert_not_called()
 
     def test_handle_pull_request_comment_rejects_unknown_pull_request(self) -> None:
         with self.assertRaisesRegex(ValueError, 'unknown pull request id'):
@@ -957,7 +1031,7 @@ class AgentServiceTests(unittest.TestCase):
         comments = service.get_new_pull_request_comments()
 
         self.assertEqual(len(comments), 1)
-        self.assertEqual(comments[0].comment_id, '98')
+        self.assertEqual(comments[0].comment_id, '99')
         self.assertEqual(getattr(comments[0], PullRequestFields.REPOSITORY_ID), 'client')
         self.assertEqual(
             getattr(comments[0], ReviewCommentFields.ALL_COMMENTS),
@@ -979,6 +1053,61 @@ class AgentServiceTests(unittest.TestCase):
             assignee='me',
             states=['To Verify'],
         )
+
+    def test_get_new_pull_request_comments_deduplicates_same_resolution_target(self) -> None:
+        state_data_access = types.SimpleNamespace(
+            get_processed_task=Mock(
+                return_value={
+                    PullRequestFields.PULL_REQUESTS: [
+                        {
+                            PullRequestFields.ID: '17',
+                            PullRequestFields.REPOSITORY_ID: 'client',
+                        }
+                    ]
+                }
+            ),
+            list_pull_request_contexts=Mock(
+                return_value=[
+                    {
+                        PullRequestFields.ID: '17',
+                        PullRequestFields.REPOSITORY_ID: 'client',
+                        'branch_name': 'feature/proj-1/client',
+                    }
+                ]
+            ),
+            is_review_comment_processed=Mock(return_value=False),
+        )
+        first = ReviewComment(
+            pull_request_id='17',
+            comment_id='98',
+            author='reviewer',
+            body='Please add a test.',
+        )
+        setattr(first, ReviewCommentFields.RESOLUTION_TARGET_ID, 'thread-1')
+        setattr(first, ReviewCommentFields.RESOLUTION_TARGET_TYPE, 'thread')
+        second = ReviewComment(
+            pull_request_id='17',
+            comment_id='99',
+            author='reviewer',
+            body='Please rename this variable.',
+        )
+        setattr(second, ReviewCommentFields.RESOLUTION_TARGET_ID, 'thread-1')
+        setattr(second, ReviewCommentFields.RESOLUTION_TARGET_TYPE, 'thread')
+        self.repository_service.list_pull_request_comments.return_value = [first, second]
+        service = AgentService(
+            self.task_data_access,
+            self.implementation_service,
+            self.testing_service,
+            self.repository_service,
+            self.notification_service,
+            state_data_access=state_data_access,
+        )
+        self.task_client.get_assigned_tasks.return_value = [build_task(task_id='PROJ-1')]
+
+        comments = service.get_new_pull_request_comments()
+
+        self.assertEqual(len(comments), 1)
+        self.assertEqual(comments[0].comment_id, '99')
         self.repository_service.list_pull_request_comments.assert_called_once_with(
             self.client_repo,
             '17',

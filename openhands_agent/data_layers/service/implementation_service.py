@@ -1,17 +1,16 @@
-import logging
-
 from core_lib.data_layers.service.service import Service
 
 from openhands_agent.client.openhands_client import OpenHandsClient
 from openhands_agent.data_layers.data.review_comment import ReviewComment
 from openhands_agent.data_layers.data.task import Task
 from openhands_agent.fields import PullRequestFields, ReviewCommentFields
+from openhands_agent.logging_utils import configure_logger
 
 
 class ImplementationService(Service):
     def __init__(self, client: OpenHandsClient) -> None:
         self._client = client
-        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger = configure_logger(self.__class__.__name__)
 
     def validate_connection(self) -> None:
         self._client.validate_connection()

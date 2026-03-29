@@ -31,3 +31,12 @@ class PullRequestClientBase(RetryingClientBase, ABC):
         pull_request_id: str,
     ) -> list[ReviewComment]:
         raise NotImplementedError
+
+    @abstractmethod
+    def resolve_review_comment(
+        self,
+        repo_owner: str,
+        repo_slug: str,
+        comment: ReviewComment,
+    ) -> None:
+        raise NotImplementedError
