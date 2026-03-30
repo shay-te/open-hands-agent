@@ -1,3 +1,4 @@
+import base64
 import os
 import re
 import shutil
@@ -23,6 +24,15 @@ from openhands_agent.repository_discovery import (
 
 
 class RepositoryService(Service):
+    _GENERIC_DISCOVERED_FOLDER_NAMES = {
+        'project',
+        'projects',
+        'repo',
+        'repos',
+        'repository',
+        'workspace',
+    }
+
     def __init__(self, repositories_config, max_retries: int) -> None:
         self.logger = configure_logger(self.__class__.__name__)
         self._max_retries = max_retries
@@ -57,6 +67,21 @@ class RepositoryService(Service):
             for repository in repositories
         ]
 
+    def prepare_task_branches(
+        self,
+        repositories: list[object],
+        repository_branches: dict[str, str],
+    ) -> list[object]:
+        self._validate_git_executable()
+        for repository in repositories:
+            branch_name = str(repository_branches.get(repository.id, '') or '').strip()
+            if not branch_name:
+                raise ValueError(
+                    f'missing task branch name for repository {repository.id}'
+                )
+            self._prepare_task_branch(repository, branch_name)
+        return repositories
+
     def get_repository(self, repository_id: str):
         for repository in self._repositories:
             if repository.id == repository_id:
@@ -83,6 +108,7 @@ class RepositoryService(Service):
             source_branch,
             destination_branch,
             final_commit_message,
+            repository,
         )
         pull_request = self._pull_request_data_access(repository).create_pull_request(
             title=title,
@@ -119,6 +145,7 @@ class RepositoryService(Service):
             branch_name,
             destination_branch,
             final_commit_message,
+            repository,
         )
 
     def list_pull_request_comments(
@@ -239,7 +266,7 @@ class RepositoryService(Service):
             local_path = str(discovered_repository.local_path).strip()
             folder_name = os.path.basename(local_path)
             repo_slug = str(discovered_repository.repo_slug or folder_name).strip()
-            repository_name = folder_name or repo_slug
+            repository_name = self._discovered_repository_name(folder_name, repo_slug)
             aliases = [folder_name, repo_slug]
             repositories.append(
                 SimpleNamespace(
@@ -254,6 +281,17 @@ class RepositoryService(Service):
                 )
             )
         return repositories
+
+    @classmethod
+    def _discovered_repository_name(cls, folder_name: str, repo_slug: str) -> str:
+        normalized_folder_name = str(folder_name or '').strip()
+        normalized_repo_slug = str(repo_slug or '').strip()
+        if normalized_repo_slug and (
+            not normalized_folder_name
+            or normalized_folder_name.lower() in cls._GENERIC_DISCOVERED_FOLDER_NAMES
+        ):
+            return normalized_repo_slug
+        return normalized_folder_name or normalized_repo_slug
 
     @staticmethod
     def _ignored_repository_folders(repository_source) -> list[str]:
@@ -341,6 +379,20 @@ class RepositoryService(Service):
         self._prepare_workspace_for_task(
             repository.local_path,
             repository.destination_branch,
+            repository,
+        )
+        return repository
+
+    def _prepare_task_branch(self, repository, branch_name: str):
+        self._validate_local_path(repository)
+        destination_branch = str(
+            getattr(repository, 'destination_branch', '') or ''
+        ).strip() or self.destination_branch(repository)
+        setattr(repository, 'destination_branch', destination_branch)
+        self._prepare_workspace_for_branch(
+            repository.local_path,
+            destination_branch,
+            branch_name,
         )
         return repository
 
@@ -467,6 +519,7 @@ class RepositoryService(Service):
         branch_name: str,
         destination_branch: str,
         commit_message: str,
+        repository=None,
     ) -> None:
         try:
             self._prepare_branch_for_publication(
@@ -475,14 +528,15 @@ class RepositoryService(Service):
                 destination_branch,
                 commit_message,
             )
-            self._push_branch(local_path, branch_name)
+            self._push_branch(local_path, branch_name, repository)
         finally:
-            self._prepare_workspace_for_task(local_path, destination_branch)
+            self._prepare_workspace_for_task(local_path, destination_branch, repository)
 
     def _prepare_workspace_for_task(
         self,
         local_path: str,
         destination_branch: str,
+        repository=None,
     ) -> None:
         current_branch = self._current_branch(local_path)
         self._ensure_clean_worktree(local_path, current_branch)
@@ -492,9 +546,27 @@ class RepositoryService(Service):
             current_branch,
         )
         self._validate_destination_branch_tracking_state(local_path, destination_branch)
-        self._pull_destination_branch(local_path, destination_branch)
+        self._pull_destination_branch(local_path, destination_branch, repository)
         current_branch = self._current_branch(local_path)
         self._assert_current_branch(local_path, destination_branch, current_branch)
+        self._ensure_clean_worktree(local_path, current_branch)
+
+    def _prepare_workspace_for_branch(
+        self,
+        local_path: str,
+        destination_branch: str,
+        branch_name: str,
+    ) -> None:
+        current_branch = self._current_branch(local_path)
+        self._ensure_clean_worktree(local_path, current_branch)
+        self._validate_destination_branch_tracking_state(local_path, destination_branch)
+        current_branch = self._ensure_task_branch_checked_out(
+            local_path,
+            destination_branch,
+            branch_name,
+            current_branch,
+        )
+        self._assert_current_branch(local_path, branch_name, current_branch)
         self._ensure_clean_worktree(local_path, current_branch)
 
     def _ensure_clean_worktree(self, local_path: str, current_branch: str = '') -> None:
@@ -521,6 +593,43 @@ class RepositoryService(Service):
             current_branch = self._current_branch(local_path)
         self._assert_current_branch(local_path, destination_branch, current_branch)
         return current_branch
+
+    def _ensure_task_branch_checked_out(
+        self,
+        local_path: str,
+        destination_branch: str,
+        branch_name: str,
+        current_branch: str,
+    ) -> str:
+        if current_branch == branch_name:
+            return current_branch
+        local_branch_ref = f'refs/heads/{branch_name}'
+        remote_branch_ref = f'refs/remotes/origin/{branch_name}'
+        if self._git_reference_exists(local_path, local_branch_ref):
+            self._run_git(
+                local_path,
+                ['checkout', branch_name],
+                f'failed to switch repository at {local_path} to {branch_name}',
+            )
+            return self._current_branch(local_path)
+        if self._git_reference_exists(local_path, remote_branch_ref):
+            self._run_git(
+                local_path,
+                ['checkout', '-b', branch_name, f'origin/{branch_name}'],
+                f'failed to restore branch {branch_name} from origin/{branch_name}',
+            )
+            return self._current_branch(local_path)
+        current_branch = self._ensure_destination_branch_checked_out(
+            local_path,
+            destination_branch,
+            current_branch,
+        )
+        self._run_git(
+            local_path,
+            ['checkout', '-b', branch_name],
+            f'failed to create branch {branch_name} from {destination_branch}',
+        )
+        return self._current_branch(local_path)
 
     @staticmethod
     def _assert_current_branch(
@@ -611,17 +720,37 @@ class RepositoryService(Service):
                 f'{counts_text or "<empty>"}'
             ) from exc
 
-    def _git_stdout(self, local_path: str, args: list[str], failure_message: str) -> str:
-        result = self._run_git(local_path, args, failure_message)
+    def _git_stdout(
+        self,
+        local_path: str,
+        args: list[str],
+        failure_message: str,
+        repository=None,
+    ) -> str:
+        result = self._run_git(local_path, args, failure_message, repository)
         return result.stdout.strip()
 
-    def _run_git(self, local_path: str, args: list[str], failure_message: str):
+    def _run_git(
+        self,
+        local_path: str,
+        args: list[str],
+        failure_message: str,
+        repository=None,
+    ):
         self._validate_git_executable()
+        command = ['git']
+        env = None
+        auth_header = self._git_http_auth_header(repository)
+        if auth_header:
+            command.extend(['-c', f'http.extraHeader={auth_header}'])
+            env = os.environ.copy()
+            env['GIT_TERMINAL_PROMPT'] = '0'
         result = subprocess.run(
-            ['git', '-C', local_path, *args],
+            [*command, '-C', local_path, *args],
             capture_output=True,
             text=True,
             check=False,
+            env=env,
         )
         if result.returncode == 0:
             return result
@@ -630,19 +759,61 @@ class RepositoryService(Service):
             f'{result.stderr.strip() or result.stdout.strip() or "git command failed"}'
         )
 
-    def _push_branch(self, local_path: str, branch_name: str) -> None:
+    def _push_branch(self, local_path: str, branch_name: str, repository=None) -> None:
         self._run_git(
             local_path,
             ['push', '-u', 'origin', branch_name],
             f'failed to push branch {branch_name}',
+            repository,
         )
 
-    def _pull_destination_branch(self, local_path: str, destination_branch: str) -> None:
+    def _pull_destination_branch(
+        self,
+        local_path: str,
+        destination_branch: str,
+        repository=None,
+    ) -> None:
         self._run_git(
             local_path,
             ['pull', '--ff-only', 'origin', destination_branch],
             f'failed to pull latest {destination_branch} for repository at {local_path}',
+            repository,
         )
+
+    @classmethod
+    def _git_http_auth_header(cls, repository) -> str:
+        if repository is None:
+            return ''
+        remote_url = str(getattr(repository, 'remote_url', '') or '').strip()
+        if not cls._uses_http_remote(remote_url):
+            return ''
+        token = str(getattr(repository, 'token', '') or '').strip()
+        if not token:
+            return ''
+        username = cls._git_http_username(repository, remote_url)
+        if not username:
+            return ''
+        encoded_credentials = base64.b64encode(
+            f'{username}:{token}'.encode('utf-8')
+        ).decode('ascii')
+        return f'Authorization: Basic {encoded_credentials}'
+
+    @classmethod
+    def _git_http_username(cls, repository, remote_url: str) -> str:
+        parsed = urlparse(remote_url)
+        if parsed.username:
+            return parsed.username
+        provider = str(getattr(repository, 'provider', '') or '').strip().lower()
+        return {
+            'github': 'x-access-token',
+            'gitlab': 'oauth2',
+            'bitbucket': 'x-token-auth',
+        }.get(provider, 'git')
+
+    @staticmethod
+    def _uses_http_remote(remote_url: str) -> bool:
+        normalized = str(remote_url or '').strip().lower()
+        return normalized.startswith('https://') or normalized.startswith('http://')
 
     def _review_url(self, repository, source_branch: str, destination_branch: str) -> str:
         remote_url = str(getattr(repository, 'remote_url', '') or '').strip()

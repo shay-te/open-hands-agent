@@ -144,6 +144,14 @@ class DeploymentFilesTests(unittest.TestCase):
             compose_text,
         )
         self.assertIn('OH_PERSISTENCE_DIR: /data', compose_text)
+        self.assertIn(
+            '- ${REPOSITORY_ROOT_PATH:-.}:/workspace/project:rw',
+            compose_text,
+        )
+        self.assertNotIn(
+            '- ${REPOSITORY_ROOT_PATH:-.}:/workspace/project:ro',
+            compose_text,
+        )
 
     def test_env_example_includes_openhands_llm_variables(self) -> None:
         env_example_text = (REPO_ROOT / '.env.example').read_text(encoding='utf-8')
@@ -242,7 +250,7 @@ class DeploymentFilesTests(unittest.TestCase):
         self.assertIn('openhands-agent-data:/app/data', compose_text)
         self.assertIn('${REPOSITORY_ROOT_PATH:-.}:/workspace/project', compose_text)
         self.assertIn('REPOSITORY_ROOT_PATH: /workspace/project', compose_text)
-        self.assertIn('${REPOSITORY_ROOT_PATH:-.}:/workspace/project:ro', compose_text)
+        self.assertIn('${REPOSITORY_ROOT_PATH:-.}:/workspace/project:rw', compose_text)
         self.assertIn('docker.openhands.dev/openhands/openhands:1.5', compose_text)
         self.assertNotIn('/Users/shaytessler/Desktop/dev/openhands-agent:/workspace/project', compose_text)
         dockerfile_text = (REPO_ROOT / 'Dockerfile').read_text(encoding='utf-8')

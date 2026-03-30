@@ -164,6 +164,28 @@ class TicketClientBaseTests(unittest.TestCase):
 
         self.assertEqual(comment, '')
 
+    def test_is_pre_start_blocking_comment_matches_only_pre_start_blockers(self) -> None:
+        self.assertTrue(
+            TicketClientBase.is_pre_start_blocking_comment(
+                'OpenHands agent could not safely process this task: timeout'
+            )
+        )
+        self.assertTrue(
+            TicketClientBase.is_pre_start_blocking_comment(
+                'OpenHands agent skipped this task because the task definition is too thin to work from safely.'
+            )
+        )
+        self.assertFalse(
+            TicketClientBase.is_pre_start_blocking_comment(
+                'OpenHands agent stopped working on this task: branch conflict'
+            )
+        )
+        self.assertFalse(
+            TicketClientBase.is_pre_start_blocking_comment(
+                'OpenHands completed task PROJ-1: Fix the auth flow.'
+            )
+        )
+
     def test_active_retry_blocking_comment_ignores_operational_comments_as_override(self) -> None:
         comment = TicketClientBase.active_retry_blocking_comment(
             [

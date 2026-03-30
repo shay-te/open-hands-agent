@@ -164,8 +164,8 @@ Supported values are `youtrack`, `jira`, `github`, `gitlab`, and `bitbucket`.
 
 Repository metadata is discovered from each repository's `.git` remote under `REPOSITORY_ROOT_PATH`.
 Use `OPENHANDS_AGENT_IGNORED_REPOSITORY_FOLDERS` to exclude specific folder names from auto-discovery when the root contains clones that should never be used by the agent. Provide multiple folder names as a comma-separated list, for example `OPENHANDS_AGENT_IGNORED_REPOSITORY_FOLDERS=repo-build,repo-mirror`.
-The agent publishes branches with local `git push`, so repository access is expected to come from your machine's existing git auth configuration.
-Actual pull request or merge request creation uses the repository provider API. For discovered repositories, the agent reuses the provider API token env vars `GITHUB_API_TOKEN`, `GITLAB_API_TOKEN`, or `BITBUCKET_API_TOKEN`, even when the issue platform is different. For example, a YouTrack + Bitbucket setup still needs `BITBUCKET_API_TOKEN` so the agent can create the Bitbucket pull request after pushing the branch.
+The agent publishes branches with local git commands. For discovered repositories with HTTPS remotes, the agent reuses the provider token env vars `GITHUB_API_TOKEN`, `GITLAB_API_TOKEN`, or `BITBUCKET_API_TOKEN` for non-interactive `git pull` and `git push`, even when the issue platform is different. For example, a YouTrack + Bitbucket setup still needs `BITBUCKET_API_TOKEN` so the agent can update the branch and create the Bitbucket pull request.
+Actual pull request or merge request creation also uses the repository provider API.
 If a discovered repository uses an SSH remote such as `git@bitbucket.org:workspace/repo.git`, Docker runs also need SSH agent forwarding. The compose file forwards `${OPENHANDS_SSH_AUTH_SOCK_HOST_PATH}` into both the `openhands` container and the sandbox at `/ssh-agent`, and sets `SSH_AUTH_SOCK=/ssh-agent` there. On Docker Desktop for macOS, the default `OPENHANDS_SSH_AUTH_SOCK_HOST_PATH=/run/host-services/ssh-auth.sock` usually works without changes.
 If you need explicit aliases or repository metadata overrides, add entries under `openhands_agent.repositories` in `openhands_agent/config/openhands_agent_core_lib.yaml`.
 Docker Compose derives the OpenHands runtime sandbox mount from `REPOSITORY_ROOT_PATH`, so the normal setup only needs that one repository path setting.
@@ -419,7 +419,7 @@ The compose file uses the current official OpenHands container image pattern fro
 - https://github.com/OpenHands/OpenHands
 
 Before running `docker compose up --build`, make sure `.env` contains the selected issue-platform settings, repository settings, OpenHands settings, retry settings, and optional email settings you want Docker Compose to pass through.
-Docker Compose uses `REPOSITORY_ROOT_PATH` as the host source path and mounts it into both the agent container and the OpenHands sandbox at `/workspace/project`, so Docker runs use the same in-container workspace path consistently.
+Docker Compose uses `REPOSITORY_ROOT_PATH` as the host source path and mounts it into both the agent container and the OpenHands sandbox at `/workspace/project`, so Docker runs use the same in-container workspace path consistently. The agent mount must stay writable because the agent itself performs git preflight, branch checkout, and fast-forward pulls there before delegating implementation work.
 For the default SQLite setup, the compose file stores the database under `data/` in the agent container working directory, backed by a named Docker volume shared by the `install` and `openhands-agent` containers. If you use Postgres or another external database, override `OPENHANDS_AGENT_DB_PATH` and the related DB env vars in `.env`.
 
 If you use `.env`, Docker Compose will load it automatically, so you can keep both the agent config and the OpenHands LLM config in one place and avoid manual setup in the OpenHands UI for the env-supported options.

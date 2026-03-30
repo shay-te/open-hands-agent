@@ -260,11 +260,10 @@ class OpenHandsClient(RetryingClientBase):
             )
             repository_lines.append(
                 f'- {repository.id} at {repository.local_path}: '
-                f'first try to pull the latest changes from {destination_text} without '
-                'interactive auth prompts. If remote access is blocked, continue from the '
-                'current local checkout and mention that limitation in your finish message. '
-                f'Then create and work on a new branch named {branch_name}. Do not create the '
-                'pull request yourself; the orchestration layer will publish it after tests pass. '
+                f'the orchestration layer already prepared branch {branch_name} from '
+                f'{destination_text}. Continue working on branch {branch_name}, and do not '
+                f'switch back to {destination_text} while implementing or testing this task. '
+                'Do not create the pull request yourself; the orchestration layer will publish it after tests pass. '
                 'Before you use finish, stage and commit every intended change on that task branch.'
             )
         lines = '\n'.join(repository_lines)

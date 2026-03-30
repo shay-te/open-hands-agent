@@ -149,7 +149,7 @@ services:
       REPOSITORY_ROOT_PATH: /workspace/project
     volumes:
       - openhands-agent-data:/app/data
-      - ${REPOSITORY_ROOT_PATH:-.}:/workspace/project:ro
+      - ${REPOSITORY_ROOT_PATH:-.}:/workspace/project:rw
       - ${OPENHANDS_SSH_AUTH_SOCK_HOST_PATH:-/run/host-services/ssh-auth.sock}:/ssh-agent:ro
 
 volumes:

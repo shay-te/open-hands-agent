@@ -2,6 +2,7 @@ import json
 
 from core_lib.jobs.job import Job
 
+from openhands_agent.error_handling import log_and_notify_failure
 from openhands_agent.logging_utils import configure_logger
 from openhands_agent.openhands_agent_core_lib import OpenHandsAgentCoreLib
 
@@ -32,14 +33,14 @@ class ProcessAssignedTasksJob(Job):
             results = collect_processing_results(self._data_handler.service)
             self.logger.info(json.dumps(results))
         except Exception as exc:
-            self.logger.exception('process_assigned_tasks_job failed')
-            try:
-                self._data_handler.service.notification_service.notify_failure(
-                    'process_assigned_task_job',
-                    exc,
-                )
-            except Exception:
-                self.logger.exception(
+            log_and_notify_failure(
+                logger=self.logger,
+                notification_service=self._data_handler.service.notification_service,
+                operation_name='process_assigned_task_job',
+                error=exc,
+                failure_log_message='process_assigned_tasks_job failed',
+                notification_failure_log_message=(
                     'failed to send failure notification for process_assigned_task_job'
-                )
+                ),
+            )
             raise

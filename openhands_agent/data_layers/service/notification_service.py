@@ -6,8 +6,10 @@ from string import Template
 from core_lib.data_layers.service.service import Service
 
 from openhands_agent.data_layers.data.task import Task
+from openhands_agent.error_handling import run_best_effort
 from openhands_agent.fields import EmailFields, PullRequestFields
 from openhands_agent.logging_utils import configure_logger
+
 
 class NotificationService(Service):
     def __init__(
@@ -86,20 +88,22 @@ class NotificationService(Service):
         sender_info = self._sender_info(email_cfg)
         sent = False
         for recipient in recipients:
-            try:
-                send_result = self._email_core_lib.send(
+            send_result = run_best_effort(
+                lambda recipient=recipient: self._email_core_lib.send(
                     template_id,
                     {
                         EmailFields.EMAIL: recipient,
                         **params,
                     },
                     sender_info,
-                )
-                if send_result:
-                    sent = True
-            except Exception:
-                self.logger.exception('failed to send email notification to %s', recipient)
-                continue
+                ),
+                logger=self.logger,
+                failure_log_message='failed to send email notification to %s',
+                failure_args=(recipient,),
+                default=False,
+            )
+            if send_result:
+                sent = True
         return sent
 
     @staticmethod

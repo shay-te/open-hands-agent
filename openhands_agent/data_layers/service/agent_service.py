@@ -3,6 +3,7 @@ import traceback
 from core_lib.data_layers.service.service import Service
 
 from openhands_agent.client.ticket_client_base import TicketClientBase
+from openhands_agent.error_handling import run_best_effort
 from openhands_agent.logging_utils import configure_logger
 from openhands_agent.client.retry_utils import is_retryable_exception
 from openhands_agent.data_layers.data.review_comment import ReviewComment
@@ -124,15 +125,64 @@ class AgentService(Service):
         return self._task_data_access.get_assigned_tasks()
 
     def process_assigned_task(self, task: Task) -> dict | None:
-        if self._is_task_processed(task.id):
-            self.logger.info('skipping already processed task %s', task.id)
-            return self._skip_task_result(
-                task.id,
-                self._processed_task_pull_requests(task.id),
-            )
+        processed_result = self._processed_task_result(task.id)
+        if processed_result is not None:
+            return processed_result
 
+        prepared_task = self._prepare_task_execution_context(task)
+        if prepared_task is None or isinstance(prepared_task, dict):
+            return prepared_task
+        repositories, repository_branches = prepared_task
+
+        if not self._start_task_processing(task):
+            return None
+        execution = self._run_task_implementation(task)
+        if execution is None:
+            return None
+        testing_succeeded, testing_result = self._run_task_testing_validation(
+            task,
+            repositories,
+            repository_branches,
+            execution,
+        )
+        if not testing_succeeded:
+            return testing_result
+        return self._publish_task_execution(task, execution)
+
+    def _processed_task_result(self, task_id: str) -> dict | None:
+        if not self._is_task_processed(task_id):
+            return None
+        self.logger.info('skipping already processed task %s', task_id)
+        return self._skip_task_result(
+            task_id,
+            self._processed_task_pull_requests(task_id),
+        )
+
+    def _prepare_task_execution_context(
+        self,
+        task: Task,
+    ) -> tuple[list[object], dict[str, str]] | dict | None:
         blocking_comment = self._active_execution_blocking_comment(task)
+        prepared_task = None
         if blocking_comment:
+            prepared_task = self._prepare_blocked_task_execution_context(
+                task,
+                blocking_comment,
+            )
+            if prepared_task is None or isinstance(prepared_task, dict):
+                return prepared_task
+
+        self._log_task_step(task.id, 'starting mission: %s', str(task.summary or '').strip() or task.id)
+        if prepared_task is not None:
+            return prepared_task
+        return self._prepare_task_start(task, report_failures=True)
+
+    def _prepare_blocked_task_execution_context(
+        self,
+        task: Task,
+        blocking_comment: str,
+    ) -> tuple[list[object], dict[str, str]] | dict | None:
+        if not self._can_retry_without_explicit_override(blocking_comment):
             self.logger.info(
                 'skipping task %s because a prior OpenHands %s comment is still active: %s',
                 task.id,
@@ -140,53 +190,39 @@ class AgentService(Service):
                 blocking_comment,
             )
             return self._skip_task_result(task.id)
-
-        self._log_task_step(task.id, 'starting mission: %s', str(task.summary or '').strip() or task.id)
-        try:
-            repositories = self._repository_service.resolve_task_repositories(task)
-        except Exception as exc:
-            self.logger.exception('failed to resolve repositories for task %s', task.id)
-            if self._is_repository_detection_failure(exc):
-                self._handle_repository_detection_failure(task, exc)
-            else:
-                self._handle_task_failure(task, exc)
-            return None
         self._log_task_step(
             task.id,
-            'resolved repositories: %s',
-            self._repository_ids_text(repositories),
+            're-checking prior pre-start blocking comment before retry: %s',
+            blocking_comment,
         )
-        try:
-            repositories = self._repository_service.prepare_task_repositories(repositories)
-        except Exception as exc:
-            self.logger.exception('failed to prepare repositories for task %s', task.id)
-            self._handle_task_failure(task, exc)
-            return None
-        self._log_task_step(
-            task.id,
-            'repository preflight passed: %s',
-            self._repository_destination_text(repositories),
-        )
-        if not self._has_actionable_task_definition(task):
+        prepared_task = self._prepare_task_start(task, report_failures=False)
+        if prepared_task is None:
             self.logger.info(
-                'skipping task %s because the task definition is too thin to work from safely',
+                'skipping task %s because a prior OpenHands %s comment is still active: %s',
                 task.id,
+                self._blocking_comment_kind(blocking_comment),
+                blocking_comment,
             )
-            self._handle_task_definition_failure(task)
-            return None
-
-        repository_branches = self._attach_task_repository_context(task, repositories)
+            return self._skip_task_result(task.id)
         self._log_task_step(
             task.id,
-            'planned working branches: %s',
-            self._repository_branch_text(repository_branches),
+            'prior pre-start blocking comment no longer applies; retrying task',
         )
+        return prepared_task
+
+    def _start_task_processing(self, task: Task) -> bool:
         try:
             self._move_task_to_in_progress(task.id, strict=True)
         except Exception as exc:
             self._handle_task_failure(task, exc)
-            return None
+            return False
         self._comment_task_started(task)
+        return True
+
+    def _run_task_implementation(
+        self,
+        task: Task,
+    ) -> dict[str, str | bool] | None:
         self._log_task_step(task.id, 'starting implementation')
         try:
             execution = self._implementation_service.implement_task(task) or {}
@@ -202,6 +238,29 @@ class AgentService(Service):
             'implementation completed successfully%s',
             self._session_suffix(execution),
         )
+        return execution
+
+    def _run_task_testing_validation(
+        self,
+        task: Task,
+        repositories: list[object],
+        repository_branches: dict[str, str],
+        execution: dict[str, str | bool],
+    ) -> tuple[bool, dict | None]:
+        self._log_task_step(task.id, 're-validating task branches before testing')
+        try:
+            self._repository_service.prepare_task_branches(
+                repositories,
+                repository_branches,
+            )
+        except Exception as exc:
+            self.logger.exception(
+                'failed to prepare task branches for testing validation for task %s',
+                task.id,
+            )
+            self._handle_started_task_failure(task, exc)
+            return False, None
+        self._log_task_step(task.id, 'task branches ready for testing')
 
         self._log_task_step(task.id, 'starting testing validation')
         try:
@@ -209,10 +268,10 @@ class AgentService(Service):
         except Exception as exc:
             self.logger.exception('testing request failed for task %s', task.id)
             self._handle_started_task_failure(task, exc)
-            return None
+            return False, None
         if not self._testing_succeeded(testing):
             self._handle_testing_failure(task, testing)
-            return {
+            return False, {
                 Task.id.key: task.id,
                 StatusFields.STATUS: StatusFields.TESTING_FAILED,
                 PullRequestFields.PULL_REQUESTS: [],
@@ -224,7 +283,13 @@ class AgentService(Service):
         if testing_commit_message:
             execution[ImplementationFields.COMMIT_MESSAGE] = testing_commit_message
         self._log_task_step(task.id, 'testing validation passed')
+        return True, None
 
+    def _publish_task_execution(
+        self,
+        task: Task,
+        execution: dict[str, str | bool],
+    ) -> dict | None:
         self._log_task_step(task.id, 'publishing pull requests')
         pull_requests, failed_repositories = self._create_pull_requests(
             task,
@@ -275,6 +340,90 @@ class AgentService(Service):
             PullRequestFields.PULL_REQUESTS: pull_requests,
             PullRequestFields.FAILED_REPOSITORIES: [],
         }
+
+    def _prepare_task_start(
+        self,
+        task: Task,
+        *,
+        report_failures: bool,
+    ) -> tuple[list[object], dict[str, str]] | None:
+        try:
+            repositories = self._repository_service.resolve_task_repositories(task)
+        except Exception as exc:
+            if report_failures:
+                self.logger.exception('failed to resolve repositories for task %s', task.id)
+                if self._is_repository_detection_failure(exc):
+                    self._handle_repository_detection_failure(task, exc)
+                else:
+                    self._handle_task_failure(task, exc)
+            else:
+                self._log_task_step(
+                    task.id,
+                    'pre-start retry check is still blocked during repository resolution: %s',
+                    exc,
+                )
+            return None
+        self._log_task_step(
+            task.id,
+            'resolved repositories: %s',
+            self._repository_ids_text(repositories),
+        )
+        try:
+            repositories = self._repository_service.prepare_task_repositories(repositories)
+        except Exception as exc:
+            if report_failures:
+                self.logger.exception('failed to prepare repositories for task %s', task.id)
+                self._handle_task_failure(task, exc)
+            else:
+                self._log_task_step(
+                    task.id,
+                    'pre-start retry check is still blocked during repository preparation: %s',
+                    exc,
+                )
+            return None
+        self._log_task_step(
+            task.id,
+            'repository preflight passed: %s',
+            self._repository_destination_text(repositories),
+        )
+        if not self._has_actionable_task_definition(task):
+            if report_failures:
+                self.logger.info(
+                    'skipping task %s because the task definition is too thin to work from safely',
+                    task.id,
+                )
+                self._handle_task_definition_failure(task)
+            else:
+                self._log_task_step(
+                    task.id,
+                    'pre-start retry check is still blocked because the task definition remains too thin',
+                )
+            return None
+
+        repository_branches = self._attach_task_repository_context(task, repositories)
+        self._log_task_step(
+            task.id,
+            'planned working branches: %s',
+            self._repository_branch_text(repository_branches),
+        )
+        try:
+            self._repository_service.prepare_task_branches(
+                repositories,
+                repository_branches,
+            )
+        except Exception as exc:
+            if report_failures:
+                self.logger.exception('failed to prepare task branches for task %s', task.id)
+                self._handle_task_failure(task, exc)
+            else:
+                self._log_task_step(
+                    task.id,
+                    'pre-start retry check is still blocked during task-branch preparation: %s',
+                    exc,
+                )
+            return None
+        self._log_task_step(task.id, 'prepared task branches')
+        return repositories, repository_branches
 
     def get_new_pull_request_comments(self) -> list[ReviewComment]:
         new_comments: list[ReviewComment] = []
@@ -347,6 +496,11 @@ class AgentService(Service):
         task_id = str(context.get(TaskFields.ID, '') or '').strip()
         task_summary = str(context.get(TaskFields.SUMMARY, '') or '').strip()
         setattr(comment, PullRequestFields.REPOSITORY_ID, repository_id)
+        repository = self._repository_service.get_repository(repository_id)
+        self._repository_service.prepare_task_branches(
+            [repository],
+            {repository_id: branch_name},
+        )
 
         execution = self._implementation_service.fix_review_comment(
             comment,
@@ -360,7 +514,6 @@ class AgentService(Service):
         commit_message = str(
             execution.get(ImplementationFields.COMMIT_MESSAGE, '') or ''
         ).strip() or 'Address review comments'
-        repository = self._repository_service.get_repository(repository_id)
         self.logger.info(
             'publishing review fix for pull request %s comment %s on branch %s',
             comment.pull_request_id,
@@ -538,7 +691,7 @@ class AgentService(Service):
         return pull_request_contexts[0]
 
     def _notify_task_ready_for_review(self, task: Task, pull_requests) -> None:
-        try:
+        def notify_task_ready_for_review() -> None:
             self._log_task_step(
                 task.id,
                 'sending completion notification for %s',
@@ -546,8 +699,13 @@ class AgentService(Service):
             )
             self._notification_service.notify_task_ready_for_review(task, pull_requests)
             self._log_task_step(task.id, 'completion notification sent')
-        except Exception:
-            self.logger.exception('failed to send completion notification for task %s', task.id)
+
+        run_best_effort(
+            notify_task_ready_for_review,
+            logger=self.logger,
+            failure_log_message='failed to send completion notification for task %s',
+            failure_args=(task.id,),
+        )
 
     def _handle_testing_failure(self, task: Task, testing: dict[str, str | bool]) -> None:
         summary = str(testing.get(Task.summary.key) or 'testing agent reported the task is not ready')
@@ -597,14 +755,17 @@ class AgentService(Service):
         )
         if move_to_open:
             self._move_task_to_open(task.id)
-        try:
-            self._notification_service.notify_failure(
+        run_best_effort(
+            lambda: self._notification_service.notify_failure(
                 'process_assigned_task',
                 error,
                 {Task.id.key: task.id},
-            )
-        except Exception:
-            self.logger.exception('failed to send failure notification for task %s', task.id)
+            ),
+            logger=self.logger,
+            failure_log_message='failed to send failure notification for task %s',
+            failure_args=(task.id,),
+            default=False,
+        )
 
     def _handle_repository_detection_failure(self, task: Task, error: Exception) -> None:
         self._log_task_step(task.id, 'recording repository detection skip comment')
@@ -799,6 +960,10 @@ class AgentService(Service):
         if TicketClientBase.is_completion_comment(blocking_comment):
             return 'completion'
         return 'failure'
+
+    @staticmethod
+    def _can_retry_without_explicit_override(blocking_comment: str) -> bool:
+        return TicketClientBase.is_pre_start_blocking_comment(blocking_comment)
 
     def _attach_task_repository_context(
         self,

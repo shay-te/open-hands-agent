@@ -180,10 +180,9 @@ class OpenHandsClientTests(unittest.TestCase):
         prompt = client._build_implementation_prompt(task)
 
         self.assertIn('Only modify these repositories:', prompt)
-        self.assertIn('first try to pull the latest changes from main', prompt)
-        self.assertIn('without interactive auth prompts', prompt)
-        self.assertIn('continue from the current local checkout', prompt)
-        self.assertIn('create and work on a new branch named UNA-222', prompt)
+        self.assertIn('the orchestration layer already prepared branch UNA-222 from main', prompt)
+        self.assertIn('Continue working on branch UNA-222', prompt)
+        self.assertIn('do not switch back to main', prompt)
         self.assertIn('stage and commit every intended change on that task branch', prompt)
         self.assertIn('Do not create the pull request yourself', prompt)
 

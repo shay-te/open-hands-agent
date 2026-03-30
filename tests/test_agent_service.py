@@ -67,6 +67,7 @@ class AgentServiceTests(unittest.TestCase):
             validate_connections=Mock(),
             resolve_task_repositories=Mock(return_value=[self.client_repo, self.backend_repo]),
             prepare_task_repositories=Mock(side_effect=lambda repositories: repositories),
+            prepare_task_branches=Mock(side_effect=lambda repositories, repository_branches: repositories),
             get_repository=Mock(side_effect=lambda repository_id: {
                 'client': self.client_repo,
                 'backend': self.backend_repo,
@@ -253,6 +254,25 @@ class AgentServiceTests(unittest.TestCase):
         )
         self.repository_service.resolve_task_repositories.assert_called_once()
         self.openhands_client.test_task.assert_called_once()
+        self.assertEqual(
+            self.repository_service.prepare_task_branches.call_args_list,
+            [
+                unittest.mock.call(
+                    [self.client_repo, self.backend_repo],
+                    {
+                        'client': 'feature/proj-1/client',
+                        'backend': 'feature/proj-1/backend',
+                    },
+                ),
+                unittest.mock.call(
+                    [self.client_repo, self.backend_repo],
+                    {
+                        'client': 'feature/proj-1/client',
+                        'backend': 'feature/proj-1/backend',
+                    },
+                ),
+            ],
+        )
         self.repository_service.create_pull_request.assert_any_call(
             self.client_repo,
             title='PROJ-1: Fix bug',
@@ -334,6 +354,42 @@ class AgentServiceTests(unittest.TestCase):
             description=self.pr_description,
             commit_message='Finalize PROJ-1 after testing',
         )
+
+    def test_process_assigned_task_reopens_when_task_branch_validation_fails_before_testing(self) -> None:
+        task = self.task_data_access.get_assigned_tasks()[0]
+        self.repository_service.prepare_task_branches.side_effect = [
+            [self.client_repo, self.backend_repo],
+            RuntimeError(
+                'destination branch master at /workspace/project has 1 local commit(s) '
+                'not on origin/master; refusing to start a new task'
+            ),
+        ]
+
+        results = self.service.process_assigned_task(task)
+
+        self.assertIsNone(results)
+        self.assertEqual(
+            self.task_client.move_issue_to_state.call_args_list,
+            [
+                unittest.mock.call('PROJ-1', 'State', 'In Progress'),
+                unittest.mock.call('PROJ-1', 'State', 'Todo'),
+            ],
+        )
+        self.assertEqual(self.task_client.add_comment.call_count, 2)
+        self.assertIn(
+            'started working on this task',
+            self.task_client.add_comment.call_args_list[0].args[1],
+        )
+        self.assertIn(
+            'stopped working on this task',
+            self.task_client.add_comment.call_args_list[1].args[1],
+        )
+        self.assertIn(
+            'destination branch master at /workspace/project has 1 local commit(s)',
+            self.task_client.add_comment.call_args_list[1].args[1],
+        )
+        self.openhands_client.test_task.assert_not_called()
+        self.repository_service.create_pull_request.assert_not_called()
 
     def test_get_assigned_tasks_returns_empty_list_when_no_tasks_exist(self) -> None:
         self.task_client.get_assigned_tasks.return_value = []
@@ -452,6 +508,93 @@ class AgentServiceTests(unittest.TestCase):
         self.task_client.add_comment.assert_not_called()
         self.task_client.move_issue_to_state.assert_not_called()
         self.email_core_lib.send.assert_not_called()
+
+    def test_process_assigned_task_retries_when_prior_pre_start_failure_comment_is_stale(self) -> None:
+        task = build_task(
+            description='Update client and backend APIs',
+            comments=[
+                {
+                    TaskCommentFields.AUTHOR: 'shay',
+                    TaskCommentFields.BODY: (
+                        'OpenHands agent could not safely process this task: '
+                        'destination branch master at /workspace/project has 3 local '
+                        'commit(s) not on origin/master; refusing to start a new task'
+                    ),
+                }
+            ],
+        )
+
+        results = self.service.process_assigned_task(task)
+
+        self.assertEqual(results[StatusFields.STATUS], StatusFields.READY_FOR_REVIEW)
+        self.repository_service.resolve_task_repositories.assert_called_once_with(task)
+        self.repository_service.prepare_task_repositories.assert_called_once_with(
+            [self.client_repo, self.backend_repo]
+        )
+        self.assertEqual(self.repository_service.prepare_task_branches.call_count, 2)
+        self.openhands_client.implement_task.assert_called_once_with(task, '')
+
+    def test_process_assigned_task_skips_when_prior_pre_start_failure_still_blocks_preflight(self) -> None:
+        task = build_task(
+            description='Update client and backend APIs',
+            comments=[
+                {
+                    TaskCommentFields.AUTHOR: 'shay',
+                    TaskCommentFields.BODY: (
+                        'OpenHands agent could not safely process this task: '
+                        'destination branch master at /workspace/project has 3 local '
+                        'commit(s) not on origin/master; refusing to start a new task'
+                    ),
+                }
+            ],
+        )
+        self.repository_service.prepare_task_repositories.side_effect = RuntimeError(
+            'destination branch master at /workspace/project has 3 local commit(s) '
+            'not on origin/master; refusing to start a new task'
+        )
+
+        results = self.service.process_assigned_task(task)
+
+        self.assertEqual(
+            results,
+            {
+                'id': 'PROJ-1',
+                StatusFields.STATUS: StatusFields.SKIPPED,
+                PullRequestFields.PULL_REQUESTS: [],
+                PullRequestFields.FAILED_REPOSITORIES: [],
+            },
+        )
+        self.repository_service.resolve_task_repositories.assert_called_once_with(task)
+        self.repository_service.prepare_task_repositories.assert_called_once_with(
+            [self.client_repo, self.backend_repo]
+        )
+        self.openhands_client.implement_task.assert_not_called()
+        self.task_client.add_comment.assert_not_called()
+        self.task_client.move_issue_to_state.assert_not_called()
+        self.email_core_lib.send.assert_not_called()
+
+    def test_process_assigned_task_retries_when_prior_repository_detection_skip_is_stale(self) -> None:
+        task = build_task(
+            summary='client backend task needs update',
+            description='Update client and backend APIs',
+            comments=[
+                {
+                    TaskCommentFields.AUTHOR: 'shay',
+                    TaskCommentFields.BODY: (
+                        'OpenHands agent skipped this task because it could not detect '
+                        'which repository to use from the task content: no configured '
+                        'repository matched task PROJ-1. Please mention the repository '
+                        'name or alias in the task summary or description.'
+                    ),
+                }
+            ],
+        )
+
+        results = self.service.process_assigned_task(task)
+
+        self.assertEqual(results[StatusFields.STATUS], StatusFields.READY_FOR_REVIEW)
+        self.repository_service.resolve_task_repositories.assert_called_once_with(task)
+        self.openhands_client.implement_task.assert_called_once_with(task, '')
 
     def test_process_assigned_task_retries_after_later_retry_instruction(self) -> None:
         task = build_task(
@@ -935,6 +1078,10 @@ class AgentServiceTests(unittest.TestCase):
                 'task_summary': 'Fix bug',
             },
         )
+        self.repository_service.prepare_task_branches.assert_called_once_with(
+            [self.client_repo],
+            {'client': 'feature/proj-1/client'},
+        )
 
     def test_process_review_comment_marks_comment_processed(self) -> None:
         state_data_access = types.SimpleNamespace(
@@ -964,6 +1111,10 @@ class AgentServiceTests(unittest.TestCase):
             )
         )
 
+        self.repository_service.prepare_task_branches.assert_called_once_with(
+            [self.client_repo],
+            {'client': 'feature/proj-1/client'},
+        )
         self.repository_service.publish_review_fix.assert_called_once_with(
             self.client_repo,
             'feature/proj-1/client',

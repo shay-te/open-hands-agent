@@ -43,6 +43,8 @@ class ImplementationServiceTests(unittest.TestCase):
             comment,
             'feature/proj-1',
             'conversation-1',
+            task_id='',
+            task_summary='',
         )
 
     def test_review_comment_from_payload_builds_entity(self) -> None:

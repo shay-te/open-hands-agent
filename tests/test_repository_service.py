@@ -2,6 +2,7 @@ from pathlib import Path
 import tempfile
 import types
 import unittest
+import base64
 from unittest.mock import Mock, patch
 
 
@@ -111,6 +112,27 @@ class RepositoryServiceTests(unittest.TestCase):
 
         self.assertEqual([repository.id for repository in repositories], ['backend-service'])
         self.assertEqual(repositories[0].repo_slug, 'backend')
+
+    def test_discovers_repository_from_generic_mount_folder_using_repo_slug_identity(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            projects_root = Path(temp_dir)
+            mounted_repo = projects_root / 'project'
+            self._create_git_repository(
+                mounted_repo,
+                'git@bitbucket.org:acme/ob-love-admin-client.git',
+            )
+            service = RepositoryService(
+                types.SimpleNamespace(
+                    repositories=[],
+                    repository_root_path=str(projects_root),
+                ),
+                3,
+            )
+
+        self.assertEqual([repository.id for repository in service.repositories], ['ob-love-admin-client'])
+        self.assertEqual(service.repositories[0].display_name, 'Ob Love Admin Client')
+        self.assertEqual(service.repositories[0].repo_slug, 'ob-love-admin-client')
+        self.assertEqual(service.repositories[0].aliases, ['project', 'ob-love-admin-client'])
 
     def test_discovers_repositories_from_root_ignoring_configured_folders(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -237,6 +259,124 @@ class RepositoryServiceTests(unittest.TestCase):
                 ['git', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
                 ['git', '-C', '.', 'status', '--porcelain'],
                 ['git', '-C', '.', 'pull', '--ff-only', 'origin', 'main'],
+                ['git', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
+                ['git', '-C', '.', 'status', '--porcelain'],
+            ],
+        )
+
+    def test_prepare_task_branches_creates_new_task_branch_from_destination_branch(self) -> None:
+        service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+
+        with patch(
+            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            return_value='/usr/bin/git',
+        ), patch(
+            'openhands_agent.data_layers.service.repository_service.os.path.isdir',
+            return_value=True,
+        ), patch(
+            'openhands_agent.data_layers.service.repository_service.RepositoryService._validate_destination_branch_tracking_state',
+        ) as mock_validate_destination, patch(
+            'openhands_agent.data_layers.service.repository_service.RepositoryService._git_reference_exists',
+            return_value=False,
+        ), patch(
+            'openhands_agent.data_layers.service.repository_service.subprocess.run',
+            side_effect=[
+                Mock(returncode=0, stdout='main\n', stderr=''),
+                Mock(returncode=0, stdout='', stderr=''),
+                Mock(returncode=0, stdout='', stderr=''),
+                Mock(returncode=0, stdout='UNA-2398\n', stderr=''),
+                Mock(returncode=0, stdout='', stderr=''),
+            ],
+        ) as mock_run:
+            service.prepare_task_branches([self.backend_repo], {'backend': 'UNA-2398'})
+
+        mock_validate_destination.assert_called_once_with('.', 'main')
+        self.assertEqual(
+            [call.args[0] for call in mock_run.call_args_list],
+            [
+                ['git', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
+                ['git', '-C', '.', 'status', '--porcelain'],
+                ['git', '-C', '.', 'checkout', '-b', 'UNA-2398'],
+                ['git', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
+                ['git', '-C', '.', 'status', '--porcelain'],
+            ],
+        )
+
+    def test_prepare_task_branches_checks_out_existing_local_task_branch(self) -> None:
+        service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+
+        def reference_exists(_local_path: str, reference: str) -> bool:
+            return reference == 'refs/heads/UNA-2398'
+
+        with patch(
+            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            return_value='/usr/bin/git',
+        ), patch(
+            'openhands_agent.data_layers.service.repository_service.os.path.isdir',
+            return_value=True,
+        ), patch(
+            'openhands_agent.data_layers.service.repository_service.RepositoryService._validate_destination_branch_tracking_state',
+        ), patch(
+            'openhands_agent.data_layers.service.repository_service.RepositoryService._git_reference_exists',
+            side_effect=reference_exists,
+        ), patch(
+            'openhands_agent.data_layers.service.repository_service.subprocess.run',
+            side_effect=[
+                Mock(returncode=0, stdout='main\n', stderr=''),
+                Mock(returncode=0, stdout='', stderr=''),
+                Mock(returncode=0, stdout='', stderr=''),
+                Mock(returncode=0, stdout='UNA-2398\n', stderr=''),
+                Mock(returncode=0, stdout='', stderr=''),
+            ],
+        ) as mock_run:
+            service.prepare_task_branches([self.backend_repo], {'backend': 'UNA-2398'})
+
+        self.assertEqual(
+            [call.args[0] for call in mock_run.call_args_list],
+            [
+                ['git', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
+                ['git', '-C', '.', 'status', '--porcelain'],
+                ['git', '-C', '.', 'checkout', 'UNA-2398'],
+                ['git', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
+                ['git', '-C', '.', 'status', '--porcelain'],
+            ],
+        )
+
+    def test_prepare_task_branches_restores_branch_from_origin_when_local_branch_is_missing(self) -> None:
+        service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+
+        def reference_exists(_local_path: str, reference: str) -> bool:
+            return reference == 'refs/remotes/origin/UNA-2398'
+
+        with patch(
+            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            return_value='/usr/bin/git',
+        ), patch(
+            'openhands_agent.data_layers.service.repository_service.os.path.isdir',
+            return_value=True,
+        ), patch(
+            'openhands_agent.data_layers.service.repository_service.RepositoryService._validate_destination_branch_tracking_state',
+        ), patch(
+            'openhands_agent.data_layers.service.repository_service.RepositoryService._git_reference_exists',
+            side_effect=reference_exists,
+        ), patch(
+            'openhands_agent.data_layers.service.repository_service.subprocess.run',
+            side_effect=[
+                Mock(returncode=0, stdout='main\n', stderr=''),
+                Mock(returncode=0, stdout='', stderr=''),
+                Mock(returncode=0, stdout='', stderr=''),
+                Mock(returncode=0, stdout='UNA-2398\n', stderr=''),
+                Mock(returncode=0, stdout='', stderr=''),
+            ],
+        ) as mock_run:
+            service.prepare_task_branches([self.backend_repo], {'backend': 'UNA-2398'})
+
+        self.assertEqual(
+            [call.args[0] for call in mock_run.call_args_list],
+            [
+                ['git', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
+                ['git', '-C', '.', 'status', '--porcelain'],
+                ['git', '-C', '.', 'checkout', '-b', 'UNA-2398', 'origin/UNA-2398'],
                 ['git', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
                 ['git', '-C', '.', 'status', '--porcelain'],
             ],
@@ -539,8 +679,8 @@ class RepositoryServiceTests(unittest.TestCase):
             'main',
             'Implement PROJ-1',
         )
-        mock_push_branch.assert_called_once_with('.', 'feature/proj-1/client')
-        mock_prepare_workspace.assert_called_once_with('.', 'main')
+        mock_push_branch.assert_called_once_with('.', 'feature/proj-1/client', repository)
+        mock_prepare_workspace.assert_called_once_with('.', 'main', repository)
 
     def test_create_pull_request_returns_to_destination_branch_even_when_pr_creation_fails(self) -> None:
         repository = self.backend_repo
@@ -573,7 +713,7 @@ class RepositoryServiceTests(unittest.TestCase):
                     commit_message='Implement PROJ-1',
                 )
 
-        mock_prepare_workspace.assert_called_once_with('.', 'main')
+        mock_prepare_workspace.assert_called_once_with('.', 'main', repository)
 
     def test_create_pull_request_returns_to_destination_branch_even_when_push_fails(self) -> None:
         repository = self.backend_repo
@@ -604,7 +744,7 @@ class RepositoryServiceTests(unittest.TestCase):
                     commit_message='Implement PROJ-1',
                 )
 
-        mock_prepare_workspace.assert_called_once_with('.', 'main')
+        mock_prepare_workspace.assert_called_once_with('.', 'main', repository)
 
     def test_create_pull_request_commits_remaining_changes_before_push(self) -> None:
         repository = self.backend_repo
@@ -674,7 +814,7 @@ class RepositoryServiceTests(unittest.TestCase):
                 ['git', '-C', '.', 'status', '--porcelain'],
             ],
         )
-        mock_push_branch.assert_called_once_with('.', 'feature/proj-1/backend')
+        mock_push_branch.assert_called_once_with('.', 'feature/proj-1/backend', repository)
 
     def test_create_pull_request_rejects_branch_without_committed_changes(self) -> None:
         repository = self.backend_repo
@@ -824,6 +964,82 @@ class RepositoryServiceTests(unittest.TestCase):
             ):
                 service.validate_connections()
 
+    def test_pull_destination_branch_uses_provider_token_for_https_remote(self) -> None:
+        repository = types.SimpleNamespace(
+            id='client',
+            local_path='.',
+            provider='bitbucket',
+            token='bb-token',
+            remote_url='https://shay@bitbucket.org/workspace/repo.git',
+        )
+        service = RepositoryService([], 3)
+        expected_header = 'Authorization: Basic ' + base64.b64encode(
+            b'shay:bb-token'
+        ).decode('ascii')
+
+        with patch(
+            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            return_value='/usr/bin/git',
+        ), patch(
+            'openhands_agent.data_layers.service.repository_service.subprocess.run',
+            return_value=Mock(returncode=0, stdout='', stderr=''),
+        ) as mock_run:
+            service._pull_destination_branch('.', 'main', repository)
+
+        self.assertEqual(
+            mock_run.call_args.args[0],
+            [
+                'git',
+                '-c',
+                f'http.extraHeader={expected_header}',
+                '-C',
+                '.',
+                'pull',
+                '--ff-only',
+                'origin',
+                'main',
+            ],
+        )
+        self.assertEqual(mock_run.call_args.kwargs['env']['GIT_TERMINAL_PROMPT'], '0')
+
+    def test_push_branch_uses_provider_default_https_username_when_remote_has_no_username(self) -> None:
+        repository = types.SimpleNamespace(
+            id='backend',
+            local_path='.',
+            provider='github',
+            token='gh-token',
+            remote_url='https://github.com/workspace/backend.git',
+        )
+        service = RepositoryService([], 3)
+        expected_header = 'Authorization: Basic ' + base64.b64encode(
+            b'x-access-token:gh-token'
+        ).decode('ascii')
+
+        with patch(
+            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            return_value='/usr/bin/git',
+        ), patch(
+            'openhands_agent.data_layers.service.repository_service.subprocess.run',
+            return_value=Mock(returncode=0, stdout='', stderr=''),
+        ) as mock_run:
+            service._push_branch('.', 'feature/proj-1/backend', repository)
+
+        self.assertEqual(
+            mock_run.call_args.args[0],
+            [
+                'git',
+                '-c',
+                f'http.extraHeader={expected_header}',
+                '-C',
+                '.',
+                'push',
+                '-u',
+                'origin',
+                'feature/proj-1/backend',
+            ],
+        )
+        self.assertEqual(mock_run.call_args.kwargs['env']['GIT_TERMINAL_PROMPT'], '0')
+
     def test_prepare_task_repositories_requires_git_executable(self) -> None:
         service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
 
@@ -901,6 +1117,7 @@ class RepositoryServiceTests(unittest.TestCase):
             'feature/proj-1/backend',
             'main',
             'Address review comments',
+            repository,
         )
 
     def test_resolve_review_comment_uses_provider_api(self) -> None:
@@ -940,7 +1157,7 @@ class RepositoryServiceTests(unittest.TestCase):
                     'Address review comments',
                 )
 
-        mock_prepare_workspace.assert_called_once_with('.', 'main')
+        mock_prepare_workspace.assert_called_once_with('.', 'main', None)
 
     @staticmethod
     def _create_git_repository(path: Path, remote_url: str) -> None:
