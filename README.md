@@ -508,3 +508,14 @@ cp .env.example .env
 # - LLM settings (including AWS credentials for Bedrock models if needed)
 # - Sandbox volumes mapping
 ```
+
+
+# Saving costs tips
+
+Use a cheaper main OPENHANDS_LLM_MODEL. This is usually the largest lever.
+Lower OPENHANDS_AGENT_MAX_RETRIES from 5 to 2 or 3 if your setup is stable.
+Keep YOUTRACK_ISSUE_STATES tight so only truly ready tasks get processed.
+Batch review feedback into fewer comments, because each review-fix cycle can trigger more OpenHands work.
+Keep task context lean: avoid huge pasted logs, long comment threads, and unnecessary attachments.
+Keep the state file persistent so restarts do not reprocess old tasks or review comments.
+Don’t expect much savings from poll interval tuning; that mostly affects waiting/API chatter, not LLM spend.
