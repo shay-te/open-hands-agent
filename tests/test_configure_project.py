@@ -56,6 +56,7 @@ class ConfigureProjectTests(unittest.TestCase):
                 'OpenHands LLM model': 'openai/gpt-4o',
                 'OpenHands LLM API key': 'llm-key',
                 'OpenHands LLM base URL': 'https://api.openai.com/v1',
+                'Use a dedicated OpenHands testing container': False,
                 'Enable failure notification emails': False,
                 'Enable completion notification emails': False,
             }
@@ -68,6 +69,7 @@ class ConfigureProjectTests(unittest.TestCase):
         self.assertEqual(values['REPOSITORY_ROOT_PATH'], str(Path('./client').resolve()))
         self.assertNotIn('OPENHANDS_SANDBOX_VOLUMES', values)
         self.assertEqual(values['OPENHANDS_LLM_API_KEY'], 'llm-key')
+        self.assertEqual(values['OPENHANDS_TESTING_CONTAINER_ENABLED'], 'false')
         self.assertEqual(values['OH_SECRET_KEY'], 'openhands-secret')
         self.assertEqual(self._validate_agent_env(values), [])
         self.assertEqual(validate_openhands_env(values), [])
@@ -96,6 +98,7 @@ class ConfigureProjectTests(unittest.TestCase):
                 'OpenHands LLM model': 'bedrock/anthropic.claude-3-sonnet-20240229-v1:0',
                 'How should OpenHands authenticate to Bedrock': 'bearer_token',
                 'AWS bearer token for Bedrock': 'bedrock-token',
+                'Use a dedicated OpenHands testing container': False,
                 'Enable failure notification emails': True,
                 'Enable completion notification emails': False,
                 'Email provider API key': 'sendinblue-key',
@@ -112,9 +115,51 @@ class ConfigureProjectTests(unittest.TestCase):
         self.assertEqual(values['JIRA_ISSUE_STATES'], 'To Do,Selected for Development')
         self.assertEqual(values['AWS_BEARER_TOKEN_BEDROCK'], 'bedrock-token')
         self.assertEqual(values['OPENHANDS_LLM_API_KEY'], '')
+        self.assertEqual(values['OPENHANDS_TESTING_CONTAINER_ENABLED'], 'false')
         self.assertEqual(values['OPENHANDS_AGENT_FAILURE_EMAIL_ENABLED'], 'true')
         self.assertEqual(values['OH_SECRET_KEY'], 'openhands-secret')
         self.assertEqual(self._validate_agent_env(values), [])
+        self.assertEqual(validate_openhands_env(values), [])
+
+    def test_build_configuration_values_supports_dedicated_testing_container(self) -> None:
+        with self._patch_prompts(
+            {
+                'Where are your tasks tracked': 'youtrack',
+                'YouTrack base URL': 'https://youtrack.example',
+                'YouTrack token': 'yt-token',
+                'YouTrack assignee login': 'developer',
+                'YouTrack project key': 'PROJ',
+                'YouTrack in-progress state field': 'State',
+                'YouTrack in-progress state value': 'In Progress',
+                'YouTrack review state field': 'State',
+                'YouTrack review state value': 'In Review',
+                'YouTrack issue states to process': ['Open'],
+                'Scan a projects folder for checked-out repositories': False,
+                'Projects root folder containing checked-out repositories': './client',
+                'OpenHands base URL': 'http://localhost:3000',
+                'OpenHands API key': 'local',
+                'OpenHands secret key': 'openhands-secret',
+                'Maximum retries for external API calls': 5,
+                'State file path': 'openhands_agent_state.json',
+                'OpenHands LLM model': 'openai/gpt-4o',
+                'OpenHands LLM API key': 'llm-key',
+                'OpenHands LLM base URL': 'https://api.openai.com/v1',
+                'Use a dedicated OpenHands testing container': True,
+                'OpenHands testing base URL': 'http://localhost:3001',
+                'OpenHands testing LLM model': 'openai/gpt-4o-mini',
+                'OpenHands testing LLM API key': 'testing-key',
+                'OpenHands testing LLM base URL': '',
+                'Enable failure notification emails': False,
+                'Enable completion notification emails': False,
+            }
+        ):
+            values = configure_project.build_configuration_values({})
+
+        self.assertEqual(values['OPENHANDS_TESTING_CONTAINER_ENABLED'], 'true')
+        self.assertEqual(values['OPENHANDS_TESTING_BASE_URL'], 'http://localhost:3001')
+        self.assertEqual(values['OPENHANDS_TESTING_LLM_MODEL'], 'openai/gpt-4o-mini')
+        self.assertEqual(values['OPENHANDS_TESTING_LLM_API_KEY'], 'testing-key')
+        self.assertEqual(values['OPENHANDS_TESTING_LLM_BASE_URL'], '')
         self.assertEqual(validate_openhands_env(values), [])
 
     def test_prompt_repository_discovers_checked_out_repositories(self) -> None:
@@ -251,12 +296,17 @@ class ConfigureProjectTests(unittest.TestCase):
                 'REPOSITORY_ROOT_PATH=.\n'
                 'OPENHANDS_BASE_URL=http://localhost:3000\n'
                 'OPENHANDS_API_KEY=local\n'
+                'OPENHANDS_TESTING_CONTAINER_ENABLED=false\n'
+                'OPENHANDS_TESTING_BASE_URL=http://localhost:3001\n'
                 'OH_SECRET_KEY=\n'
                 'OPENHANDS_AGENT_MAX_RETRIES=5\n'
                 'OPENHANDS_AGENT_STATE_FILE=data/openhands_agent_state.json\n'
                 'OPENHANDS_LLM_MODEL=\n'
                 'OPENHANDS_LLM_API_KEY=\n'
                 'OPENHANDS_LLM_BASE_URL=\n'
+                'OPENHANDS_TESTING_LLM_MODEL=\n'
+                'OPENHANDS_TESTING_LLM_API_KEY=\n'
+                'OPENHANDS_TESTING_LLM_BASE_URL=\n'
                 'OPENHANDS_AGENT_FAILURE_EMAIL_ENABLED=false\n'
                 'OPENHANDS_AGENT_FAILURE_EMAIL_TEMPLATE_ID=0\n'
                 'OPENHANDS_AGENT_FAILURE_EMAIL_TO=\n'
@@ -293,6 +343,7 @@ class ConfigureProjectTests(unittest.TestCase):
                 'OpenHands LLM model': 'openai/gpt-4o',
                 'OpenHands LLM API key': 'llm-key',
                 'OpenHands LLM base URL': 'https://api.openai.com/v1',
+                'Use a dedicated OpenHands testing container': False,
                 'Enable failure notification emails': False,
                 'Enable completion notification emails': False,
             }
@@ -317,6 +368,7 @@ class ConfigureProjectTests(unittest.TestCase):
                 'data/openhands_agent_state.json',
             )
             self.assertEqual(written_env['OPENHANDS_LLM_API_KEY'], 'llm-key')
+            self.assertEqual(written_env['OPENHANDS_TESTING_CONTAINER_ENABLED'], 'false')
 
     def test_main_returns_zero_when_configuration_is_still_invalid(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -338,12 +390,17 @@ class ConfigureProjectTests(unittest.TestCase):
                 'REPOSITORY_ROOT_PATH=.\n'
                 'OPENHANDS_BASE_URL=http://localhost:3000\n'
                 'OPENHANDS_API_KEY=local\n'
+                'OPENHANDS_TESTING_CONTAINER_ENABLED=false\n'
+                'OPENHANDS_TESTING_BASE_URL=http://localhost:3001\n'
                 'OH_SECRET_KEY=\n'
                 'OPENHANDS_AGENT_MAX_RETRIES=5\n'
                 'OPENHANDS_AGENT_STATE_FILE=data/openhands_agent_state.json\n'
                 'OPENHANDS_LLM_MODEL=\n'
                 'OPENHANDS_LLM_API_KEY=\n'
                 'OPENHANDS_LLM_BASE_URL=\n'
+                'OPENHANDS_TESTING_LLM_MODEL=\n'
+                'OPENHANDS_TESTING_LLM_API_KEY=\n'
+                'OPENHANDS_TESTING_LLM_BASE_URL=\n'
                 'OPENHANDS_AGENT_FAILURE_EMAIL_ENABLED=false\n'
                 'OPENHANDS_AGENT_FAILURE_EMAIL_TEMPLATE_ID=0\n'
                 'OPENHANDS_AGENT_FAILURE_EMAIL_TO=\n'
@@ -380,6 +437,7 @@ class ConfigureProjectTests(unittest.TestCase):
                 'OpenHands LLM model': '',
                 'OpenHands LLM API key': '',
                 'OpenHands LLM base URL': '',
+                'Use a dedicated OpenHands testing container': False,
                 'Enable failure notification emails': False,
                 'Enable completion notification emails': False,
             }

@@ -83,10 +83,10 @@ class OpenHandsAgentCoreLib(CoreLib):
             max_poll_attempts=self._openhands_max_poll_attempts(open_cfg.openhands),
         )
         _testing_openhands_client = OpenHandsClient(
-            open_cfg.openhands.base_url,
+            self._testing_openhands_base_url(open_cfg.openhands),
             open_cfg.openhands.api_key,
             retry_cfg.max_retries,
-            llm_settings=self._openhands_llm_settings(open_cfg.openhands),
+            llm_settings=self._testing_openhands_llm_settings(open_cfg.openhands),
             poll_interval_seconds=self._openhands_poll_interval_seconds(open_cfg.openhands),
             max_poll_attempts=self._openhands_max_poll_attempts(open_cfg.openhands),
         )
@@ -116,6 +116,21 @@ class OpenHandsAgentCoreLib(CoreLib):
         return {
             'llm_model': str(getattr(openhands_cfg, 'llm_model', '') or '').strip(),
             'llm_base_url': str(getattr(openhands_cfg, 'llm_base_url', '') or '').strip(),
+        }
+
+    @staticmethod
+    def _testing_openhands_base_url(openhands_cfg: DictConfig) -> str:
+        if not bool(getattr(openhands_cfg, 'testing_container_enabled', False)):
+            return str(openhands_cfg.base_url or '').strip()
+        return str(getattr(openhands_cfg, 'testing_base_url', '') or '').strip()
+
+    @classmethod
+    def _testing_openhands_llm_settings(cls, openhands_cfg: DictConfig) -> dict[str, str]:
+        if not bool(getattr(openhands_cfg, 'testing_container_enabled', False)):
+            return cls._openhands_llm_settings(openhands_cfg)
+        return {
+            'llm_model': str(getattr(openhands_cfg, 'testing_llm_model', '') or '').strip(),
+            'llm_base_url': str(getattr(openhands_cfg, 'testing_llm_base_url', '') or '').strip(),
         }
 
     @staticmethod

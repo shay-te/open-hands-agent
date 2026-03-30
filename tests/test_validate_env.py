@@ -243,6 +243,71 @@ class ValidateEnvTests(unittest.TestCase):
 
         self.assertEqual(errors, ['openai/gpt-4o requires OPENHANDS_LLM_API_KEY'])
 
+    def test_validate_openhands_env_requires_testing_base_url_when_testing_container_enabled(self) -> None:
+        errors = validate_openhands_env(
+            {
+                'OH_SECRET_KEY': 'secret-key',
+                'OPENHANDS_LLM_MODEL': 'openai/gpt-4o',
+                'OPENHANDS_LLM_API_KEY': 'llm-key',
+                'OPENHANDS_TESTING_CONTAINER_ENABLED': 'true',
+                'OPENHANDS_TESTING_LLM_MODEL': 'openai/gpt-4o-mini',
+                'OPENHANDS_TESTING_LLM_API_KEY': 'testing-key',
+            }
+        )
+
+        self.assertIn(
+            'dedicated testing container requires OPENHANDS_TESTING_BASE_URL',
+            errors,
+        )
+
+    def test_validate_openhands_env_requires_testing_model_when_testing_container_enabled(self) -> None:
+        errors = validate_openhands_env(
+            {
+                'OH_SECRET_KEY': 'secret-key',
+                'OPENHANDS_LLM_MODEL': 'openai/gpt-4o',
+                'OPENHANDS_LLM_API_KEY': 'llm-key',
+                'OPENHANDS_TESTING_CONTAINER_ENABLED': 'true',
+                'OPENHANDS_TESTING_BASE_URL': 'http://localhost:3001',
+            }
+        )
+
+        self.assertIn(
+            'dedicated testing container requires OPENHANDS_TESTING_LLM_MODEL',
+            errors,
+        )
+
+    def test_validate_openhands_env_requires_testing_api_key_for_non_bedrock_testing_model(self) -> None:
+        errors = validate_openhands_env(
+            {
+                'OH_SECRET_KEY': 'secret-key',
+                'OPENHANDS_LLM_MODEL': 'openai/gpt-4o',
+                'OPENHANDS_LLM_API_KEY': 'llm-key',
+                'OPENHANDS_TESTING_CONTAINER_ENABLED': 'true',
+                'OPENHANDS_TESTING_BASE_URL': 'http://localhost:3001',
+                'OPENHANDS_TESTING_LLM_MODEL': 'openai/gpt-4o-mini',
+            }
+        )
+
+        self.assertIn(
+            'openai/gpt-4o-mini requires OPENHANDS_TESTING_LLM_API_KEY',
+            errors,
+        )
+
+    def test_validate_openhands_env_accepts_testing_container_with_bedrock_testing_model(self) -> None:
+        errors = validate_openhands_env(
+            {
+                'OH_SECRET_KEY': 'secret-key',
+                'OPENHANDS_LLM_MODEL': 'openai/gpt-4o',
+                'OPENHANDS_LLM_API_KEY': 'llm-key',
+                'OPENHANDS_TESTING_CONTAINER_ENABLED': 'true',
+                'OPENHANDS_TESTING_BASE_URL': 'http://localhost:3001',
+                'OPENHANDS_TESTING_LLM_MODEL': 'bedrock/anthropic.claude-3-sonnet-20240229-v1:0',
+                'AWS_BEARER_TOKEN_BEDROCK': 'token',
+            }
+        )
+
+        self.assertEqual(errors, [])
+
     def test_validate_openhands_env_requires_secret_key(self) -> None:
         errors = validate_openhands_env(
             {

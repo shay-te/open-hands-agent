@@ -220,6 +220,42 @@ def validate_openhands_env(env: dict[str, str]) -> list[str]:
         errors.append('missing required OpenHands env var: OPENHANDS_LLM_MODEL')
         return errors
 
+    errors.extend(_validate_openhands_model_auth(env, model, 'OPENHANDS_LLM_API_KEY'))
+    errors.extend(_validate_openhands_testing_container_env(env))
+    return errors
+
+
+def _validate_openhands_testing_container_env(env: dict[str, str]) -> list[str]:
+    if not _is_enabled(env.get('OPENHANDS_TESTING_CONTAINER_ENABLED')):
+        return []
+
+    errors: list[str] = []
+    for key in _missing(
+        env,
+        [
+            'OPENHANDS_TESTING_BASE_URL',
+            'OPENHANDS_TESTING_LLM_MODEL',
+        ],
+    ):
+        errors.append(f'dedicated testing container requires {key}')
+
+    testing_model = normalized_text(env.get('OPENHANDS_TESTING_LLM_MODEL', ''))
+    if testing_model:
+        errors.extend(
+            _validate_openhands_model_auth(
+                env,
+                testing_model,
+                'OPENHANDS_TESTING_LLM_API_KEY',
+            )
+        )
+    return errors
+
+
+def _validate_openhands_model_auth(
+    env: dict[str, str],
+    model: str,
+    api_key_key: str,
+) -> list[str]:
     if model.startswith('bedrock/'):
         has_bearer = bool(normalized_text(env.get('AWS_BEARER_TOKEN_BEDROCK', '')))
         has_access_key_flow = not _missing(
@@ -227,15 +263,13 @@ def validate_openhands_env(env: dict[str, str]) -> list[str]:
             ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_REGION_NAME'],
         )
         if not has_bearer and not has_access_key_flow:
-            errors.append(
+            return [
                 'bedrock model requires AWS_BEARER_TOKEN_BEDROCK or '
                 'AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY + AWS_REGION_NAME'
-            )
-        return errors
+            ]
+        return []
 
-    for key in _missing(env, ['OPENHANDS_LLM_API_KEY']):
-        errors.append(f'{model} requires {key}')
-    return errors
+    return [f'{model} requires {key}' for key in _missing(env, [api_key_key])]
 
 
 def _validate(mode: str, env: dict[str, str]) -> list[str]:

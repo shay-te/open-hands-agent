@@ -28,4 +28,9 @@ run:
 	./scripts/run-local.sh
 
 compose-up:
-	docker compose up --build
+	@if [ -f .env ]; then set -a; . ./.env; set +a; fi; \
+	if [ "$${OPENHANDS_TESTING_CONTAINER_ENABLED:-false}" = "true" ]; then \
+		docker compose --profile testing up --build; \
+	else \
+		docker compose up --build; \
+	fi

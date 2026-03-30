@@ -184,6 +184,10 @@ def build_test_cfg() -> DictConfig:
                     'api_key': 'oh-token',
                     'llm_model': 'bedrock/qwen.qwen3-coder-480b-a35b-v1:0',
                     'llm_base_url': '',
+                    'testing_container_enabled': False,
+                    'testing_base_url': 'https://openhands-testing.example',
+                    'testing_llm_model': '',
+                    'testing_llm_base_url': '',
                 },
                 'repository': {
                     'name': 'repository-config',

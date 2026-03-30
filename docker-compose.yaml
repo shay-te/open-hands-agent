@@ -59,6 +59,8 @@ x-openhands-agent-env: &openhands-agent-env
   OPENHANDS_AGENT_DB_FILE: ${OPENHANDS_AGENT_DB_FILE:-openhands_agent.db}
   OPENHANDS_BASE_URL: http://openhands:3000
   OPENHANDS_API_KEY: ${OPENHANDS_API_KEY:-local}
+  OPENHANDS_TESTING_CONTAINER_ENABLED: ${OPENHANDS_TESTING_CONTAINER_ENABLED:-false}
+  OPENHANDS_TESTING_BASE_URL: http://openhands-testing:3000
   OPENHANDS_AGENT_MAX_RETRIES: ${OPENHANDS_AGENT_MAX_RETRIES:-5}
   OPENHANDS_AGENT_STATE_FILE: ${OPENHANDS_AGENT_STATE_FILE:-data/openhands_agent_state.json}
   OPENHANDS_AGENT_FAILURE_EMAIL_ENABLED: ${OPENHANDS_AGENT_FAILURE_EMAIL_ENABLED:-false}
@@ -77,6 +79,9 @@ x-openhands-agent-env: &openhands-agent-env
   OPENHANDS_AGENT_WORKFLOW_LOG_LEVEL: ${OPENHANDS_AGENT_WORKFLOW_LOG_LEVEL:-info}
   OPENHANDS_LLM_MODEL: ${OPENHANDS_LLM_MODEL:-}
   OPENHANDS_LLM_BASE_URL: ${OPENHANDS_LLM_BASE_URL:-}
+  OPENHANDS_TESTING_LLM_MODEL: ${OPENHANDS_TESTING_LLM_MODEL:-}
+  OPENHANDS_TESTING_LLM_API_KEY: ${OPENHANDS_TESTING_LLM_API_KEY:-}
+  OPENHANDS_TESTING_LLM_BASE_URL: ${OPENHANDS_TESTING_LLM_BASE_URL:-}
   OPENHANDS_POLL_INTERVAL_SECONDS: ${OPENHANDS_POLL_INTERVAL_SECONDS:-2.0}
   OPENHANDS_MAX_POLL_ATTEMPTS: ${OPENHANDS_MAX_POLL_ATTEMPTS:-900}
   LLM_MODEL: ${OPENHANDS_LLM_MODEL:-}
@@ -89,30 +94,33 @@ x-openhands-agent-env: &openhands-agent-env
   AGENT_SERVER_IMAGE_REPOSITORY: ${OPENHANDS_AGENT_SERVER_IMAGE_REPOSITORY:-ghcr.io/openhands/agent-server}
   AGENT_SERVER_IMAGE_TAG: ${OPENHANDS_AGENT_SERVER_IMAGE_TAG:-1.12.0-python}
 
+x-openhands-service-env: &openhands-service-env
+  LOG_LEVEL: ${OPENHANDS_LOG_LEVEL:-error}
+  UVICORN_LOG_LEVEL: ${OPENHANDS_LOG_LEVEL:-error}
+  OH_SECRET_KEY: ${OH_SECRET_KEY:-}
+  AGENT_SERVER_IMAGE_REPOSITORY: ${OPENHANDS_AGENT_SERVER_IMAGE_REPOSITORY:-ghcr.io/openhands/agent-server}
+  AGENT_SERVER_IMAGE_TAG: ${OPENHANDS_AGENT_SERVER_IMAGE_TAG:-1.12.0-python}
+  AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+  AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+  AWS_REGION_NAME: ${AWS_REGION_NAME:-}
+  AWS_DEFAULT_REGION: ${AWS_REGION_NAME:-}
+  AWS_REGION: ${AWS_REGION_NAME:-}
+  AWS_BEARER_TOKEN_BEDROCK: ${AWS_BEARER_TOKEN_BEDROCK:-}
+  SSH_AUTH_SOCK: /ssh-agent
+  SANDBOX_VOLUMES: ${REPOSITORY_ROOT_PATH:-.}:/workspace/project:rw,${OPENHANDS_SSH_AUTH_SOCK_HOST_PATH:-/run/host-services/ssh-auth.sock}:/ssh-agent:ro
+  OH_PERSISTENCE_DIR: /data
+
 services:
   openhands:
     image: docker.openhands.dev/openhands/openhands:1.5
     pull_policy: always
     environment:
-      LOG_LEVEL: ${OPENHANDS_LOG_LEVEL:-error}
-      UVICORN_LOG_LEVEL: ${OPENHANDS_LOG_LEVEL:-error}
-      OH_SECRET_KEY: ${OH_SECRET_KEY:-}
-      AGENT_SERVER_IMAGE_REPOSITORY: ${OPENHANDS_AGENT_SERVER_IMAGE_REPOSITORY:-ghcr.io/openhands/agent-server}
-      AGENT_SERVER_IMAGE_TAG: ${OPENHANDS_AGENT_SERVER_IMAGE_TAG:-1.12.0-python}
+      <<: *openhands-service-env
       LLM_MODEL: ${OPENHANDS_LLM_MODEL:-}
       LLM_API_KEY: ${OPENHANDS_LLM_API_KEY:-}
       LLM_BASE_URL: ${OPENHANDS_LLM_BASE_URL:-}
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
-      AWS_REGION_NAME: ${AWS_REGION_NAME:-}
-      AWS_DEFAULT_REGION: ${AWS_REGION_NAME:-}
-      AWS_REGION: ${AWS_REGION_NAME:-}
-      AWS_BEARER_TOKEN_BEDROCK: ${AWS_BEARER_TOKEN_BEDROCK:-}
-      SSH_AUTH_SOCK: /ssh-agent
-      SANDBOX_VOLUMES: ${REPOSITORY_ROOT_PATH:-.}:/workspace/project:rw,${OPENHANDS_SSH_AUTH_SOCK_HOST_PATH:-/run/host-services/ssh-auth.sock}:/ssh-agent:ro
       OH_AGENT_SERVER_ENV: >-
         {"LLM_MODEL":"${OPENHANDS_LLM_MODEL:-}","LLM_API_KEY":"${OPENHANDS_LLM_API_KEY:-}","LLM_BASE_URL":"${OPENHANDS_LLM_BASE_URL:-}","AWS_ACCESS_KEY_ID":"${AWS_ACCESS_KEY_ID:-}","AWS_SECRET_ACCESS_KEY":"${AWS_SECRET_ACCESS_KEY:-}","AWS_REGION_NAME":"${AWS_REGION_NAME:-}","AWS_DEFAULT_REGION":"${AWS_REGION_NAME:-}","AWS_REGION":"${AWS_REGION_NAME:-}","LLM_AWS_ACCESS_KEY_ID":"${AWS_ACCESS_KEY_ID:-}","LLM_AWS_SECRET_ACCESS_KEY":"${AWS_SECRET_ACCESS_KEY:-}","LLM_AWS_REGION_NAME":"${AWS_REGION_NAME:-}","AWS_BEARER_TOKEN_BEDROCK":"${AWS_BEARER_TOKEN_BEDROCK:-}","SSH_AUTH_SOCK":"/ssh-agent","OH_SANDBOX_VOLUMES":"${REPOSITORY_ROOT_PATH:-.}:/workspace/project:rw,${OPENHANDS_SSH_AUTH_SOCK_HOST_PATH:-/run/host-services/ssh-auth.sock}:/ssh-agent:ro"}
-      OH_PERSISTENCE_DIR: /data
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./docker_data/openhands:/data
@@ -121,6 +129,28 @@ services:
       - ${OPENHANDS_SSH_AUTH_SOCK_HOST_PATH:-/run/host-services/ssh-auth.sock}:/ssh-agent:ro
     ports:
       - "${OPENHANDS_PORT:-3000}:3000"
+    extra_hosts:
+      - host.docker.internal:host-gateway
+
+  openhands-testing:
+    profiles: ["testing"]
+    image: docker.openhands.dev/openhands/openhands:1.5
+    pull_policy: always
+    environment:
+      <<: *openhands-service-env
+      LLM_MODEL: ${OPENHANDS_TESTING_LLM_MODEL:-}
+      LLM_API_KEY: ${OPENHANDS_TESTING_LLM_API_KEY:-}
+      LLM_BASE_URL: ${OPENHANDS_TESTING_LLM_BASE_URL:-}
+      OH_AGENT_SERVER_ENV: >-
+        {"LLM_MODEL":"${OPENHANDS_TESTING_LLM_MODEL:-}","LLM_API_KEY":"${OPENHANDS_TESTING_LLM_API_KEY:-}","LLM_BASE_URL":"${OPENHANDS_TESTING_LLM_BASE_URL:-}","AWS_ACCESS_KEY_ID":"${AWS_ACCESS_KEY_ID:-}","AWS_SECRET_ACCESS_KEY":"${AWS_SECRET_ACCESS_KEY:-}","AWS_REGION_NAME":"${AWS_REGION_NAME:-}","AWS_DEFAULT_REGION":"${AWS_REGION_NAME:-}","AWS_REGION":"${AWS_REGION_NAME:-}","LLM_AWS_ACCESS_KEY_ID":"${AWS_ACCESS_KEY_ID:-}","LLM_AWS_SECRET_ACCESS_KEY":"${AWS_SECRET_ACCESS_KEY:-}","LLM_AWS_REGION_NAME":"${AWS_REGION_NAME:-}","AWS_BEARER_TOKEN_BEDROCK":"${AWS_BEARER_TOKEN_BEDROCK:-}","SSH_AUTH_SOCK":"/ssh-agent","OH_SANDBOX_VOLUMES":"${REPOSITORY_ROOT_PATH:-.}:/workspace/project:rw,${OPENHANDS_SSH_AUTH_SOCK_HOST_PATH:-/run/host-services/ssh-auth.sock}:/ssh-agent:ro"}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./docker_data/openhands-testing:/data
+      - ./docker_data/openhands_testing_state:/.openhands
+      - ${REPOSITORY_ROOT_PATH:-.}:/workspace/project
+      - ${OPENHANDS_SSH_AUTH_SOCK_HOST_PATH:-/run/host-services/ssh-auth.sock}:/ssh-agent:ro
+    ports:
+      - "${OPENHANDS_TESTING_PORT:-3001}:3000"
     extra_hosts:
       - host.docker.internal:host-gateway
 

@@ -118,6 +118,54 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
         mock_service_cls.return_value.validate_connections.assert_called_once_with()
         self.assertIs(app.service, mock_service_cls.return_value)
 
+    def test_uses_testing_container_base_url_and_llm_settings_when_enabled(self) -> None:
+        cfg = build_test_cfg()
+        cfg.openhands_agent.openhands.testing_container_enabled = True
+        cfg.openhands_agent.openhands.testing_base_url = 'https://openhands-testing.example'
+        cfg.openhands_agent.openhands.testing_llm_model = 'openai/gpt-4o-mini'
+        cfg.openhands_agent.openhands.testing_llm_base_url = 'https://api.openai.com/v1'
+
+        with patch(
+            'openhands_agent.openhands_agent_core_lib.CoreLib.connection_factory_registry.get_or_reg'
+        ), patch(
+            'openhands_agent.openhands_agent_core_lib.EmailCoreLib'
+        ), patch(
+            'openhands_agent.openhands_agent_core_lib.build_ticket_client'
+        ), patch(
+            'openhands_agent.openhands_agent_core_lib.OpenHandsClient'
+        ) as mock_openhands_client_cls, patch(
+            'openhands_agent.openhands_agent_core_lib.AgentStateDataAccess'
+        ), patch(
+            'openhands_agent.openhands_agent_core_lib.RepositoryService'
+        ), patch(
+            'openhands_agent.openhands_agent_core_lib.TaskDataAccess'
+        ), patch(
+            'openhands_agent.openhands_agent_core_lib.ImplementationService'
+        ), patch(
+            'openhands_agent.openhands_agent_core_lib.TestingService'
+        ), patch(
+            'openhands_agent.openhands_agent_core_lib.NotificationService'
+        ), patch(
+            'openhands_agent.openhands_agent_core_lib.AgentService'
+        ):
+            OpenHandsAgentCoreLib(cfg)
+
+        self.assertEqual(
+            mock_openhands_client_cls.call_args_list[1].args,
+            (
+                'https://openhands-testing.example',
+                cfg.openhands_agent.openhands.api_key,
+                cfg.openhands_agent.retry.max_retries,
+            ),
+        )
+        self.assertEqual(
+            mock_openhands_client_cls.call_args_list[1].kwargs['llm_settings'],
+            {
+                'llm_model': 'openai/gpt-4o-mini',
+                'llm_base_url': 'https://api.openai.com/v1',
+            },
+        )
+
     def test_exposes_service_instance(self) -> None:
         with patch(
             'openhands_agent.openhands_agent_core_lib.CoreLib.connection_factory_registry.get_or_reg'

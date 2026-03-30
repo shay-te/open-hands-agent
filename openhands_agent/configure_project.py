@@ -493,6 +493,10 @@ def _prompt_discovered_repository(
 def _prompt_openhands(
     defaults: dict[str, str],
 ) -> dict[str, str]:
+    testing_container_enabled = input_bool(
+        'Use a dedicated OpenHands testing container',
+        default=_default_bool(defaults, 'OPENHANDS_TESTING_CONTAINER_ENABLED'),
+    )
     values = {
         'OPENHANDS_BASE_URL': input_str(
             'OpenHands base URL',
@@ -520,6 +524,7 @@ def _prompt_openhands(
             'OpenHands LLM model',
             default=_default_str(defaults, 'OPENHANDS_LLM_MODEL'),
         ),
+        'OPENHANDS_TESTING_CONTAINER_ENABLED': _bool_to_env(testing_container_enabled),
     }
     if values['OPENHANDS_LLM_MODEL'].startswith('bedrock/'):
         auth_mode = input_enum(
@@ -561,6 +566,57 @@ def _prompt_openhands(
             default=_default_str(defaults, 'OPENHANDS_LLM_BASE_URL'),
             allow_empty=True,
         )
+
+    values['OPENHANDS_TESTING_BASE_URL'] = _default_str(
+        defaults,
+        'OPENHANDS_TESTING_BASE_URL',
+        fallback='http://localhost:3001',
+    )
+    values['OPENHANDS_TESTING_LLM_MODEL'] = _default_str(defaults, 'OPENHANDS_TESTING_LLM_MODEL')
+    values['OPENHANDS_TESTING_LLM_API_KEY'] = _default_str(defaults, 'OPENHANDS_TESTING_LLM_API_KEY')
+    values['OPENHANDS_TESTING_LLM_BASE_URL'] = _default_str(
+        defaults,
+        'OPENHANDS_TESTING_LLM_BASE_URL',
+    )
+
+    if testing_container_enabled:
+        values['OPENHANDS_TESTING_BASE_URL'] = input_str(
+            'OpenHands testing base URL',
+            default=_default_str(
+                defaults,
+                'OPENHANDS_TESTING_BASE_URL',
+                fallback='http://localhost:3001',
+            ),
+        )
+        values['OPENHANDS_TESTING_LLM_MODEL'] = input_str(
+            'OpenHands testing LLM model',
+            default=_default_str(
+                defaults,
+                'OPENHANDS_TESTING_LLM_MODEL',
+                fallback=values['OPENHANDS_LLM_MODEL'],
+            ),
+        )
+        if values['OPENHANDS_TESTING_LLM_MODEL'].startswith('bedrock/'):
+            values['OPENHANDS_TESTING_LLM_API_KEY'] = ''
+            values['OPENHANDS_TESTING_LLM_BASE_URL'] = ''
+        else:
+            values['OPENHANDS_TESTING_LLM_API_KEY'] = input_str(
+                'OpenHands testing LLM API key',
+                default=_default_str(
+                    defaults,
+                    'OPENHANDS_TESTING_LLM_API_KEY',
+                    fallback=values.get('OPENHANDS_LLM_API_KEY', ''),
+                ),
+            )
+            values['OPENHANDS_TESTING_LLM_BASE_URL'] = input_str(
+                'OpenHands testing LLM base URL',
+                default=_default_str(
+                    defaults,
+                    'OPENHANDS_TESTING_LLM_BASE_URL',
+                    fallback=values.get('OPENHANDS_LLM_BASE_URL', ''),
+                ),
+                allow_empty=True,
+            )
     return values
 
 

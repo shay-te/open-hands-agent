@@ -30,6 +30,23 @@ class DeploymentFilesTests(unittest.TestCase):
         self.assertIn('LLM_BASE_URL: ${OPENHANDS_LLM_BASE_URL:-}', compose_text)
         self.assertIn('OPENHANDS_LLM_BASE_URL: ${OPENHANDS_LLM_BASE_URL:-}', compose_text)
         self.assertIn(
+            'OPENHANDS_TESTING_CONTAINER_ENABLED: ${OPENHANDS_TESTING_CONTAINER_ENABLED:-false}',
+            compose_text,
+        )
+        self.assertIn('OPENHANDS_TESTING_BASE_URL: http://openhands-testing:3000', compose_text)
+        self.assertIn(
+            'OPENHANDS_TESTING_LLM_MODEL: ${OPENHANDS_TESTING_LLM_MODEL:-}',
+            compose_text,
+        )
+        self.assertIn(
+            'OPENHANDS_TESTING_LLM_API_KEY: ${OPENHANDS_TESTING_LLM_API_KEY:-}',
+            compose_text,
+        )
+        self.assertIn(
+            'OPENHANDS_TESTING_LLM_BASE_URL: ${OPENHANDS_TESTING_LLM_BASE_URL:-}',
+            compose_text,
+        )
+        self.assertIn(
             'OPENHANDS_POLL_INTERVAL_SECONDS: ${OPENHANDS_POLL_INTERVAL_SECONDS:-2.0}',
             compose_text,
         )
@@ -130,6 +147,12 @@ class DeploymentFilesTests(unittest.TestCase):
             'OPENHANDS_AGENT_DB_PATH: ${OPENHANDS_AGENT_DB_PATH:-data}',
             compose_text,
         )
+        self.assertIn('openhands-testing:', compose_text)
+        self.assertIn('profiles: ["testing"]', compose_text)
+        self.assertIn(
+            '"${OPENHANDS_TESTING_PORT:-3001}:3000"',
+            compose_text,
+        )
         self.assertIn('OH_AGENT_SERVER_ENV: >-', compose_text)
         self.assertIn(
             '"SSH_AUTH_SOCK":"/ssh-agent"',
@@ -182,6 +205,9 @@ class DeploymentFilesTests(unittest.TestCase):
         self.assertIn('BITBUCKET_ISSUES_PROGRESS_STATE=', env_example_text)
         self.assertIn('BITBUCKET_ISSUES_ISSUE_STATES=', env_example_text)
         self.assertIn('OPENHANDS_BASE_URL=', env_example_text)
+        self.assertIn('OPENHANDS_TESTING_CONTAINER_ENABLED=', env_example_text)
+        self.assertIn('OPENHANDS_TESTING_BASE_URL=', env_example_text)
+        self.assertIn('OPENHANDS_TESTING_PORT=', env_example_text)
         self.assertIn('OPENHANDS_AGENT_STATE_FILE=', env_example_text)
         self.assertIn('OPENHANDS_AGENT_LOG_LEVEL=', env_example_text)
         self.assertIn('OPENHANDS_AGENT_WORKFLOW_LOG_LEVEL=', env_example_text)
@@ -189,6 +215,9 @@ class DeploymentFilesTests(unittest.TestCase):
         self.assertIn('OPENHANDS_LLM_MODEL=', env_example_text)
         self.assertIn('OPENHANDS_LLM_API_KEY=', env_example_text)
         self.assertIn('OPENHANDS_LLM_BASE_URL=', env_example_text)
+        self.assertIn('OPENHANDS_TESTING_LLM_MODEL=', env_example_text)
+        self.assertIn('OPENHANDS_TESTING_LLM_API_KEY=', env_example_text)
+        self.assertIn('OPENHANDS_TESTING_LLM_BASE_URL=', env_example_text)
         self.assertIn('OPENHANDS_POLL_INTERVAL_SECONDS=', env_example_text)
         self.assertIn('OPENHANDS_MAX_POLL_ATTEMPTS=', env_example_text)
         self.assertIn('OPENHANDS_LOG_LEVEL=', env_example_text)
@@ -221,6 +250,9 @@ class DeploymentFilesTests(unittest.TestCase):
         install_entrypoint_text = (
             REPO_ROOT / 'docker' / 'entrypoint-install.sh'
         ).read_text(encoding='utf-8')
+        run_entrypoint_text = (
+            REPO_ROOT / 'docker' / 'entrypoint-run.sh'
+        ).read_text(encoding='utf-8')
         config_text = (
             REPO_ROOT / 'openhands_agent' / 'config' / 'openhands_agent_core_lib.yaml'
         ).read_text(encoding='utf-8')
@@ -242,8 +274,11 @@ class DeploymentFilesTests(unittest.TestCase):
         self.assertIn('doctor:', makefile_text)
         self.assertIn('install:', makefile_text)
         self.assertIn('run:', makefile_text)
+        self.assertIn('--profile testing', makefile_text)
         self.assertNotIn('.docker-compose.selected-repos.yaml', makefile_text)
         self.assertIn('python -m openhands_agent.install', install_entrypoint_text)
+        self.assertIn('OPENHANDS_TESTING_CONTAINER_ENABLED', run_entrypoint_text)
+        self.assertIn('OPENHANDS_TESTING_BASE_URL', run_entrypoint_text)
         self.assertIn('install:', compose_text)
         self.assertIn('/app/docker/entrypoint-install.sh', compose_text)
         self.assertIn('/app/docker/entrypoint-run.sh', compose_text)
@@ -288,6 +323,8 @@ class DeploymentFilesTests(unittest.TestCase):
         self.assertIn('YOUTRACK_ISSUE_STATES', config_text)
         self.assertIn('poll_interval_seconds:', config_text)
         self.assertIn('max_poll_attempts:', config_text)
+        self.assertIn('testing_container_enabled:', config_text)
+        self.assertIn('testing_base_url:', config_text)
 
     def test_repo_includes_ci_workflow(self) -> None:
         workflow_text = (

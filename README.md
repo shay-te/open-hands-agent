@@ -179,6 +179,17 @@ OPENHANDS_LLM_MODEL=openai/gpt-4o
 OPENHANDS_LLM_API_KEY=...
 ```
 
+If you want a dedicated testing server with its own `OH_AGENT_SERVER_ENV`, enable the optional testing container:
+
+```dotenv
+OPENHANDS_TESTING_CONTAINER_ENABLED=true
+OPENHANDS_TESTING_BASE_URL=http://localhost:3001
+OPENHANDS_TESTING_LLM_MODEL=openai/gpt-4o-mini
+OPENHANDS_TESTING_LLM_API_KEY=...
+```
+
+`make compose-up` reads that flag from `.env` and automatically starts Docker Compose with the `testing` profile. If you run Docker Compose manually, use `docker compose --profile testing up --build` when the testing container is enabled. When the flag is `false`, the agent keeps using the main OpenHands server for testing.
+
 Optional advanced OpenHands settings supported by this compose file:
 
 ```dotenv
