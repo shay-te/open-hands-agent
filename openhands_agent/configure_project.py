@@ -7,6 +7,7 @@ from pathlib import Path
 import re
 import secrets
 
+from openhands_agent.openhands_config_utils import is_bedrock_model
 from openhands_agent.repository_discovery import (
     discover_git_repositories,
     read_git_remote_url,
@@ -497,7 +498,23 @@ def _prompt_openhands(
         'Use a dedicated OpenHands testing container',
         default=_default_bool(defaults, 'OPENHANDS_TESTING_CONTAINER_ENABLED'),
     )
-    values = {
+    values = _prompt_openhands_core_values(defaults, testing_container_enabled)
+    values.update(_prompt_primary_openhands_llm(defaults))
+    values.update(
+        _prompt_testing_openhands(
+            defaults,
+            primary_values=values,
+            testing_container_enabled=testing_container_enabled,
+        )
+    )
+    return values
+
+
+def _prompt_openhands_core_values(
+    defaults: dict[str, str],
+    testing_container_enabled: bool,
+) -> dict[str, str]:
+    return {
         'OPENHANDS_BASE_URL': input_str(
             'OpenHands base URL',
             default=_default_str(defaults, 'OPENHANDS_BASE_URL', fallback='http://localhost:3000'),
@@ -520,104 +537,149 @@ def _prompt_openhands(
             'State file path',
             default=_default_str(defaults, 'OPENHANDS_AGENT_STATE_FILE', fallback='data/openhands_agent_state.json'),
         ),
-        'OPENHANDS_LLM_MODEL': input_str(
-            'OpenHands LLM model',
-            default=_default_str(defaults, 'OPENHANDS_LLM_MODEL'),
-        ),
         'OPENHANDS_TESTING_CONTAINER_ENABLED': _bool_to_env(testing_container_enabled),
     }
-    if values['OPENHANDS_LLM_MODEL'].startswith('bedrock/'):
-        auth_mode = input_enum(
-            'How should OpenHands authenticate to Bedrock',
-            ['access_keys', 'bearer_token'],
-            default='access_keys' if _default_str(defaults, 'AWS_ACCESS_KEY_ID') else 'bearer_token',
+
+
+def _prompt_primary_openhands_llm(defaults: dict[str, str]) -> dict[str, str]:
+    values = _prompt_openhands_llm_values(
+        defaults,
+        model_prompt='OpenHands LLM model',
+        model_key='OPENHANDS_LLM_MODEL',
+        api_key_prompt='OpenHands LLM API key',
+        api_key_key='OPENHANDS_LLM_API_KEY',
+        base_url_prompt='OpenHands LLM base URL',
+        base_url_key='OPENHANDS_LLM_BASE_URL',
+    )
+    if is_bedrock_model(values['OPENHANDS_LLM_MODEL']):
+        values.update(_prompt_bedrock_auth(defaults))
+        return values
+    values.update(_blank_bedrock_auth_values())
+    return values
+
+
+def _prompt_testing_openhands(
+    defaults: dict[str, str],
+    primary_values: dict[str, str],
+    *,
+    testing_container_enabled: bool,
+) -> dict[str, str]:
+    values = _default_testing_openhands_values(defaults)
+    if not testing_container_enabled:
+        return values
+
+    values['OPENHANDS_TESTING_BASE_URL'] = input_str(
+        'OpenHands testing base URL',
+        default=values['OPENHANDS_TESTING_BASE_URL'],
+    )
+    values.update(
+        _prompt_openhands_llm_values(
+            defaults,
+            model_prompt='OpenHands testing LLM model',
+            model_key='OPENHANDS_TESTING_LLM_MODEL',
+            api_key_prompt='OpenHands testing LLM API key',
+            api_key_key='OPENHANDS_TESTING_LLM_API_KEY',
+            base_url_prompt='OpenHands testing LLM base URL',
+            base_url_key='OPENHANDS_TESTING_LLM_BASE_URL',
+            model_fallback=primary_values['OPENHANDS_LLM_MODEL'],
+            api_key_fallback=primary_values.get('OPENHANDS_LLM_API_KEY', ''),
+            base_url_fallback=primary_values.get('OPENHANDS_LLM_BASE_URL', ''),
         )
-        if auth_mode == 'access_keys':
-            values['AWS_ACCESS_KEY_ID'] = input_str(
+    )
+    return values
+
+
+def _default_testing_openhands_values(defaults: dict[str, str]) -> dict[str, str]:
+    return {
+        'OPENHANDS_TESTING_BASE_URL': _default_str(
+            defaults,
+            'OPENHANDS_TESTING_BASE_URL',
+            fallback='http://localhost:3001',
+        ),
+        'OPENHANDS_TESTING_LLM_MODEL': _default_str(defaults, 'OPENHANDS_TESTING_LLM_MODEL'),
+        'OPENHANDS_TESTING_LLM_API_KEY': _default_str(defaults, 'OPENHANDS_TESTING_LLM_API_KEY'),
+        'OPENHANDS_TESTING_LLM_BASE_URL': _default_str(
+            defaults,
+            'OPENHANDS_TESTING_LLM_BASE_URL',
+        ),
+    }
+
+
+def _prompt_openhands_llm_values(
+    defaults: dict[str, str],
+    *,
+    model_prompt: str,
+    model_key: str,
+    api_key_prompt: str,
+    api_key_key: str,
+    base_url_prompt: str,
+    base_url_key: str,
+    model_fallback: str = '',
+    api_key_fallback: str = '',
+    base_url_fallback: str = '',
+) -> dict[str, str]:
+    model = input_str(
+        model_prompt,
+        default=_default_str(defaults, model_key, fallback=model_fallback),
+    )
+    values = {model_key: model}
+    if is_bedrock_model(model):
+        values[api_key_key] = ''
+        values[base_url_key] = ''
+        return values
+
+    values[api_key_key] = input_str(
+        api_key_prompt,
+        default=_default_str(defaults, api_key_key, fallback=api_key_fallback),
+    )
+    values[base_url_key] = input_str(
+        base_url_prompt,
+        default=_default_str(defaults, base_url_key, fallback=base_url_fallback),
+        allow_empty=True,
+    )
+    return values
+
+
+def _prompt_bedrock_auth(defaults: dict[str, str]) -> dict[str, str]:
+    auth_mode = input_enum(
+        'How should OpenHands authenticate to Bedrock',
+        ['access_keys', 'bearer_token'],
+        default='access_keys' if _default_str(defaults, 'AWS_ACCESS_KEY_ID') else 'bearer_token',
+    )
+    if auth_mode == 'access_keys':
+        return {
+            'AWS_ACCESS_KEY_ID': input_str(
                 'AWS access key id',
                 default=_default_str(defaults, 'AWS_ACCESS_KEY_ID'),
-            )
-            values['AWS_SECRET_ACCESS_KEY'] = input_str(
+            ),
+            'AWS_SECRET_ACCESS_KEY': input_str(
                 'AWS secret access key',
                 default=_default_str(defaults, 'AWS_SECRET_ACCESS_KEY'),
-            )
-            values['AWS_REGION_NAME'] = input_str(
+            ),
+            'AWS_REGION_NAME': input_str(
                 'AWS region name',
                 default=_default_str(defaults, 'AWS_REGION_NAME', fallback='us-west-2'),
-            )
-            values['AWS_BEARER_TOKEN_BEDROCK'] = ''
-        else:
-            values['AWS_BEARER_TOKEN_BEDROCK'] = input_str(
-                'AWS bearer token for Bedrock',
-                default=_default_str(defaults, 'AWS_BEARER_TOKEN_BEDROCK'),
-            )
-            values['AWS_ACCESS_KEY_ID'] = ''
-            values['AWS_SECRET_ACCESS_KEY'] = ''
-            values['AWS_REGION_NAME'] = ''
-        values['OPENHANDS_LLM_API_KEY'] = ''
-        values['OPENHANDS_LLM_BASE_URL'] = ''
-    else:
-        values['OPENHANDS_LLM_API_KEY'] = input_str(
-            'OpenHands LLM API key',
-            default=_default_str(defaults, 'OPENHANDS_LLM_API_KEY'),
-        )
-        values['OPENHANDS_LLM_BASE_URL'] = input_str(
-            'OpenHands LLM base URL',
-            default=_default_str(defaults, 'OPENHANDS_LLM_BASE_URL'),
-            allow_empty=True,
-        )
-
-    values['OPENHANDS_TESTING_BASE_URL'] = _default_str(
-        defaults,
-        'OPENHANDS_TESTING_BASE_URL',
-        fallback='http://localhost:3001',
-    )
-    values['OPENHANDS_TESTING_LLM_MODEL'] = _default_str(defaults, 'OPENHANDS_TESTING_LLM_MODEL')
-    values['OPENHANDS_TESTING_LLM_API_KEY'] = _default_str(defaults, 'OPENHANDS_TESTING_LLM_API_KEY')
-    values['OPENHANDS_TESTING_LLM_BASE_URL'] = _default_str(
-        defaults,
-        'OPENHANDS_TESTING_LLM_BASE_URL',
-    )
-
-    if testing_container_enabled:
-        values['OPENHANDS_TESTING_BASE_URL'] = input_str(
-            'OpenHands testing base URL',
-            default=_default_str(
-                defaults,
-                'OPENHANDS_TESTING_BASE_URL',
-                fallback='http://localhost:3001',
             ),
-        )
-        values['OPENHANDS_TESTING_LLM_MODEL'] = input_str(
-            'OpenHands testing LLM model',
-            default=_default_str(
-                defaults,
-                'OPENHANDS_TESTING_LLM_MODEL',
-                fallback=values['OPENHANDS_LLM_MODEL'],
-            ),
-        )
-        if values['OPENHANDS_TESTING_LLM_MODEL'].startswith('bedrock/'):
-            values['OPENHANDS_TESTING_LLM_API_KEY'] = ''
-            values['OPENHANDS_TESTING_LLM_BASE_URL'] = ''
-        else:
-            values['OPENHANDS_TESTING_LLM_API_KEY'] = input_str(
-                'OpenHands testing LLM API key',
-                default=_default_str(
-                    defaults,
-                    'OPENHANDS_TESTING_LLM_API_KEY',
-                    fallback=values.get('OPENHANDS_LLM_API_KEY', ''),
-                ),
-            )
-            values['OPENHANDS_TESTING_LLM_BASE_URL'] = input_str(
-                'OpenHands testing LLM base URL',
-                default=_default_str(
-                    defaults,
-                    'OPENHANDS_TESTING_LLM_BASE_URL',
-                    fallback=values.get('OPENHANDS_LLM_BASE_URL', ''),
-                ),
-                allow_empty=True,
-            )
-    return values
+            'AWS_BEARER_TOKEN_BEDROCK': '',
+        }
+    return {
+        'AWS_BEARER_TOKEN_BEDROCK': input_str(
+            'AWS bearer token for Bedrock',
+            default=_default_str(defaults, 'AWS_BEARER_TOKEN_BEDROCK'),
+        ),
+        'AWS_ACCESS_KEY_ID': '',
+        'AWS_SECRET_ACCESS_KEY': '',
+        'AWS_REGION_NAME': '',
+    }
+
+
+def _blank_bedrock_auth_values() -> dict[str, str]:
+    return {
+        'AWS_ACCESS_KEY_ID': '',
+        'AWS_SECRET_ACCESS_KEY': '',
+        'AWS_REGION_NAME': '',
+        'AWS_BEARER_TOKEN_BEDROCK': '',
+    }
 
 
 def _prompt_notifications(

@@ -10,6 +10,7 @@ from openhands_agent.fields import (
     PullRequestFields,
     ReviewCommentFields,
 )
+from openhands_agent.openhands_result_utils import build_openhands_result
 from openhands_agent.text_utils import (
     condensed_text,
     normalized_lower_text,
@@ -78,23 +79,13 @@ class OpenHandsClient(RetryingClientBase):
         session_id: str = '',
     ) -> dict[str, str | bool]:
         self.logger.info('requesting implementation for task %s', task.id)
-        payload = self._run_prompt(
+        result = self._run_prompt_result(
             prompt=self._build_implementation_prompt(task),
             title=self._task_conversation_title(task),
             session_id=session_id,
+            branch_name=task.branch_name,
+            default_commit_message=f'Implement {task.id}',
         )
-        returned_session_id = self._payload_session_id(payload)
-        result = {
-            Task.branch_name.key: task.branch_name,
-            Task.summary.key: payload.get(Task.summary.key, ''),
-            ImplementationFields.COMMIT_MESSAGE: payload.get(
-                ImplementationFields.COMMIT_MESSAGE,
-                f'Implement {task.id}',
-            ),
-            ImplementationFields.SUCCESS: self._success_flag(payload),
-        }
-        if returned_session_id:
-            result[ImplementationFields.SESSION_ID] = returned_session_id
         self.logger.info(
             'implementation finished for task %s with success=%s',
             task.id,
@@ -104,20 +95,10 @@ class OpenHandsClient(RetryingClientBase):
 
     def test_task(self, task: Task) -> dict[str, str | bool]:
         self.logger.info('requesting testing validation for task %s', task.id)
-        payload = self._run_prompt(
+        result = self._run_prompt_result(
             prompt=self._build_testing_prompt(task),
             title=self._task_conversation_title(task, suffix=' [testing]'),
         )
-        result = {
-            Task.summary.key: payload.get(Task.summary.key, ''),
-            ImplementationFields.SUCCESS: self._success_flag(payload),
-        }
-        commit_message = text_from_mapping(payload, ImplementationFields.COMMIT_MESSAGE)
-        if commit_message:
-            result[ImplementationFields.COMMIT_MESSAGE] = commit_message
-        returned_session_id = self._payload_session_id(payload)
-        if returned_session_id:
-            result[ImplementationFields.SESSION_ID] = returned_session_id
         self.logger.info(
             'testing validation finished for task %s with success=%s',
             task.id,
@@ -138,7 +119,7 @@ class OpenHandsClient(RetryingClientBase):
             comment.pull_request_id,
             comment.comment_id,
         )
-        payload = self._run_prompt(
+        result = self._run_prompt_result(
             prompt=self._build_review_prompt(comment, branch_name),
             title=self._review_conversation_title(
                 comment,
@@ -146,19 +127,9 @@ class OpenHandsClient(RetryingClientBase):
                 task_summary=task_summary,
             ),
             session_id=session_id,
+            branch_name=branch_name,
+            default_commit_message='Address review comments',
         )
-        returned_session_id = self._payload_session_id(payload)
-        result = {
-            Task.branch_name.key: branch_name,
-            Task.summary.key: payload.get(Task.summary.key, ''),
-            ImplementationFields.COMMIT_MESSAGE: payload.get(
-                ImplementationFields.COMMIT_MESSAGE,
-                'Address review comments',
-            ),
-            ImplementationFields.SUCCESS: self._success_flag(payload),
-        }
-        if returned_session_id:
-            result[ImplementationFields.SESSION_ID] = returned_session_id
         self.logger.info(
             'review fix finished for pull request %s comment %s with success=%s',
             comment.pull_request_id,
@@ -337,23 +308,6 @@ class OpenHandsClient(RetryingClientBase):
             return []
         return [item for item in payload if isinstance(item, dict)]
 
-    @staticmethod
-    def _success_flag(payload: dict) -> bool:
-        value = payload.get(ImplementationFields.SUCCESS, False)
-        if isinstance(value, bool):
-            return value
-        if isinstance(value, str):
-            return value.strip().lower() in {'1', 'true', 'yes', 'on'}
-        return bool(value)
-
-    @staticmethod
-    def _payload_session_id(payload: dict) -> str:
-        for key in (ImplementationFields.SESSION_ID, 'conversation_id'):
-            value = text_from_mapping(payload, key)
-            if value:
-                return value
-        return ''
-
     def _run_prompt(
         self,
         prompt: str,
@@ -364,6 +318,26 @@ class OpenHandsClient(RetryingClientBase):
         payload = self._wait_for_conversation_result(conversation_id, title)
         payload[ImplementationFields.SESSION_ID] = conversation_id
         return payload
+
+    def _run_prompt_result(
+        self,
+        *,
+        prompt: str,
+        title: str,
+        session_id: str = '',
+        branch_name: str = '',
+        default_commit_message: str | None = None,
+    ) -> dict[str, str | bool]:
+        payload = self._run_prompt(
+            prompt=prompt,
+            title=title,
+            session_id=session_id,
+        )
+        return build_openhands_result(
+            payload,
+            branch_name=branch_name,
+            default_commit_message=default_commit_message,
+        )
 
     def _sync_runtime_settings(self) -> None:
         payload = self._settings_update_payload()
@@ -683,16 +657,11 @@ class OpenHandsClient(RetryingClientBase):
         if not summary and not message:
             return None
 
-        result: dict[str, str | bool] = {
-            ImplementationFields.SUCCESS: OpenHandsClient._success_flag(parsed_arguments)
-            if ImplementationFields.SUCCESS in parsed_arguments
-            else True,
-            Task.summary.key: summary or message,
-        }
-        commit_message = text_from_mapping(parsed_arguments, ImplementationFields.COMMIT_MESSAGE)
-        if commit_message:
-            result[ImplementationFields.COMMIT_MESSAGE] = commit_message
-        return result
+        return build_openhands_result(
+            parsed_arguments,
+            summary_fallback=summary or message,
+            default_success=True,
+        )
 
     @staticmethod
     def _assistant_message_text(event: object) -> str:

@@ -20,8 +20,22 @@ from openhands_agent.data_layers.service.repository_service import RepositorySer
 from openhands_agent.data_layers.service.testing_service import TestingService
 from openhands_agent.alembic_config import build_alembic_config
 from openhands_agent.logging_utils import configure_logger
+from openhands_agent.openhands_config_utils import (
+    resolved_openhands_base_url,
+    resolved_openhands_llm_settings,
+)
 
 logger = configure_logger('OpenHandsAgentCoreLib')
+ISSUE_PLATFORM_CONFIG_NAMES = {
+    'youtrack': 'youtrack',
+    'jira': 'jira',
+    'github': 'github_issues',
+    'github_issues': 'github_issues',
+    'gitlab': 'gitlab_issues',
+    'gitlab_issues': 'gitlab_issues',
+    'bitbucket': 'bitbucket_issues',
+    'bitbucket_issues': 'bitbucket_issues',
+}
 
 
 class OpenHandsAgentCoreLib(CoreLib):
@@ -51,87 +65,82 @@ class OpenHandsAgentCoreLib(CoreLib):
         CoreLib.__init__(self)
         self.config = cfg
         self.logger = configure_logger(cfg.core_lib.app.name)
-        open_cfg = cfg.openhands_agent
+        CoreLib.connection_factory_registry.get_or_reg(self.config.core_lib.data.sqlalchemy)
+        self.service = self._build_agent_service(cfg.openhands_agent)
+        self.service.validate_connections()
+
+    def _build_agent_service(self, open_cfg: DictConfig) -> AgentService:
         retry_cfg = open_cfg.retry
+        issue_platform, ticket_cfg = self._resolve_ticket_platform_config(open_cfg)
+        ticket_client = build_ticket_client(
+            issue_platform,
+            ticket_cfg,
+            retry_cfg.max_retries,
+        )
+        implementation_service = ImplementationService(
+            self._build_openhands_client(
+                open_cfg.openhands,
+                retry_cfg.max_retries,
+            )
+        )
+        testing_service = TestingService(
+            self._build_openhands_client(
+                open_cfg.openhands,
+                retry_cfg.max_retries,
+                testing=True,
+            )
+        )
+        return AgentService(
+            task_data_access=TaskDataAccess(ticket_cfg, ticket_client),
+            implementation_service=implementation_service,
+            testing_service=testing_service,
+            repository_service=RepositoryService(open_cfg, retry_cfg.max_retries),
+            notification_service=self._build_notification_service(open_cfg),
+            state_data_access=AgentStateDataAccess(open_cfg.state.file_path),
+        )
+
+    @staticmethod
+    def _resolve_ticket_platform_config(
+        open_cfg: DictConfig,
+    ) -> tuple[str, DictConfig]:
         issue_platform = str(
             open_cfg.issue_platform
             or open_cfg.ticket_system
             or 'youtrack'
         ).strip().lower()
-        ticket_cfg = {
-            'youtrack': open_cfg.youtrack,
-            'jira': open_cfg.jira,
-            'github': open_cfg.github_issues,
-            'github_issues': open_cfg.github_issues,
-            'gitlab': open_cfg.gitlab_issues,
-            'gitlab_issues': open_cfg.gitlab_issues,
-            'bitbucket': open_cfg.bitbucket_issues,
-            'bitbucket_issues': open_cfg.bitbucket_issues,
-        }.get(issue_platform)
+        config_name = ISSUE_PLATFORM_CONFIG_NAMES.get(issue_platform)
+        ticket_cfg = getattr(open_cfg, config_name, None) if config_name else None
         if ticket_cfg is None:
             raise ValueError(f'missing issue platform config for: {issue_platform}')
+        return issue_platform, ticket_cfg
 
-        CoreLib.connection_factory_registry.get_or_reg(self.config.core_lib.data.sqlalchemy)
-        _email_core_lib = EmailCoreLib(cfg)
-        _ticket_client = build_ticket_client(issue_platform, ticket_cfg, retry_cfg.max_retries)
-        _implementation_openhands_client = OpenHandsClient(
-            open_cfg.openhands.base_url,
-            open_cfg.openhands.api_key,
-            retry_cfg.max_retries,
-            llm_settings=self._openhands_llm_settings(open_cfg.openhands),
-            poll_interval_seconds=self._openhands_poll_interval_seconds(open_cfg.openhands),
-            max_poll_attempts=self._openhands_max_poll_attempts(open_cfg.openhands),
-        )
-        _testing_openhands_client = OpenHandsClient(
-            self._testing_openhands_base_url(open_cfg.openhands),
-            open_cfg.openhands.api_key,
-            retry_cfg.max_retries,
-            llm_settings=self._testing_openhands_llm_settings(open_cfg.openhands),
-            poll_interval_seconds=self._openhands_poll_interval_seconds(open_cfg.openhands),
-            max_poll_attempts=self._openhands_max_poll_attempts(open_cfg.openhands),
-        )
-        _task_data_access = TaskDataAccess(ticket_cfg, _ticket_client)
-        _implementation_service = ImplementationService(_implementation_openhands_client)
-        _testing_service = TestingService(_testing_openhands_client)
-        _repository_service = RepositoryService(open_cfg, retry_cfg.max_retries)
-        _state_data_access = AgentStateDataAccess(open_cfg.state.file_path)
-        notification_service = NotificationService(
+    def _build_notification_service(self, open_cfg: DictConfig) -> NotificationService:
+        return NotificationService(
             app_name=self.config.core_lib.app.name,
-            email_core_lib=_email_core_lib,
+            email_core_lib=EmailCoreLib(self.config),
             failure_email_cfg=open_cfg.failure_email,
             completion_email_cfg=open_cfg.completion_email,
         )
-        self.service = AgentService(
-            task_data_access=_task_data_access,
-            implementation_service=_implementation_service,
-            testing_service=_testing_service,
-            repository_service=_repository_service,
-            notification_service=notification_service,
-            state_data_access=_state_data_access,
-        )
-        self.service.validate_connections()
-
-    @staticmethod
-    def _openhands_llm_settings(openhands_cfg: DictConfig) -> dict[str, str]:
-        return {
-            'llm_model': str(getattr(openhands_cfg, 'llm_model', '') or '').strip(),
-            'llm_base_url': str(getattr(openhands_cfg, 'llm_base_url', '') or '').strip(),
-        }
-
-    @staticmethod
-    def _testing_openhands_base_url(openhands_cfg: DictConfig) -> str:
-        if not bool(getattr(openhands_cfg, 'testing_container_enabled', False)):
-            return str(openhands_cfg.base_url or '').strip()
-        return str(getattr(openhands_cfg, 'testing_base_url', '') or '').strip()
 
     @classmethod
-    def _testing_openhands_llm_settings(cls, openhands_cfg: DictConfig) -> dict[str, str]:
-        if not bool(getattr(openhands_cfg, 'testing_container_enabled', False)):
-            return cls._openhands_llm_settings(openhands_cfg)
-        return {
-            'llm_model': str(getattr(openhands_cfg, 'testing_llm_model', '') or '').strip(),
-            'llm_base_url': str(getattr(openhands_cfg, 'testing_llm_base_url', '') or '').strip(),
-        }
+    def _build_openhands_client(
+        cls,
+        openhands_cfg: DictConfig,
+        max_retries: int,
+        *,
+        testing: bool = False,
+    ) -> OpenHandsClient:
+        return OpenHandsClient(
+            resolved_openhands_base_url(openhands_cfg, testing=testing),
+            openhands_cfg.api_key,
+            max_retries,
+            llm_settings=resolved_openhands_llm_settings(
+                openhands_cfg,
+                testing=testing,
+            ),
+            poll_interval_seconds=cls._openhands_poll_interval_seconds(openhands_cfg),
+            max_poll_attempts=cls._openhands_max_poll_attempts(openhands_cfg),
+        )
 
     @staticmethod
     def _openhands_poll_interval_seconds(openhands_cfg: DictConfig) -> float:

@@ -5,6 +5,7 @@ import logging
 import os
 from pathlib import Path
 
+from openhands_agent.openhands_config_utils import is_bedrock_model
 from openhands_agent.repository_discovery import discover_git_repositories
 from openhands_agent.text_utils import (
     alphanumeric_lower_text,
@@ -256,7 +257,7 @@ def _validate_openhands_model_auth(
     model: str,
     api_key_key: str,
 ) -> list[str]:
-    if model.startswith('bedrock/'):
+    if is_bedrock_model(model):
         has_bearer = bool(normalized_text(env.get('AWS_BEARER_TOKEN_BEDROCK', '')))
         has_access_key_flow = not _missing(
             env,
