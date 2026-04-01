@@ -30,7 +30,7 @@ run:
 compose-up:
 	@if [ -f .env ]; then set -a; . ./.env; set +a; fi; \
 	if [ "$${OPENHANDS_TESTING_CONTAINER_ENABLED:-false}" = "true" ]; then \
-		docker compose --profile testing up --build; \
+		docker compose --profile testing up --build --attach install --attach openhands-agent; \
 	else \
-		docker compose up --build; \
+		docker compose up --build --attach install --attach openhands-agent; \
 	fi

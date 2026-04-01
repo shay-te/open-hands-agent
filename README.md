@@ -249,6 +249,7 @@ OPENHANDS_TESTING_LLM_API_KEY=...
 ```
 
 `make compose-up` reads that flag from `.env` and automatically starts Docker Compose with the `testing` profile. If you run Docker Compose manually, use `docker compose --profile testing up --build` when the testing container is enabled. When the flag is `false`, the agent keeps using the main OpenHands server for testing.
+`make compose-up` only attaches the terminal to the `install` and `openhands-agent` services, so the OpenHands container can keep running without streaming its access logs into your shell.
 
 Optional advanced OpenHands settings supported by this compose file:
 

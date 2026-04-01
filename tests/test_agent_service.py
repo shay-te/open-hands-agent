@@ -527,7 +527,7 @@ class AgentServiceTests(unittest.TestCase):
             [self.client_repo, self.backend_repo]
         )
         self.assertEqual(self.repository_service.prepare_task_branches.call_count, 2)
-        self.openhands_client.implement_task.assert_called_once_with(task, '')
+        self.openhands_client.implement_task.assert_called_once_with(task)
 
     def test_process_assigned_task_skips_when_prior_pre_start_failure_still_blocks_preflight(self) -> None:
         task = build_task(
@@ -589,7 +589,7 @@ class AgentServiceTests(unittest.TestCase):
 
         self.assertEqual(results[StatusFields.STATUS], StatusFields.READY_FOR_REVIEW)
         self.repository_service.resolve_task_repositories.assert_called_once_with(task)
-        self.openhands_client.implement_task.assert_called_once_with(task, '')
+        self.openhands_client.implement_task.assert_called_once_with(task)
 
     def test_process_assigned_task_retries_after_later_retry_instruction(self) -> None:
         task = build_task(
@@ -615,7 +615,7 @@ class AgentServiceTests(unittest.TestCase):
         self.repository_service.prepare_task_repositories.assert_called_once_with(
             [self.client_repo, self.backend_repo]
         )
-        self.openhands_client.implement_task.assert_called_once_with(task, '')
+        self.openhands_client.implement_task.assert_called_once_with(task)
 
     def test_process_assigned_task_retries_after_later_retry_instruction_following_completion_comment(self) -> None:
         task = build_task(
@@ -641,7 +641,7 @@ class AgentServiceTests(unittest.TestCase):
         self.repository_service.prepare_task_repositories.assert_called_once_with(
             [self.client_repo, self.backend_repo]
         )
-        self.openhands_client.implement_task.assert_called_once_with(task, '')
+        self.openhands_client.implement_task.assert_called_once_with(task)
 
     def test_process_assigned_task_skips_execution_without_success_flag(self) -> None:
         self.openhands_client.implement_task.return_value = {}

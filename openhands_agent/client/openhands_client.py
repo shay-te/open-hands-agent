@@ -88,10 +88,11 @@ class OpenHandsClient(RetryingClientBase):
         session_id: str = '',
     ) -> dict[str, str | bool]:
         self.logger.info('requesting implementation for task %s', task.id)
+        # Task work always starts in a fresh OpenHands conversation so each
+        # task gets its own thread and pull request history.
         result = self._run_prompt_result(
             prompt=self._build_implementation_prompt(task),
             title=self._task_conversation_title(task),
-            session_id=session_id,
             branch_name=task.branch_name,
             default_commit_message=f'Implement {task.id}',
         )
@@ -198,6 +199,7 @@ class OpenHandsClient(RetryingClientBase):
             '- Put any extra implementation details in message.\n'
             '- If you created or updated commits, put the final commit message in commit_message.\n'
             '- Do not report success until all intended changes are committed on the task branch.\n'
+            '- If no dedicated tests are defined for this task, do not invent new ones; just finish after committing the change.\n'
             '- Do not pass extra finish-tool arguments beyond the supported fields.\n\n'
             'The summary must list every changed file and, under each file name, add a short explanation of what changed.\n'
             'Use this format inside summary:\n'
@@ -224,6 +226,7 @@ class OpenHandsClient(RetryingClientBase):
             '- Put any extra testing details in message.\n'
             '- If you created or updated commits, put the final commit message in commit_message.\n'
             '- Do not report success until all intended changes are committed on the task branch.\n'
+            '- If no dedicated tests are defined or available, do not invent new ones; just report that no testing was defined and finish after committing the change.\n'
             '- Do not pass extra finish-tool arguments beyond the supported fields.\n'
         )
 
@@ -250,9 +253,9 @@ class OpenHandsClient(RetryingClientBase):
             repository_lines.append(
                 f'- {repository.id} at {repository.local_path}: '
                 f'the orchestration layer already prepared branch {branch_name} from '
-                f'{destination_text}. Continue working on branch {branch_name}, and do not '
-                f'switch back to {destination_text} while implementing or testing this task. '
-                'Do not create the pull request yourself; the orchestration layer will publish it after tests pass. '
+                f'{destination_text}. Stay on the current branch and do not run git checkout, git switch, '
+                'git branch, git pull, or git push; the orchestration layer owns branch movement and publishing. '
+                'Do not create the pull request yourself; the orchestration layer will publish it after implementation is ready. '
                 'Before you use finish, stage and commit every intended change on that task branch.'
             )
         lines = '\n'.join(repository_lines)
@@ -304,7 +307,8 @@ class OpenHandsClient(RetryingClientBase):
             '- For insertions through file_editor, use command "insert".\n'
             '- Never call file_editor with only path, summary, security_risk, old_str, or new_str.\n'
             '- Never use create_pr or any pull-request or merge-request creation tool.\n'
-            '- Do not call GitHub, GitLab, or Bitbucket APIs to publish a pull request yourself.'
+            '- Do not call GitHub, GitLab, or Bitbucket APIs to publish a pull request yourself.\n'
+            '- Do not run git checkout, git switch, git branch, git pull, or git push unless the orchestration layer explicitly asks you to edit an already-checked-out branch.'
         )
 
     @staticmethod

@@ -325,7 +325,7 @@ def implement_task_with_defaults(
     session_id: str = '',
 ):
     with patch.object(client, '_patch', return_value=mock_response()):
-        return client.implement_task(task or build_task(), session_id)
+        return client.implement_task(task or build_task(), '')
 
 
 def test_task_with_defaults(client, task: Task | None = None):

@@ -285,6 +285,7 @@ class DeploymentFilesTests(unittest.TestCase):
         self.assertIn('install:', makefile_text)
         self.assertIn('run:', makefile_text)
         self.assertIn('--profile testing', makefile_text)
+        self.assertIn('--attach install --attach openhands-agent', makefile_text)
         self.assertNotIn('.docker-compose.selected-repos.yaml', makefile_text)
         self.assertIn('python -m openhands_agent.install', install_entrypoint_text)
         self.assertIn('OPENHANDS_TESTING_CONTAINER_ENABLED', run_entrypoint_text)

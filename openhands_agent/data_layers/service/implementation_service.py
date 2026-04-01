@@ -26,7 +26,7 @@ class ImplementationService(Service):
         session_id: str = '',
     ) -> dict[str, str | bool]:
         self.logger.info('delegating implementation for task %s', task.id)
-        return self._client.implement_task(task, session_id)
+        return self._client.implement_task(task)
 
     def review_comment_from_payload(self, payload: dict) -> ReviewComment:
         try:
