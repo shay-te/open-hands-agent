@@ -100,3 +100,18 @@ class MainTests(unittest.TestCase):
             main(self.cfg)
 
         self.assertIs(app.logger, configured_logger)
+
+    def test_main_returns_one_without_traceback_when_startup_validation_fails(self) -> None:
+        configured_logger = Mock()
+        startup_error = RuntimeError(
+            '[Error] /workspace/project missing git permissions. cannot work.'
+        )
+
+        with patch('openhands_agent.main.configure_logger', return_value=configured_logger), patch(
+            'openhands_agent.main.OpenHandsAgentInstance.init',
+            side_effect=startup_error,
+        ):
+            result = main(self.cfg)
+
+        self.assertEqual(result, 1)
+        configured_logger.error.assert_called_once_with('%s', startup_error)

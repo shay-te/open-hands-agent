@@ -216,14 +216,26 @@ class AgentServiceTests(unittest.TestCase):
         )
         self.service.logger = Mock()
 
-        with self.assertRaisesRegex(RuntimeError, 'startup dependency validation failed') as exc_context:
+        with self.assertRaisesRegex(RuntimeError, 'at least one repository must be configured') as exc_context:
             self.service.validate_connections()
 
-        self.assertIn(
-            '- unable to validate repositories: at least one repository must be configured',
-            str(exc_context.exception),
-        )
-        self.assertIn('[repositories]', str(exc_context.exception))
+        self.assertEqual(self.service.logger.error.call_count, 1)
+        self.assertEqual(self.task_client.validate_connection.call_count, 0)
+        self.assertEqual(self.openhands_client.validate_connection.call_count, 0)
+        self.assertEqual(str(exc_context.exception), 'at least one repository must be configured')
+
+    def test_validate_connections_stops_after_repository_validation_failure(self) -> None:
+        self.task_client.validate_connection = Mock()
+        self.openhands_client.validate_connection = Mock()
+        self.repository_service.validate_connections = Mock(side_effect=RuntimeError('[Error] /workspace/project missing git permissions. cannot work.'))
+
+        with self.assertRaisesRegex(RuntimeError, r'\[Error\] /workspace/project missing git permissions\. cannot work\.') as exc_context:
+            self.service.validate_connections()
+
+        self.repository_service.validate_connections.assert_called_once_with()
+        self.task_client.validate_connection.assert_not_called()
+        self.openhands_client.validate_connection.assert_not_called()
+        self.assertEqual(str(exc_context.exception), '[Error] /workspace/project missing git permissions. cannot work.')
 
     def test_process_assigned_task_creates_prs_for_all_selected_repositories(self) -> None:
         self.service.logger = Mock()

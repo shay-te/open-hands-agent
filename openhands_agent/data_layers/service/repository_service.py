@@ -377,12 +377,27 @@ class RepositoryService(Service):
 
     def _validate_repository_git_access(self, repository) -> None:
         local_path = text_from_attr(repository, 'local_path')
-        self._run_git(
-            local_path,
-            ['ls-remote', '--heads', 'origin'],
-            f'failed to validate git access for repository at {local_path}',
-            repository,
-        )
+        try:
+            self._run_git(
+                local_path,
+                ['ls-remote', '--heads', 'origin'],
+                f'failed to validate git access for repository at {local_path}',
+                repository,
+            )
+        except RuntimeError as exc:
+            error_text = str(exc)
+            error_detail = error_text.split(': ', 1)[1] if ': ' in error_text else error_text
+            if (
+                'could not read Password' in error_text
+                or 'terminal prompts disabled' in error_text
+            ):
+                raise RuntimeError(
+                    f'[Error] {local_path} missing git permissions. cannot work. '
+                    f'{error_detail}'
+                ) from None
+            raise RuntimeError(
+                f'[Error] {local_path} git validation failed. {error_detail}'
+            ) from None
 
     def _prepare_task_repository(self, repository):
         self._prepare_repository_access(repository)

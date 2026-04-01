@@ -1100,8 +1100,7 @@ class RepositoryServiceTests(unittest.TestCase):
             ):
                 with self.assertRaisesRegex(
                     RuntimeError,
-                    'failed to validate git access for repository at .*/project: '
-                    r"fatal: could not read Password for 'https://shacoshe@bitbucket.org': terminal prompts disabled",
+                    r"\[Error\] .*/project missing git permissions\. cannot work\. fatal: could not read Password for 'https://shacoshe@bitbucket.org': terminal prompts disabled",
                 ):
                     service.validate_connections()
 

@@ -77,6 +77,13 @@ class AgentService(Service):
         return self._notification_service
 
     def validate_connections(self) -> None:
+        try:
+            self._repository_service.validate_connections()
+            self.logger.info('validated repositories connection')
+        except Exception as exc:
+            self.logger.error('failed to validate repositories connection: %s', exc)
+            raise RuntimeError(str(exc)) from None
+
         summaries: list[str] = []
         details: list[str] = []
         for service_name, validate, max_retries in self._connection_validations():
@@ -113,7 +120,6 @@ class AgentService(Service):
                 self._testing_service.validate_connection,
                 self._testing_service.max_retries,
             ),
-            ('repositories', self._repository_service.validate_connections, 1),
         ]
         if self._state_data_access is not None:
             validations.append(('state', self._state_data_access.validate, 1))

@@ -14,7 +14,13 @@ from openhands_agent.openhands_agent_instance import OpenHandsAgentInstance
 )
 def main(cfg: DictConfig) -> int:
     logger = configure_logger(cfg.core_lib.app.name)
-    OpenHandsAgentInstance.init(cfg)
+    try:
+        OpenHandsAgentInstance.init(cfg)
+    except RuntimeError as exc:
+        if str(exc).startswith('startup dependency validation failed:') or str(exc).startswith('[Error] '):
+            logger.error('%s', exc)
+            return 1
+        raise
     app = OpenHandsAgentInstance.get()
     app.logger = getattr(app, 'logger', None) or logger
     app.logger.info('starting openhands agent')

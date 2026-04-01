@@ -1,4 +1,5 @@
 #!/bin/sh
+set -eu
 
 docker compose down --remove-orphans --volumes
 sudo docker system prune --all --volumes
