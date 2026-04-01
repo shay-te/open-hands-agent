@@ -27,6 +27,7 @@ class OpenHandsResultUtilsTests(unittest.TestCase):
         result = build_openhands_result(
             {
                 'summary': 'Implemented task',
+                ImplementationFields.MESSAGE: 'Validation report: no tests were defined.',
                 ImplementationFields.SESSION_ID: 'conversation-3',
             },
             branch_name='feature/proj-1',
@@ -39,6 +40,7 @@ class OpenHandsResultUtilsTests(unittest.TestCase):
                 'branch_name': 'feature/proj-1',
                 'summary': 'Implemented task',
                 ImplementationFields.COMMIT_MESSAGE: 'Implement PROJ-1',
+                ImplementationFields.MESSAGE: 'Validation report: no tests were defined.',
                 ImplementationFields.SUCCESS: False,
                 ImplementationFields.SESSION_ID: 'conversation-3',
             },

@@ -57,6 +57,10 @@ def build_openhands_result(
     elif default_commit_message is not None:
         result[ImplementationFields.COMMIT_MESSAGE] = normalized_text(default_commit_message)
 
+    message = text_from_mapping(payload, ImplementationFields.MESSAGE)
+    if message:
+        result[ImplementationFields.MESSAGE] = message
+
     session_id = openhands_session_id(payload)
     if session_id:
         result[ImplementationFields.SESSION_ID] = session_id

@@ -342,6 +342,7 @@ class AgentServiceTests(unittest.TestCase):
         self.openhands_client.test_task.return_value = {
             ImplementationFields.SUCCESS: True,
             ImplementationFields.COMMIT_MESSAGE: 'Finalize PROJ-1 after testing',
+            ImplementationFields.MESSAGE: 'Validation report: no dedicated tests were defined.',
             'summary': 'Testing agent validated the implementation',
         }
 
@@ -353,6 +354,10 @@ class AgentServiceTests(unittest.TestCase):
             source_branch='feature/proj-1/client',
             description=self.pr_description,
             commit_message='Finalize PROJ-1 after testing',
+        )
+        self.assertIn(
+            'Validation report: no dedicated tests were defined.',
+            self.task_client.add_comment.call_args_list[1].args[1],
         )
 
     def test_process_assigned_task_reopens_when_task_branch_validation_fails_before_testing(self) -> None:
@@ -876,6 +881,11 @@ class AgentServiceTests(unittest.TestCase):
         )
 
     def test_process_assigned_task_reports_partial_pr_failures_without_moving_review(self) -> None:
+        self.openhands_client.test_task.return_value = {
+            ImplementationFields.SUCCESS: True,
+            ImplementationFields.MESSAGE: 'Validation report: no dedicated tests were defined.',
+            'summary': 'Testing agent validated the implementation',
+        }
         self.repository_service.create_pull_request.side_effect = [
             {
                 PullRequestFields.REPOSITORY_ID: 'client',
@@ -906,6 +916,10 @@ class AgentServiceTests(unittest.TestCase):
         )
         self.assertIn(
             'failed to create pull requests for repositories: backend',
+            self.task_client.add_comment.call_args_list[-1].args[1],
+        )
+        self.assertNotIn(
+            'Validation report:',
             self.task_client.add_comment.call_args_list[-1].args[1],
         )
         self.assertEqual(self.email_core_lib.send.call_count, 2)

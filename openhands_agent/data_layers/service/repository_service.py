@@ -633,13 +633,29 @@ class RepositoryService(Service):
         branch_name: str,
         commit_message: str,
     ) -> None:
-        if not self._working_tree_status(local_path):
+        status_output = self._working_tree_status(local_path)
+        if not status_output:
             return
         self._run_git(
             local_path,
             ['add', '-A'],
             f'failed to stage changes for branch {branch_name}',
         )
+        for validation_report_path in self._validation_report_paths_from_status(
+            status_output
+        ):
+            self._run_git(
+                local_path,
+                ['reset', 'HEAD', '--', validation_report_path],
+                (
+                    f'failed to exclude validation report file '
+                    f'{validation_report_path} from branch {branch_name}'
+                ),
+            )
+            # The report is published as a task comment, not as a committed file.
+            validation_report_full_path = os.path.join(local_path, validation_report_path)
+            if os.path.exists(validation_report_full_path):
+                os.remove(validation_report_full_path)
         self._run_git(
             local_path,
             ['commit', '-m', commit_message],
@@ -869,6 +885,19 @@ class RepositoryService(Service):
             ['status', '--porcelain'],
             f'failed to inspect working tree for repository at {local_path}',
         )
+
+    @staticmethod
+    def _validation_report_paths_from_status(status_output: str) -> list[str]:
+        validation_report_paths = []
+        for line in status_output.splitlines():
+            if len(line) < 4:
+                continue
+            path = line[3:]
+            if ' -> ' in path:
+                path = path.split(' -> ', 1)[1]
+            if path.endswith('validation_report.md'):
+                validation_report_paths.append(path)
+        return validation_report_paths
 
     def _git_reference_exists(self, local_path: str, reference: str) -> bool:
         result = subprocess.run(

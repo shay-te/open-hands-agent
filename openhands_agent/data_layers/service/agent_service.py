@@ -335,6 +335,11 @@ class AgentService(Service):
         ).strip()
         if testing_commit_message:
             execution[ImplementationFields.COMMIT_MESSAGE] = testing_commit_message
+        testing_message = str(
+            testing.get(ImplementationFields.MESSAGE, '') or ''
+        ).strip()
+        if testing_message:
+            execution[ImplementationFields.MESSAGE] = testing_message
 
     def _publish_task_execution(
         self,
@@ -350,6 +355,7 @@ class AgentService(Service):
             task,
             pull_requests,
             failed_repositories,
+            execution,
         ):
             return None
         if failed_repositories:
@@ -361,6 +367,7 @@ class AgentService(Service):
         task: Task,
         pull_requests: list[dict[str, str]],
         failed_repositories: list[str],
+        execution: dict[str, str | bool],
     ) -> bool:
         if not pull_requests:
             return True
@@ -369,7 +376,15 @@ class AgentService(Service):
             'adding review summary comment for %s',
             pull_request_repositories_text(pull_requests),
         )
-        if self._comment_task_completed(task, pull_requests, failed_repositories):
+        validation_report = ''
+        if not failed_repositories:
+            validation_report = self._task_validation_report(execution)
+        if self._comment_task_completed(
+            task,
+            pull_requests,
+            failed_repositories,
+            validation_report,
+        ):
             return True
         self._handle_started_task_failure(
             task,
@@ -771,6 +786,10 @@ class AgentService(Service):
             or f'Implement {task.id}'
         )
 
+    @staticmethod
+    def _task_validation_report(execution: dict[str, str | bool]) -> str:
+        return str(execution.get(ImplementationFields.MESSAGE, '') or '').strip()
+
     def _create_pull_request_for_repository(
         self,
         task: Task,
@@ -1032,10 +1051,16 @@ class AgentService(Service):
         task: Task,
         pull_requests: list[dict[str, str]],
         failed_repositories: list[str],
+        validation_report: str = '',
     ) -> bool:
         return self._add_task_comment(
             task.id,
-            pull_request_summary_comment(task, pull_requests, failed_repositories),
+            pull_request_summary_comment(
+                task,
+                pull_requests,
+                failed_repositories,
+                validation_report,
+            ),
             after_step='added review summary comment',
             failure_log_message='failed to add review summary comment for task %s',
         )

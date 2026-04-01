@@ -200,6 +200,7 @@ class OpenHandsClient(RetryingClientBase):
             '- If you created or updated commits, put the final commit message in commit_message.\n'
             '- Do not report success until all intended changes are committed on the task branch.\n'
             '- If no dedicated tests are defined for this task, do not invent new ones; just finish after committing the change.\n'
+            '- Do not create validation_report.md; if the task completes successfully and you have a validation report, put it in message so the orchestration layer can add it to the task comment.\n'
             '- Do not pass extra finish-tool arguments beyond the supported fields.\n\n'
             'The summary must list every changed file and, under each file name, add a short explanation of what changed.\n'
             'Use this format inside summary:\n'
@@ -227,6 +228,7 @@ class OpenHandsClient(RetryingClientBase):
             '- If you created or updated commits, put the final commit message in commit_message.\n'
             '- Do not report success until all intended changes are committed on the task branch.\n'
             '- If no dedicated tests are defined or available, do not invent new ones; just report that no testing was defined and finish after committing the change.\n'
+            '- Do not create validation_report.md; if the task completes successfully and you have a validation report, put it in message so the orchestration layer can add it to the task comment.\n'
             '- Do not pass extra finish-tool arguments beyond the supported fields.\n'
         )
 

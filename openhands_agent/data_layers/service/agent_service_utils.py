@@ -129,8 +129,13 @@ def pull_request_summary_comment(
     task: Task,
     pull_requests: list[dict[str, str]],
     failed_repositories: list[str],
+    validation_report: str = '',
 ) -> str:
     lines = [f'OpenHands completed task {task.id}: {task.summary}.']
+    if validation_report:
+        lines.append('')
+        lines.append('Validation report:')
+        lines.append(validation_report)
     if pull_requests:
         lines.append('')
         lines.append('Published review links:')

@@ -843,6 +843,11 @@ class RepositoryServiceTests(unittest.TestCase):
             'openhands_agent.data_layers.service.repository_service.os.path.isdir',
             return_value=True,
         ), patch(
+            'openhands_agent.data_layers.service.repository_service.os.path.exists',
+            return_value=True,
+        ), patch(
+            'openhands_agent.data_layers.service.repository_service.os.remove',
+        ) as mock_remove, patch(
             'openhands_agent.data_layers.service.repository_service.RepositoryService._validate_destination_branch_tracking_state',
         ), patch(
             'openhands_agent.data_layers.service.repository_service.RepositoryService._push_branch',
@@ -881,6 +886,83 @@ class RepositoryServiceTests(unittest.TestCase):
             ],
         )
         mock_push_branch.assert_called_once_with('.', 'feature/proj-1/backend', repository)
+
+    def test_create_pull_request_excludes_validation_report_from_commit(self) -> None:
+        repository = self.backend_repo
+        data_access = Mock()
+        data_access.create_pull_request.return_value = {
+            PullRequestFields.ID: '17',
+            PullRequestFields.TITLE: 'PROJ-1: Fix bug',
+            PullRequestFields.URL: 'https://github.example/pull/17',
+        }
+        subprocess_results = [
+            Mock(returncode=0, stdout='feature/proj-1/backend\n', stderr=''),
+            Mock(
+                returncode=0,
+                stdout=' M app.py\n?? validation_report.md\n?? tests/test_app.py\n',
+                stderr='',
+            ),
+            Mock(returncode=0, stdout='', stderr=''),
+            Mock(returncode=0, stdout='', stderr=''),
+            Mock(returncode=0, stdout='[feature/proj-1/backend abc123] Implement PROJ-1\n', stderr=''),
+            Mock(returncode=0, stdout='main\n', stderr=''),
+            Mock(returncode=0, stdout='1\n', stderr=''),
+            Mock(returncode=0, stdout='feature/proj-1/backend\n', stderr=''),
+            Mock(returncode=0, stdout='', stderr=''),
+            Mock(returncode=0, stdout='', stderr=''),
+            Mock(returncode=0, stdout='main\n', stderr=''),
+            Mock(returncode=0, stdout='', stderr=''),
+            Mock(returncode=0, stdout='main\n', stderr=''),
+            Mock(returncode=0, stdout='', stderr=''),
+        ]
+
+        with patch(
+            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            return_value='/usr/bin/git',
+        ), patch(
+            'openhands_agent.data_layers.service.repository_service.os.path.isdir',
+            return_value=True,
+        ), patch(
+            'openhands_agent.data_layers.service.repository_service.RepositoryService._validate_destination_branch_tracking_state',
+        ), patch(
+            'openhands_agent.data_layers.service.repository_service.RepositoryService._push_branch',
+        ) as mock_push_branch, patch(
+            'openhands_agent.data_layers.service.repository_service.RepositoryService._pull_request_data_access',
+            return_value=data_access,
+        ), patch(
+            'openhands_agent.data_layers.service.repository_service.subprocess.run',
+            side_effect=subprocess_results,
+        ) as mock_run:
+            service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+            service.create_pull_request(
+                repository,
+                title='PROJ-1: Fix bug',
+                source_branch='feature/proj-1/backend',
+                description='Ready',
+                commit_message='Implement PROJ-1',
+            )
+
+        self.assertEqual(
+            [call.args[0] for call in mock_run.call_args_list],
+            [
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'status', '--porcelain'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'add', '-A'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'reset', 'HEAD', '--', 'validation_report.md'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'commit', '-m', 'Implement PROJ-1'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'rev-parse', '--verify', 'main'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'rev-list', '--count', 'main..feature/proj-1/backend'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'status', '--porcelain'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'checkout', 'main'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'pull', '--ff-only', 'origin', 'main'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'status', '--porcelain'],
+            ],
+        )
+        mock_push_branch.assert_called_once_with('.', 'feature/proj-1/backend', repository)
+        mock_remove.assert_called_once_with('./validation_report.md')
 
     def test_create_pull_request_rejects_branch_without_committed_changes(self) -> None:
         repository = self.backend_repo

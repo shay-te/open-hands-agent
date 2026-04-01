@@ -168,6 +168,19 @@ class AgentServiceUtilsTests(unittest.TestCase):
         )
 
         self.assertIn('OpenHands completed task PROJ-1: Fix bug.', summary)
+        self.assertNotIn('Validation report:', summary)
         self.assertIn('Published review links:', summary)
         self.assertIn('- client: https://example.com/pr/17', summary)
         self.assertIn('Failed repositories: backend', summary)
+
+    def test_pull_request_summary_comment_includes_validation_report_when_present(self) -> None:
+        task = build_task(task_id='PROJ-1', summary='Fix bug')
+        summary = pull_request_summary_comment(
+            task,
+            [],
+            [],
+            'Validation report: no tests were defined.',
+        )
+
+        self.assertIn('Validation report:', summary)
+        self.assertIn('Validation report: no tests were defined.', summary)
