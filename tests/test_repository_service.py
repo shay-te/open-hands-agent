@@ -264,6 +264,72 @@ class RepositoryServiceTests(unittest.TestCase):
             ],
         )
 
+    def test_restore_task_repositories_switches_clean_repository_back_to_destination_branch(self) -> None:
+        repository = types.SimpleNamespace(
+            id='client',
+            local_path='.',
+            destination_branch='master',
+        )
+        service = RepositoryService([], 3)
+
+        with patch(
+            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            return_value='/usr/bin/git',
+        ), patch(
+            'openhands_agent.data_layers.service.repository_service.os.path.isdir',
+            return_value=True,
+        ), patch(
+            'openhands_agent.data_layers.service.repository_service.subprocess.run',
+            side_effect=[
+                Mock(returncode=0, stdout='feature/proj-1/client\n', stderr=''),
+                Mock(returncode=0, stdout='', stderr=''),
+                Mock(returncode=0, stdout='', stderr=''),
+            ],
+        ) as mock_run:
+            restored_repositories = service.restore_task_repositories([repository])
+
+        self.assertEqual(restored_repositories, [repository])
+        self.assertEqual(
+            [call.args[0] for call in mock_run.call_args_list],
+            [
+                ['git', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
+                ['git', '-C', '.', 'status', '--porcelain'],
+                ['git', '-C', '.', 'checkout', 'master'],
+            ],
+        )
+
+    def test_restore_task_repositories_skips_dirty_repository(self) -> None:
+        repository = types.SimpleNamespace(
+            id='client',
+            local_path='.',
+            destination_branch='master',
+        )
+        service = RepositoryService([], 3)
+
+        with patch(
+            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            return_value='/usr/bin/git',
+        ), patch(
+            'openhands_agent.data_layers.service.repository_service.os.path.isdir',
+            return_value=True,
+        ), patch(
+            'openhands_agent.data_layers.service.repository_service.subprocess.run',
+            side_effect=[
+                Mock(returncode=0, stdout='feature/proj-1/client\n', stderr=''),
+                Mock(returncode=0, stdout=' M app.py\n', stderr=''),
+            ],
+        ) as mock_run:
+            restored_repositories = service.restore_task_repositories([repository])
+
+        self.assertEqual(restored_repositories, [repository])
+        self.assertEqual(
+            [call.args[0] for call in mock_run.call_args_list],
+            [
+                ['git', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
+                ['git', '-C', '.', 'status', '--porcelain'],
+            ],
+        )
+
     def test_prepare_task_branches_creates_new_task_branch_from_destination_branch(self) -> None:
         service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
 

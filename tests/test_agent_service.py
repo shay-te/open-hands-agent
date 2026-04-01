@@ -72,6 +72,7 @@ class AgentServiceTests(unittest.TestCase):
             resolve_task_repositories=Mock(return_value=[self.client_repo, self.backend_repo]),
             prepare_task_repositories=Mock(side_effect=lambda repositories: repositories),
             prepare_task_branches=Mock(side_effect=lambda repositories, repository_branches: repositories),
+            restore_task_repositories=Mock(),
             get_repository=Mock(side_effect=lambda repository_id: {
                 'client': self.client_repo,
                 'backend': self.backend_repo,
@@ -683,11 +684,36 @@ class AgentServiceTests(unittest.TestCase):
             'implementation agent reported the task is not ready',
             self.task_client.add_comment.call_args_list[1].args[1],
         )
+        self.repository_service.restore_task_repositories.assert_called_once_with(
+            [self.client_repo, self.backend_repo]
+        )
         self.assertEqual(self.email_core_lib.send.call_count, 2)
         self.service.logger.warning.assert_called_once_with(
             'implementation failed for task %s: %s',
             'PROJ-1',
             'implementation agent reported the task is not ready',
+        )
+
+    def test_process_assigned_task_restores_repositories_after_branch_preparation_failure(self) -> None:
+        self.repository_service.prepare_task_branches.side_effect = RuntimeError(
+            'failed to prepare task branches'
+        )
+        task = self.task_data_access.get_assigned_tasks()[0]
+
+        results = self.service.process_assigned_task(task)
+
+        self.assertIsNone(results)
+        self.repository_service.resolve_task_repositories.assert_called_once_with(task)
+        self.repository_service.prepare_task_repositories.assert_called_once_with(
+            [self.client_repo, self.backend_repo]
+        )
+        self.repository_service.restore_task_repositories.assert_called_once_with(
+            [self.client_repo, self.backend_repo]
+        )
+        self.task_client.add_comment.assert_called_once()
+        self.assertIn(
+            'OpenHands agent could not safely process this task: failed to prepare task branches',
+            self.task_client.add_comment.call_args.args[1],
         )
 
     def test_process_assigned_task_handles_ambiguous_or_missing_repository_scope(self) -> None:

@@ -72,6 +72,12 @@ class RepositoryService(Service):
             for repository in repositories
         ]
 
+    def restore_task_repositories(self, repositories: list[object]) -> list[object]:
+        self._validate_git_executable()
+        for repository in repositories:
+            self._restore_task_repository(repository)
+        return repositories
+
     def prepare_task_branches(
         self,
         repositories: list[object],
@@ -377,6 +383,41 @@ class RepositoryService(Service):
             repository,
         )
         return repository
+
+    def _restore_task_repository(self, repository) -> None:
+        self._validate_local_path(repository)
+        destination_branch = text_from_attr(repository, 'destination_branch') or self.destination_branch(
+            repository
+        )
+        current_branch = self._current_branch(repository.local_path)
+        if current_branch == destination_branch:
+            return
+        if self._working_tree_status(repository.local_path):
+            self.logger.warning(
+                'skipping repository restore for %s because the worktree is dirty on branch %s',
+                repository.id,
+                current_branch or '<unknown>',
+            )
+            return
+        try:
+            self._run_git(
+                repository.local_path,
+                ['checkout', destination_branch],
+                f'failed to restore repository at {repository.local_path} to {destination_branch}',
+                repository,
+            )
+            self.logger.info(
+                'restored repository at %s to branch %s after task rejection',
+                repository.local_path,
+                destination_branch,
+            )
+        except Exception as exc:
+            self.logger.warning(
+                'failed to restore repository %s to %s after task rejection: %s',
+                repository.id,
+                destination_branch,
+                exc,
+            )
 
     def _prepare_task_branch(self, repository, branch_name: str):
         self._validate_local_path(repository)

@@ -951,6 +951,7 @@ class AgentService(Service):
         )
 
     def _handle_task_failure(self, task: Task, error: Exception) -> None:
+        self._restore_task_repositories(task)
         self._report_task_failure(
             task,
             error,
@@ -958,6 +959,7 @@ class AgentService(Service):
         )
 
     def _handle_started_task_failure(self, task: Task, error: Exception) -> None:
+        self._restore_task_repositories(task)
         self._report_task_failure(
             task,
             error,
@@ -993,6 +995,16 @@ class AgentService(Service):
             failure_args=(task.id,),
             default=False,
         )
+
+    def _restore_task_repositories(self, task: Task) -> None:
+        repositories = getattr(task, 'repositories', []) or []
+        if not repositories:
+            return
+        self._log_task_step(task.id, 'restoring repository branches after task rejection')
+        try:
+            self._repository_service.restore_task_repositories(repositories)
+        except Exception:
+            self.logger.exception('failed to restore repositories for task %s', task.id)
 
     def _handle_repository_detection_failure(self, task: Task, error: Exception) -> None:
         self._log_task_step(task.id, 'recording repository detection skip comment')
@@ -1178,6 +1190,7 @@ class AgentService(Service):
         *,
         report_failures: bool,
     ) -> None:
+        self._restore_task_repositories(task)
         if report_failures:
             self.logger.info(
                 'skipping task %s because the task definition is too thin to work from safely',
