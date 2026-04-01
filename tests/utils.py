@@ -1,6 +1,6 @@
 import threading
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from core_lib.core_lib import CoreLib
 from omegaconf import DictConfig, OmegaConf
@@ -349,11 +349,13 @@ def implement_task_with_defaults(
     task: Task | None = None,
     session_id: str = '',
 ):
-    return client.implement_task(task or build_task(), session_id)
+    with patch.object(client, '_patch', return_value=mock_response()):
+        return client.implement_task(task or build_task(), session_id)
 
 
 def test_task_with_defaults(client, task: Task | None = None):
-    return client.test_task(task or build_task())
+    with patch.object(client, '_patch', return_value=mock_response()):
+        return client.test_task(task or build_task())
 
 
 def fix_review_comment_with_defaults(
@@ -364,13 +366,14 @@ def fix_review_comment_with_defaults(
     task_id: str = '',
     task_summary: str = '',
 ):
-    return client.fix_review_comment(
-        comment or build_review_comment(),
-        branch_name,
-        session_id,
-        task_id=task_id,
-        task_summary=task_summary,
-    )
+    with patch.object(client, '_patch', return_value=mock_response()):
+        return client.fix_review_comment(
+            comment or build_review_comment(),
+            branch_name,
+            session_id,
+            task_id=task_id,
+            task_summary=task_summary,
+        )
 
 
 def get_assigned_tasks_with_defaults(

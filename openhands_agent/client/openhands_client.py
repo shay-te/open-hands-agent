@@ -64,6 +64,7 @@ class OpenHandsClient(RetryingClientBase):
         max_poll_attempts: int = _DEFAULT_MAX_POLL_ATTEMPTS,
     ) -> None:
         super().__init__(base_url, api_key, timeout=300, max_retries=max_retries)
+        self._session_api_key = api_key
         self._llm_settings = dict(llm_settings or {})
         self._poll_interval_seconds = max(0.1, float(poll_interval_seconds or 0))
         self._max_poll_attempts = max(1, int(max_poll_attempts or 0))
@@ -140,11 +141,13 @@ class OpenHandsClient(RetryingClientBase):
 
     @classmethod
     def _task_conversation_title(cls, task: Task, suffix: str = '') -> str:
-        return cls._conversation_title_from_values(
-            task_id=str(task.id or ''),
-            task_summary=str(task.summary or ''),
-            suffix=suffix,
-        )
+        task_id = normalized_text(str(task.id or ''))
+        if task_id:
+            return f'{task_id}{suffix}'
+        task_summary = condensed_text(str(task.summary or ''))
+        if task_summary:
+            return f'{task_summary}{suffix}'
+        return f'OpenHands task{suffix}'
 
     @classmethod
     def _review_conversation_title(
@@ -375,7 +378,20 @@ class OpenHandsClient(RetryingClientBase):
         )
         response.raise_for_status()
         start_task = self._normalized_payload(response)
-        return self._wait_for_started_conversation_id(start_task)
+        conversation_id = self._wait_for_started_conversation_id(start_task)
+        self._update_conversation_title(conversation_id, title)
+        return conversation_id
+
+    def _update_conversation_title(self, conversation_id: str, title: str) -> None:
+        normalized_title = condensed_text(title)
+        if not conversation_id or not normalized_title:
+            return
+        response = self._patch_with_retry(
+            f'/api/conversations/{conversation_id}',
+            headers={'X-Session-API-Key': self._session_api_key},
+            json={'title': normalized_title},
+        )
+        response.raise_for_status()
 
     def _wait_for_started_conversation_id(self, start_task: dict) -> str:
         start_task_id = text_from_mapping(start_task, 'id')

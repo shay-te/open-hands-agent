@@ -214,6 +214,10 @@ class OpenHandsClientTests(unittest.TestCase):
             return_value=mock_response(json_data={'id': 'start-1', 'status': 'WORKING'}),
         ) as mock_post, patch.object(
             client,
+            '_patch',
+            return_value=mock_response(),
+        ) as mock_patch, patch.object(
+            client,
             '_get',
             side_effect=[
                 mock_response(
@@ -256,7 +260,7 @@ class OpenHandsClientTests(unittest.TestCase):
                 ),
             ],
         ) as mock_get:
-            result = implement_task_with_defaults(client, task)
+            result = client.implement_task(task)
 
         self.assertEqual(
             result,
@@ -271,7 +275,7 @@ class OpenHandsClientTests(unittest.TestCase):
         assert_client_headers_and_timeout(self, client, 'oh-token', 300)
         self.assertEqual(mock_post.call_args.args, ('/api/v1/app-conversations',))
         request_body = mock_post.call_args.kwargs['json']
-        self.assertEqual(request_body['title'], 'PROJ-1 Fix bug')
+        self.assertEqual(request_body['title'], 'PROJ-1')
         self.assertEqual(request_body['initial_message']['role'], 'user')
         self.assertIn(
             'Implement task PROJ-1: Fix bug',
@@ -290,6 +294,11 @@ class OpenHandsClientTests(unittest.TestCase):
             mock_get.call_args_list[2].kwargs['params'],
             {'limit': 100, 'sort_order': 'TIMESTAMP_DESC'},
         )
+        mock_patch.assert_called_once_with(
+            '/api/conversations/conversation-1',
+            headers={'X-Session-API-Key': 'oh-token'},
+            json={'title': 'PROJ-1'},
+        )
         client.logger.info.assert_any_call('requesting implementation for task %s', 'PROJ-1')
         client.logger.info.assert_any_call(
             'implementation finished for task %s with success=%s',
@@ -297,19 +306,19 @@ class OpenHandsClientTests(unittest.TestCase):
             True,
         )
 
-    def test_task_conversation_title_uses_task_code_and_summary(self) -> None:
+    def test_task_conversation_title_uses_task_code(self) -> None:
         client = OpenHandsClient('https://openhands.example', 'oh-token')
 
         self.assertEqual(
             client._task_conversation_title(build_task(task_id='UNA-2405', summary='do xyz')),
-            'UNA-2405 do xyz',
+            'UNA-2405',
         )
         self.assertEqual(
             client._task_conversation_title(
                 build_task(task_id='UNA-2405', summary='do xyz'),
                 suffix=' [testing]',
             ),
-            'UNA-2405 do xyz [testing]',
+            'UNA-2405 [testing]',
         )
 
     def test_task_conversation_title_normalizes_blank_summary(self) -> None:
