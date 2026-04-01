@@ -182,7 +182,6 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
             testing_service=mock_testing_service_cls.return_value,
             repository_service=mock_repository_service_cls.return_value,
             notification_service=mock_notification_service_cls.return_value,
-            state_data_access=None,
         )
         mock_service_cls.return_value.validate_connections.assert_called_once_with()
         self.assertIs(app.service, mock_service_cls.return_value)

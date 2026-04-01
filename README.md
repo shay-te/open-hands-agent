@@ -10,7 +10,7 @@ Why it works especially well here:
 
 - `core-lib` gives the project a clean layered shape: clients for external APIs, data-access wrappers for boundaries, services for orchestration, and jobs for entrypoints. That maps directly to what this agent does every day.
 - `core-lib` is built around a central application library object, which is exactly what this project needs. `OpenHandsAgentCoreLib` can be initialized once and reused from the CLI, scheduled jobs, and tests instead of rebuilding the application's wiring in multiple places.
-- The `core-lib` docs emphasize fast setup, consistent structure, and reusable runtime wiring. That matters here because this project has to compose several providers cleanly: issue systems, repository systems, OpenHands, notifications, and local state.
+- The `core-lib` docs emphasize fast setup, consistent structure, and reusable runtime wiring. That matters here because this project has to compose several providers cleanly: issue systems, repository systems, OpenHands, and notifications.
 - `core-lib` keeps configuration-driven behavior first-class. That is one of the main reasons this repo can support multiple source issue platforms without pushing provider-specific branching into the orchestration layer.
 - `core-lib` is very test-friendly. This project depends on many external systems, so confidence comes from isolating boundaries and mocking them cleanly. The layered `core-lib` structure makes that practical.
 - `core-lib` reduces framework churn. Instead of spending time on custom bootstrapping, connection management, configuration loading, and lifecycle glue, this repository can stay focused on the agent's actual behavior.
@@ -83,7 +83,7 @@ This project follows the `core-lib` layering on purpose:
 
 - `OpenHandsAgentCoreLib` wires the app once at startup, builds the clients, data-access objects, and services, and validates the external connections before work starts.
 - `client/` contains provider-specific API code for issue platforms, repository providers, and OpenHands.
-- `data_layers/data_access/` stays focused on boundary work such as ticket updates, pull-request API calls, and persisted agent state.
+- `data_layers/data_access/` stays focused on boundary work such as ticket updates and pull-request API calls.
 - `data_layers/service/` owns the business workflow. This is where task selection, state transitions, repository preparation, OpenHands runs, publishing, notifications, and review-comment handling live.
 
 That separation matters because the main service flow should read like the actual workflow:
@@ -95,7 +95,7 @@ That separation matters because the main service flow should read like the actua
 5. Ask OpenHands to implement the task.
 6. Re-prepare the task branches and run the testing validation step.
 7. Publish branch updates and open one pull request per affected repository.
-8. Add the pull-request summary back to the task, move the task to the review state, persist the processed state, and send the completion notification.
+8. Add the pull-request summary back to the task, move the task to the review state, and send the completion notification.
 
 Tasks are processed sequentially, one after the other, so repository state from one task does not leak into the next one.
 
@@ -291,7 +291,7 @@ The review-state target also comes from the active provider config:
 - GitLab Issues uses `openhands_agent.gitlab_issues.review_state_field` and `openhands_agent.gitlab_issues.review_state`.
 - Bitbucket Issues uses `openhands_agent.bitbucket_issues.review_state_field` and `openhands_agent.bitbucket_issues.review_state`.
 Retry count is configured under `openhands_agent.retry.max_retries`.
-Processed task state, processed review-comment ids, and pull-request comment context are persisted in `OPENHANDS_AGENT_STATE_FILE` so the agent can skip already-completed work, poll for new review comments, and still resolve review comments after a restart.
+Processed task state, processed review-comment ids, and pull-request comment context are kept in memory during a run so the agent can skip already-completed work and poll for new review comments without writing local state.
 Failure emails are configured under `openhands_agent.failure_email` and sent through `email-core-lib`.
 Completion emails are configured under `openhands_agent.completion_email` and sent through `email-core-lib`.
 If email notifications are enabled, install the optional dependency set with `python -m pip install -e ".[notifications]"`.
@@ -577,5 +577,5 @@ Lower OPENHANDS_AGENT_MAX_RETRIES from 5 to 2 or 3 if your setup is stable.
 Keep YOUTRACK_ISSUE_STATES tight so only truly ready tasks get processed.
 Batch review feedback into fewer comments, because each review-fix cycle can trigger more OpenHands work.
 Keep task context lean: avoid huge pasted logs, long comment threads, and unnecessary attachments.
-Keep the state file persistent so restarts do not reprocess old tasks or review comments.
+Keep task and review-comment handling lean so the in-memory workflow stays predictable during a run.
 Don’t expect much savings from poll interval tuning; that mostly affects waiting/API chatter, not LLM spend.

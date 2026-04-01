@@ -58,9 +58,6 @@ def build_test_cfg() -> DictConfig:
                 'retry': {
                     'max_retries': 5,
                 },
-                'state': {
-                    'file_path': 'openhands_agent_state.json',
-                },
                 'failure_email': {
                     'enabled': True,
                     'template_id': '42',

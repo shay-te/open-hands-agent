@@ -140,10 +140,6 @@ class DeploymentFilesTests(unittest.TestCase):
         )
         self.assertIn('REPOSITORY_ROOT_PATH: ${REPOSITORY_ROOT_PATH:-.}', compose_text)
         self.assertIn(
-            'OPENHANDS_AGENT_STATE_FILE: ${OPENHANDS_AGENT_STATE_FILE:-data/openhands_agent_state.json}',
-            compose_text,
-        )
-        self.assertIn(
             'OPENHANDS_AGENT_DB_PATH: ${OPENHANDS_AGENT_DB_PATH:-data}',
             compose_text,
         )
@@ -208,7 +204,6 @@ class DeploymentFilesTests(unittest.TestCase):
         self.assertIn('OPENHANDS_TESTING_CONTAINER_ENABLED=', env_example_text)
         self.assertIn('OPENHANDS_TESTING_BASE_URL=', env_example_text)
         self.assertIn('OPENHANDS_TESTING_PORT=', env_example_text)
-        self.assertIn('OPENHANDS_AGENT_STATE_FILE=', env_example_text)
         self.assertIn('OPENHANDS_AGENT_LOG_LEVEL=', env_example_text)
         self.assertIn('OPENHANDS_AGENT_WORKFLOW_LOG_LEVEL=', env_example_text)
         self.assertIn('OPENHANDS_SSH_AUTH_SOCK_HOST_PATH=', env_example_text)
@@ -318,7 +313,6 @@ class DeploymentFilesTests(unittest.TestCase):
             'AGENT_SERVER_IMAGE_TAG: ${OPENHANDS_AGENT_SERVER_IMAGE_TAG:-1.12.0-python}',
             openhands_section,
         )
-        self.assertIn('create_db: true', config_text)
         self.assertIn('repositories:', config_text)
         self.assertIn('YOUTRACK_ISSUE_STATES', config_text)
         self.assertIn('poll_interval_seconds:', config_text)

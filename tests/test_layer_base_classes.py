@@ -4,9 +4,6 @@ import unittest
 from core_lib.data_layers.data_access.data_access import DataAccess
 from core_lib.data_layers.service.service import Service
 
-from openhands_agent.data_layers.data_access.agent_state_data_access import (
-    AgentStateDataAccess,
-)
 from openhands_agent.data_layers.data_access.pull_request_data_access import (
     PullRequestDataAccess,
 )
@@ -24,7 +21,6 @@ from openhands_agent.data_layers.service.testing_service import TestingService
 class LayerBaseClassTests(unittest.TestCase):
     def test_data_access_classes_extend_core_lib_data_access(self) -> None:
         for cls in (
-            AgentStateDataAccess,
             PullRequestDataAccess,
             TaskDataAccess,
         ):

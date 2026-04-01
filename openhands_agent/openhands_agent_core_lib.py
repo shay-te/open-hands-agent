@@ -90,7 +90,6 @@ class OpenHandsAgentCoreLib(CoreLib):
             testing_service=testing_service,
             repository_service=RepositoryService(open_cfg, retry_cfg.max_retries),
             notification_service=self._build_notification_service(open_cfg),
-            state_data_access=None,
         )
 
     @staticmethod

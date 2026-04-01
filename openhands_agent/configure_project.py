@@ -593,10 +593,6 @@ def _prompt_openhands_core_values(
                 default=int(_default_str(defaults, 'OPENHANDS_AGENT_MAX_RETRIES', fallback='5')),
             )
         ),
-        'OPENHANDS_AGENT_STATE_FILE': input_str(
-            'State file path',
-            default=_default_str(defaults, 'OPENHANDS_AGENT_STATE_FILE', fallback='data/openhands_agent_state.json'),
-        ),
         'OPENHANDS_TESTING_CONTAINER_ENABLED': _bool_to_env(testing_container_enabled),
     }
 

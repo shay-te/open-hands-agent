@@ -156,23 +156,6 @@ class AgentServiceTests(unittest.TestCase):
         self.assertEqual(self.openhands_client.validate_connection.call_count, 2)
         self.repository_service.validate_connections.assert_called_once_with()
 
-    def test_validate_connections_checks_state_when_configured(self) -> None:
-        state_data_access = types.SimpleNamespace(validate=Mock())
-        service = AgentService(
-            self.task_data_access,
-            self.implementation_service,
-            self.testing_service,
-            self.repository_service,
-            self.notification_service,
-            state_data_access=state_data_access,
-        )
-        self.task_client.validate_connection = Mock()
-        self.openhands_client.validate_connection = Mock()
-
-        service.validate_connections()
-
-        state_data_access.validate.assert_called_once_with()
-
     def test_validate_connections_raises_with_service_stack_traces(self) -> None:
         self.task_client.validate_connection = Mock(side_effect=RuntimeError('youtrack down'))
         self.openhands_client.validate_connection = Mock(side_effect=RuntimeError('openhands down'))
@@ -416,26 +399,21 @@ class AgentServiceTests(unittest.TestCase):
         self.assertEqual(results, [])
 
     def test_process_assigned_task_skips_already_processed_tasks(self) -> None:
-        state_data_access = types.SimpleNamespace(
-            is_task_processed=Mock(return_value=True),
-            get_processed_task=Mock(
-                return_value={
-                    PullRequestFields.PULL_REQUESTS: [
-                        {
-                            PullRequestFields.REPOSITORY_ID: 'client',
-                            PullRequestFields.ID: '17',
-                        }
-                    ]
-                }
-            ),
-        )
         service = AgentService(
             self.task_data_access,
             self.implementation_service,
             self.testing_service,
             self.repository_service,
             self.notification_service,
-            state_data_access=state_data_access,
+        )
+        service._mark_task_processed(
+            'PROJ-1',
+            [
+                {
+                    PullRequestFields.REPOSITORY_ID: 'client',
+                    PullRequestFields.ID: '17',
+                }
+            ],
         )
         task = self.task_data_access.get_assigned_tasks()[0]
 
@@ -1126,16 +1104,12 @@ class AgentServiceTests(unittest.TestCase):
         )
 
     def test_process_review_comment_marks_comment_processed(self) -> None:
-        state_data_access = types.SimpleNamespace(
-            mark_review_comment_processed=Mock(),
-        )
         service = AgentService(
             self.task_data_access,
             self.implementation_service,
             self.testing_service,
             self.repository_service,
             self.notification_service,
-            state_data_access=state_data_access,
         )
         service._pull_request_context_map['17'] = [
             {
@@ -1163,16 +1137,9 @@ class AgentServiceTests(unittest.TestCase):
             'Address review comments',
         )
         self.repository_service.resolve_review_comment.assert_called_once()
-        state_data_access.mark_review_comment_processed.assert_called_once_with(
-            'client',
-            '17',
-            '99',
-        )
+        self.assertTrue(service._is_review_comment_processed('client', '17', '99'))
 
     def test_process_review_comment_does_not_mark_processed_when_publish_fails(self) -> None:
-        state_data_access = types.SimpleNamespace(
-            mark_review_comment_processed=Mock(),
-        )
         self.repository_service.publish_review_fix.side_effect = RuntimeError('push failed')
         service = AgentService(
             self.task_data_access,
@@ -1180,7 +1147,6 @@ class AgentServiceTests(unittest.TestCase):
             self.testing_service,
             self.repository_service,
             self.notification_service,
-            state_data_access=state_data_access,
         )
         service._pull_request_context_map['17'] = [
             {
@@ -1197,15 +1163,12 @@ class AgentServiceTests(unittest.TestCase):
                     author='reviewer',
                     body='Please rename this variable.',
                 )
-            )
+        )
 
         self.repository_service.resolve_review_comment.assert_not_called()
-        state_data_access.mark_review_comment_processed.assert_not_called()
+        self.assertFalse(service._is_review_comment_processed('client', '17', '99'))
 
     def test_process_review_comment_does_not_mark_processed_when_resolution_fails(self) -> None:
-        state_data_access = types.SimpleNamespace(
-            mark_review_comment_processed=Mock(),
-        )
         self.repository_service.resolve_review_comment.side_effect = RuntimeError('provider down')
         service = AgentService(
             self.task_data_access,
@@ -1213,7 +1176,6 @@ class AgentServiceTests(unittest.TestCase):
             self.testing_service,
             self.repository_service,
             self.notification_service,
-            state_data_access=state_data_access,
         )
         service._pull_request_context_map['17'] = [
             {
@@ -1230,50 +1192,14 @@ class AgentServiceTests(unittest.TestCase):
                     author='reviewer',
                     body='Please rename this variable.',
                 )
-            )
+        )
 
         self.repository_service.publish_review_fix.assert_called_once()
-        state_data_access.mark_review_comment_processed.assert_not_called()
+        self.assertFalse(service._is_review_comment_processed('client', '17', '99'))
 
     def test_handle_pull_request_comment_rejects_unknown_pull_request(self) -> None:
         with self.assertRaisesRegex(ValueError, 'unknown pull request id'):
             self.service.handle_pull_request_comment(build_review_comment_payload())
-
-    def test_handle_pull_request_comment_loads_persisted_context_after_restart(self) -> None:
-        state_data_access = types.SimpleNamespace(
-            get_pull_request_contexts=Mock(
-                return_value=[
-                    {
-                        PullRequestFields.REPOSITORY_ID: 'client',
-                        'branch_name': 'feature/proj-1/client',
-                        ImplementationFields.SESSION_ID: 'conversation-1',
-                        TaskFields.ID: 'PROJ-1',
-                        TaskFields.SUMMARY: 'Fix bug',
-                    }
-                ]
-            ),
-            mark_review_comment_processed=Mock(),
-        )
-        service = AgentService(
-            self.task_data_access,
-            self.implementation_service,
-            self.testing_service,
-            self.repository_service,
-            self.notification_service,
-            state_data_access=state_data_access,
-        )
-
-        result = service.handle_pull_request_comment(build_review_comment_payload())
-
-        self.assertEqual(result[PullRequestFields.REPOSITORY_ID], 'client')
-        state_data_access.get_pull_request_contexts.assert_called_once_with('17')
-        self.assertEqual(
-            self.openhands_client.fix_review_comment.call_args.kwargs,
-            {
-                'task_id': 'PROJ-1',
-                'task_summary': 'Fix bug',
-            },
-        )
 
     def test_handle_pull_request_comment_rejects_ambiguous_pull_request(self) -> None:
         self.service._pull_request_context_map['17'] = [
@@ -1321,28 +1247,6 @@ class AgentServiceTests(unittest.TestCase):
             self.service.handle_pull_request_comment(build_review_comment_payload())
 
     def test_get_new_pull_request_comments_returns_unprocessed_comments_with_context(self) -> None:
-        state_data_access = types.SimpleNamespace(
-            get_processed_task=Mock(
-                return_value={
-                    PullRequestFields.PULL_REQUESTS: [
-                        {
-                            PullRequestFields.ID: '17',
-                            PullRequestFields.REPOSITORY_ID: 'client',
-                        }
-                    ]
-                }
-            ),
-            list_pull_request_contexts=Mock(
-                return_value=[
-                    {
-                        PullRequestFields.ID: '17',
-                        PullRequestFields.REPOSITORY_ID: 'client',
-                        'branch_name': 'feature/proj-1/client',
-                    }
-                ]
-            ),
-            is_review_comment_processed=Mock(side_effect=[False, True]),
-        )
         self.repository_service.list_pull_request_comments.return_value = [
             ReviewComment(
                 pull_request_id='17',
@@ -1363,8 +1267,24 @@ class AgentServiceTests(unittest.TestCase):
             self.testing_service,
             self.repository_service,
             self.notification_service,
-            state_data_access=state_data_access,
         )
+        service._mark_task_processed(
+            'PROJ-1',
+            [
+                {
+                    PullRequestFields.ID: '17',
+                    PullRequestFields.REPOSITORY_ID: 'client',
+                }
+            ],
+        )
+        service._pull_request_context_map['17'] = [
+            {
+                PullRequestFields.ID: '17',
+                PullRequestFields.REPOSITORY_ID: 'client',
+                'branch_name': 'feature/proj-1/client',
+            }
+        ]
+        service._mark_review_comment_processed('client', '17', '98')
         self.task_client.get_assigned_tasks.return_value = [build_task(task_id='PROJ-1')]
 
         comments = service.get_new_pull_request_comments()
@@ -1394,28 +1314,6 @@ class AgentServiceTests(unittest.TestCase):
         )
 
     def test_get_new_pull_request_comments_deduplicates_same_resolution_target(self) -> None:
-        state_data_access = types.SimpleNamespace(
-            get_processed_task=Mock(
-                return_value={
-                    PullRequestFields.PULL_REQUESTS: [
-                        {
-                            PullRequestFields.ID: '17',
-                            PullRequestFields.REPOSITORY_ID: 'client',
-                        }
-                    ]
-                }
-            ),
-            list_pull_request_contexts=Mock(
-                return_value=[
-                    {
-                        PullRequestFields.ID: '17',
-                        PullRequestFields.REPOSITORY_ID: 'client',
-                        'branch_name': 'feature/proj-1/client',
-                    }
-                ]
-            ),
-            is_review_comment_processed=Mock(return_value=False),
-        )
         first = ReviewComment(
             pull_request_id='17',
             comment_id='98',
@@ -1439,8 +1337,23 @@ class AgentServiceTests(unittest.TestCase):
             self.testing_service,
             self.repository_service,
             self.notification_service,
-            state_data_access=state_data_access,
         )
+        service._mark_task_processed(
+            'PROJ-1',
+            [
+                {
+                    PullRequestFields.ID: '17',
+                    PullRequestFields.REPOSITORY_ID: 'client',
+                }
+            ],
+        )
+        service._pull_request_context_map['17'] = [
+            {
+                PullRequestFields.ID: '17',
+                PullRequestFields.REPOSITORY_ID: 'client',
+                'branch_name': 'feature/proj-1/client',
+            }
+        ]
         self.task_client.get_assigned_tasks.return_value = [build_task(task_id='PROJ-1')]
 
         comments = service.get_new_pull_request_comments()
@@ -1453,43 +1366,6 @@ class AgentServiceTests(unittest.TestCase):
         )
 
     def test_get_new_pull_request_comments_only_polls_pull_requests_for_review_tasks(self) -> None:
-        state_data_access = types.SimpleNamespace(
-            get_processed_task=Mock(
-                side_effect=lambda task_id: {
-                    'PROJ-1': {
-                        PullRequestFields.PULL_REQUESTS: [
-                            {
-                                PullRequestFields.ID: '17',
-                                PullRequestFields.REPOSITORY_ID: 'client',
-                            }
-                        ]
-                    },
-                    'PROJ-2': {
-                        PullRequestFields.PULL_REQUESTS: [
-                            {
-                                PullRequestFields.ID: '18',
-                                PullRequestFields.REPOSITORY_ID: 'backend',
-                            }
-                        ]
-                    },
-                }.get(task_id, {})
-            ),
-            list_pull_request_contexts=Mock(
-                return_value=[
-                    {
-                        PullRequestFields.ID: '17',
-                        PullRequestFields.REPOSITORY_ID: 'client',
-                        'branch_name': 'feature/proj-1/client',
-                    },
-                    {
-                        PullRequestFields.ID: '18',
-                        PullRequestFields.REPOSITORY_ID: 'backend',
-                        'branch_name': 'feature/proj-2/backend',
-                    },
-                ]
-            ),
-            is_review_comment_processed=Mock(return_value=False),
-        )
         self.task_client.get_assigned_tasks.return_value = [build_task(task_id='PROJ-1')]
         self.repository_service.list_pull_request_comments.return_value = []
         service = AgentService(
@@ -1498,8 +1374,39 @@ class AgentServiceTests(unittest.TestCase):
             self.testing_service,
             self.repository_service,
             self.notification_service,
-            state_data_access=state_data_access,
         )
+        service._mark_task_processed(
+            'PROJ-1',
+            [
+                {
+                    PullRequestFields.ID: '17',
+                    PullRequestFields.REPOSITORY_ID: 'client',
+                }
+            ],
+        )
+        service._mark_task_processed(
+            'PROJ-2',
+            [
+                {
+                    PullRequestFields.ID: '18',
+                    PullRequestFields.REPOSITORY_ID: 'backend',
+                }
+            ],
+        )
+        service._pull_request_context_map['17'] = [
+            {
+                PullRequestFields.ID: '17',
+                PullRequestFields.REPOSITORY_ID: 'client',
+                'branch_name': 'feature/proj-1/client',
+            }
+        ]
+        service._pull_request_context_map['18'] = [
+            {
+                PullRequestFields.ID: '18',
+                PullRequestFields.REPOSITORY_ID: 'backend',
+                'branch_name': 'feature/proj-2/backend',
+            }
+        ]
 
         comments = service.get_new_pull_request_comments()
 

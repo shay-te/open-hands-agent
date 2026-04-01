@@ -51,7 +51,6 @@ class AgentService(Service):
         testing_service: TestingService,
         repository_service: RepositoryService,
         notification_service: NotificationService,
-        state_data_access=None,
     ) -> None:
         self.logger = configure_logger(self.__class__.__name__)
         if testing_service is None:
@@ -63,14 +62,9 @@ class AgentService(Service):
         self._testing_service = testing_service
         self._repository_service = repository_service
         self._notification_service = notification_service
-        self._state_data_access = state_data_access
         self._pull_request_context_map: dict[str, list[dict[str, str]]] = {}
         self._processed_task_map: dict[str, dict[str, object]] = {}
-        if self._state_data_access is None:
-            self.logger.warning(
-                'state_data_access is not configured; processed tasks and pull request comment '
-                'state will not survive restarts'
-            )
+        self._processed_review_comment_map: dict[tuple[str, str], set[str]] = {}
 
     @property
     def notification_service(self) -> NotificationService:
@@ -121,8 +115,6 @@ class AgentService(Service):
                 self._testing_service.max_retries,
             ),
         ]
-        if self._state_data_access is not None:
-            validations.append(('state', self._state_data_access.validate, 1))
         return validations
 
     def _collect_validation_result(
@@ -890,22 +882,6 @@ class AgentService(Service):
             task_summary,
         )
         self._pull_request_context_map.setdefault(pull_request_id, []).append(context)
-        if self._state_data_access is None:
-            return
-        try:
-            self._state_data_access.remember_pull_request_context(
-                pull_request_id,
-                pull_request[PullRequestFields.REPOSITORY_ID],
-                branch_name,
-                context.get(ImplementationFields.SESSION_ID, ''),
-                context.get(TaskFields.ID, ''),
-                context.get(TaskFields.SUMMARY, ''),
-            )
-        except Exception:
-            self.logger.exception(
-                'failed to persist pull request context for pull request %s',
-                pull_request_id,
-            )
 
     def _pull_request_context(
         self,
@@ -913,10 +889,6 @@ class AgentService(Service):
         repository_id: str = '',
     ) -> dict[str, str] | None:
         pull_request_contexts = self._pull_request_context_map.get(pull_request_id, [])
-        if not pull_request_contexts:
-            pull_request_contexts = self._load_persisted_pull_request_contexts(
-                pull_request_id
-            )
         if repository_id:
             pull_request_contexts = [
                 context
@@ -1289,13 +1261,7 @@ class AgentService(Service):
             return False
 
     def _is_task_processed(self, task_id: str) -> bool:
-        if str(task_id) in self._processed_task_map:
-            return True
-        if self._state_data_access is None:
-            return False
-        if not hasattr(self._state_data_access, 'is_task_processed'):
-            return False
-        return self._state_data_access.is_task_processed(task_id)
+        return str(task_id) in self._processed_task_map
 
     @staticmethod
     def _active_execution_blocking_comment(task: Task) -> str:
@@ -1308,13 +1274,7 @@ class AgentService(Service):
             pull_requests = in_memory_task.get(PullRequestFields.PULL_REQUESTS, [])
             if isinstance(pull_requests, list):
                 return pull_requests
-        if self._state_data_access is None:
-            return []
-        if not hasattr(self._state_data_access, 'get_processed_task'):
-            return []
-        processed_task = self._state_data_access.get_processed_task(task_id)
-        pull_requests = processed_task.get(PullRequestFields.PULL_REQUESTS, [])
-        return pull_requests if isinstance(pull_requests, list) else []
+        return []
 
     def _mark_task_processed(self, task_id: str, pull_requests: list[dict[str, str]]) -> None:
         self._processed_task_map[str(task_id)] = {
@@ -1325,15 +1285,6 @@ class AgentService(Service):
                 if isinstance(pull_request, dict)
             ],
         }
-        if self._state_data_access is None:
-            return
-        try:
-            self._state_data_access.save_processed_task(
-                task_id,
-                self._processed_task_map[str(task_id)],
-            )
-        except Exception:
-            self.logger.exception('failed to persist processed task state for task %s', task_id)
 
     def _review_pull_request_keys(self) -> set[tuple[str, str]]:
         review_pull_request_keys: set[tuple[str, str]] = set()
@@ -1349,21 +1300,6 @@ class AgentService(Service):
                     review_pull_request_keys.add((pull_request_id, repository_id))
         return review_pull_request_keys
 
-    def _load_persisted_pull_request_contexts(
-        self,
-        pull_request_id: str,
-    ) -> list[dict[str, str]]:
-        if self._state_data_access is None:
-            return []
-        try:
-            return self._state_data_access.get_pull_request_contexts(pull_request_id)
-        except Exception:
-            self.logger.exception(
-                'failed to load persisted pull request context for pull request %s',
-                pull_request_id,
-            )
-            return []
-
     def _tracked_pull_request_contexts(self) -> list[dict[str, str]]:
         contexts: list[dict[str, str]] = []
         seen: set[tuple[str, str, str]] = set()
@@ -1371,11 +1307,6 @@ class AgentService(Service):
             contexts,
             seen,
             self._in_memory_tracked_pull_request_contexts(),
-        )
-        self._append_tracked_contexts(
-            contexts,
-            seen,
-            self._persisted_tracked_pull_request_contexts(),
         )
         return contexts
 
@@ -1391,15 +1322,6 @@ class AgentService(Service):
                     }
                 )
         return contexts
-
-    def _persisted_tracked_pull_request_contexts(self) -> list[dict[str, str]]:
-        if self._state_data_access is None:
-            return []
-        try:
-            return self._state_data_access.list_pull_request_contexts()
-        except Exception:
-            self.logger.exception('failed to load tracked pull request contexts from state')
-            return []
 
     @staticmethod
     def _append_tracked_contexts(
@@ -1424,13 +1346,8 @@ class AgentService(Service):
         pull_request_id: str,
         comment_id: str,
     ) -> bool:
-        if self._state_data_access is None:
-            return False
-        return self._state_data_access.is_review_comment_processed(
-            repository_id,
-            pull_request_id,
-            comment_id,
-        )
+        key = (str(repository_id), str(pull_request_id))
+        return str(comment_id) in self._processed_review_comment_map.get(key, set())
 
     def _mark_review_comment_processed(
         self,
@@ -1438,21 +1355,8 @@ class AgentService(Service):
         pull_request_id: str,
         comment_id: str,
     ) -> None:
-        if self._state_data_access is None:
-            return
-        try:
-            self._state_data_access.mark_review_comment_processed(
-                repository_id,
-                pull_request_id,
-                comment_id,
-            )
-        except Exception:
-            self.logger.exception(
-                'failed to persist processed review comment %s for pull request %s in repository %s',
-                comment_id,
-                pull_request_id,
-                repository_id,
-            )
+        key = (str(repository_id), str(pull_request_id))
+        self._processed_review_comment_map.setdefault(key, set()).add(str(comment_id))
 
     def _task_id_for_pull_request(
         self,
