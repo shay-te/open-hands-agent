@@ -131,6 +131,18 @@ class AgentService(Service):
             validate()
             self.logger.info('validated %s connection', service_name)
         except Exception as exc:
+            if service_name == 'repositories':
+                self.logger.error(
+                    'failed to validate %s connection: %s',
+                    service_name,
+                    exc,
+                )
+                summaries.append(
+                    self._validation_failure_summary(service_name, exc, max_retries)
+                )
+                details.append(f'[{service_name}] {exc}')
+                return
+
             self.logger.exception('failed to validate %s connection', service_name)
             summaries.append(
                 self._validation_failure_summary(service_name, exc, max_retries)

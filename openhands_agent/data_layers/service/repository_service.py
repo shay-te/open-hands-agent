@@ -377,20 +377,12 @@ class RepositoryService(Service):
 
     def _validate_repository_git_access(self, repository) -> None:
         local_path = text_from_attr(repository, 'local_path')
-        try:
-            self._run_git(
-                local_path,
-                ['ls-remote', '--heads', 'origin'],
-                f'failed to validate git access for repository at {local_path}',
-                repository,
-            )
-        except Exception as exc:
-            self.logger.error(
-                'git access validation failed for repository at %s: %s',
-                local_path,
-                exc,
-            )
-            raise
+        self._run_git(
+            local_path,
+            ['ls-remote', '--heads', 'origin'],
+            f'failed to validate git access for repository at {local_path}',
+            repository,
+        )
 
     def _prepare_task_repository(self, repository):
         self._prepare_repository_access(repository)
