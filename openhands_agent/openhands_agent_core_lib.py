@@ -19,6 +19,7 @@ from openhands_agent.logging_utils import configure_logger
 from openhands_agent.openhands_config_utils import (
     resolved_openhands_base_url,
     resolved_openhands_llm_settings,
+    skip_testing_enabled,
 )
 
 logger = configure_logger('OpenHandsAgentCoreLib')
@@ -90,6 +91,7 @@ class OpenHandsAgentCoreLib(CoreLib):
             testing_service=testing_service,
             repository_service=RepositoryService(open_cfg, retry_cfg.max_retries),
             notification_service=self._build_notification_service(open_cfg),
+            skip_testing=skip_testing_enabled(open_cfg.openhands),
         )
 
     @staticmethod

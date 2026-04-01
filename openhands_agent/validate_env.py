@@ -248,6 +248,8 @@ def validate_openhands_env(env: dict[str, str]) -> list[str]:
 
 
 def _validate_openhands_testing_container_env(env: dict[str, str]) -> list[str]:
+    if _is_enabled(env.get('OPENHANDS_SKIP_TESTING')):
+        return []
     if not _is_enabled(env.get('OPENHANDS_TESTING_CONTAINER_ENABLED')):
         return []
 

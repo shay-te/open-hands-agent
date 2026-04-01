@@ -593,6 +593,12 @@ def _prompt_openhands_core_values(
                 default=int(_default_str(defaults, 'OPENHANDS_AGENT_MAX_RETRIES', fallback='5')),
             )
         ),
+        'OPENHANDS_SKIP_TESTING': _bool_to_env(
+            input_bool(
+                'Skip testing before publishing pull requests',
+                default=_default_bool(defaults, 'OPENHANDS_SKIP_TESTING'),
+            )
+        ),
         'OPENHANDS_TESTING_CONTAINER_ENABLED': _bool_to_env(testing_container_enabled),
         'OPENHANDS_TASK_SCAN_STARTUP_DELAY_SECONDS': _default_str(
             defaults,

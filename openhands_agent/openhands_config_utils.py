@@ -15,6 +15,10 @@ def testing_container_enabled(openhands_cfg: DictConfig) -> bool:
     return bool(getattr(openhands_cfg, 'testing_container_enabled', False))
 
 
+def skip_testing_enabled(openhands_cfg: DictConfig) -> bool:
+    return bool(getattr(openhands_cfg, 'skip_testing', False))
+
+
 def resolved_openhands_base_url(
     openhands_cfg: DictConfig,
     *,

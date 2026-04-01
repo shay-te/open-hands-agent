@@ -360,6 +360,33 @@ class AgentServiceTests(unittest.TestCase):
             self.task_client.add_comment.call_args_list[1].args[1],
         )
 
+    def test_process_assigned_task_can_skip_testing_validation(self) -> None:
+        service = AgentService(
+            self.task_data_access,
+            self.implementation_service,
+            self.testing_service,
+            self.repository_service,
+            self.notification_service,
+            skip_testing=True,
+        )
+        self.openhands_client.implement_task.return_value = {
+            ImplementationFields.SUCCESS: True,
+            ImplementationFields.SESSION_ID: 'conversation-1',
+            ImplementationFields.COMMIT_MESSAGE: 'Implement PROJ-1',
+            ImplementationFields.MESSAGE: 'Implementation note from OpenHands',
+            'summary': self.pr_description,
+        }
+        task = self.task_data_access.get_assigned_tasks()[0]
+
+        results = service.process_assigned_task(task)
+
+        self.assertEqual(results[StatusFields.STATUS], StatusFields.READY_FOR_REVIEW)
+        self.openhands_client.test_task.assert_not_called()
+        self.assertEqual(self.repository_service.prepare_task_branches.call_count, 1)
+        summary_comment = self.task_client.add_comment.call_args_list[1].args[1]
+        self.assertNotIn('Validation report:', summary_comment)
+        self.assertNotIn('Implementation note from OpenHands', summary_comment)
+
     def test_process_assigned_task_reopens_when_task_branch_validation_fails_before_testing(self) -> None:
         task = self.task_data_access.get_assigned_tasks()[0]
         self.repository_service.prepare_task_branches.side_effect = [

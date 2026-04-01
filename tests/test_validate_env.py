@@ -243,6 +243,19 @@ class ValidateEnvTests(unittest.TestCase):
 
         self.assertEqual(errors, ['openai/gpt-4o requires OPENHANDS_LLM_API_KEY'])
 
+    def test_validate_openhands_env_skips_testing_container_validation_when_testing_is_disabled(self) -> None:
+        errors = validate_openhands_env(
+            {
+                'OH_SECRET_KEY': 'secret-key',
+                'OPENHANDS_LLM_MODEL': 'openai/gpt-4o',
+                'OPENHANDS_LLM_API_KEY': 'llm-key',
+                'OPENHANDS_SKIP_TESTING': 'true',
+                'OPENHANDS_TESTING_CONTAINER_ENABLED': 'true',
+            }
+        )
+
+        self.assertEqual(errors, [])
+
     def test_validate_openhands_env_requires_testing_base_url_when_testing_container_enabled(self) -> None:
         errors = validate_openhands_env(
             {

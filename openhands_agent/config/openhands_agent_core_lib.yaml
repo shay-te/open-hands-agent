@@ -97,6 +97,7 @@ openhands_agent:
     llm_base_url: ${oc.env:OPENHANDS_LLM_BASE_URL,""}
     model_smoke_test_enabled: ${oc.decode:${oc.env:OPENHANDS_MODEL_SMOKE_TEST_ENABLED,"true"}}
     testing_container_enabled: ${oc.decode:${oc.env:OPENHANDS_TESTING_CONTAINER_ENABLED,"false"}}
+    skip_testing: ${oc.decode:${oc.env:OPENHANDS_SKIP_TESTING,"false"}}
     testing_base_url: ${oc.env:OPENHANDS_TESTING_BASE_URL,""}
     testing_llm_model: ${oc.env:OPENHANDS_TESTING_LLM_MODEL,""}
     testing_llm_base_url: ${oc.env:OPENHANDS_TESTING_LLM_BASE_URL,""}

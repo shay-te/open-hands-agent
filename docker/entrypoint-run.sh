@@ -28,7 +28,7 @@ def wait_until_reachable(url: str, label: str) -> None:
             time.sleep(2)
     raise SystemExit(f"{label} did not become reachable in time")
 wait_until_reachable("http://openhands:3000", "OpenHands")
-if os.getenv("OPENHANDS_TESTING_CONTAINER_ENABLED", "").strip().lower() in TRUE_VALUES:
+if os.getenv("OPENHANDS_SKIP_TESTING", "").strip().lower() not in TRUE_VALUES and os.getenv("OPENHANDS_TESTING_CONTAINER_ENABLED", "").strip().lower() in TRUE_VALUES:
     wait_until_reachable(
         os.getenv("OPENHANDS_TESTING_BASE_URL", "http://openhands-testing:3000"),
         "OpenHands testing",

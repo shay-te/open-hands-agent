@@ -112,32 +112,38 @@ class RepositoryService(Service):
         commit_message: str = '',
     ) -> dict[str, str]:
         self._prepare_pull_request_api(repository)
-        destination_branch = self._publish_repository_branch(
-            repository,
-            source_branch,
-            commit_message=commit_message,
-            default_commit_message=f'Implement {source_branch}',
-        )
-        pull_request = self._pull_request_data_access(repository).create_pull_request(
-            title=title,
-            source_branch=source_branch,
-            destination_branch=destination_branch,
-            description=description,
-        )
-        return {
-            PullRequestFields.REPOSITORY_ID: repository.id,
-            PullRequestFields.ID: str(pull_request.get(PullRequestFields.ID, '') or ''),
-            PullRequestFields.TITLE: str(
-                pull_request.get(PullRequestFields.TITLE, '') or title
-            ),
-            PullRequestFields.URL: str(
-                pull_request.get(PullRequestFields.URL, '')
-                or self._review_url(repository, source_branch, destination_branch)
-            ),
-            PullRequestFields.SOURCE_BRANCH: source_branch,
-            PullRequestFields.DESTINATION_BRANCH: destination_branch,
-            PullRequestFields.DESCRIPTION: description,
-        }
+        destination_branch = self.destination_branch(repository)
+        try:
+            self._publish_branch_updates(
+                repository.local_path,
+                source_branch,
+                destination_branch,
+                normalized_text(commit_message) or f'Implement {source_branch}',
+                repository,
+                restore_workspace=False,
+            )
+            pull_request = self._pull_request_data_access(repository).create_pull_request(
+                title=title,
+                source_branch=source_branch,
+                destination_branch=destination_branch,
+                description=description,
+            )
+            return {
+                PullRequestFields.REPOSITORY_ID: repository.id,
+                PullRequestFields.ID: str(pull_request.get(PullRequestFields.ID, '') or ''),
+                PullRequestFields.TITLE: str(
+                    pull_request.get(PullRequestFields.TITLE, '') or title
+                ),
+                PullRequestFields.URL: str(
+                    pull_request.get(PullRequestFields.URL, '')
+                    or self._review_url(repository, source_branch, destination_branch)
+                ),
+                PullRequestFields.SOURCE_BRANCH: source_branch,
+                PullRequestFields.DESTINATION_BRANCH: destination_branch,
+                PullRequestFields.DESCRIPTION: description,
+            }
+        finally:
+            self._prepare_workspace_for_task(repository.local_path, destination_branch, repository)
 
     def publish_review_fix(
         self,
@@ -702,6 +708,8 @@ class RepositoryService(Service):
         destination_branch: str,
         commit_message: str,
         repository=None,
+        *,
+        restore_workspace: bool = True,
     ) -> None:
         try:
             self._prepare_branch_for_publication(
@@ -712,7 +720,8 @@ class RepositoryService(Service):
             )
             self._push_branch(local_path, branch_name, repository)
         finally:
-            self._prepare_workspace_for_task(local_path, destination_branch, repository)
+            if restore_workspace:
+                self._prepare_workspace_for_task(local_path, destination_branch, repository)
 
     def _prepare_workspace_for_task(
         self,

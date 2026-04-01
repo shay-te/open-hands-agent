@@ -134,8 +134,9 @@ Testing uses:
 
 - the dedicated testing server from `OPENHANDS_TESTING_BASE_URL` when `OPENHANDS_TESTING_CONTAINER_ENABLED=true`
 - the main `OPENHANDS_BASE_URL` when `OPENHANDS_TESTING_CONTAINER_ENABLED=false`
+- no testing conversation at all when `OPENHANDS_SKIP_TESTING=true`
 
-When the testing container is enabled, `make compose-up` starts Docker Compose with the `testing` profile so the extra `openhands-testing` service is available. When it is disabled, no dedicated testing server is started and the agent keeps testing on the main OpenHands instance.
+When the testing container is enabled and `OPENHANDS_SKIP_TESTING=false`, `make compose-up` starts Docker Compose with the `testing` profile so the extra `openhands-testing` service is available. When it is disabled, no dedicated testing server is started and the agent keeps testing on the main OpenHands instance. When `OPENHANDS_SKIP_TESTING=true`, the agent skips the validation step entirely and `make compose-up` stays on the normal profile even if the dedicated testing container is enabled.
 
 ## Required Environment
 
@@ -164,124 +165,139 @@ If you prefer to edit the file manually, start here:
 cp .env.example .env
 ```
 
-The most important entries are:
+Use `OPENHANDS_AGENT_ISSUE_PLATFORM` for new setups. `OPENHANDS_AGENT_TICKET_SYSTEM` is still accepted as a backward-compatible alias.
 
-```dotenv
-OPENHANDS_AGENT_ISSUE_PLATFORM=youtrack
-OPENHANDS_AGENT_TICKET_SYSTEM=youtrack
-YOUTRACK_BASE_URL=https://your-company.youtrack.cloud
-YOUTRACK_TOKEN=...
-YOUTRACK_PROJECT=PROJ
-YOUTRACK_ASSIGNEE=your-youtrack-login
-YOUTRACK_ISSUE_STATES=Todo,Open
-JIRA_BASE_URL=
-JIRA_TOKEN=
-JIRA_EMAIL=
-JIRA_PROJECT=
-JIRA_ASSIGNEE=
-JIRA_ISSUE_STATES=To Do,Open
-GITHUB_ISSUES_BASE_URL=https://api.github.com
-GITHUB_API_TOKEN=
-GITHUB_ISSUES_OWNER=
-GITHUB_ISSUES_REPO=
-GITHUB_ISSUES_ASSIGNEE=
-GITHUB_ISSUES_ISSUE_STATES=open
-GITLAB_ISSUES_BASE_URL=https://gitlab.com/api/v4
-GITLAB_API_TOKEN=
-GITLAB_ISSUES_PROJECT=
-GITLAB_ISSUES_ASSIGNEE=
-GITLAB_ISSUES_ISSUE_STATES=opened
-BITBUCKET_ISSUES_BASE_URL=https://api.bitbucket.org/2.0
-BITBUCKET_API_TOKEN=
-BITBUCKET_ISSUES_WORKSPACE=
-BITBUCKET_ISSUES_REPO_SLUG=
-BITBUCKET_ISSUES_ASSIGNEE=
-BITBUCKET_ISSUES_ISSUE_STATES=new,open
-REPOSITORY_ROOT_PATH=./projects
-OPENHANDS_AGENT_IGNORED_REPOSITORY_FOLDERS=
-OPENHANDS_BASE_URL=http://localhost:3000
-OPENHANDS_API_KEY=...
-OPENHANDS_AGENT_MAX_RETRIES=5
-OPENHANDS_AGENT_FAILURE_EMAIL_ENABLED=true
-OPENHANDS_AGENT_FAILURE_EMAIL_TEMPLATE_ID=42
-OPENHANDS_AGENT_FAILURE_EMAIL_TO=ops@example.com
-OPENHANDS_AGENT_FAILURE_EMAIL_SENDER_NAME=OpenHands Agent
-OPENHANDS_AGENT_FAILURE_EMAIL_SENDER_EMAIL=noreply@example.com
-OPENHANDS_AGENT_COMPLETION_EMAIL_ENABLED=true
-OPENHANDS_AGENT_COMPLETION_EMAIL_TEMPLATE_ID=77
-OPENHANDS_AGENT_COMPLETION_EMAIL_TO=reviewers@example.com
-OPENHANDS_AGENT_COMPLETION_EMAIL_SENDER_NAME=OpenHands Agent
-OPENHANDS_AGENT_COMPLETION_EMAIL_SENDER_EMAIL=noreply@example.com
-YOUTRACK_REVIEW_STATE_FIELD=State
-YOUTRACK_REVIEW_STATE=In Review
-EMAIL_CORE_LIB_SEND_IN_BLUE_API_KEY=...
-SLACK_WEBHOOK_URL_ERRORS_EMAIL=
-```
+## Environment Reference
 
-Use `OPENHANDS_AGENT_ISSUE_PLATFORM` for new setups.
-Supported values are `youtrack`, `jira`, `github`, `gitlab`, and `bitbucket`.
-`OPENHANDS_AGENT_TICKET_SYSTEM` is still accepted as a backward-compatible alias.
+The list below mirrors `.env.example`.
 
-Repository metadata is discovered from each repository's `.git` remote under `REPOSITORY_ROOT_PATH`.
-Use `OPENHANDS_AGENT_IGNORED_REPOSITORY_FOLDERS` to exclude specific folder names from auto-discovery when the root contains clones that should never be used by the agent. Provide multiple folder names as a comma-separated list, for example `OPENHANDS_AGENT_IGNORED_REPOSITORY_FOLDERS=repo-build,repo-mirror`.
-The agent publishes branches with local git commands. For discovered repositories with HTTPS remotes, the agent reuses the provider token env vars `GITHUB_API_TOKEN`, `GITLAB_API_TOKEN`, or `BITBUCKET_API_TOKEN` for non-interactive `git pull` and `git push`, even when the issue platform is different. For example, a YouTrack + Bitbucket setup still needs `BITBUCKET_API_TOKEN` so the agent can update the branch and create the Bitbucket pull request.
-Actual pull request or merge request creation also uses the repository provider API.
-If a discovered repository uses an SSH remote such as `git@bitbucket.org:workspace/repo.git`, Docker runs also need SSH agent forwarding. The compose file forwards `${OPENHANDS_SSH_AUTH_SOCK_HOST_PATH}` into both the `openhands` container and the sandbox at `/ssh-agent`, and sets `SSH_AUTH_SOCK=/ssh-agent` there. On Docker Desktop for macOS, the default `OPENHANDS_SSH_AUTH_SOCK_HOST_PATH=/run/host-services/ssh-auth.sock` usually works without changes.
-If you need explicit aliases or repository metadata overrides, add entries under `openhands_agent.repositories` in `openhands_agent/config/openhands_agent_core_lib.yaml`.
-Docker Compose derives the OpenHands runtime sandbox mount from `REPOSITORY_ROOT_PATH`, so the normal setup only needs that one repository path setting.
+### Ticket And Repository
 
-If `destination_branch` is empty, the agent infers the repository default branch from the local git checkout. That is convenient for local development, but it also means runtime behavior depends on the checkout state. For production-style runs, set `destination_branch` explicitly for every repository so pull requests cannot target the wrong branch because of a stale or unusual local clone.
+| Variable | What it does |
+| --- | --- |
+| `OPENHANDS_AGENT_ISSUE_PLATFORM` | Selects the active issue platform. Supported values are `youtrack`, `jira`, `github`, `gitlab`, and `bitbucket`. |
+| `OPENHANDS_AGENT_TICKET_SYSTEM` | Backward-compatible alias for `OPENHANDS_AGENT_ISSUE_PLATFORM`. |
+| `YOUTRACK_BASE_URL` | YouTrack API base URL. |
+| `YOUTRACK_TOKEN` | YouTrack API token. |
+| `YOUTRACK_PROJECT` | YouTrack project key used to fetch tasks. |
+| `YOUTRACK_ASSIGNEE` | YouTrack assignee to scan for tasks. |
+| `YOUTRACK_PROGRESS_STATE_FIELD` | YouTrack field used for the in-progress transition. |
+| `YOUTRACK_PROGRESS_STATE` | YouTrack value used for the in-progress transition. |
+| `YOUTRACK_REVIEW_STATE_FIELD` | YouTrack field used for the review transition. |
+| `YOUTRACK_REVIEW_STATE` | YouTrack value used for the review transition. |
+| `YOUTRACK_ISSUE_STATES` | YouTrack issue states that qualify for processing. |
+| `JIRA_BASE_URL` | Jira API base URL. |
+| `JIRA_TOKEN` | Jira API token. |
+| `JIRA_EMAIL` | Jira user email for authentication. |
+| `JIRA_PROJECT` | Jira project key used to fetch tasks. |
+| `JIRA_ASSIGNEE` | Jira assignee to scan for tasks. |
+| `JIRA_PROGRESS_STATE_FIELD` | Jira field used for the in-progress transition. |
+| `JIRA_PROGRESS_STATE` | Jira value used for the in-progress transition. |
+| `JIRA_REVIEW_STATE_FIELD` | Jira field used for the review transition. |
+| `JIRA_REVIEW_STATE` | Jira value used for the review transition. |
+| `JIRA_ISSUE_STATES` | Jira issue states that qualify for processing. |
+| `GITHUB_ISSUES_BASE_URL` | GitHub Issues API base URL. |
+| `GITHUB_API_TOKEN` | GitHub API token. Also used for GitHub git push and PR creation when needed. |
+| `GITHUB_ISSUES_OWNER` | GitHub repository owner used to scope issues. |
+| `GITHUB_ISSUES_REPO` | GitHub repository name used to scope issues. |
+| `GITHUB_ISSUES_ASSIGNEE` | GitHub assignee to scan for tasks. |
+| `GITHUB_ISSUES_PROGRESS_STATE_FIELD` | GitHub Issues field used for the in-progress transition. |
+| `GITHUB_ISSUES_PROGRESS_STATE` | GitHub Issues value used for the in-progress transition. |
+| `GITHUB_ISSUES_REVIEW_STATE_FIELD` | GitHub Issues field used for the review transition. |
+| `GITHUB_ISSUES_REVIEW_STATE` | GitHub Issues value used for the review transition. |
+| `GITHUB_ISSUES_ISSUE_STATES` | GitHub Issues states that qualify for processing. |
+| `GITLAB_ISSUES_BASE_URL` | GitLab Issues API base URL. |
+| `GITLAB_API_TOKEN` | GitLab API token. Also used for GitLab git push and merge request creation when needed. |
+| `GITLAB_ISSUES_PROJECT` | GitLab project path used to scope issues. |
+| `GITLAB_ISSUES_ASSIGNEE` | GitLab assignee to scan for tasks. |
+| `GITLAB_ISSUES_PROGRESS_STATE_FIELD` | GitLab Issues field used for the in-progress transition. |
+| `GITLAB_ISSUES_PROGRESS_STATE` | GitLab Issues value used for the in-progress transition. |
+| `GITLAB_ISSUES_REVIEW_STATE_FIELD` | GitLab Issues field used for the review transition. |
+| `GITLAB_ISSUES_REVIEW_STATE` | GitLab Issues value used for the review transition. |
+| `GITLAB_ISSUES_ISSUE_STATES` | GitLab Issues states that qualify for processing. |
+| `BITBUCKET_ISSUES_BASE_URL` | Bitbucket Issues API base URL. |
+| `BITBUCKET_API_TOKEN` | Bitbucket API token. Also used for Bitbucket git push and pull request creation when needed. |
+| `BITBUCKET_ISSUES_WORKSPACE` | Bitbucket workspace used to scope issues. |
+| `BITBUCKET_ISSUES_REPO_SLUG` | Bitbucket repository slug used to scope issues. |
+| `BITBUCKET_ISSUES_ASSIGNEE` | Bitbucket assignee to scan for tasks. |
+| `BITBUCKET_ISSUES_PROGRESS_STATE_FIELD` | Bitbucket Issues field used for the in-progress transition. |
+| `BITBUCKET_ISSUES_PROGRESS_STATE` | Bitbucket Issues value used for the in-progress transition. |
+| `BITBUCKET_ISSUES_REVIEW_STATE_FIELD` | Bitbucket Issues field used for the review transition. |
+| `BITBUCKET_ISSUES_REVIEW_STATE` | Bitbucket Issues value used for the review transition. |
+| `BITBUCKET_ISSUES_ISSUE_STATES` | Bitbucket Issues states that qualify for processing. |
+| `REPOSITORY_ROOT_PATH` | Root folder where the agent scans for checked-out repositories. |
+| `OPENHANDS_AGENT_IGNORED_REPOSITORY_FOLDERS` | Comma-separated folder names to exclude from repository auto-discovery. |
+| `OPENHANDS_AGENT_DB_PROTOCOL` | Database protocol used by the agent persistence layer. |
+| `OPENHANDS_AGENT_DB_USERNAME` | Database username when a non-SQLite backend needs it. |
+| `OPENHANDS_AGENT_DB_PASSWORD` | Database password when a non-SQLite backend needs it. |
+| `OPENHANDS_AGENT_DB_HOST` | Database host when a non-SQLite backend needs it. |
+| `OPENHANDS_AGENT_DB_PORT` | Database port when a non-SQLite backend needs it. |
+| `OPENHANDS_AGENT_DB_PATH` | Database path or directory when the backend uses one. |
+| `OPENHANDS_AGENT_DB_FILE` | SQLite database filename. |
 
-OpenHands itself can now be configured from this project too. Put its LLM settings in `.env` and `docker compose` will pass them into the `openhands` container:
+### OpenHands Agent Runtime
 
-```dotenv
-OPENHANDS_LLM_MODEL=openai/gpt-4o
-OPENHANDS_LLM_API_KEY=...
-```
+| Variable | What it does |
+| --- | --- |
+| `OPENHANDS_BASE_URL` | Base URL for the primary OpenHands server. |
+| `OPENHANDS_API_KEY` | API key for the primary OpenHands server. |
+| `OPENHANDS_SKIP_TESTING` | Skips the testing validation conversation and publishes after implementation. |
+| `OPENHANDS_TESTING_CONTAINER_ENABLED` | Enables the optional dedicated testing OpenHands container. |
+| `OPENHANDS_TESTING_BASE_URL` | Base URL for the dedicated testing OpenHands server. |
+| `OPENHANDS_TESTING_PORT` | Host port used for the optional testing container. |
+| `OPENHANDS_AGENT_MAX_RETRIES` | Retry count for external API calls. |
+| `OPENHANDS_AGENT_LOG_LEVEL` | Log level for the agent app process. |
+| `OPENHANDS_AGENT_WORKFLOW_LOG_LEVEL` | Log level for workflow-specific logs. |
+| `OPENHANDS_AGENT_FAILURE_EMAIL_ENABLED` | Enables failure notification emails. |
+| `OPENHANDS_AGENT_FAILURE_EMAIL_TEMPLATE_ID` | Template id used for failure notification emails. |
+| `OPENHANDS_AGENT_FAILURE_EMAIL_TO` | Recipient address for failure notification emails. |
+| `OPENHANDS_AGENT_FAILURE_EMAIL_SENDER_NAME` | Sender name for failure notification emails. |
+| `OPENHANDS_AGENT_FAILURE_EMAIL_SENDER_EMAIL` | Sender email for failure notification emails. |
+| `OPENHANDS_AGENT_COMPLETION_EMAIL_ENABLED` | Enables completion notification emails. |
+| `OPENHANDS_AGENT_COMPLETION_EMAIL_TEMPLATE_ID` | Template id used for completion notification emails. |
+| `OPENHANDS_AGENT_COMPLETION_EMAIL_TO` | Recipient address for completion notification emails. |
+| `OPENHANDS_AGENT_COMPLETION_EMAIL_SENDER_NAME` | Sender name for completion notification emails. |
+| `OPENHANDS_AGENT_COMPLETION_EMAIL_SENDER_EMAIL` | Sender email for completion notification emails. |
+| `EMAIL_CORE_LIB_SEND_IN_BLUE_API_KEY` | SendInBlue API key used by `email-core-lib`. |
+| `SLACK_WEBHOOK_URL_ERRORS_EMAIL` | Slack webhook used by `email-core-lib` error reporting. |
 
-If you want a dedicated testing server with its own `OH_AGENT_SERVER_ENV`, enable the optional testing container:
+### OpenHands Container
 
-```dotenv
-OPENHANDS_TESTING_CONTAINER_ENABLED=true
-OPENHANDS_TESTING_BASE_URL=http://localhost:3001
-OPENHANDS_TESTING_LLM_MODEL=openai/gpt-4o-mini
-OPENHANDS_TESTING_LLM_API_KEY=...
-```
+| Variable | What it does |
+| --- | --- |
+| `OPENHANDS_PORT` | Host port exposed for the OpenHands container. |
+| `OPENHANDS_LOG_LEVEL` | OpenHands container log level. |
+| `OH_SECRET_KEY` | OpenHands secret key used to persist secrets safely across restarts. |
+| `OPENHANDS_STATE_DIR` | Host path for OpenHands state storage. |
+| `OPENHANDS_WEB_URL` | Public URL that OpenHands should advertise. |
+| `OPENHANDS_RUNTIME` | Runtime backend used by OpenHands. |
+| `OPENHANDS_AGENT_SERVER_IMAGE_REPOSITORY` | Agent server image repository used by the OpenHands container. |
+| `OPENHANDS_AGENT_SERVER_IMAGE_TAG` | Agent server image tag used by the OpenHands container. |
+| `OPENHANDS_SSH_AUTH_SOCK_HOST_PATH` | Host SSH agent socket path forwarded into Docker for SSH git remotes. |
 
-`make compose-up` reads that flag from `.env` and automatically starts Docker Compose with the `testing` profile. If you run Docker Compose manually, use `docker compose --profile testing up --build` when the testing container is enabled. When the flag is `false`, the agent keeps using the main OpenHands server for testing.
-`make compose-up` only attaches the terminal to the `install` and `openhands-agent` services, so the OpenHands container can keep running without streaming its access logs into your shell.
+### OpenHands LLM
 
-Optional advanced OpenHands settings supported by this compose file:
+| Variable | What it does |
+| --- | --- |
+| `OPENHANDS_LLM_MODEL` | Primary OpenHands model name. |
+| `OPENHANDS_LLM_API_KEY` | API key for the primary OpenHands model. |
+| `OPENHANDS_LLM_BASE_URL` | Optional custom base URL for the primary OpenHands model. |
+| `OPENHANDS_MODEL_SMOKE_TEST_ENABLED` | Runs a small model smoke test during connection validation. |
+| `OPENHANDS_TESTING_LLM_MODEL` | Model name used by the dedicated testing OpenHands server. |
+| `OPENHANDS_TESTING_LLM_API_KEY` | API key used by the dedicated testing OpenHands server. |
+| `OPENHANDS_TESTING_LLM_BASE_URL` | Base URL used by the dedicated testing OpenHands server. |
+| `OPENHANDS_LLM_API_VERSION` | Optional API version passed through to the OpenHands LLM config. |
+| `OPENHANDS_LLM_NUM_RETRIES` | Optional LLM retry count passed through to OpenHands. |
+| `OPENHANDS_LLM_TIMEOUT` | Optional LLM timeout passed through to OpenHands. |
+| `OPENHANDS_LLM_DISABLE_VISION` | Optional OpenHands flag to disable vision features. |
+| `OPENHANDS_LLM_DROP_PARAMS` | Optional OpenHands flag for dropping unsupported model params. |
+| `OPENHANDS_LLM_CACHING_PROMPT` | Optional caching prompt passed through to OpenHands. |
+| `AWS_ACCESS_KEY_ID` | AWS access key for Bedrock-backed models or AWS auth in Docker. |
+| `AWS_SECRET_ACCESS_KEY` | AWS secret key for Bedrock-backed models or AWS auth in Docker. |
+| `AWS_REGION_NAME` | AWS region used for Bedrock-backed models or AWS auth in Docker. |
+| `AWS_BEARER_TOKEN_BEDROCK` | Bedrock bearer token alternative to AWS access keys. |
 
-```dotenv
-OPENHANDS_LLM_BASE_URL=
-OPENHANDS_LLM_API_VERSION=
-OPENHANDS_LLM_NUM_RETRIES=
-OPENHANDS_LLM_TIMEOUT=
-OPENHANDS_LLM_DISABLE_VISION=
-OPENHANDS_LLM_DROP_PARAMS=
-OPENHANDS_LLM_CACHING_PROMPT=
-AWS_ACCESS_KEY_ID=
-AWS_SECRET_ACCESS_KEY=
-AWS_REGION_NAME=
-AWS_BEARER_TOKEN_BEDROCK=
-```
-
-For Bedrock specifically, you can use either standard AWS credentials or a Bedrock bearer token, all from env vars before OpenHands starts:
-
-```dotenv
-OPENHANDS_LLM_MODEL=bedrock/anthropic.claude-3-sonnet-20240229-v1:0
-AWS_ACCESS_KEY_ID=...
-AWS_SECRET_ACCESS_KEY=...
-AWS_REGION_NAME=us-west-2
-```
-
-or:
-
-```dotenv
-OPENHANDS_LLM_MODEL=bedrock/anthropic.claude-3-sonnet-20240229-v1:0
-AWS_BEARER_TOKEN_BEDROCK=...
-```
+For Bedrock specifically, you can use either standard AWS credentials or a Bedrock bearer token.
 
 The active issue provider comes from `openhands_agent.issue_platform`, which falls back to `openhands_agent.ticket_system`, and finally defaults to `youtrack`.
 Issue states can be configured directly in `.env` with `YOUTRACK_ISSUE_STATES`, `JIRA_ISSUE_STATES`, `GITHUB_ISSUES_ISSUE_STATES`, `GITLAB_ISSUES_ISSUE_STATES`, and `BITBUCKET_ISSUES_ISSUE_STATES`.
@@ -291,10 +307,7 @@ The review-state target also comes from the active provider config:
 - GitHub Issues uses `openhands_agent.github_issues.review_state_field` and `openhands_agent.github_issues.review_state`.
 - GitLab Issues uses `openhands_agent.gitlab_issues.review_state_field` and `openhands_agent.gitlab_issues.review_state`.
 - Bitbucket Issues uses `openhands_agent.bitbucket_issues.review_state_field` and `openhands_agent.bitbucket_issues.review_state`.
-Retry count is configured under `openhands_agent.retry.max_retries`.
 Processed task state, processed review-comment ids, and pull-request comment context are kept in memory during a run so the agent can skip already-completed work and poll for new review comments without writing local state.
-Failure emails are configured under `openhands_agent.failure_email` and sent through `email-core-lib`.
-Completion emails are configured under `openhands_agent.completion_email` and sent through `email-core-lib`.
 If email notifications are enabled, install the optional dependency set with `python -m pip install -e ".[notifications]"`.
 The email body text comes from [`completion_email.txt`](openhands_agent/templates/email/completion_email.txt) and [`failure_email.txt`](openhands_agent/templates/email/failure_email.txt), rendered with template variables at runtime.
 The Hydra config is registered through [`hydra_plugins/openhands_agent/openhands_agent_searchpath.py`](hydra_plugins/openhands_agent/openhands_agent_searchpath.py), so standard Hydra overrides work. Example:

@@ -781,6 +781,62 @@ class RepositoryServiceTests(unittest.TestCase):
 
         mock_prepare_workspace.assert_called_once_with('.', 'main', repository)
 
+    def test_create_pull_request_creates_pr_before_restoring_workspace(self) -> None:
+        repository = self.backend_repo
+        data_access = Mock()
+        data_access.create_pull_request.return_value = {
+            PullRequestFields.ID: '17',
+            PullRequestFields.TITLE: 'PROJ-1: Fix bug',
+            PullRequestFields.URL: 'https://github.example/pull/17',
+        }
+
+        def assert_workspace_restored_after_pr(local_path: str, destination_branch: str, repository_arg) -> None:
+            self.assertEqual(data_access.create_pull_request.call_count, 1)
+            self.assertEqual(local_path, '.')
+            self.assertEqual(destination_branch, 'main')
+            self.assertIs(repository_arg, repository)
+
+        with patch(
+            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            return_value='/usr/bin/git',
+        ), patch(
+            'openhands_agent.data_layers.service.repository_service.os.path.isdir',
+            return_value=True,
+        ), patch(
+            'openhands_agent.data_layers.service.repository_service.RepositoryService._prepare_branch_for_publication',
+        ) as mock_prepare_branch, patch(
+            'openhands_agent.data_layers.service.repository_service.RepositoryService._prepare_workspace_for_task',
+            side_effect=assert_workspace_restored_after_pr,
+        ) as mock_prepare_workspace, patch(
+            'openhands_agent.data_layers.service.repository_service.RepositoryService._push_branch',
+        ) as mock_push_branch, patch(
+            'openhands_agent.data_layers.service.repository_service.RepositoryService._pull_request_data_access',
+            return_value=data_access,
+        ):
+            service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+            service.create_pull_request(
+                repository,
+                title='PROJ-1: Fix bug',
+                source_branch='feature/proj-1/backend',
+                description='Ready',
+                commit_message='Implement PROJ-1',
+            )
+
+        mock_prepare_branch.assert_called_once_with(
+            '.',
+            'feature/proj-1/backend',
+            'main',
+            'Implement PROJ-1',
+        )
+        mock_push_branch.assert_called_once_with('.', 'feature/proj-1/backend', repository)
+        mock_prepare_workspace.assert_called_once_with('.', 'main', repository)
+        data_access.create_pull_request.assert_called_once_with(
+            title='PROJ-1: Fix bug',
+            source_branch='feature/proj-1/backend',
+            destination_branch='main',
+            description='Ready',
+        )
+
     def test_create_pull_request_returns_to_destination_branch_even_when_push_fails(self) -> None:
         repository = self.backend_repo
 

@@ -51,6 +51,7 @@ class AgentService(Service):
         testing_service: TestingService,
         repository_service: RepositoryService,
         notification_service: NotificationService,
+        skip_testing: bool = False,
     ) -> None:
         self.logger = configure_logger(self.__class__.__name__)
         if testing_service is None:
@@ -62,6 +63,7 @@ class AgentService(Service):
         self._testing_service = testing_service
         self._repository_service = repository_service
         self._notification_service = notification_service
+        self._skip_testing = bool(skip_testing)
         self._pull_request_context_map: dict[str, list[dict[str, str]]] = {}
         self._processed_task_map: dict[str, dict[str, object]] = {}
         self._processed_review_comment_map: dict[tuple[str, str], set[str]] = {}
@@ -109,12 +111,15 @@ class AgentService(Service):
                 self._implementation_service.validate_connection,
                 self._implementation_service.max_retries,
             ),
-            (
-                'openhands_testing',
-                self._testing_service.validate_connection,
-                self._testing_service.max_retries,
-            ),
         ]
+        if not self._skip_testing:
+            validations.append(
+                (
+                    'openhands_testing',
+                    self._testing_service.validate_connection,
+                    self._testing_service.max_retries,
+                )
+            )
         return validations
 
     def _collect_validation_result(
@@ -271,6 +276,10 @@ class AgentService(Service):
         prepared_task: PreparedTaskContext,
         execution: dict[str, str | bool],
     ) -> tuple[bool, dict | None]:
+        if self._skip_testing:
+            execution.pop(ImplementationFields.MESSAGE, None)
+            self._log_task_step(task.id, 'testing validation skipped by configuration')
+            return True, None
         if not self._prepare_task_branches_for_testing(task, prepared_task):
             return False, None
         testing = self._request_testing_validation(task)

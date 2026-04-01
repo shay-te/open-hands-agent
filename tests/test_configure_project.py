@@ -55,6 +55,7 @@ class ConfigureProjectTests(unittest.TestCase):
                 'OpenHands LLM model': 'openai/gpt-4o',
                 'OpenHands LLM API key': 'llm-key',
                 'OpenHands LLM base URL': 'https://api.openai.com/v1',
+                'Skip testing before publishing pull requests': False,
                 'Use a dedicated OpenHands testing container': False,
                 'Enable failure notification emails': False,
                 'Enable completion notification emails': False,
@@ -68,6 +69,7 @@ class ConfigureProjectTests(unittest.TestCase):
         self.assertEqual(values['REPOSITORY_ROOT_PATH'], str(Path('./client').resolve()))
         self.assertNotIn('OPENHANDS_SANDBOX_VOLUMES', values)
         self.assertEqual(values['OPENHANDS_LLM_API_KEY'], 'llm-key')
+        self.assertEqual(values['OPENHANDS_SKIP_TESTING'], 'false')
         self.assertEqual(values['OPENHANDS_TESTING_CONTAINER_ENABLED'], 'false')
         self.assertEqual(values['OPENHANDS_MODEL_SMOKE_TEST_ENABLED'], 'true')
         self.assertEqual(values['OPENHANDS_TASK_SCAN_STARTUP_DELAY_SECONDS'], '30')
@@ -99,6 +101,7 @@ class ConfigureProjectTests(unittest.TestCase):
                 'OpenHands LLM model': 'bedrock/anthropic.claude-3-sonnet-20240229-v1:0',
                 'How should OpenHands authenticate to Bedrock': 'bearer_token',
                 'AWS bearer token for Bedrock': 'bedrock-token',
+                'Skip testing before publishing pull requests': False,
                 'Use a dedicated OpenHands testing container': False,
                 'Enable failure notification emails': True,
                 'Enable completion notification emails': False,
@@ -116,6 +119,7 @@ class ConfigureProjectTests(unittest.TestCase):
         self.assertEqual(values['JIRA_ISSUE_STATES'], 'To Do,Selected for Development')
         self.assertEqual(values['AWS_BEARER_TOKEN_BEDROCK'], 'bedrock-token')
         self.assertEqual(values['OPENHANDS_LLM_API_KEY'], '')
+        self.assertEqual(values['OPENHANDS_SKIP_TESTING'], 'false')
         self.assertEqual(values['OPENHANDS_TESTING_CONTAINER_ENABLED'], 'false')
         self.assertEqual(values['OPENHANDS_MODEL_SMOKE_TEST_ENABLED'], 'true')
         self.assertEqual(values['OPENHANDS_TASK_SCAN_STARTUP_DELAY_SECONDS'], '30')
@@ -147,6 +151,7 @@ class ConfigureProjectTests(unittest.TestCase):
                 'OpenHands LLM model': 'openai/gpt-4o',
                 'OpenHands LLM API key': 'llm-key',
                 'OpenHands LLM base URL': 'https://api.openai.com/v1',
+                'Skip testing before publishing pull requests': False,
                 'Use a dedicated OpenHands testing container': True,
                 'OpenHands testing base URL': 'http://localhost:3001',
                 'OpenHands testing LLM model': 'openai/gpt-4o-mini',
@@ -159,6 +164,7 @@ class ConfigureProjectTests(unittest.TestCase):
             values = configure_project.build_configuration_values({})
 
         self.assertEqual(values['OPENHANDS_TESTING_CONTAINER_ENABLED'], 'true')
+        self.assertEqual(values['OPENHANDS_SKIP_TESTING'], 'false')
         self.assertEqual(values['OPENHANDS_TESTING_BASE_URL'], 'http://localhost:3001')
         self.assertEqual(values['OPENHANDS_TESTING_LLM_MODEL'], 'openai/gpt-4o-mini')
         self.assertEqual(values['OPENHANDS_TESTING_LLM_API_KEY'], 'testing-key')
@@ -302,6 +308,7 @@ class ConfigureProjectTests(unittest.TestCase):
                 'REPOSITORY_ROOT_PATH=.\n'
                 'OPENHANDS_BASE_URL=http://localhost:3000\n'
                 'OPENHANDS_API_KEY=local\n'
+                'OPENHANDS_SKIP_TESTING=false\n'
                 'OPENHANDS_TESTING_CONTAINER_ENABLED=false\n'
                 'OPENHANDS_TESTING_BASE_URL=http://localhost:3001\n'
                 'OH_SECRET_KEY=\n'
@@ -347,6 +354,7 @@ class ConfigureProjectTests(unittest.TestCase):
                 'OpenHands LLM model': 'openai/gpt-4o',
                 'OpenHands LLM API key': 'llm-key',
                 'OpenHands LLM base URL': 'https://api.openai.com/v1',
+                'Skip testing before publishing pull requests': False,
                 'Use a dedicated OpenHands testing container': False,
                 'Enable failure notification emails': False,
                 'Enable completion notification emails': False,
@@ -368,6 +376,7 @@ class ConfigureProjectTests(unittest.TestCase):
             self.assertEqual(written_env['YOUTRACK_ISSUE_STATES'], 'Todo,Open')
             self.assertEqual(written_env['OH_SECRET_KEY'], 'openhands-secret')
             self.assertEqual(written_env['OPENHANDS_LLM_API_KEY'], 'llm-key')
+            self.assertEqual(written_env['OPENHANDS_SKIP_TESTING'], 'false')
             self.assertEqual(written_env['OPENHANDS_TESTING_CONTAINER_ENABLED'], 'false')
 
     def test_main_returns_zero_when_configuration_is_still_invalid(self) -> None:
@@ -390,6 +399,7 @@ class ConfigureProjectTests(unittest.TestCase):
                 'REPOSITORY_ROOT_PATH=.\n'
                 'OPENHANDS_BASE_URL=http://localhost:3000\n'
                 'OPENHANDS_API_KEY=local\n'
+                'OPENHANDS_SKIP_TESTING=false\n'
                 'OPENHANDS_TESTING_CONTAINER_ENABLED=false\n'
                 'OPENHANDS_TESTING_BASE_URL=http://localhost:3001\n'
                 'OH_SECRET_KEY=\n'
@@ -435,6 +445,7 @@ class ConfigureProjectTests(unittest.TestCase):
                 'OpenHands LLM model': '',
                 'OpenHands LLM API key': '',
                 'OpenHands LLM base URL': '',
+                'Skip testing before publishing pull requests': False,
                 'Use a dedicated OpenHands testing container': False,
                 'Enable failure notification emails': False,
                 'Enable completion notification emails': False,
