@@ -1142,7 +1142,7 @@ class OpenHandsClientTests(unittest.TestCase):
             },
         )
 
-    def test_run_prompt_raises_when_events_do_not_include_parseable_result(self) -> None:
+    def test_run_prompt_uses_title_fallback_when_events_do_not_include_parseable_result(self) -> None:
         client = OpenHandsClient('https://openhands.example', 'oh-token')
 
         with patch.object(
@@ -1186,11 +1186,10 @@ class OpenHandsClientTests(unittest.TestCase):
                 ),
             ],
         ):
-            with self.assertRaisesRegex(
-                ValueError,
-                'did not return a parseable result',
-            ):
-                implement_task_with_defaults(client)
+            result = implement_task_with_defaults(client)
+
+        self.assertTrue(result[ImplementationFields.SUCCESS])
+        self.assertEqual(result['summary'], 'PROJ-1')
 
     def test_run_prompt_raises_when_start_task_errors(self) -> None:
         client = OpenHandsClient('https://openhands.example', 'oh-token')
@@ -1265,11 +1264,25 @@ class OpenHandsClientTests(unittest.TestCase):
                         }
                     ]
                 ),
+                mock_response(
+                    json_data={
+                        'items': [
+                            {
+                                'kind': 'ActionEvent',
+                                'source': 'agent',
+                                'tool_name': 'bash',
+                                'tool_call': {
+                                    'arguments': '{"command":"git pull"}',
+                                },
+                            }
+                        ]
+                    }
+                ),
             ],
         ):
             with self.assertRaisesRegex(
                 RuntimeError,
-                'conversation failed with status: failed',
+                'conversation failed with status: failed: recent OpenHands activity: ran shell command: git pull',
             ):
                 implement_task_with_defaults(client)
 

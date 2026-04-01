@@ -53,6 +53,7 @@ class RepositoryService(Service):
         self._validate_git_executable()
         for repository in self._repositories:
             self._prepare_repository_access(repository)
+            self._validate_repository_git_access(repository)
 
     def resolve_task_repositories(self, task: Task) -> list[object]:
         searchable_text = f'{task.summary}\n{task.description}'.lower()
@@ -374,6 +375,23 @@ class RepositoryService(Service):
         self._validate_git_remote_auth(repository)
         self._prepare_pull_request_api(repository)
 
+    def _validate_repository_git_access(self, repository) -> None:
+        local_path = text_from_attr(repository, 'local_path')
+        try:
+            self._run_git(
+                local_path,
+                ['ls-remote', '--heads', 'origin'],
+                f'failed to validate git access for repository at {local_path}',
+                repository,
+            )
+        except Exception as exc:
+            self.logger.error(
+                'git access validation failed for repository at %s: %s',
+                local_path,
+                exc,
+            )
+            raise
+
     def _prepare_task_repository(self, repository):
         self._prepare_repository_access(repository)
         setattr(repository, 'destination_branch', self.destination_branch(repository))
@@ -560,6 +578,23 @@ class RepositoryService(Service):
         if shutil.which('git'):
             return
         raise RuntimeError('git executable is required but was not found on PATH')
+
+    @staticmethod
+    def _git_safe_directory_args(local_path: str) -> list[str]:
+        safe_directory = normalized_text(local_path)
+        if not safe_directory:
+            return []
+        return ['-c', f'safe.directory={safe_directory}']
+
+    @classmethod
+    def _git_command(cls, local_path: str, args: list[str]) -> list[str]:
+        return [
+            'git',
+            *cls._git_safe_directory_args(local_path),
+            '-C',
+            local_path,
+            *args,
+        ]
 
     def _prepare_branch_for_publication(
         self,
@@ -830,7 +865,7 @@ class RepositoryService(Service):
 
     def _git_reference_exists(self, local_path: str, reference: str) -> bool:
         result = subprocess.run(
-            ['git', '-C', local_path, 'rev-parse', '--verify', reference],
+            self._git_command(local_path, ['rev-parse', '--verify', reference]),
             capture_output=True,
             text=True,
             check=False,
@@ -881,14 +916,13 @@ class RepositoryService(Service):
     ):
         self._validate_git_executable()
         command = ['git']
-        env = None
+        env = os.environ.copy()
+        env['GIT_TERMINAL_PROMPT'] = '0'
         auth_header = self._git_http_auth_header(repository)
         if auth_header:
             command.extend(['-c', f'http.extraHeader={auth_header}'])
-            env = os.environ.copy()
-            env['GIT_TERMINAL_PROMPT'] = '0'
         result = subprocess.run(
-            [*command, '-C', local_path, *args],
+            [*command, *self._git_safe_directory_args(local_path), '-C', local_path, *args],
             capture_output=True,
             text=True,
             check=False,
@@ -943,9 +977,11 @@ class RepositoryService(Service):
     @classmethod
     def _git_http_username(cls, repository, remote_url: str) -> str:
         parsed = urlparse(remote_url)
+        provider = normalized_lower_text(text_from_attr(repository, 'provider'))
+        if provider == 'bitbucket':
+            return 'x-token-auth'
         if parsed.username:
             return parsed.username
-        provider = normalized_lower_text(text_from_attr(repository, 'provider'))
         return {
             'github': 'x-access-token',
             'gitlab': 'oauth2',
@@ -1063,12 +1099,12 @@ class RepositoryService(Service):
     def _infer_default_branch(local_path: str) -> str:
         RepositoryService._validate_git_executable()
         commands = [
-            ['git', '-C', local_path, 'symbolic-ref', 'refs/remotes/origin/HEAD'],
-            ['git', '-C', local_path, 'branch', '--show-current'],
+            ['symbolic-ref', 'refs/remotes/origin/HEAD'],
+            ['branch', '--show-current'],
         ]
         for command in commands:
             result = subprocess.run(
-                command,
+                RepositoryService._git_command(local_path, command),
                 capture_output=True,
                 text=True,
                 check=False,

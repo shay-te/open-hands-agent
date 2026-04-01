@@ -14,11 +14,9 @@ class TestUna2427(unittest.TestCase):
     def test_core_lib_initialization_with_default_configs(self) -> None:
         """Test that CoreLib initializes correctly with default configurations"""
         # This validates basic initialization of the CoreLib component
-        with patch('openhands_agent.openhands_agent_core_lib.CoreLib.connection_factory_registry.get_or_reg'), \
-             patch('openhands_agent.openhands_agent_core_lib.EmailCoreLib'), \
+        with patch('openhands_agent.openhands_agent_core_lib.EmailCoreLib'), \
              patch('openhands_agent.openhands_agent_core_lib.build_ticket_client'), \
              patch('openhands_agent.openhands_agent_core_lib.OpenHandsClient'), \
-             patch('openhands_agent.openhands_agent_core_lib.AgentStateDataAccess'), \
              patch('openhands_agent.openhands_agent_core_lib.RepositoryService'), \
              patch('openhands_agent.openhands_agent_core_lib.TaskDataAccess'), \
              patch('openhands_agent.openhands_agent_core_lib.TaskService'), \
@@ -38,11 +36,9 @@ class TestUna2427(unittest.TestCase):
         # Test with different configurations
         cfg_copy = build_test_cfg()
         
-        with patch('openhands_agent.openhands_agent_core_lib.CoreLib.connection_factory_registry.get_or_reg'), \
-             patch('openhands_agent.openhands_agent_core_lib.EmailCoreLib'), \
+        with patch('openhands_agent.openhands_agent_core_lib.EmailCoreLib'), \
              patch('openhands_agent.openhands_agent_core_lib.build_ticket_client'), \
              patch('openhands_agent.openhands_agent_core_lib.OpenHandsClient'), \
-             patch('openhands_agent.openhands_agent_core_lib.AgentStateDataAccess'), \
              patch('openhands_agent.openhands_agent_core_lib.RepositoryService'), \
              patch('openhands_agent.openhands_agent_core_lib.TaskDataAccess'), \
              patch('openhands_agent.openhands_agent_core_lib.TaskService'), \
@@ -59,23 +55,25 @@ class TestUna2427(unittest.TestCase):
             self.assertTrue(hasattr(core_lib.service, 'validate_connections'))
 
     def test_core_lib_database_operations(self) -> None:
-        """Test CoreLib database interaction operations"""
+        """Test CoreLib no-database lifecycle operations"""
         with patch('openhands_agent.openhands_agent_core_lib.GlobalHydra.instance') as mock_hydra_instance, \
-             patch('openhands_agent.openhands_agent_core_lib.command.upgrade') as mock_upgrade, \
-             patch('openhands_agent.openhands_agent_core_lib.command.downgrade') as mock_downgrade:
-            
-            # Test upgrade
+             patch('openhands_agent.openhands_agent_core_lib.logger.info') as mock_info:
             OpenHandsAgentCoreLib.install(self.cfg)
             mock_hydra_instance.return_value.clear.assert_called_once_with()
-            mock_upgrade.assert_called_once()
-            
+
             mock_hydra_instance.reset_mock()
-            mock_downgrade.reset_mock()
-            
+
             # Test uninstall
             OpenHandsAgentCoreLib.uninstall(self.cfg)
             mock_hydra_instance.return_value.clear.assert_called_once_with()
-            mock_downgrade.assert_called_once()
+            mock_info.assert_any_call(
+                'Installing OpenHandsAgentCoreLib without a local database'
+            )
+            mock_info.assert_any_call('OpenHandsAgentCoreLib installed successfully')
+            mock_info.assert_any_call(
+                'Uninstalling OpenHandsAgentCoreLib without a local database'
+            )
+            mock_info.assert_any_call('OpenHandsAgentCoreLib uninstalled successfully')
 
 
 if __name__ == '__main__':

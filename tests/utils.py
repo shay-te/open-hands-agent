@@ -43,34 +43,7 @@ def build_test_cfg() -> DictConfig:
                 'app': {
                     'name': 'openhands-agent',
                 },
-                'data': {
-                    'sqlalchemy': {
-                        '_instance_key_': 'sqlalchemy_connection',
-                        '_target_': 'core_lib.connection.sql_alchemy_connection_factory.SqlAlchemyConnectionFactory',
-                        'config': {
-                            'log_queries': False,
-                            'create_db': True,
-                            'session': {
-                                'pool_recycle': 3600,
-                                'pool_pre_ping': False,
-                            },
-                            'url': {
-                                'protocol': 'sqlite',
-                                'username': '',
-                                'password': '',
-                                'host': '',
-                                'port': '',
-                                'path': '',
-                                'file': ':memory:',
-                            },
-                        },
-                    },
-                },
-                'alembic': {
-                    'version_table': 'alembic_version',
-                    'script_location': 'data_layers/data/db/migrations',
-                    'render_as_batch': True,
-                },
+                'data': {},
                 'email_core_lib': {
                     'client': {
                         '_target_': 'email_core_lib.client.send_in_blue_client.SendInBlueClient',

@@ -57,26 +57,17 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
             PullRequestFields.DESTINATION_BRANCH: 'main',
         }
 
-        state_data_access = Mock()
-        state_data_access.is_task_processed.return_value = False
-        state_data_access.get_processed_task.return_value = {}
-
         with patch(
-            'openhands_agent.openhands_agent_core_lib.CoreLib.connection_factory_registry.get_or_reg'
-        ), patch(
             'openhands_agent.openhands_agent_core_lib.EmailCoreLib'
         ) as mock_email_core_lib_cls, patch(
             'openhands_agent.openhands_agent_core_lib.build_ticket_client',
-            return_value=ticket_client,
+        return_value=ticket_client,
         ), patch(
             'openhands_agent.openhands_agent_core_lib.OpenHandsClient',
             side_effect=[implementation_client, testing_client],
         ) as mock_openhands_client_cls, patch(
             'openhands_agent.openhands_agent_core_lib.RepositoryService',
             return_value=repository_service,
-        ), patch(
-            'openhands_agent.openhands_agent_core_lib.AgentStateDataAccess',
-            return_value=state_data_access,
         ):
             app = OpenHandsAgentCoreLib(cfg)
 
@@ -88,20 +79,15 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
             implementation_client,
             testing_client,
             repository_service,
-            state_data_access,
             mock_email_core_lib_cls.return_value,
             mock_openhands_client_cls,
         )
 
     def test_builds_data_access_and_service_in_core_lib(self) -> None:
-        mock_db_connection = Mock()
         implementation_client = Mock(name='implementation_openhands_client')
         testing_client = Mock(name='testing_openhands_client')
 
         with patch(
-            'openhands_agent.openhands_agent_core_lib.CoreLib.connection_factory_registry.get_or_reg',
-            return_value=mock_db_connection,
-        ) as mock_get_or_reg, patch(
             'openhands_agent.openhands_agent_core_lib.EmailCoreLib'
         ) as mock_email_core_lib_cls, patch(
             'openhands_agent.openhands_agent_core_lib.build_ticket_client'
@@ -109,8 +95,6 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
             'openhands_agent.openhands_agent_core_lib.OpenHandsClient',
             side_effect=[implementation_client, testing_client],
         ) as mock_openhands_client_cls, patch(
-            'openhands_agent.openhands_agent_core_lib.AgentStateDataAccess'
-        ) as mock_state_data_access_cls, patch(
             'openhands_agent.openhands_agent_core_lib.TaskDataAccess'
         ) as mock_task_da_cls, patch(
             'openhands_agent.openhands_agent_core_lib.TaskService'
@@ -127,7 +111,6 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
         ) as mock_service_cls:
             app = OpenHandsAgentCoreLib(self.cfg)
 
-        mock_get_or_reg.assert_called_once_with(self.cfg.core_lib.data.sqlalchemy)
         mock_email_core_lib_cls.assert_called_once_with(self.cfg)
         mock_build_ticket_client.assert_called_once_with(
             'youtrack',
@@ -177,9 +160,6 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
             self.cfg.openhands_agent,
             self.cfg.openhands_agent.retry.max_retries,
         )
-        mock_state_data_access_cls.assert_called_once_with(
-            self.cfg.openhands_agent.state.file_path,
-        )
         mock_task_da_cls.assert_called_once_with(
             self.cfg.openhands_agent.youtrack,
             mock_build_ticket_client.return_value,
@@ -202,7 +182,7 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
             testing_service=mock_testing_service_cls.return_value,
             repository_service=mock_repository_service_cls.return_value,
             notification_service=mock_notification_service_cls.return_value,
-            state_data_access=mock_state_data_access_cls.return_value,
+            state_data_access=None,
         )
         mock_service_cls.return_value.validate_connections.assert_called_once_with()
         self.assertIs(app.service, mock_service_cls.return_value)
@@ -215,16 +195,12 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
         cfg.openhands_agent.openhands.testing_llm_base_url = 'https://api.openai.com/v1'
 
         with patch(
-            'openhands_agent.openhands_agent_core_lib.CoreLib.connection_factory_registry.get_or_reg'
-        ), patch(
             'openhands_agent.openhands_agent_core_lib.EmailCoreLib'
         ), patch(
             'openhands_agent.openhands_agent_core_lib.build_ticket_client'
         ), patch(
             'openhands_agent.openhands_agent_core_lib.OpenHandsClient'
         ) as mock_openhands_client_cls, patch(
-            'openhands_agent.openhands_agent_core_lib.AgentStateDataAccess'
-        ), patch(
             'openhands_agent.openhands_agent_core_lib.RepositoryService'
         ), patch(
             'openhands_agent.openhands_agent_core_lib.TaskDataAccess'
@@ -266,7 +242,6 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
             implementation_client,
             testing_client,
             repository_service,
-            state_data_access,
             email_core_lib,
             mock_openhands_client_cls,
         ) = self._build_workflow_app(testing_container_enabled=True)
@@ -303,7 +278,6 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
         testing_client.implement_task.assert_not_called()
         ticket_client.add_comment.assert_called()
         repository_service.create_pull_request.assert_called_once()
-        state_data_access.save_processed_task.assert_called_once()
         email_core_lib.send.assert_called()
         self.assertEqual(
             result[StatusFields.STATUS],
@@ -321,7 +295,6 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
             implementation_client,
             testing_client,
             repository_service,
-            state_data_access,
             _email_core_lib,
             mock_openhands_client_cls,
         ) = self._build_workflow_app(testing_container_enabled=False)
@@ -357,7 +330,6 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
         testing_client.test_task.assert_called_once()
         testing_client.implement_task.assert_not_called()
         repository_service.create_pull_request.assert_called_once()
-        state_data_access.save_processed_task.assert_called_once()
         self.assertEqual(
             result[StatusFields.STATUS],
             StatusFields.READY_FOR_REVIEW,
@@ -365,15 +337,11 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
 
     def test_exposes_service_instance(self) -> None:
         with patch(
-            'openhands_agent.openhands_agent_core_lib.CoreLib.connection_factory_registry.get_or_reg'
-        ), patch(
             'openhands_agent.openhands_agent_core_lib.EmailCoreLib'
         ), patch(
             'openhands_agent.openhands_agent_core_lib.build_ticket_client'
         ), patch(
             'openhands_agent.openhands_agent_core_lib.OpenHandsClient'
-        ), patch(
-            'openhands_agent.openhands_agent_core_lib.AgentStateDataAccess'
         ), patch(
             'openhands_agent.openhands_agent_core_lib.RepositoryService'
         ), patch(
@@ -398,15 +366,11 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
 
     def test_service_handles_comment_operations(self) -> None:
         with patch(
-            'openhands_agent.openhands_agent_core_lib.CoreLib.connection_factory_registry.get_or_reg'
-        ), patch(
             'openhands_agent.openhands_agent_core_lib.EmailCoreLib'
         ), patch(
             'openhands_agent.openhands_agent_core_lib.build_ticket_client'
         ), patch(
             'openhands_agent.openhands_agent_core_lib.OpenHandsClient'
-        ), patch(
-            'openhands_agent.openhands_agent_core_lib.AgentStateDataAccess'
         ), patch(
             'openhands_agent.openhands_agent_core_lib.RepositoryService'
         ), patch(
@@ -434,15 +398,11 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
         cfg.openhands_agent.issue_platform = ''
 
         with patch(
-            'openhands_agent.openhands_agent_core_lib.CoreLib.connection_factory_registry.get_or_reg'
-        ), patch(
             'openhands_agent.openhands_agent_core_lib.EmailCoreLib'
         ), patch(
             'openhands_agent.openhands_agent_core_lib.build_ticket_client'
         ) as mock_build_ticket_client, patch(
             'openhands_agent.openhands_agent_core_lib.OpenHandsClient'
-        ), patch(
-            'openhands_agent.openhands_agent_core_lib.AgentStateDataAccess'
         ), patch(
             'openhands_agent.openhands_agent_core_lib.RepositoryService'
         ), patch(
@@ -472,15 +432,11 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
         cfg.openhands_agent.issue_platform = 'github'
 
         with patch(
-            'openhands_agent.openhands_agent_core_lib.CoreLib.connection_factory_registry.get_or_reg'
-        ), patch(
             'openhands_agent.openhands_agent_core_lib.EmailCoreLib'
         ), patch(
             'openhands_agent.openhands_agent_core_lib.build_ticket_client'
         ) as mock_build_ticket_client, patch(
             'openhands_agent.openhands_agent_core_lib.OpenHandsClient'
-        ), patch(
-            'openhands_agent.openhands_agent_core_lib.AgentStateDataAccess'
         ), patch(
             'openhands_agent.openhands_agent_core_lib.RepositoryService'
         ), patch(
@@ -509,15 +465,11 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
         delattr(cfg.core_lib, 'email_core_lib')
 
         with patch(
-            'openhands_agent.openhands_agent_core_lib.CoreLib.connection_factory_registry.get_or_reg'
-        ), patch(
             'openhands_agent.openhands_agent_core_lib.EmailCoreLib'
         ) as mock_email_core_lib_cls, patch(
             'openhands_agent.openhands_agent_core_lib.build_ticket_client'
         ), patch(
             'openhands_agent.openhands_agent_core_lib.OpenHandsClient'
-        ), patch(
-            'openhands_agent.openhands_agent_core_lib.AgentStateDataAccess'
         ), patch(
             'openhands_agent.openhands_agent_core_lib.RepositoryService'
         ), patch(
@@ -541,46 +493,43 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
         with patch(
             'openhands_agent.openhands_agent_core_lib.GlobalHydra.instance'
         ) as mock_hydra_instance, patch(
-            'openhands_agent.openhands_agent_core_lib.command.upgrade'
-        ) as mock_upgrade:
+            'openhands_agent.openhands_agent_core_lib.logger.info'
+        ) as mock_info:
             OpenHandsAgentCoreLib.install(self.cfg)
 
         mock_hydra_instance.return_value.clear.assert_called_once_with()
-        mock_upgrade.assert_called_once()
-        _, revision = mock_upgrade.call_args.args
-        self.assertEqual(revision, 'head')
+        mock_info.assert_any_call(
+            'Installing OpenHandsAgentCoreLib without a local database'
+        )
+        mock_info.assert_any_call('OpenHandsAgentCoreLib installed successfully')
 
-    def test_uninstall_downgrades_database_to_base(self) -> None:
+    def test_uninstall_logs_without_database(self) -> None:
         with patch(
             'openhands_agent.openhands_agent_core_lib.GlobalHydra.instance'
         ) as mock_hydra_instance, patch(
-            'openhands_agent.openhands_agent_core_lib.command.downgrade'
-        ) as mock_downgrade:
+            'openhands_agent.openhands_agent_core_lib.logger.info'
+        ) as mock_info:
             OpenHandsAgentCoreLib.uninstall(self.cfg)
 
         mock_hydra_instance.return_value.clear.assert_called_once_with()
-        mock_downgrade.assert_called_once()
-        _, revision = mock_downgrade.call_args.args
-        self.assertEqual(revision, 'base')
+        mock_info.assert_any_call(
+            'Uninstalling OpenHandsAgentCoreLib without a local database'
+        )
+        mock_info.assert_any_call('OpenHandsAgentCoreLib uninstalled successfully')
 
-    def test_create_generates_named_migration(self) -> None:
-        with patch(
-            'openhands_agent.openhands_agent_core_lib.command.revision'
-        ) as mock_revision:
+    def test_create_is_a_noop_without_database(self) -> None:
+        with patch('openhands_agent.openhands_agent_core_lib.logger.info') as mock_info:
             OpenHandsAgentCoreLib.create(self.cfg, 'add_repository_table')
 
-        mock_revision.assert_called_once()
-        self.assertEqual(
-            mock_revision.call_args.kwargs,
-            {'message': 'add_repository_table', 'autogenerate': True},
+        mock_info.assert_called_once_with(
+            'Skipping migration creation for %s because local database support is disabled',
+            'add_repository_table',
         )
 
-    def test_downgrade_steps_back_one_revision(self) -> None:
-        with patch(
-            'openhands_agent.openhands_agent_core_lib.command.downgrade'
-        ) as mock_downgrade:
+    def test_downgrade_is_a_noop_without_database(self) -> None:
+        with patch('openhands_agent.openhands_agent_core_lib.logger.info') as mock_info:
             OpenHandsAgentCoreLib.downgrade(self.cfg)
 
-        mock_downgrade.assert_called_once()
-        _, revision = mock_downgrade.call_args.args
-        self.assertEqual(revision, '-1')
+        mock_info.assert_called_once_with(
+            'Skipping database downgrade because local database support is disabled'
+        )

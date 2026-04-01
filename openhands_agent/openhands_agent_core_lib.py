@@ -1,4 +1,3 @@
-from alembic import command
 from hydra.core.global_hydra import GlobalHydra
 from omegaconf import DictConfig
 
@@ -7,9 +6,6 @@ from email_core_lib.email_core_lib import EmailCoreLib
 
 from openhands_agent.client.openhands_client import OpenHandsClient
 from openhands_agent.client.ticket_client_factory import build_ticket_client
-from openhands_agent.data_layers.data_access.agent_state_data_access import (
-    AgentStateDataAccess,
-)
 from openhands_agent.data_layers.data_access.task_data_access import TaskDataAccess
 from openhands_agent.data_layers.service.agent_service import AgentService
 from openhands_agent.data_layers.service.implementation_service import (
@@ -19,7 +15,6 @@ from openhands_agent.data_layers.service.notification_service import Notificatio
 from openhands_agent.data_layers.service.repository_service import RepositoryService
 from openhands_agent.data_layers.service.task_service import TaskService
 from openhands_agent.data_layers.service.testing_service import TestingService
-from openhands_agent.alembic_config import build_alembic_config
 from openhands_agent.logging_utils import configure_logger
 from openhands_agent.openhands_config_utils import (
     resolved_openhands_base_url,
@@ -43,30 +38,27 @@ class OpenHandsAgentCoreLib(CoreLib):
     @staticmethod
     def install(cfg: DictConfig):
         GlobalHydra.instance().clear()
-        logger.info('Installing OpenHandsAgentCoreLib')
-        command.upgrade(build_alembic_config(cfg), 'head')
+        logger.info('Installing OpenHandsAgentCoreLib without a local database')
         logger.info('OpenHandsAgentCoreLib installed successfully')
 
     @staticmethod
     def uninstall(cfg: DictConfig):
         GlobalHydra.instance().clear()
-        logger.info('Uninstalling OpenHandsAgentCoreLib')
-        command.downgrade(build_alembic_config(cfg), 'base')
+        logger.info('Uninstalling OpenHandsAgentCoreLib without a local database')
         logger.info('OpenHandsAgentCoreLib uninstalled successfully')
 
     @staticmethod
     def create(cfg: DictConfig, name: str):
-        command.revision(build_alembic_config(cfg), message=name, autogenerate=True)
+        logger.info('Skipping migration creation for %s because local database support is disabled', name)
 
     @staticmethod
     def downgrade(cfg: DictConfig):
-        command.downgrade(build_alembic_config(cfg), '-1')
+        logger.info('Skipping database downgrade because local database support is disabled')
 
     def __init__(self, cfg: DictConfig) -> None:
         CoreLib.__init__(self)
         self.config = cfg
         self.logger = configure_logger(cfg.core_lib.app.name)
-        CoreLib.connection_factory_registry.get_or_reg(self.config.core_lib.data.sqlalchemy)
         self.service = self._build_agent_service(cfg.openhands_agent)
         self.service.validate_connections()
 
@@ -98,7 +90,7 @@ class OpenHandsAgentCoreLib(CoreLib):
             testing_service=testing_service,
             repository_service=RepositoryService(open_cfg, retry_cfg.max_retries),
             notification_service=self._build_notification_service(open_cfg),
-            state_data_access=AgentStateDataAccess(open_cfg.state.file_path),
+            state_data_access=None,
         )
 
     @staticmethod

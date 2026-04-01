@@ -220,13 +220,13 @@ class RepositoryServiceTests(unittest.TestCase):
         self.assertEqual(
             [call.args[0] for call in mock_run.call_args_list],
             [
-                ['git', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
-                ['git', '-C', '.', 'status', '--porcelain'],
-                ['git', '-C', '.', 'checkout', 'main'],
-                ['git', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
-                ['git', '-C', '.', 'pull', '--ff-only', 'origin', 'main'],
-                ['git', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
-                ['git', '-C', '.', 'status', '--porcelain'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'status', '--porcelain'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'checkout', 'main'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'pull', '--ff-only', 'origin', 'main'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'status', '--porcelain'],
             ],
         )
 
@@ -256,11 +256,11 @@ class RepositoryServiceTests(unittest.TestCase):
         self.assertEqual(
             [call.args[0] for call in mock_run.call_args_list],
             [
-                ['git', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
-                ['git', '-C', '.', 'status', '--porcelain'],
-                ['git', '-C', '.', 'pull', '--ff-only', 'origin', 'main'],
-                ['git', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
-                ['git', '-C', '.', 'status', '--porcelain'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'status', '--porcelain'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'pull', '--ff-only', 'origin', 'main'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'status', '--porcelain'],
             ],
         )
 
@@ -292,9 +292,9 @@ class RepositoryServiceTests(unittest.TestCase):
         self.assertEqual(
             [call.args[0] for call in mock_run.call_args_list],
             [
-                ['git', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
-                ['git', '-C', '.', 'status', '--porcelain'],
-                ['git', '-C', '.', 'checkout', 'master'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'status', '--porcelain'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'checkout', 'master'],
             ],
         )
 
@@ -325,8 +325,8 @@ class RepositoryServiceTests(unittest.TestCase):
         self.assertEqual(
             [call.args[0] for call in mock_run.call_args_list],
             [
-                ['git', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
-                ['git', '-C', '.', 'status', '--porcelain'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'status', '--porcelain'],
             ],
         )
 
@@ -360,11 +360,11 @@ class RepositoryServiceTests(unittest.TestCase):
         self.assertEqual(
             [call.args[0] for call in mock_run.call_args_list],
             [
-                ['git', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
-                ['git', '-C', '.', 'status', '--porcelain'],
-                ['git', '-C', '.', 'checkout', '-b', 'UNA-2398'],
-                ['git', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
-                ['git', '-C', '.', 'status', '--porcelain'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'status', '--porcelain'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'checkout', '-b', 'UNA-2398'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'status', '--porcelain'],
             ],
         )
 
@@ -400,11 +400,11 @@ class RepositoryServiceTests(unittest.TestCase):
         self.assertEqual(
             [call.args[0] for call in mock_run.call_args_list],
             [
-                ['git', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
-                ['git', '-C', '.', 'status', '--porcelain'],
-                ['git', '-C', '.', 'checkout', 'UNA-2398'],
-                ['git', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
-                ['git', '-C', '.', 'status', '--porcelain'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'status', '--porcelain'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'checkout', 'UNA-2398'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'status', '--porcelain'],
             ],
         )
 
@@ -440,11 +440,11 @@ class RepositoryServiceTests(unittest.TestCase):
         self.assertEqual(
             [call.args[0] for call in mock_run.call_args_list],
             [
-                ['git', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
-                ['git', '-C', '.', 'status', '--porcelain'],
-                ['git', '-C', '.', 'checkout', '-b', 'UNA-2398', 'origin/UNA-2398'],
-                ['git', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
-                ['git', '-C', '.', 'status', '--porcelain'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'status', '--porcelain'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'checkout', '-b', 'UNA-2398', 'origin/UNA-2398'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'status', '--porcelain'],
             ],
         )
 
@@ -865,19 +865,19 @@ class RepositoryServiceTests(unittest.TestCase):
         self.assertEqual(
             [call.args[0] for call in mock_run.call_args_list],
             [
-                ['git', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
-                ['git', '-C', '.', 'status', '--porcelain'],
-                ['git', '-C', '.', 'add', '-A'],
-                ['git', '-C', '.', 'commit', '-m', 'Implement PROJ-1'],
-                ['git', '-C', '.', 'rev-parse', '--verify', 'main'],
-                ['git', '-C', '.', 'rev-list', '--count', 'main..feature/proj-1/backend'],
-                ['git', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
-                ['git', '-C', '.', 'status', '--porcelain'],
-                ['git', '-C', '.', 'checkout', 'main'],
-                ['git', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
-                ['git', '-C', '.', 'pull', '--ff-only', 'origin', 'main'],
-                ['git', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
-                ['git', '-C', '.', 'status', '--porcelain'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'status', '--porcelain'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'add', '-A'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'commit', '-m', 'Implement PROJ-1'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'rev-parse', '--verify', 'main'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'rev-list', '--count', 'main..feature/proj-1/backend'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'status', '--porcelain'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'checkout', 'main'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'pull', '--ff-only', 'origin', 'main'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'status', '--porcelain'],
             ],
         )
         mock_push_branch.assert_called_once_with('.', 'feature/proj-1/backend', repository)
@@ -934,6 +934,176 @@ class RepositoryServiceTests(unittest.TestCase):
             service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
             with self.assertRaisesRegex(ValueError, 'missing local repository path'):
                 service.validate_connections()
+
+    def test_validate_connections_checks_git_access_for_single_repository_root(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            projects_root = Path(temp_dir)
+            repo_path = projects_root / 'project'
+            self._create_git_repository(
+                repo_path,
+                'https://bitbucket.org/workspace/project.git',
+            )
+            service = RepositoryService(
+                types.SimpleNamespace(
+                    repositories=[],
+                    repository_root_path=str(projects_root),
+                    github_issues=types.SimpleNamespace(base_url='', token=''),
+                    gitlab_issues=types.SimpleNamespace(base_url='', token=''),
+                    bitbucket_issues=types.SimpleNamespace(
+                        base_url='https://api.bitbucket.org/2.0',
+                        token='bb-token',
+                    ),
+                ),
+                3,
+            )
+            expected_header = 'Authorization: Basic ' + base64.b64encode(
+                b'x-token-auth:bb-token'
+            ).decode('ascii')
+
+            with patch(
+                'openhands_agent.data_layers.service.repository_service.shutil.which',
+                return_value='/usr/bin/git',
+            ), patch(
+                'openhands_agent.data_layers.service.repository_service.subprocess.run',
+                return_value=Mock(returncode=0, stdout='refs/heads/main\n', stderr=''),
+            ) as mock_run:
+                service.validate_connections()
+
+        self.assertEqual(
+            mock_run.call_args.args[0],
+            [
+                'git',
+                '-c',
+                f'http.extraHeader={expected_header}',
+                '-c',
+                f'safe.directory={repo_path.resolve()}',
+                '-C',
+                str(repo_path.resolve()),
+                'ls-remote',
+                '--heads',
+                'origin',
+            ],
+        )
+        self.assertEqual(mock_run.call_args.kwargs['env']['GIT_TERMINAL_PROMPT'], '0')
+
+    def test_validate_connections_checks_git_access_for_each_repository_in_parent_root(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            projects_root = Path(temp_dir)
+            client_repo = projects_root / 'client-app'
+            backend_repo = projects_root / 'backend-service'
+            self._create_git_repository(
+                client_repo,
+                'https://bitbucket.org/workspace/client-app.git',
+            )
+            self._create_git_repository(
+                backend_repo,
+                'https://bitbucket.org/workspace/backend-service.git',
+            )
+            service = RepositoryService(
+                types.SimpleNamespace(
+                    repositories=[],
+                    repository_root_path=str(projects_root),
+                    github_issues=types.SimpleNamespace(base_url='', token=''),
+                    gitlab_issues=types.SimpleNamespace(base_url='', token=''),
+                    bitbucket_issues=types.SimpleNamespace(
+                        base_url='https://api.bitbucket.org/2.0',
+                        token='bb-token',
+                    ),
+                ),
+                3,
+            )
+            expected_header = 'Authorization: Basic ' + base64.b64encode(
+                b'x-token-auth:bb-token'
+            ).decode('ascii')
+
+            with patch(
+                'openhands_agent.data_layers.service.repository_service.shutil.which',
+                return_value='/usr/bin/git',
+            ), patch(
+                'openhands_agent.data_layers.service.repository_service.subprocess.run',
+                side_effect=[
+                    Mock(returncode=0, stdout='refs/heads/main\n', stderr=''),
+                    Mock(returncode=0, stdout='refs/heads/main\n', stderr=''),
+                ],
+            ) as mock_run:
+                service.validate_connections()
+
+        self.assertEqual(
+            [call.args[0] for call in mock_run.call_args_list],
+            [
+                [
+                    'git',
+                    '-c',
+                    f'http.extraHeader={expected_header}',
+                    '-c',
+                    f'safe.directory={backend_repo.resolve()}',
+                    '-C',
+                    str(backend_repo.resolve()),
+                    'ls-remote',
+                    '--heads',
+                    'origin',
+                ],
+                [
+                    'git',
+                    '-c',
+                    f'http.extraHeader={expected_header}',
+                    '-c',
+                    f'safe.directory={client_repo.resolve()}',
+                    '-C',
+                    str(client_repo.resolve()),
+                    'ls-remote',
+                    '--heads',
+                    'origin',
+                ],
+            ],
+        )
+        self.assertEqual(
+            [call.kwargs['env']['GIT_TERMINAL_PROMPT'] for call in mock_run.call_args_list],
+            ['0', '0'],
+        )
+
+    def test_validate_connections_stops_when_git_permissions_are_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            projects_root = Path(temp_dir)
+            repo_path = projects_root / 'project'
+            self._create_git_repository(
+                repo_path,
+                'https://shacoshe@bitbucket.org/workspace/project.git',
+            )
+            service = RepositoryService(
+                types.SimpleNamespace(
+                    repositories=[],
+                    repository_root_path=str(projects_root),
+                    github_issues=types.SimpleNamespace(base_url='', token=''),
+                    gitlab_issues=types.SimpleNamespace(base_url='', token=''),
+                    bitbucket_issues=types.SimpleNamespace(
+                        base_url='https://api.bitbucket.org/2.0',
+                        token='bb-token',
+                    ),
+                ),
+                3,
+            )
+
+            with patch(
+                'openhands_agent.data_layers.service.repository_service.shutil.which',
+                return_value='/usr/bin/git',
+            ), patch(
+                'openhands_agent.data_layers.service.repository_service.subprocess.run',
+                return_value=Mock(
+                    returncode=128,
+                    stdout='',
+                    stderr=(
+                        "fatal: could not read Password for "
+                        "'https://shacoshe@bitbucket.org': terminal prompts disabled"
+                    ),
+                ),
+            ):
+                with self.assertRaisesRegex(
+                    RuntimeError,
+                    'failed to validate git access for repository at .*/project: '
+                    r"fatal: could not read Password for 'https://shacoshe@bitbucket.org': terminal prompts disabled",
+                ):
+                    service.validate_connections()
 
     def test_prepare_task_repositories_raises_when_local_path_is_missing(self) -> None:
         service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
@@ -1040,7 +1210,7 @@ class RepositoryServiceTests(unittest.TestCase):
         )
         service = RepositoryService([], 3)
         expected_header = 'Authorization: Basic ' + base64.b64encode(
-            b'shay:bb-token'
+            b'x-token-auth:bb-token'
         ).decode('ascii')
 
         with patch(
@@ -1058,6 +1228,8 @@ class RepositoryServiceTests(unittest.TestCase):
                 'git',
                 '-c',
                 f'http.extraHeader={expected_header}',
+                '-c',
+                'safe.directory=.',
                 '-C',
                 '.',
                 'pull',
@@ -1096,6 +1268,8 @@ class RepositoryServiceTests(unittest.TestCase):
                 'git',
                 '-c',
                 f'http.extraHeader={expected_header}',
+                '-c',
+                'safe.directory=.',
                 '-C',
                 '.',
                 'push',

@@ -2,28 +2,7 @@
 core_lib:
   app:
     name: openhands-agent
-  data:
-    sqlalchemy:
-      _instance_key_: sqlalchemy_connection
-      _target_: core_lib.connection.sql_alchemy_connection_factory.SqlAlchemyConnectionFactory
-      config:
-        log_queries: false
-        create_db: true
-        session:
-          pool_recycle: 3600
-          pool_pre_ping: false
-        url:
-          protocol: ${oc.env:OPENHANDS_AGENT_DB_PROTOCOL,"sqlite"}
-          username: ${oc.env:OPENHANDS_AGENT_DB_USERNAME,""}
-          password: ${oc.env:OPENHANDS_AGENT_DB_PASSWORD,""}
-          host: ${oc.env:OPENHANDS_AGENT_DB_HOST,""}
-          port: ${oc.env:OPENHANDS_AGENT_DB_PORT,""}
-          path: ${oc.env:OPENHANDS_AGENT_DB_PATH,""}
-          file: ${oc.env:OPENHANDS_AGENT_DB_FILE,"openhands_agent.db"}
-  alembic:
-    version_table: alembic_version
-    script_location: data_layers/data/db/migrations
-    render_as_batch: true
+  data: {}
   email_core_lib:
     client:
       _target_: email_core_lib.client.send_in_blue_client.SendInBlueClient

@@ -439,9 +439,15 @@ class OpenHandsClient(RetryingClientBase):
                 text_from_mapping(conversation, 'execution_status')
             )
             if execution_status in self._FAILED_EXECUTION_STATUSES:
-                raise RuntimeError(f'openhands conversation failed with status: {execution_status}')
+                raise RuntimeError(
+                    self._conversation_failure_message(
+                        conversation_id,
+                        execution_status,
+                        conversation,
+                    )
+                )
             if execution_status not in self._ACTIVE_EXECUTION_STATUSES:
-                return self._get_result_payload(conversation_id)
+                return self._get_result_payload(conversation_id, conversation_title)
             if highlight_logging_enabled:
                 highlight_logging_enabled = self._log_conversation_highlights(
                     conversation_id,
@@ -454,6 +460,93 @@ class OpenHandsClient(RetryingClientBase):
             f'openhands conversation {conversation_id} did not finish after {self._max_poll_attempts} polls'
         )
 
+    def _conversation_failure_message(
+        self,
+        conversation_id: str,
+        execution_status: str,
+        conversation: dict,
+    ) -> str:
+        detail = self._conversation_failure_detail(conversation_id, conversation)
+        message = f'openhands conversation failed with status: {execution_status}'
+        if detail:
+            message = f'{message}: {detail}'
+        self.logger.error(
+            'openhands conversation %s failed with status %s%s',
+            conversation_id,
+            execution_status,
+            f': {detail}' if detail else '',
+        )
+        return message
+
+    def _conversation_failure_detail(self, conversation_id: str, conversation: dict) -> str:
+        for key in (
+            'detail',
+            'error',
+            'error_message',
+            'message',
+            'reason',
+        ):
+            value = condensed_text(text_from_mapping(conversation, key))
+            if value:
+                return value
+
+        try:
+            events = self._get_conversation_events(conversation_id)
+        except Exception as exc:
+            self.logger.warning(
+                'openhands conversation %s failed, but failure events could not be loaded: %s',
+                conversation_id,
+                exc,
+            )
+            return ''
+
+        for event in reversed(events):
+            detail = self._event_failure_detail(event)
+            if detail:
+                return detail
+
+        event_summary = self._conversation_failure_event_summary(events)
+        if event_summary:
+            return event_summary
+        return ''
+
+    def _conversation_failure_event_summary(self, events: list[object]) -> str:
+        summaries: list[str] = []
+        for event in events[:5]:
+            highlight = self._event_highlight_text(event)
+            if not highlight:
+                highlight = self._event_failure_detail(event)
+            if not highlight:
+                continue
+            summaries.append(highlight)
+        if not summaries:
+            return ''
+        return f'recent OpenHands activity: {"; ".join(summaries)}'
+
+    def _event_failure_detail(self, event: object) -> str:
+        if not isinstance(event, dict):
+            return ''
+
+        for key in (
+            'detail',
+            'error',
+            'error_message',
+            'message',
+            'reason',
+            'summary',
+            'stderr',
+            'stdout',
+            'traceback',
+        ):
+            value = condensed_text(text_from_mapping(event, key))
+            if value:
+                return value
+
+        message_text = self._assistant_message_text(event)
+        if message_text:
+            return condensed_text(message_text)
+        return ''
+
     def _get_conversation(self, conversation_id: str) -> dict:
         response = self._get_with_retry(
             self._APP_CONVERSATIONS_PATH,
@@ -465,7 +558,11 @@ class OpenHandsClient(RetryingClientBase):
             return conversations[0]
         raise ValueError(f'openhands conversation not found: {conversation_id}')
 
-    def _get_result_payload(self, conversation_id: str) -> dict[str, str | bool]:
+    def _get_result_payload(
+        self,
+        conversation_id: str,
+        conversation_title: str = '',
+    ) -> dict[str, str | bool]:
         events = self._get_conversation_events(conversation_id)
 
         for candidate_events in (events, list(reversed(events))):
@@ -473,7 +570,18 @@ class OpenHandsClient(RetryingClientBase):
                 parsed_result = self._result_payload_from_event(event)
                 if parsed_result is not None:
                     return parsed_result
-        raise ValueError(f'openhands conversation {conversation_id} did not return a parseable result')
+        fallback_summary = condensed_text(conversation_title) or conversation_id
+        self.logger.warning(
+            'openhands conversation %s finished without a parseable result; '
+            'falling back to title %s',
+            conversation_id,
+            fallback_summary,
+        )
+        return build_openhands_result(
+            None,
+            summary_fallback=fallback_summary,
+            default_success=True,
+        )
 
     def _get_conversation_events(self, conversation_id: str) -> list[object]:
         response = self._get_with_retry(
