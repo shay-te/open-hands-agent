@@ -41,6 +41,7 @@ x-openhands-agent-env: &openhands-agent-env
   GITLAB_ISSUES_REVIEW_STATE: ${GITLAB_ISSUES_REVIEW_STATE:-In Review}
   BITBUCKET_ISSUES_BASE_URL: ${BITBUCKET_ISSUES_BASE_URL:-https://api.bitbucket.org/2.0}
   BITBUCKET_API_TOKEN: ${BITBUCKET_API_TOKEN:-}
+  BITBUCKET_USERNAME: ${BITBUCKET_USERNAME:-}
   BITBUCKET_ISSUES_WORKSPACE: ${BITBUCKET_ISSUES_WORKSPACE:-}
   BITBUCKET_ISSUES_REPO_SLUG: ${BITBUCKET_ISSUES_REPO_SLUG:-}
   BITBUCKET_ISSUES_ASSIGNEE: ${BITBUCKET_ISSUES_ASSIGNEE:-}
@@ -117,6 +118,7 @@ services:
   openhands:
     image: docker.openhands.dev/openhands/openhands:1.5
     pull_policy: always
+
     environment:
       LOG_ALL_EVENTS: ${OPENHANDS_CONTAINER_LOG_ALL_EVENTS}
       LLM_MODEL: ${OPENHANDS_LLM_MODEL:-}
@@ -126,15 +128,17 @@ services:
       LLM_AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
       LLM_AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
       LLM_AWS_REGION_NAME: ${AWS_REGION_NAME:-}
+      LLM_AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN:-}
       AWS_DEFAULT_REGION: ${AWS_REGION_NAME:-}
       SANDBOX_VOLUMES: ${REPOSITORY_ROOT_PATH:-.}:/workspace/project:rw
-      OH_AGENT_SERVER_ENV: >-
-        {"LLM_API_KEY":"${AWS_ACCESS_KEY_ID:-}/${AWS_SECRET_ACCESS_KEY:-}/${AWS_REGION_NAME:-}","AWS_ACCESS_KEY_ID":"${AWS_ACCESS_KEY_ID:-}","AWS_SECRET_ACCESS_KEY":"${AWS_SECRET_ACCESS_KEY:-}","AWS_DEFAULT_REGION":"${AWS_REGION_NAME:-}","AWS_REGION":"${AWS_REGION_NAME:-}","LLM_AWS_ACCESS_KEY_ID":"${AWS_ACCESS_KEY_ID:-}","LLM_AWS_SECRET_ACCESS_KEY":"${AWS_SECRET_ACCESS_KEY:-}","LLM_AWS_REGION_NAME":"${AWS_REGION_NAME:-}","OH_SANDBOX_VOLUMES":"${REPOSITORY_ROOT_PATH:-.}:/workspace/project:rw"}
+      OH_AGENT_SERVER_ENV: '{"LLM_API_KEY":"${AWS_ACCESS_KEY_ID:-}/${AWS_SECRET_ACCESS_KEY:-}/${AWS_REGION_NAME:-}", "AWS_ACCESS_KEY_ID":"${AWS_ACCESS_KEY_ID:-}", "AWS_SECRET_ACCESS_KEY":"${AWS_SECRET_ACCESS_KEY:-}", "AWS_DEFAULT_REGION":"${AWS_REGION_NAME:-}", "AWS_REGION":"${AWS_REGION_NAME:-}", "LLM_AWS_ACCESS_KEY_ID":"${AWS_ACCESS_KEY_ID:-}", "LLM_AWS_SECRET_ACCESS_KEY":"${AWS_SECRET_ACCESS_KEY:-}", "LLM_AWS_REGION_NAME":"${AWS_REGION_NAME:-}", "OH_SANDBOX_VOLUMES":"${REPOSITORY_ROOT_PATH:-.}:/workspace/project:rw"}'
       OH_PERSISTENCE_DIR: /data
+
+
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - ./docker_data/openhands:/data
-      - ./docker_data/openhands_state:/.openhands
+      - ${MOUNT_DOCKER_DATA_ROOT:-./mount_docker_data}/openhands:/data
+      - ${MOUNT_DOCKER_DATA_ROOT:-./mount_docker_data}/openhands_state:/.openhands
       - ${REPOSITORY_ROOT_PATH:-.}:/workspace/project
       - ${OPENHANDS_SSH_AUTH_SOCK_HOST_PATH:-/run/host-services/ssh-auth.sock}:/ssh-agent:ro
     ports:
@@ -152,11 +156,11 @@ services:
   #     LLM_API_KEY: ${OPENHANDS_TESTING_LLM_API_KEY:-}
   #     LLM_BASE_URL: ${OPENHANDS_TESTING_LLM_BASE_URL:-}
   #     OH_AGENT_SERVER_ENV: >-
-  #       {"LLM_MODEL":"${OPENHANDS_TESTING_LLM_MODEL:-}","LLM_API_KEY":"${OPENHANDS_TESTING_LLM_API_KEY:-}","LLM_BASE_URL":"${OPENHANDS_TESTING_LLM_BASE_URL:-}","AWS_ACCESS_KEY_ID":"${AWS_ACCESS_KEY_ID:-}","AWS_SECRET_ACCESS_KEY":"${AWS_SECRET_ACCESS_KEY:-}","AWS_REGION_NAME":"${AWS_REGION_NAME:-}","AWS_DEFAULT_REGION":"${AWS_REGION_NAME:-}","AWS_REGION":"${AWS_REGION_NAME:-}","LLM_AWS_ACCESS_KEY_ID":"${AWS_ACCESS_KEY_ID:-}","LLM_AWS_SECRET_ACCESS_KEY":"${AWS_SECRET_ACCESS_KEY:-}","LLM_AWS_REGION_NAME":"${AWS_REGION_NAME:-}","AWS_BEARER_TOKEN_BEDROCK":"${AWS_BEARER_TOKEN_BEDROCK:-}","SSH_AUTH_SOCK":"/ssh-agent","OH_SANDBOX_VOLUMES":"${REPOSITORY_ROOT_PATH:-.}:/workspace/project:rw,${OPENHANDS_SSH_AUTH_SOCK_HOST_PATH:-/run/host-services/ssh-auth.sock}:/ssh-agent:ro"}
+  #       {"LLM_MODEL":"${OPENHANDS_TESTING_LLM_MODEL:-}","LLM_API_KEY":"${OPENHANDS_TESTING_LLM_API_KEY:-}","LLM_BASE_URL":"${OPENHANDS_TESTING_LLM_BASE_URL:-}","AWS_ACCESS_KEY_ID":"${AWS_ACCESS_KEY_ID:-}","AWS_SECRET_ACCESS_KEY":"${AWS_SECRET_ACCESS_KEY:-}","AWS_REGION_NAME":"${AWS_REGION_NAME:-}","AWS_SESSION_TOKEN":"${AWS_SESSION_TOKEN:-}","AWS_DEFAULT_REGION":"${AWS_REGION_NAME:-}","AWS_REGION":"${AWS_REGION_NAME:-}","LLM_AWS_ACCESS_KEY_ID":"${AWS_ACCESS_KEY_ID:-}","LLM_AWS_SECRET_ACCESS_KEY":"${AWS_SECRET_ACCESS_KEY:-}","LLM_AWS_REGION_NAME":"${AWS_REGION_NAME:-}","LLM_AWS_SESSION_TOKEN":"${AWS_SESSION_TOKEN:-}","AWS_BEARER_TOKEN_BEDROCK":"${AWS_BEARER_TOKEN_BEDROCK:-}","SSH_AUTH_SOCK":"/ssh-agent","OH_SANDBOX_VOLUMES":"${REPOSITORY_ROOT_PATH:-.}:/workspace/project:rw,${OPENHANDS_SSH_AUTH_SOCK_HOST_PATH:-/run/host-services/ssh-auth.sock}:/ssh-agent:ro"}
   #   volumes:
   #     - /var/run/docker.sock:/var/run/docker.sock
-  #     - ./docker_data/openhands-testing:/data
-  #     - ./docker_data/openhands_testing_state:/.openhands
+  #     - ${MOUNT_DOCKER_DATA_ROOT:-./mount_docker_data}/openhands-testing:/data
+  #     - ${MOUNT_DOCKER_DATA_ROOT:-./mount_docker_data}/openhands_testing_state:/.openhands
   #     - ${REPOSITORY_ROOT_PATH:-.}:/workspace/project
   #     - ${OPENHANDS_SSH_AUTH_SOCK_HOST_PATH:-/run/host-services/ssh-auth.sock}:/ssh-agent:ro
   #   ports:
@@ -171,7 +175,7 @@ services:
     entrypoint: ["/app/docker/entrypoint-install.sh"]
     environment: *openhands-agent-env
     volumes:
-      - openhands-agent-data:/app/data
+      - ${MOUNT_DOCKER_DATA_ROOT:-./mount_docker_data}/openhands-agent-data:/app/data
     restart: "no"
 
   openhands-agent:
@@ -188,9 +192,6 @@ services:
       <<: *openhands-agent-env
       REPOSITORY_ROOT_PATH: /workspace/project
     volumes:
-      - openhands-agent-data:/app/data
+      - ${MOUNT_DOCKER_DATA_ROOT:-./mount_docker_data}/openhands-agent-data:/app/data
       - ${REPOSITORY_ROOT_PATH:-.}:/workspace/project:rw
       - ${OPENHANDS_SSH_AUTH_SOCK_HOST_PATH:-/run/host-services/ssh-auth.sock}:/ssh-agent:ro
-
-volumes:
-  openhands-agent-data:

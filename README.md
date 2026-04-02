@@ -227,6 +227,7 @@ The list below mirrors `.env.example`.
 | `BITBUCKET_ISSUES_REVIEW_STATE` | Bitbucket Issues value used for the review transition. |
 | `BITBUCKET_ISSUES_ISSUE_STATES` | Bitbucket Issues states that qualify for processing. |
 | `REPOSITORY_ROOT_PATH` | Root folder where the agent scans for checked-out repositories. |
+| `MOUNT_DOCKER_DATA_ROOT` | Host folder that holds all Docker bind-mounted data under one parent directory. |
 | `OPENHANDS_AGENT_IGNORED_REPOSITORY_FOLDERS` | Comma-separated folder names to exclude from repository auto-discovery. |
 | `OPENHANDS_AGENT_DB_PROTOCOL` | Database protocol used by the agent persistence layer. |
 | `OPENHANDS_AGENT_DB_USERNAME` | Database username when a non-SQLite backend needs it. |
@@ -561,10 +562,10 @@ The compose file uses the current official OpenHands container image pattern fro
 
 Before running `docker compose up --build`, make sure `.env` contains the selected issue-platform settings, repository settings, OpenHands settings, retry settings, and optional email settings you want Docker Compose to pass through.
 Docker Compose uses `REPOSITORY_ROOT_PATH` as the host source path and mounts it into both the agent container and the OpenHands sandbox at `/workspace/project`, so Docker runs use the same in-container workspace path consistently. The agent mount must stay writable because the agent itself performs git preflight, branch checkout, and fast-forward pulls there before delegating implementation work.
-For the default SQLite setup, the compose file stores the database under `data/` in the agent container working directory, backed by a named Docker volume shared by the `install` and `openhands-agent` containers. If you use Postgres or another external database, override `OPENHANDS_AGENT_DB_PATH` and the related DB env vars in `.env`.
+All Docker bind-mounted runtime data lives under `MOUNT_DOCKER_DATA_ROOT` (default `./mount_docker_data`) in service-specific subfolders such as `openhands/`, `openhands_state/`, and `openhands-agent-data/`. For the default SQLite setup, the compose file stores the database in the `openhands-agent-data/` subfolder under that same parent directory. If you use Postgres or another external database, override `OPENHANDS_AGENT_DB_PATH` and the related DB env vars in `.env`.
 
 If you use `.env`, Docker Compose will load it automatically, so you can keep both the agent config and the OpenHands LLM config in one place and avoid manual setup in the OpenHands UI for the env-supported options. The `openhands` service also reads its logging and model defaults from the same file.
-The OpenHands container always stores its internal state at `/.openhands`; `OPENHANDS_STATE_DIR` only controls which host folder is mounted there, so prefer an absolute host path when overriding it.
+The OpenHands container always stores its internal state at `/.openhands`; `OPENHANDS_STATE_DIR` only controls which host folder is mounted there, so prefer an absolute host path when overriding it. By default, the host side lives under `MOUNT_DOCKER_DATA_ROOT/openhands_state/`.
 
 OpenHands behavioral rules are also supported from this repo through [`AGENTS.md`](AGENTS.md). That lets you keep coding/testing instructions in the project instead of configuring them manually in OpenHands.
 

@@ -95,6 +95,10 @@ class DeploymentFilesTests(unittest.TestCase):
             'SANDBOX_VOLUMES: ${REPOSITORY_ROOT_PATH:-.}:/workspace/project:rw,${OPENHANDS_SSH_AUTH_SOCK_HOST_PATH:-/run/host-services/ssh-auth.sock}:/ssh-agent:ro',
             compose_text,
         )
+        self.assertIn(
+            'MOUNT_DOCKER_DATA_ROOT=./mount_docker_data',
+            (REPO_ROOT / '.env.example').read_text(encoding='utf-8'),
+        )
         self.assertIn('SSH_AUTH_SOCK: /ssh-agent', compose_text)
         self.assertIn('OH_WEB_URL: ${OPENHANDS_WEB_URL:-}', compose_text)
         self.assertIn('OH_PERSISTENCE_DIR: /.openhands', compose_text)
@@ -318,12 +322,28 @@ class DeploymentFilesTests(unittest.TestCase):
         self.assertIn('install:', compose_text)
         self.assertIn('/app/docker/entrypoint-install.sh', compose_text)
         self.assertIn('/app/docker/entrypoint-run.sh', compose_text)
-        self.assertIn('openhands-agent-data:/app/data', compose_text)
+        self.assertIn(
+            '${MOUNT_DOCKER_DATA_ROOT:-./mount_docker_data}/openhands-agent-data:/app/data',
+            compose_text,
+        )
+        self.assertIn(
+            '${MOUNT_DOCKER_DATA_ROOT:-./mount_docker_data}/openhands:/data',
+            compose_text,
+        )
+        self.assertIn(
+            '${MOUNT_DOCKER_DATA_ROOT:-./mount_docker_data}/openhands_state:/.openhands',
+            compose_text,
+        )
         self.assertIn('${REPOSITORY_ROOT_PATH:-.}:/workspace/project', compose_text)
         self.assertIn('REPOSITORY_ROOT_PATH: /workspace/project', compose_text)
         self.assertIn('${REPOSITORY_ROOT_PATH:-.}:/workspace/project:rw', compose_text)
         self.assertIn('docker.openhands.dev/openhands/openhands:1.5', compose_text)
         self.assertNotIn('/Users/shaytessler/Desktop/dev/openhands-agent:/workspace/project', compose_text)
+        self.assertNotIn('./docker_data/openhands:/data', compose_text)
+        self.assertNotIn('./docker_data/openhands_state:/.openhands', compose_text)
+        self.assertNotIn('docker_data/openhands-testing', compose_text)
+        self.assertNotIn('docker_data/openhands_testing_state', compose_text)
+        self.assertNotIn('\nvolumes:\n  openhands-agent-data:\n', compose_text)
         dockerfile_text = (REPO_ROOT / 'Dockerfile').read_text(encoding='utf-8')
         self.assertIn('COPY . .', dockerfile_text)
         self.assertNotIn('COPY pyproject.toml ./', dockerfile_text)
