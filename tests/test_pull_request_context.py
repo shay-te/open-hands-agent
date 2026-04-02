@@ -8,7 +8,6 @@ from openhands_agent.fields import (
 )
 from openhands_agent.pull_request_context import (
     build_pull_request_context,
-    normalize_pull_request_context,
     pull_request_context_key,
 )
 
@@ -31,31 +30,6 @@ class PullRequestContextTests(unittest.TestCase):
                 ImplementationFields.SESSION_ID: 'conversation-1',
                 TaskFields.ID: 'PROJ-1',
                 TaskFields.SUMMARY: 'Fix bug',
-            },
-        )
-
-    def test_normalize_pull_request_context_rejects_missing_identity(self) -> None:
-        self.assertIsNone(
-            normalize_pull_request_context(
-                {PullRequestFields.REPOSITORY_ID: 'client'},
-            )
-        )
-
-    def test_normalize_pull_request_context_adds_pull_request_id(self) -> None:
-        context = normalize_pull_request_context(
-            {
-                PullRequestFields.REPOSITORY_ID: ' client ',
-                'branch_name': ' feature/proj-1 ',
-            },
-            pull_request_id=' 17 ',
-        )
-
-        self.assertEqual(
-            context,
-            {
-                PullRequestFields.ID: '17',
-                PullRequestFields.REPOSITORY_ID: 'client',
-                'branch_name': 'feature/proj-1',
             },
         )
 

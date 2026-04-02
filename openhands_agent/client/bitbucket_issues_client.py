@@ -26,8 +26,9 @@ class BitbucketIssuesClient(TicketClientBase):
         super().__init__(base_url, token, timeout=30, max_retries=max_retries)
         self._workspace = str(workspace).strip()
         self._repo_slug = str(repo_slug).strip()
-        if normalized_text(username):
-            self.set_headers({'Authorization': bitbucket_basic_auth_header(username, token)})
+        auth_username = normalized_text(username)
+        if auth_username:
+            self.set_headers({'Authorization': bitbucket_basic_auth_header(auth_username, token)})
 
     def validate_connection(self, project: str, assignee: str, states: list[str]) -> None:
         response = self._get_with_retry(

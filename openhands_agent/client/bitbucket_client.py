@@ -19,8 +19,9 @@ class BitbucketClient(PullRequestClientBase):
         username: str = '',
     ) -> None:
         super().__init__(base_url, token, timeout=30, max_retries=max_retries)
-        if normalized_text(username):
-            self.set_headers({'Authorization': bitbucket_basic_auth_header(username, token)})
+        auth_username = normalized_text(username)
+        if auth_username:
+            self.set_headers({'Authorization': bitbucket_basic_auth_header(auth_username, token)})
 
     def validate_connection(self, repo_owner: str, repo_slug: str) -> None:
         response = self._get_with_retry(f'/repositories/{repo_owner}/{repo_slug}')

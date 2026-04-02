@@ -76,6 +76,7 @@ class TicketClientFactoryTests(unittest.TestCase):
             cfg.openhands_agent.bitbucket_issues.workspace,
             cfg.openhands_agent.bitbucket_issues.repo_slug,
             5,
+            username='',
         )
 
     def test_builds_bitbucket_issues_client_with_username(self) -> None:

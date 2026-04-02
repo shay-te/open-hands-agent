@@ -26,18 +26,11 @@ def build_pull_request_client(
 ) -> PullRequestClientBase:
     provider = detect_pull_request_provider(config.base_url)
     if provider == 'bitbucket':
-        username = getattr(config, 'username', '')
-        if username:
-            return BitbucketClient(
-                config.base_url,
-                config.token,
-                max_retries,
-                username=username,
-            )
         return BitbucketClient(
             config.base_url,
             config.token,
             max_retries,
+            username=getattr(config, 'username', ''),
         )
     if provider == 'github':
         return GitHubClient(config.base_url, config.token, max_retries)

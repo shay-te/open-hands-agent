@@ -1288,6 +1288,7 @@ class RepositoryServiceTests(unittest.TestCase):
                     bitbucket_issues=types.SimpleNamespace(
                         base_url='https://api.bitbucket.org/2.0',
                         token='bb-token',
+                        username='workspace',
                     ),
                 ),
                 3,
@@ -1342,10 +1343,26 @@ class RepositoryServiceTests(unittest.TestCase):
             ['0', '0'],
         )
 
-    def test_git_http_auth_header_falls_back_to_x_token_auth_for_bitbucket_without_owner(self) -> None:
+    def test_git_http_auth_header_uses_configured_bitbucket_username(self) -> None:
         repository = types.SimpleNamespace(
             provider='bitbucket',
-            owner='',
+            owner='workspace',
+            username='bb-user',
+            remote_url='https://bitbucket.org/workspace/project.git',
+            token='bb-token',
+        )
+
+        header = RepositoryService._git_http_auth_header(repository)
+
+        expected_header = 'Authorization: Basic ' + base64.b64encode(
+            b'bb-user:bb-token'
+        ).decode('ascii')
+        self.assertEqual(header, expected_header)
+
+    def test_git_http_auth_header_falls_back_to_x_token_auth_for_bitbucket_without_username(self) -> None:
+        repository = types.SimpleNamespace(
+            provider='bitbucket',
+            owner='workspace',
             remote_url='https://bitbucket.org/workspace/project.git',
             token='bb-token',
         )

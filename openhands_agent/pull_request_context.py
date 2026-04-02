@@ -32,29 +32,6 @@ def build_pull_request_context(
     return context
 
 
-def normalize_pull_request_context(
-    context: object,
-    *,
-    pull_request_id: str = '',
-) -> dict[str, str] | None:
-    if not isinstance(context, dict):
-        return None
-    normalized_context = build_pull_request_context(
-        text_from_mapping(context, PullRequestFields.REPOSITORY_ID),
-        text_from_mapping(context, Task.branch_name.key),
-        text_from_mapping(context, ImplementationFields.SESSION_ID),
-        text_from_mapping(context, TaskFields.ID),
-        text_from_mapping(context, TaskFields.SUMMARY),
-    )
-    repository_id, branch_name = pull_request_context_key(normalized_context)
-    if not repository_id or not branch_name:
-        return None
-    normalized_pull_request_id = normalized_text(pull_request_id)
-    if normalized_pull_request_id:
-        normalized_context[PullRequestFields.ID] = normalized_pull_request_id
-    return normalized_context
-
-
 def pull_request_context_key(context: object) -> tuple[str, str]:
     if not isinstance(context, dict):
         return '', ''

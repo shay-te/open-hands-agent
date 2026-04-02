@@ -132,7 +132,7 @@ ISSUE_PLATFORM_DETAILS = {
         'repo_slug_label': 'issues repository slug',
         'assignee_key': 'BITBUCKET_ISSUES_ASSIGNEE',
         'assignee_label': 'assignee username',
-        'username_label': 'username for app-password auth',
+        'username_label': 'username for git auth',
         'progress_state_field_key': 'BITBUCKET_ISSUES_PROGRESS_STATE_FIELD',
         'progress_state_key': 'BITBUCKET_ISSUES_PROGRESS_STATE',
         'review_state_field_key': 'BITBUCKET_ISSUES_REVIEW_STATE_FIELD',
@@ -460,13 +460,10 @@ def _prompt_issue_platform_optional_values(
         env_key = str(details.get(key_name, '') or '')
         if not env_key:
             continue
-        prompt = (
-            f'{label} user email for basic auth'
-            if key_name == 'email_key'
-            else f'{label} {details[label_key]}'
-            if key_name == 'username_key'
-            else f"{label} {details[label_key]}"
-        )
+        if key_name == 'email_key':
+            prompt = f'{label} user email for basic auth'
+        else:
+            prompt = f"{label} {details[label_key]}"
         values[env_key] = input_str(
             prompt,
             default=_default_str(defaults, env_key),
@@ -939,48 +936,6 @@ def _default_projects_root(values: dict[str, str]) -> str:
     return str(Path.cwd())
 
 
-def _prompt_repository_numbers(
-    message: str,
-    candidate_count: int,
-    *,
-    allow_empty: bool,
-) -> list[int]:
-    while True:
-        raw_value = input_str(
-            message,
-            default='1' if not allow_empty else '',
-            allow_empty=allow_empty,
-        ).strip()
-        if not raw_value:
-            return []
-        try:
-            numbers = _parse_repository_numbers(raw_value, candidate_count)
-        except ValueError as exc:
-            logger.info('%s', exc)
-            continue
-        if numbers:
-            return numbers
-        if allow_empty:
-            return []
-        logger.info('Select at least one repository number.')
-
-
-def _parse_repository_numbers(raw_value: str, candidate_count: int) -> list[int]:
-    numbers: list[int] = []
-    seen: set[int] = set()
-    for part in raw_value.split(','):
-        candidate = part.strip()
-        if not candidate:
-            continue
-        if not candidate.isdigit():
-            raise ValueError('Enter repository numbers as comma-separated integers.')
-        number = int(candidate)
-        if number < 1 or number > candidate_count:
-            raise ValueError(f'Repository number must be between 1 and {candidate_count}.')
-        if number not in seen:
-            numbers.append(number)
-            seen.add(number)
-    return numbers
 
 
 _read_git_remote_url = read_git_remote_url

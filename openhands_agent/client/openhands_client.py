@@ -187,17 +187,6 @@ class OpenHandsClient(RetryingClientBase):
         normalized_task_summary = condensed_text(task_summary)
         return [part for part in (normalized_task_id, normalized_task_summary) if part]
 
-    @classmethod
-    def _conversation_title_from_values(
-        cls,
-        task_id: str = '',
-        task_summary: str = '',
-        suffix: str = '',
-    ) -> str:
-        title_parts = cls._conversation_title_parts(task_id, task_summary)
-        base_title = ' '.join(title_parts) if title_parts else 'OpenHands task'
-        return f'{base_title}{suffix}'
-
     def _build_implementation_prompt(self, task: Task) -> str:
         repository_scope = self._repository_scope_text(task)
         return (

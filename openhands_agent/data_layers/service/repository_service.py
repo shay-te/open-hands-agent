@@ -415,7 +415,15 @@ class RepositoryService(Service):
     def _prepare_repository_access(self, repository) -> None:
         self._validate_local_path(repository)
         self._validate_git_remote_auth(repository)
+        self._prepare_repository_git_auth(repository)
         self._prepare_pull_request_api(repository)
+
+    def _prepare_repository_git_auth(self, repository) -> None:
+        if normalized_lower_text(text_from_attr(repository, 'provider')) != 'bitbucket':
+            return
+        username = self._resolved_bitbucket_username(repository)
+        if username:
+            setattr(repository, 'bitbucket_username', username)
 
     def _validate_repository_git_access(self, repository) -> None:
         local_path = text_from_attr(repository, 'local_path')
@@ -1137,9 +1145,9 @@ class RepositoryService(Service):
             bitbucket_username = text_from_attr(repository, 'bitbucket_username')
             if bitbucket_username:
                 return bitbucket_username
-            owner = text_from_attr(repository, 'owner')
-            if owner:
-                return owner
+            username = text_from_attr(repository, 'username')
+            if username:
+                return username
             return parsed.username or 'x-token-auth'
         if parsed.username:
             return parsed.username

@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 
 from openhands_agent.client.bitbucket_client import BitbucketClient

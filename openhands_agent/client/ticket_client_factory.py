@@ -32,21 +32,12 @@ def build_ticket_client(ticket_system: str, config, max_retries: int):
             max_retries,
         )
     if normalized in {'bitbucket', 'bitbucket_issues'}:
-        username = getattr(config, 'username', '')
-        if username:
-            return BitbucketIssuesClient(
-                config.base_url,
-                config.token,
-                getattr(config, 'workspace', ''),
-                getattr(config, 'repo_slug', ''),
-                max_retries,
-                username=username,
-            )
         return BitbucketIssuesClient(
             config.base_url,
             config.token,
             getattr(config, 'workspace', ''),
             getattr(config, 'repo_slug', ''),
             max_retries,
+            username=getattr(config, 'username', ''),
         )
     raise ValueError(f'unsupported issue platform: {ticket_system}')

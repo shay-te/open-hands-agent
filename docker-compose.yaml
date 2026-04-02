@@ -51,13 +51,6 @@ x-openhands-agent-env: &openhands-agent-env
   BITBUCKET_ISSUES_REVIEW_STATE_FIELD: ${BITBUCKET_ISSUES_REVIEW_STATE_FIELD:-state}
   BITBUCKET_ISSUES_REVIEW_STATE: ${BITBUCKET_ISSUES_REVIEW_STATE:-resolved}
   REPOSITORY_ROOT_PATH: ${REPOSITORY_ROOT_PATH:-.}
-  OPENHANDS_AGENT_DB_PROTOCOL: ${OPENHANDS_AGENT_DB_PROTOCOL:-sqlite}
-  OPENHANDS_AGENT_DB_USERNAME: ${OPENHANDS_AGENT_DB_USERNAME:-}
-  OPENHANDS_AGENT_DB_PASSWORD: ${OPENHANDS_AGENT_DB_PASSWORD:-}
-  OPENHANDS_AGENT_DB_HOST: ${OPENHANDS_AGENT_DB_HOST:-}
-  OPENHANDS_AGENT_DB_PORT: ${OPENHANDS_AGENT_DB_PORT:-}
-  OPENHANDS_AGENT_DB_PATH: ${OPENHANDS_AGENT_DB_PATH:-data}
-  OPENHANDS_AGENT_DB_FILE: ${OPENHANDS_AGENT_DB_FILE:-openhands_agent.db}
   OPENHANDS_BASE_URL: http://openhands:3000
   OPENHANDS_API_KEY: ${OPENHANDS_API_KEY:-local}
   OPENHANDS_SKIP_TESTING: ${OPENHANDS_SKIP_TESTING:-false}
@@ -174,8 +167,6 @@ services:
       dockerfile: Dockerfile
     entrypoint: ["/app/docker/entrypoint-install.sh"]
     environment: *openhands-agent-env
-    volumes:
-      - ${MOUNT_DOCKER_DATA_ROOT:-./mount_docker_data}/openhands-agent-data:/app/data
     restart: "no"
 
   openhands-agent:
@@ -192,6 +183,5 @@ services:
       <<: *openhands-agent-env
       REPOSITORY_ROOT_PATH: /workspace/project
     volumes:
-      - ${MOUNT_DOCKER_DATA_ROOT:-./mount_docker_data}/openhands-agent-data:/app/data
       - ${REPOSITORY_ROOT_PATH:-.}:/workspace/project:rw
       - ${OPENHANDS_SSH_AUTH_SOCK_HOST_PATH:-/run/host-services/ssh-auth.sock}:/ssh-agent:ro

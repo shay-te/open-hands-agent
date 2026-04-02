@@ -492,7 +492,7 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
 
         mock_email_core_lib_cls.assert_called_once_with(cfg)
 
-    def test_install_upgrades_database_to_head(self) -> None:
+    def test_install_logs_without_local_persistence(self) -> None:
         with patch(
             'openhands_agent.openhands_agent_core_lib.GlobalHydra.instance'
         ) as mock_hydra_instance, patch(
@@ -502,11 +502,11 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
 
         mock_hydra_instance.return_value.clear.assert_called_once_with()
         mock_info.assert_any_call(
-            'Installing OpenHandsAgentCoreLib without a local database'
+            'Installing OpenHandsAgentCoreLib without a local persistence layer'
         )
         mock_info.assert_any_call('OpenHandsAgentCoreLib installed successfully')
 
-    def test_uninstall_logs_without_database(self) -> None:
+    def test_uninstall_logs_without_local_persistence(self) -> None:
         with patch(
             'openhands_agent.openhands_agent_core_lib.GlobalHydra.instance'
         ) as mock_hydra_instance, patch(
@@ -516,23 +516,23 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
 
         mock_hydra_instance.return_value.clear.assert_called_once_with()
         mock_info.assert_any_call(
-            'Uninstalling OpenHandsAgentCoreLib without a local database'
+            'Uninstalling OpenHandsAgentCoreLib without a local persistence layer'
         )
         mock_info.assert_any_call('OpenHandsAgentCoreLib uninstalled successfully')
 
-    def test_create_is_a_noop_without_database(self) -> None:
+    def test_create_is_a_noop_without_local_persistence(self) -> None:
         with patch('openhands_agent.openhands_agent_core_lib.logger.info') as mock_info:
             OpenHandsAgentCoreLib.create(self.cfg, 'add_repository_table')
 
         mock_info.assert_called_once_with(
-            'Skipping migration creation for %s because local database support is disabled',
+            'Skipping core-lib create hook for %s because persistence support is disabled',
             'add_repository_table',
         )
 
-    def test_downgrade_is_a_noop_without_database(self) -> None:
+    def test_downgrade_is_a_noop_without_local_persistence(self) -> None:
         with patch('openhands_agent.openhands_agent_core_lib.logger.info') as mock_info:
             OpenHandsAgentCoreLib.downgrade(self.cfg)
 
         mock_info.assert_called_once_with(
-            'Skipping database downgrade because local database support is disabled'
+            'Skipping core-lib downgrade because persistence support is disabled'
         )

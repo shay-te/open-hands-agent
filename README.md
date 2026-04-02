@@ -57,8 +57,6 @@ openhands_agent/
       failure_email.txt
   data_layers/
     data/
-      review_comment.py
-      task.py
     data_access/
       pull_request_data_access.py
       task_data_access.py
@@ -216,8 +214,8 @@ The list below mirrors `.env.example`.
 | `GITLAB_ISSUES_REVIEW_STATE` | GitLab Issues value used for the review transition. |
 | `GITLAB_ISSUES_ISSUE_STATES` | GitLab Issues states that qualify for processing. |
 | `BITBUCKET_ISSUES_BASE_URL` | Bitbucket Issues API base URL. |
-| `BITBUCKET_API_TOKEN` | Bitbucket API token. Also used as the password for Bitbucket Basic auth when `BITBUCKET_USERNAME` is set, and for Bitbucket git push and pull request creation when needed. |
-| `BITBUCKET_USERNAME` | Bitbucket username used with `BITBUCKET_API_TOKEN` for Basic auth. Leave empty to keep the legacy token-only flow. |
+| `BITBUCKET_API_TOKEN` | Bitbucket API token. Used as the password for Bitbucket git auth and Bitbucket REST API auth. |
+| `BITBUCKET_USERNAME` | Bitbucket username used for git push auth. |
 | `BITBUCKET_ISSUES_WORKSPACE` | Bitbucket workspace used to scope issues. |
 | `BITBUCKET_ISSUES_REPO_SLUG` | Bitbucket repository slug used to scope issues. |
 | `BITBUCKET_ISSUES_ASSIGNEE` | Bitbucket assignee to scan for tasks. |
@@ -229,13 +227,6 @@ The list below mirrors `.env.example`.
 | `REPOSITORY_ROOT_PATH` | Root folder where the agent scans for checked-out repositories. |
 | `MOUNT_DOCKER_DATA_ROOT` | Host folder that holds all Docker bind-mounted data under one parent directory. |
 | `OPENHANDS_AGENT_IGNORED_REPOSITORY_FOLDERS` | Comma-separated folder names to exclude from repository auto-discovery. |
-| `OPENHANDS_AGENT_DB_PROTOCOL` | Database protocol used by the agent persistence layer. |
-| `OPENHANDS_AGENT_DB_USERNAME` | Database username when a non-SQLite backend needs it. |
-| `OPENHANDS_AGENT_DB_PASSWORD` | Database password when a non-SQLite backend needs it. |
-| `OPENHANDS_AGENT_DB_HOST` | Database host when a non-SQLite backend needs it. |
-| `OPENHANDS_AGENT_DB_PORT` | Database port when a non-SQLite backend needs it. |
-| `OPENHANDS_AGENT_DB_PATH` | Database path or directory when the backend uses one. |
-| `OPENHANDS_AGENT_DB_FILE` | SQLite database filename. |
 
 ### OpenHands Agent Runtime
 
@@ -392,9 +383,8 @@ If a developer is starting from zero, these are the steps:
 10. Fill in email settings if notifications are enabled.
 11. Decide whether to run locally or with Docker Compose.
 12. Validate the environment values.
-13. Create or upgrade the database schema.
-14. Start the application.
-15. Confirm the agent can connect to the configured issue platform, OpenHands, and every configured repository.
+13. Start the application.
+14. Confirm the agent can connect to the configured issue platform, OpenHands, and every configured repository.
 
 What is automated now:
 
@@ -417,7 +407,6 @@ What is automated now:
   - starts the app
 - `make install`
   - runs `OpenHandsAgentCoreLib.install`
-  - applies the Alembic migrations to the configured database
 - Docker entrypoint
   - waits for OpenHands
   - starts the app
@@ -457,7 +446,7 @@ make doctor
 make run
 ```
 
-5. Install or upgrade the database schema:
+5. Run the app install hook:
 
 ```bash
 make install
@@ -552,7 +541,6 @@ What the compose stack does:
 - starts an `openhands` container on port `3000`
 - runs an `install` container that calls `OpenHandsAgentCoreLib.install`
 - builds and starts an `openhands-agent` container from this repo
-- shares the default SQLite database path between `install` and `openhands-agent`
 - makes the agent wait until OpenHands is reachable at `http://openhands:3000`
 - then runs `python -m openhands_agent.main`
 
@@ -563,7 +551,7 @@ The compose file uses the current official OpenHands container image pattern fro
 
 Before running `docker compose up --build`, make sure `.env` contains the selected issue-platform settings, repository settings, OpenHands settings, retry settings, and optional email settings you want Docker Compose to pass through.
 Docker Compose uses `REPOSITORY_ROOT_PATH` as the host source path and mounts it into both the agent container and the OpenHands sandbox at `/workspace/project`, so Docker runs use the same in-container workspace path consistently. The agent mount must stay writable because the agent itself performs git preflight, branch checkout, and fast-forward pulls there before delegating implementation work.
-All Docker bind-mounted runtime data lives under `MOUNT_DOCKER_DATA_ROOT` (default `./mount_docker_data`) in service-specific subfolders such as `openhands/`, `openhands_state/`, and `openhands-agent-data/`. For the default SQLite setup, the compose file stores the database in the `openhands-agent-data/` subfolder under that same parent directory. If you use Postgres or another external database, override `OPENHANDS_AGENT_DB_PATH` and the related DB env vars in `.env`.
+All Docker bind-mounted runtime data lives under `MOUNT_DOCKER_DATA_ROOT` (default `./mount_docker_data`) in service-specific subfolders such as `openhands/` and `openhands_state/`.
 
 If you use `.env`, Docker Compose will load it automatically, so you can keep both the agent config and the OpenHands LLM config in one place and avoid manual setup in the OpenHands UI for the env-supported options. The `openhands` service also reads its logging and model defaults from the same file.
 The OpenHands container always stores its internal state at `/.openhands`; `OPENHANDS_STATE_DIR` only controls which host folder is mounted there, so prefer an absolute host path when overriding it. By default, the host side lives under `MOUNT_DOCKER_DATA_ROOT/openhands_state/`.

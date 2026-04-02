@@ -5,7 +5,8 @@ cd /app
 
 if [ -n "${BITBUCKET_API_TOKEN:-}" ]; then
   git config --global credential.helper store >/dev/null 2>&1 || true
-  printf 'protocol=https\nhost=bitbucket.org\nusername=shacoshe\npassword=%s\n\n' \
+  printf 'protocol=https\nhost=bitbucket.org\nusername=%s\npassword=%s\n\n' \
+    "${BITBUCKET_USERNAME:-}" \
     "${BITBUCKET_API_TOKEN}" | git credential approve
 else
   echo '[Error] BITBUCKET_API_TOKEN not found. git access validation may fail.' >&2

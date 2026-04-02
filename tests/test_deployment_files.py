@@ -171,10 +171,6 @@ class DeploymentFilesTests(unittest.TestCase):
             compose_text,
         )
         self.assertIn('REPOSITORY_ROOT_PATH: ${REPOSITORY_ROOT_PATH:-.}', compose_text)
-        self.assertIn(
-            'OPENHANDS_AGENT_DB_PATH: ${OPENHANDS_AGENT_DB_PATH:-data}',
-            compose_text,
-        )
         self.assertIn('openhands-testing:', compose_text)
         self.assertIn('profiles: ["testing"]', compose_text)
         self.assertIn(
@@ -208,9 +204,6 @@ class DeploymentFilesTests(unittest.TestCase):
         self.assertIn('OPENHANDS_AGENT_TICKET_SYSTEM=', env_example_text)
         self.assertIn('REPOSITORY_ROOT_PATH=', env_example_text)
         self.assertIn('OPENHANDS_AGENT_IGNORED_REPOSITORY_FOLDERS=', env_example_text)
-        self.assertIn('OPENHANDS_AGENT_DB_PROTOCOL=', env_example_text)
-        self.assertIn('OPENHANDS_AGENT_DB_PATH=', env_example_text)
-        self.assertIn('OPENHANDS_AGENT_DB_FILE=', env_example_text)
         self.assertIn('JIRA_BASE_URL=', env_example_text)
         self.assertIn('JIRA_TOKEN=', env_example_text)
         self.assertIn('YOUTRACK_PROGRESS_STATE=', env_example_text)
@@ -284,6 +277,7 @@ class DeploymentFilesTests(unittest.TestCase):
         run_local_text = (REPO_ROOT / 'scripts' / 'run-local.sh').read_text(encoding='utf-8')
         makefile_text = (REPO_ROOT / 'Makefile').read_text(encoding='utf-8')
         compose_text = (REPO_ROOT / 'docker-compose.yaml').read_text(encoding='utf-8')
+        gitignore_text = (REPO_ROOT / '.gitignore').read_text(encoding='utf-8')
         install_entrypoint_text = (
             REPO_ROOT / 'docker' / 'entrypoint-install.sh'
         ).read_text(encoding='utf-8')
@@ -302,6 +296,9 @@ class DeploymentFilesTests(unittest.TestCase):
         self.assertIn('.venv/bin/python -m unittest discover -s tests', bootstrap_text)
         self.assertIn('hydra-core>=1.3.2', install_deps_text)
         self.assertIn('core-lib>=0.2.0', install_deps_text)
+        self.assertNotIn('alembic', install_deps_text)
+        self.assertNotIn('sqlalchemy', install_deps_text)
+        self.assertNotIn('pydantic', install_deps_text)
         self.assertNotIn('deps-only', install_deps_text)
         self.assertNotIn('openhands_agent.validate_env --mode agent', run_local_text)
         self.assertIn('openhands_agent.install', run_local_text)
@@ -319,13 +316,18 @@ class DeploymentFilesTests(unittest.TestCase):
         self.assertIn('OPENHANDS_TESTING_CONTAINER_ENABLED', run_entrypoint_text)
         self.assertIn('OPENHANDS_SKIP_TESTING', run_entrypoint_text)
         self.assertIn('OPENHANDS_TESTING_BASE_URL', run_entrypoint_text)
+        self.assertIn('BITBUCKET_USERNAME', run_entrypoint_text)
+        self.assertIn('username=%s', run_entrypoint_text)
+        self.assertNotIn('username=shacoshe', run_entrypoint_text)
+        self.assertNotIn('BITBUCKET_API_USERNAME', compose_text)
         self.assertIn('install:', compose_text)
         self.assertIn('/app/docker/entrypoint-install.sh', compose_text)
         self.assertIn('/app/docker/entrypoint-run.sh', compose_text)
-        self.assertIn(
-            '${MOUNT_DOCKER_DATA_ROOT:-./mount_docker_data}/openhands-agent-data:/app/data',
-            compose_text,
-        )
+        self.assertIn('build/', gitignore_text)
+        self.assertIn('dist/', gitignore_text)
+        self.assertIn('out/', gitignore_text)
+        self.assertIn('coverage/', gitignore_text)
+        self.assertIn('target/', gitignore_text)
         self.assertIn(
             '${MOUNT_DOCKER_DATA_ROOT:-./mount_docker_data}/openhands:/data',
             compose_text,
@@ -343,7 +345,7 @@ class DeploymentFilesTests(unittest.TestCase):
         self.assertNotIn('./docker_data/openhands_state:/.openhands', compose_text)
         self.assertNotIn('docker_data/openhands-testing', compose_text)
         self.assertNotIn('docker_data/openhands_testing_state', compose_text)
-        self.assertNotIn('\nvolumes:\n  openhands-agent-data:\n', compose_text)
+        self.assertNotIn('openhands-agent-data:/app/data', compose_text)
         dockerfile_text = (REPO_ROOT / 'Dockerfile').read_text(encoding='utf-8')
         self.assertIn('COPY . .', dockerfile_text)
         self.assertNotIn('COPY pyproject.toml ./', dockerfile_text)
@@ -381,6 +383,11 @@ class DeploymentFilesTests(unittest.TestCase):
         self.assertIn('skip_testing:', config_text)
         self.assertIn('testing_container_enabled:', config_text)
         self.assertIn('testing_base_url:', config_text)
+        self.assertNotIn('alembic', (REPO_ROOT / 'pyproject.toml').read_text(encoding='utf-8'))
+        self.assertNotIn('sqlalchemy', (REPO_ROOT / 'pyproject.toml').read_text(encoding='utf-8'))
+        self.assertNotIn('pydantic', (REPO_ROOT / 'pyproject.toml').read_text(encoding='utf-8'))
+        self.assertNotIn('script.py.mako', (REPO_ROOT / 'pyproject.toml').read_text(encoding='utf-8'))
+        self.assertNotIn('database schema', (REPO_ROOT / 'README.md').read_text(encoding='utf-8'))
 
     def test_repo_includes_ci_workflow(self) -> None:
         workflow_text = (
