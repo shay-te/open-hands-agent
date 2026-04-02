@@ -664,10 +664,6 @@ class RepositoryService(Service):
         owner = text_from_attr(repository, RepositoryFields.OWNER)
         repo_slug = text_from_attr(repository, RepositoryFields.REPO_SLUG)
         token = text_from_attr(repository, 'token')
-        username = text_from_attr(repository, 'bitbucket_username') or text_from_attr(
-            repository,
-            'username',
-        )
         destination_branch = text_from_attr(repository, RepositoryFields.DESTINATION_BRANCH)
         if not provider_base_url or not owner or not repo_slug or not token:
             raise ValueError(
@@ -677,7 +673,6 @@ class RepositoryService(Service):
             {
                 'base_url': provider_base_url,
                 'token': token,
-                'username': username,
                 'owner': owner,
                 'repo_slug': repo_slug,
                 RepositoryFields.DESTINATION_BRANCH: destination_branch,

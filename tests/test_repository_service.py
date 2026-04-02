@@ -1689,6 +1689,32 @@ class RepositoryServiceTests(unittest.TestCase):
 
         data_access.resolve_review_comment.assert_called_once_with(comment)
 
+    def test_pull_request_data_access_uses_bearer_token_for_bitbucket_api(self) -> None:
+        repository = types.SimpleNamespace(
+            id='client',
+            display_name='Client',
+            local_path='.',
+            provider_base_url='https://api.bitbucket.org/2.0',
+            token='bb-token',
+            owner='workspace',
+            repo_slug='repo',
+            destination_branch='main',
+            bitbucket_username='bb-user',
+            username='legacy-user',
+        )
+        service = RepositoryService([repository], 3)
+
+        with patch(
+            'openhands_agent.data_layers.service.repository_service.build_pull_request_client',
+            return_value=Mock(),
+        ) as mock_build:
+            service._pull_request_data_access(repository)
+
+        config = mock_build.call_args.args[0]
+        self.assertEqual(config.base_url, 'https://api.bitbucket.org/2.0')
+        self.assertEqual(config.token, 'bb-token')
+        self.assertIsNone(config.get('username'))
+
     def test_publish_branch_updates_returns_to_destination_branch_when_push_fails(self) -> None:
         with patch(
             'openhands_agent.data_layers.service.repository_service.RepositoryService._prepare_branch_for_publication',
