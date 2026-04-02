@@ -1,5 +1,3 @@
-import json
-
 from core_lib.jobs.job import Job
 
 from openhands_agent.helpers.error_handling_utils import log_and_notify_failure
@@ -31,7 +29,7 @@ class ProcessAssignedTasksJob(Job):
     def run(self) -> None:
         try:
             results = collect_processing_results(self._data_handler.service)
-            self.logger.info(json.dumps(results))
+            self.logger.info('completed processing results: %s', results)
         except Exception as exc:
             log_and_notify_failure(
                 logger=self.logger,

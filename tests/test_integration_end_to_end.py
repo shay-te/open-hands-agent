@@ -7,7 +7,7 @@ covering the most critical integration point that was missing comprehensive test
 This addresses the #1 most critical missing test category: End-to-End Agent Integration Tests.
 """
 import unittest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import ANY, Mock, patch, MagicMock
 import tempfile
 import os
 from pathlib import Path
@@ -286,7 +286,10 @@ class TestAgentEndToEndIntegration(unittest.TestCase):
             self.assertIsInstance(result, dict)
             
             # Verify the expected calls were made
-            self.mock_implementation_service.implement_task.assert_called_once_with(task)
+            self.mock_implementation_service.implement_task.assert_called_once_with(
+                task,
+                prepared_task=ANY,
+            )
             self.mock_repository_service.resolve_task_repositories.assert_called_once_with(task)
             self.mock_repository_service.prepare_task_repositories.assert_called_once_with(
                 [repository]

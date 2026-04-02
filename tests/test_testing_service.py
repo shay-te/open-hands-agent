@@ -21,7 +21,7 @@ class TestingServiceTests(unittest.TestCase):
         service.test_task(task)
 
         client.validate_connection.assert_called_once_with()
-        client.test_task.assert_called_once_with(task)
+        client.test_task.assert_called_once_with(task, prepared_task=None)
         service.logger.info.assert_called_once_with(
             'delegating testing validation for task %s',
             'PROJ-1',

@@ -1,6 +1,6 @@
 import types
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import ANY, Mock, patch
 
 
 from openhands_agent.data_layers.data.review_comment import ReviewComment
@@ -286,7 +286,10 @@ class AgentServiceTests(unittest.TestCase):
             },
         )
         self.repository_service.resolve_task_repositories.assert_called_once()
-        self.openhands_client.test_task.assert_called_once()
+        self.openhands_client.test_task.assert_called_once_with(
+            task,
+            prepared_task=ANY,
+        )
         self.assertEqual(
             self.repository_service.prepare_task_branches.call_args_list,
             [
@@ -581,7 +584,11 @@ class AgentServiceTests(unittest.TestCase):
             [self.client_repo, self.backend_repo]
         )
         self.assertEqual(self.repository_service.prepare_task_branches.call_count, 1)
-        self.openhands_client.implement_task.assert_called_once_with(task)
+        self.openhands_client.implement_task.assert_called_once_with(
+            task,
+            '',
+            prepared_task=ANY,
+        )
 
     def test_process_assigned_task_skips_when_prior_pre_start_failure_still_blocks_preflight(self) -> None:
         task = build_task(
@@ -643,7 +650,11 @@ class AgentServiceTests(unittest.TestCase):
 
         self.assertEqual(results[StatusFields.STATUS], StatusFields.READY_FOR_REVIEW)
         self.repository_service.resolve_task_repositories.assert_called_once_with(task)
-        self.openhands_client.implement_task.assert_called_once_with(task)
+        self.openhands_client.implement_task.assert_called_once_with(
+            task,
+            '',
+            prepared_task=ANY,
+        )
 
     def test_process_assigned_task_retries_after_later_retry_instruction(self) -> None:
         task = build_task(
@@ -669,7 +680,11 @@ class AgentServiceTests(unittest.TestCase):
         self.repository_service.prepare_task_repositories.assert_called_once_with(
             [self.client_repo, self.backend_repo]
         )
-        self.openhands_client.implement_task.assert_called_once_with(task)
+        self.openhands_client.implement_task.assert_called_once_with(
+            task,
+            '',
+            prepared_task=ANY,
+        )
 
     def test_process_assigned_task_retries_after_later_retry_instruction_following_completion_comment(self) -> None:
         task = build_task(
@@ -695,7 +710,11 @@ class AgentServiceTests(unittest.TestCase):
         self.repository_service.prepare_task_repositories.assert_called_once_with(
             [self.client_repo, self.backend_repo]
         )
-        self.openhands_client.implement_task.assert_called_once_with(task)
+        self.openhands_client.implement_task.assert_called_once_with(
+            task,
+            '',
+            prepared_task=ANY,
+        )
 
     def test_process_assigned_task_skips_execution_without_success_flag(self) -> None:
         self.openhands_client.implement_task.return_value = {}
@@ -1260,6 +1279,10 @@ class AgentServiceTests(unittest.TestCase):
                 )
         )
 
+        self.repository_service.restore_task_repositories.assert_called_once_with(
+            [self.client_repo],
+            force=True,
+        )
         self.repository_service.resolve_review_comment.assert_not_called()
         self.assertFalse(service._is_review_comment_processed('client', '17', '99'))
 
@@ -1289,6 +1312,10 @@ class AgentServiceTests(unittest.TestCase):
                 )
         )
 
+        self.repository_service.restore_task_repositories.assert_called_once_with(
+            [self.client_repo],
+            force=True,
+        )
         self.repository_service.publish_review_fix.assert_called_once()
         self.assertFalse(service._is_review_comment_processed('client', '17', '99'))
 

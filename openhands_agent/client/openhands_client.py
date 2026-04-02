@@ -14,6 +14,7 @@ from openhands_agent.data_layers.data.fields import (
 )
 from openhands_agent.helpers.openhands_result_utils import build_openhands_result
 from openhands_agent.helpers.openhands_config_utils import is_openrouter_model
+from openhands_agent.helpers.task_context_utils import PreparedTaskContext
 from openhands_agent.helpers.text_utils import (
     condensed_text,
     normalized_lower_text,
@@ -97,14 +98,15 @@ class OpenHandsClient(RetryingClientBase):
         self,
         task: Task,
         session_id: str = '',
+        prepared_task: PreparedTaskContext | None = None,
     ) -> dict[str, str | bool]:
         self.logger.info('requesting implementation for task %s', task.id)
         # Task work always starts in a fresh OpenHands conversation so each
         # task gets its own thread and pull request history.
         result = self._run_prompt_result(
-            prompt=self._build_implementation_prompt(task),
+            prompt=self._build_implementation_prompt(task, prepared_task),
             title=self._task_conversation_title(task),
-            branch_name=task.branch_name,
+            branch_name=self._task_branch_name(task, prepared_task),
             default_commit_message=f'Implement {task.id}',
         )
         self.logger.info(
@@ -114,10 +116,14 @@ class OpenHandsClient(RetryingClientBase):
         )
         return result
 
-    def test_task(self, task: Task) -> dict[str, str | bool]:
+    def test_task(
+        self,
+        task: Task,
+        prepared_task: PreparedTaskContext | None = None,
+    ) -> dict[str, str | bool]:
         self.logger.info('requesting testing validation for task %s', task.id)
         result = self._run_prompt_result(
-            prompt=self._build_testing_prompt(task),
+            prompt=self._build_testing_prompt(task, prepared_task),
             title=self._task_conversation_title(task, suffix=' [testing]'),
         )
         self.logger.info(
@@ -187,8 +193,12 @@ class OpenHandsClient(RetryingClientBase):
         normalized_task_summary = condensed_text(task_summary)
         return [part for part in (normalized_task_id, normalized_task_summary) if part]
 
-    def _build_implementation_prompt(self, task: Task) -> str:
-        repository_scope = self._repository_scope_text(task)
+    def _build_implementation_prompt(
+        self,
+        task: Task,
+        prepared_task: PreparedTaskContext | None = None,
+    ) -> str:
+        repository_scope = self._repository_scope_text(task, prepared_task)
         return (
             f'Implement task {task.id}: {task.summary}\n\n'
             f'{task.description}\n\n'
@@ -215,8 +225,12 @@ class OpenHandsClient(RetryingClientBase):
             '  Short explanation.\n'
         )
 
-    def _build_testing_prompt(self, task: Task) -> str:
-        repository_scope = self._repository_scope_text(task)
+    def _build_testing_prompt(
+        self,
+        task: Task,
+        prepared_task: PreparedTaskContext | None = None,
+    ) -> str:
+        repository_scope = self._repository_scope_text(task, prepared_task)
         return (
             f'Validate the implementation for task {task.id}: {task.summary}\n\n'
             f'{task.description}\n\n'
@@ -241,28 +255,46 @@ class OpenHandsClient(RetryingClientBase):
         )
 
     @staticmethod
-    def _repository_scope_text(task: Task) -> str:
-        repository_branches = getattr(task, 'repository_branches', {}) or {}
-        repositories = getattr(task, 'repositories', []) or []
+    def _task_branch_name(task: Task, prepared_task: PreparedTaskContext | None = None) -> str:
+        if prepared_task is not None and prepared_task.branch_name:
+            return prepared_task.branch_name
+        return normalized_text(task.branch_name)
+
+    @staticmethod
+    def _repository_scope_text(
+        task: Task,
+        prepared_task: PreparedTaskContext | None = None,
+    ) -> str:
+        repositories = []
+        repository_branches = {}
+        branch_name = normalized_text(task.branch_name)
+        if prepared_task is not None:
+            repositories = prepared_task.repositories or []
+            repository_branches = prepared_task.repository_branches or {}
+            if prepared_task.branch_name:
+                branch_name = prepared_task.branch_name
+        else:
+            repository_branches = getattr(task, 'repository_branches', {}) or {}
+            repositories = getattr(task, 'repositories', []) or []
         if not repositories:
             return (
                 'Before making changes, try to pull the latest changes from the repository '
                 'default branch without interactive auth prompts. If remote access is blocked, '
                 'continue from the current local checkout and mention that limitation in your '
-                f'finish message. Then create and work on a new branch named {task.branch_name}. '
+                f'finish message. Then create and work on a new branch named {branch_name}. '
                 'Before you use finish, save every intended change in the repository worktree.'
             )
 
         repository_lines = []
         for repository in repositories:
-            branch_name = repository_branches.get(repository.id, task.branch_name)
+            repository_branch_name = repository_branches.get(repository.id, branch_name)
             destination_branch = text_from_attr(repository, 'destination_branch')
             destination_text = (
                 destination_branch if destination_branch else 'the repository default branch'
             )
             repository_lines.append(
                 f'- {repository.id} at {repository.local_path}: '
-                f'the orchestration layer already prepared branch {branch_name} from '
+                f'the orchestration layer already prepared branch {repository_branch_name} from '
                 f'{destination_text}. Stay on the current branch and do not run git checkout, git switch, '
                 'git branch, git pull, git push, or git commit; the orchestration layer owns branch movement, '
                 'commit creation, and publishing. Do not create the pull request yourself; the orchestration layer '

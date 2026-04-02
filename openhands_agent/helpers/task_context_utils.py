@@ -7,6 +7,7 @@ from openhands_agent.helpers.text_utils import normalized_text, text_from_attr, 
 
 @dataclass
 class PreparedTaskContext:
+    branch_name: str
     repositories: list[object]
     repository_branches: dict[str, str]
 
@@ -53,8 +54,9 @@ def session_suffix(payload: dict[str, str | bool]) -> str:
     return f' (session {session_id})' if session_id else ''
 
 
-def task_started_comment(task: Task) -> str:
-    repositories = getattr(task, 'repositories', []) or []
+def task_started_comment(task: Task, repositories: list[object] | None = None) -> str:
+    repositories = repositories if repositories is not None else getattr(task, 'repositories', [])
+    repositories = repositories or []
     repository_ids = [
         str(repository.id).strip()
         for repository in repositories

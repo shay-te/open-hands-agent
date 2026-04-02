@@ -5,6 +5,7 @@ from openhands_agent.helpers.retry_utils import retry_count
 from openhands_agent.data_layers.data.review_comment import ReviewComment
 from openhands_agent.data_layers.data.task import Task
 from openhands_agent.data_layers.data.fields import PullRequestFields, ReviewCommentFields
+from openhands_agent.helpers.task_context_utils import PreparedTaskContext
 from openhands_agent.helpers.logging_utils import configure_logger
 
 
@@ -27,9 +28,14 @@ class ImplementationService(Service):
         self,
         task: Task,
         session_id: str = '',
+        prepared_task: PreparedTaskContext | None = None,
     ) -> dict[str, str | bool]:
         self.logger.info('delegating implementation for task %s', task.id)
-        return self._client.implement_task(task)
+        return self._client.implement_task(
+            task,
+            session_id,
+            prepared_task=prepared_task,
+        )
 
     def review_comment_from_payload(self, payload: dict) -> ReviewComment:
         try:

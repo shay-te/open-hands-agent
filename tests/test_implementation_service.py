@@ -38,7 +38,11 @@ class ImplementationServiceTests(unittest.TestCase):
             '17',
             '99',
         )
-        client.implement_task.assert_called_once_with(task)
+        client.implement_task.assert_called_once_with(
+            task,
+            'conversation-1',
+            prepared_task=None,
+        )
         client.fix_review_comment.assert_called_once_with(
             comment,
             'feature/proj-1',

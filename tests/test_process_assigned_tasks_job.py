@@ -1,4 +1,3 @@
-import json
 import types
 import unittest
 from unittest.mock import Mock
@@ -40,7 +39,10 @@ class ProcessAssignedTasksJobTests(unittest.TestCase):
         returned_results = self.job.run()
 
         self.assertIsNone(returned_results)
-        self.job.logger.info.assert_called_once_with(json.dumps(results))
+        self.job.logger.info.assert_called_once_with(
+            'completed processing results: %s',
+            results,
+        )
 
     def test_run_sends_failure_notification_before_reraising(self) -> None:
         notification_service = Mock()
