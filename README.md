@@ -340,7 +340,7 @@ This project is meant to be usable by other teams, so a few things are worth cal
 - If you change `.env`, recreate the containers so Docker Compose reloads the new values.
 - Bedrock-backed models may need `AWS_SESSION_TOKEN` in addition to the AWS access key and secret when temporary credentials are used.
 - SSH git remotes require `SSH_AUTH_SOCK` to be mounted correctly.
-- `clean.sh` is destructive and is intended for local cleanup only.
+- `clean.sh` is destructive and is intended for local cleanup only. It removes Docker containers and prunes unused Docker resources without prompting.
 
 ### Troubleshooting
 
