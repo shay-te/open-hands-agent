@@ -8,11 +8,15 @@ from openhands_agent.client.openhands_client import OpenHandsClient
 from openhands_agent.client.ticket_client_factory import build_ticket_client
 from openhands_agent.data_layers.data_access.task_data_access import TaskDataAccess
 from openhands_agent.data_layers.service.agent_service import AgentService
+from openhands_agent.data_layers.service.agent_state_registry import AgentStateRegistry
 from openhands_agent.data_layers.service.implementation_service import (
     ImplementationService,
 )
 from openhands_agent.data_layers.service.notification_service import NotificationService
 from openhands_agent.data_layers.service.repository_service import RepositoryService
+from openhands_agent.data_layers.service.review_comment_service import (
+    ReviewCommentService,
+)
 from openhands_agent.data_layers.service.task_service import TaskService
 from openhands_agent.data_layers.service.testing_service import TestingService
 from openhands_agent.helpers.logging_utils import configure_logger
@@ -88,12 +92,23 @@ class OpenHandsAgentCoreLib(CoreLib):
             )
         )
         task_data_access = TaskDataAccess(ticket_cfg, ticket_client)
+        task_service = TaskService(ticket_cfg, task_data_access)
+        repository_service = RepositoryService(open_cfg, retry_cfg.max_retries)
+        state_registry = AgentStateRegistry()
+        review_comment_service = ReviewCommentService(
+            task_service=task_service,
+            implementation_service=implementation_service,
+            repository_service=repository_service,
+            state_registry=state_registry,
+        )
         return AgentService(
-            task_service=TaskService(ticket_cfg, task_data_access),
+            task_service=task_service,
             implementation_service=implementation_service,
             testing_service=testing_service,
-            repository_service=RepositoryService(open_cfg, retry_cfg.max_retries),
+            repository_service=repository_service,
             notification_service=self._build_notification_service(open_cfg),
+            state_registry=state_registry,
+            review_comment_service=review_comment_service,
             skip_testing=skip_testing_enabled(open_cfg.openhands),
         )
 

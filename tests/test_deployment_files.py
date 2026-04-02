@@ -158,6 +158,7 @@ class DeploymentFilesTests(unittest.TestCase):
         self.assertIn('GITLAB_API_TOKEN: ${GITLAB_API_TOKEN:-}', compose_text)
         self.assertIn('BITBUCKET_API_TOKEN: ${BITBUCKET_API_TOKEN:-}', compose_text)
         self.assertIn('BITBUCKET_USERNAME: ${BITBUCKET_USERNAME:-}', compose_text)
+        self.assertIn('BITBUCKET_API_EMAIL: ${BITBUCKET_API_EMAIL:-}', compose_text)
         self.assertIn(
             'OPENHANDS_AGENT_COMPLETION_EMAIL_ENABLED: ${OPENHANDS_AGENT_COMPLETION_EMAIL_ENABLED:-false}',
             compose_text,
@@ -221,6 +222,7 @@ class DeploymentFilesTests(unittest.TestCase):
         self.assertIn('BITBUCKET_ISSUES_BASE_URL=', env_example_text)
         self.assertIn('BITBUCKET_API_TOKEN=', env_example_text)
         self.assertIn('BITBUCKET_USERNAME=', env_example_text)
+        self.assertIn('BITBUCKET_API_EMAIL=', env_example_text)
         self.assertIn('BITBUCKET_ISSUES_PROGRESS_STATE=', env_example_text)
         self.assertIn('BITBUCKET_ISSUES_ISSUE_STATES=', env_example_text)
         self.assertIn('OPENHANDS_BASE_URL=', env_example_text)

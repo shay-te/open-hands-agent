@@ -171,6 +171,7 @@ class ConfigureProjectTests(unittest.TestCase):
                 'Bitbucket Issues base URL': 'https://api.bitbucket.org/2.0',
                 'Bitbucket Issues token': 'bb-token',
                 'Bitbucket Issues username for git auth': 'bb-user',
+                'Bitbucket Issues email for pull request auth': 'bb-user@example.com',
                 'Bitbucket Issues assignee username': 'reviewer',
                 'Bitbucket Issues workspace': 'workspace',
                 'Bitbucket Issues issues repository slug': 'repo',
@@ -196,6 +197,7 @@ class ConfigureProjectTests(unittest.TestCase):
             values = configure_project.build_configuration_values({})
 
         self.assertEqual(values['BITBUCKET_USERNAME'], 'bb-user')
+        self.assertEqual(values['BITBUCKET_API_EMAIL'], 'bb-user@example.com')
         self.assertEqual(values['BITBUCKET_API_TOKEN'], 'bb-token')
         self.assertEqual(values['BITBUCKET_ISSUES_WORKSPACE'], 'workspace')
         self.assertEqual(values['BITBUCKET_ISSUES_REPO_SLUG'], 'repo')

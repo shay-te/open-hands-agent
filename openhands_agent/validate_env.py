@@ -22,6 +22,10 @@ TRUE_VALUES = {'1', 'true', 'yes', 'on'}
 GITHUB_TOKEN_KEYS = ('GITHUB_API_TOKEN',)
 GITLAB_TOKEN_KEYS = ('GITLAB_API_TOKEN',)
 BITBUCKET_TOKEN_KEYS = ('BITBUCKET_API_TOKEN',)
+BITBUCKET_REPOSITORY_REQUIRED_KEYS = (
+    'BITBUCKET_API_TOKEN',
+    'BITBUCKET_API_EMAIL',
+)
 PROVIDER_TOKEN_ENV_KEYS = {
     'github': GITHUB_TOKEN_KEYS,
     'gitlab': GITLAB_TOKEN_KEYS,
@@ -61,6 +65,7 @@ REQUIRED_AGENT_KEYS_BY_PLATFORM = {
         'BITBUCKET_ISSUES_WORKSPACE',
         'BITBUCKET_ISSUES_REPO_SLUG',
         'BITBUCKET_ISSUES_ASSIGNEE',
+        'BITBUCKET_API_EMAIL',
     ),
 }
 EMAIL_REQUIREMENTS = {
@@ -189,6 +194,10 @@ def _validate_repository_provider_env(env: dict[str, str]) -> list[str]:
         token_keys = PROVIDER_TOKEN_ENV_KEYS.get(provider, ())
         if token_keys and not _has_any(env, token_keys):
             missing_keys.add(token_keys[0])
+        if provider == 'bitbucket':
+            for key in BITBUCKET_REPOSITORY_REQUIRED_KEYS:
+                if not normalized_text(env.get(key, '')):
+                    missing_keys.add(key)
     for key in sorted(missing_keys):
         errors.append(
             f'missing required repository provider env var: {key}'

@@ -30,7 +30,7 @@ def build_pull_request_client(
             config.base_url,
             config.token,
             max_retries,
-            username=getattr(config, 'username', ''),
+            username=getattr(config, 'api_email', '') or getattr(config, 'username', ''),
         )
     if provider == 'github':
         return GitHubClient(config.base_url, config.token, max_retries)

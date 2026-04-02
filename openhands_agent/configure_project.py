@@ -126,6 +126,7 @@ ISSUE_PLATFORM_DETAILS = {
         'base_url_key': 'BITBUCKET_ISSUES_BASE_URL',
         'token_key': 'BITBUCKET_API_TOKEN',
         'username_key': 'BITBUCKET_USERNAME',
+        'email_key': 'BITBUCKET_API_EMAIL',
         'workspace_key': 'BITBUCKET_ISSUES_WORKSPACE',
         'workspace_label': 'workspace',
         'repo_slug_key': 'BITBUCKET_ISSUES_REPO_SLUG',
@@ -133,6 +134,7 @@ ISSUE_PLATFORM_DETAILS = {
         'assignee_key': 'BITBUCKET_ISSUES_ASSIGNEE',
         'assignee_label': 'assignee username',
         'username_label': 'username for git auth',
+        'api_email_label': 'email for pull request auth',
         'progress_state_field_key': 'BITBUCKET_ISSUES_PROGRESS_STATE_FIELD',
         'progress_state_key': 'BITBUCKET_ISSUES_PROGRESS_STATE',
         'review_state_field_key': 'BITBUCKET_ISSUES_REVIEW_STATE_FIELD',
@@ -461,7 +463,7 @@ def _prompt_issue_platform_optional_values(
         if not env_key:
             continue
         if key_name == 'email_key':
-            prompt = f'{label} user email for basic auth'
+            prompt = f"{label} {details.get('api_email_label', 'user email for basic auth')}"
         else:
             prompt = f"{label} {details[label_key]}"
         values[env_key] = input_str(

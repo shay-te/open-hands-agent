@@ -216,6 +216,7 @@ The list below mirrors `.env.example`.
 | `BITBUCKET_ISSUES_BASE_URL` | Bitbucket Issues API base URL. |
 | `BITBUCKET_API_TOKEN` | Bitbucket API token. Used as the password for Bitbucket git auth and Bitbucket REST API auth. |
 | `BITBUCKET_USERNAME` | Bitbucket username used for git push auth. |
+| `BITBUCKET_API_EMAIL` | Atlassian account email used for Bitbucket REST API auth with API tokens. |
 | `BITBUCKET_ISSUES_WORKSPACE` | Bitbucket workspace used to scope issues. |
 | `BITBUCKET_ISSUES_REPO_SLUG` | Bitbucket repository slug used to scope issues. |
 | `BITBUCKET_ISSUES_ASSIGNEE` | Bitbucket assignee to scan for tasks. |
@@ -510,6 +511,12 @@ openhands_agent:
     issue_states:
       - opened
   bitbucket_issues:
+    base_url: https://api.bitbucket.org/2.0
+    token: BITBUCKET_API_TOKEN
+    username: BITBUCKET_USERNAME
+    api_email: BITBUCKET_API_EMAIL
+    workspace: your-workspace
+    repo_slug: issues-repo
     review_state_field: state
     review_state: resolved
     issue_states:

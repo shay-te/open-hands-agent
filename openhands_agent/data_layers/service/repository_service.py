@@ -279,6 +279,7 @@ class RepositoryService(Service):
                 RepositoryFields.PROVIDER_BASE_URL: text_from_attr(provider_cfg, 'base_url'),
                 'token': text_from_attr(provider_cfg, 'token'),
                 'username': text_from_attr(provider_cfg, 'username'),
+                'api_email': text_from_attr(provider_cfg, 'api_email'),
             }
 
         return {
@@ -423,7 +424,7 @@ class RepositoryService(Service):
             return
         username = self._resolved_bitbucket_username(repository)
         if username:
-            setattr(repository, 'bitbucket_username', username)
+            setattr(repository, RepositoryFields.BITBUCKET_USERNAME, username)
 
     def _validate_repository_git_access(self, repository) -> None:
         local_path = text_from_attr(repository, 'local_path')
@@ -551,19 +552,20 @@ class RepositoryService(Service):
             repository,
             provider,
         )
-        username = self._resolved_bitbucket_username(repository) if provider == 'bitbucket' else ''
+        api_email = self._resolved_bitbucket_api_email(repository) if provider == 'bitbucket' else ''
         self._validate_pull_request_api_values(
             repository.id,
             provider,
             provider_base_url,
             token,
+            api_email,
         )
         self._apply_pull_request_api_values(
             repository,
             provider,
             provider_base_url,
             token,
-            username,
+            api_email,
         )
 
     def _resolved_pull_request_provider(self, repository) -> str:
@@ -601,7 +603,7 @@ class RepositoryService(Service):
         ), token
 
     def _resolved_bitbucket_username(self, repository) -> str:
-        username = text_from_attr(repository, 'bitbucket_username') or text_from_attr(
+        username = text_from_attr(repository, RepositoryFields.BITBUCKET_USERNAME) or text_from_attr(
             repository,
             'username',
         )
@@ -609,19 +611,33 @@ class RepositoryService(Service):
             return username
         return normalized_text(self._provider_api_defaults.get('bitbucket', {}).get('username', ''))
 
+    def _resolved_bitbucket_api_email(self, repository) -> str:
+        api_email = text_from_attr(repository, RepositoryFields.BITBUCKET_API_EMAIL) or text_from_attr(
+            repository,
+            'api_email',
+        )
+        if api_email:
+            return api_email
+        return normalized_text(self._provider_api_defaults.get('bitbucket', {}).get('api_email', ''))
+
     def _validate_pull_request_api_values(
         self,
         repository_id: str,
         provider: str,
         provider_base_url: str,
         token: str,
+        api_email: str = '',
     ) -> None:
         if not provider_base_url:
             raise ValueError(
                 f'missing pull request API base URL for repository {repository_id}'
             )
         if token:
-            return
+            if provider != 'bitbucket' or api_email:
+                return
+            raise ValueError(
+                f'missing Bitbucket API email for repository {repository_id}'
+            )
         raise ValueError(
             self._missing_pull_request_token_message(repository_id, provider)
         )
@@ -632,13 +648,13 @@ class RepositoryService(Service):
         provider: str,
         provider_base_url: str,
         token: str,
-        username: str = '',
+        api_email: str = '',
     ) -> None:
         setattr(repository, 'provider', provider)
         setattr(repository, RepositoryFields.PROVIDER_BASE_URL, provider_base_url)
         setattr(repository, 'token', token)
         if provider == 'bitbucket':
-            setattr(repository, 'bitbucket_username', username)
+            setattr(repository, RepositoryFields.BITBUCKET_API_EMAIL, api_email)
 
     def _publish_repository_branch(
         self,
@@ -664,10 +680,15 @@ class RepositoryService(Service):
         owner = text_from_attr(repository, RepositoryFields.OWNER)
         repo_slug = text_from_attr(repository, RepositoryFields.REPO_SLUG)
         token = text_from_attr(repository, 'token')
+        api_email = text_from_attr(repository, RepositoryFields.BITBUCKET_API_EMAIL)
         destination_branch = text_from_attr(repository, RepositoryFields.DESTINATION_BRANCH)
         if not provider_base_url or not owner or not repo_slug or not token:
             raise ValueError(
                 f'incomplete pull request configuration for repository {repository.id}'
+            )
+        if provider_base_url and 'bitbucket' in provider_base_url.lower() and not api_email:
+            raise ValueError(
+                f'missing Bitbucket API email for repository {repository.id}'
             )
         config = OmegaConf.create(
             {
@@ -675,6 +696,7 @@ class RepositoryService(Service):
                 'token': token,
                 'owner': owner,
                 'repo_slug': repo_slug,
+                'api_email': api_email,
                 RepositoryFields.DESTINATION_BRANCH: destination_branch,
             }
         )
@@ -1137,7 +1159,7 @@ class RepositoryService(Service):
         parsed = urlparse(remote_url)
         provider = normalized_lower_text(text_from_attr(repository, 'provider'))
         if provider == 'bitbucket':
-            bitbucket_username = text_from_attr(repository, 'bitbucket_username')
+            bitbucket_username = text_from_attr(repository, RepositoryFields.BITBUCKET_USERNAME)
             if bitbucket_username:
                 return bitbucket_username
             username = text_from_attr(repository, 'username')

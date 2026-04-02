@@ -77,6 +77,7 @@ openhands_agent:
     base_url: https://api.bitbucket.org/2.0
     token: test-bitbucket-issues-token
     username: ""
+    api_email: test-bitbucket-api-email@example.com
     workspace: test-workspace
     repo_slug: test-repo
     project: test-repo
@@ -92,6 +93,7 @@ openhands_agent:
       local_path: .
       provider_base_url: http://localhost:8081
       token: test-bitbucket-token
+      api_email: test-bitbucket-api-email@example.com
       owner: test-workspace
       repo_slug: test-repo
       destination_branch: ""

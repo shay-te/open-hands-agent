@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import ANY, Mock, patch
 
 from openhands_agent.openhands_agent_core_lib import OpenHandsAgentCoreLib
 from openhands_agent.data_layers.data.fields import PullRequestFields, StatusFields
@@ -185,6 +185,8 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
             testing_service=mock_testing_service_cls.return_value,
             repository_service=mock_repository_service_cls.return_value,
             notification_service=mock_notification_service_cls.return_value,
+            state_registry=ANY,
+            review_comment_service=ANY,
             skip_testing=False,
         )
         mock_service_cls.return_value.validate_connections.assert_called_once_with()

@@ -70,6 +70,8 @@ class RepositoryFields:
     OWNER = 'owner'
     REPO_SLUG = 'repo_slug'
     DESTINATION_BRANCH = 'destination_branch'
+    BITBUCKET_USERNAME = 'bitbucket_username'
+    BITBUCKET_API_EMAIL = 'bitbucket_api_email'
     ALIASES = 'aliases'
 
 

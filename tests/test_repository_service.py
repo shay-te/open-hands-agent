@@ -564,6 +564,7 @@ class RepositoryServiceTests(unittest.TestCase):
                     bitbucket_issues=types.SimpleNamespace(
                         base_url='https://api.bitbucket.org/2.0',
                         token='bb-token',
+                        api_email='bb-api@example.com',
                     ),
                 ),
                 3,
@@ -609,6 +610,7 @@ class RepositoryServiceTests(unittest.TestCase):
                     bitbucket_issues=types.SimpleNamespace(
                         base_url='https://api.bitbucket.org/2.0',
                         token='',
+                        api_email='bb-api@example.com',
                     ),
                 ),
                 3,
@@ -1232,6 +1234,7 @@ class RepositoryServiceTests(unittest.TestCase):
                         base_url='https://api.bitbucket.org/2.0',
                         token='bb-token',
                         username='bb-user',
+                        api_email='bb-api@example.com',
                     ),
                 ),
                 3,
@@ -1289,6 +1292,7 @@ class RepositoryServiceTests(unittest.TestCase):
                         base_url='https://api.bitbucket.org/2.0',
                         token='bb-token',
                         username='workspace',
+                        api_email='bb-api@example.com',
                     ),
                 ),
                 3,
@@ -1391,6 +1395,7 @@ class RepositoryServiceTests(unittest.TestCase):
                     bitbucket_issues=types.SimpleNamespace(
                         base_url='https://api.bitbucket.org/2.0',
                         token='bb-token',
+                        api_email='bb-api@example.com',
                     ),
                 ),
                 3,
@@ -1700,6 +1705,7 @@ class RepositoryServiceTests(unittest.TestCase):
             repo_slug='repo',
             destination_branch='main',
             bitbucket_username='bb-user',
+            bitbucket_api_email='bb-user@example.com',
             username='legacy-user',
         )
         service = RepositoryService([repository], 3)
@@ -1713,6 +1719,7 @@ class RepositoryServiceTests(unittest.TestCase):
         config = mock_build.call_args.args[0]
         self.assertEqual(config.base_url, 'https://api.bitbucket.org/2.0')
         self.assertEqual(config.token, 'bb-token')
+        self.assertEqual(config.get('api_email'), 'bb-user@example.com')
         self.assertIsNone(config.get('username'))
 
     def test_publish_branch_updates_returns_to_destination_branch_when_push_fails(self) -> None:

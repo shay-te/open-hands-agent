@@ -118,6 +118,7 @@ class ValidateEnvTests(unittest.TestCase):
                 'BITBUCKET_ISSUES_BASE_URL': 'https://api.bitbucket.org/2.0',
                 'BITBUCKET_API_TOKEN': 'bb-token',
                 'BITBUCKET_USERNAME': 'bb-user',
+                'BITBUCKET_API_EMAIL': 'bb-user@example.com',
                 'BITBUCKET_ISSUES_WORKSPACE': 'workspace',
                 'BITBUCKET_ISSUES_REPO_SLUG': 'repo',
                 'BITBUCKET_ISSUES_ASSIGNEE': 'reviewer',
@@ -153,6 +154,10 @@ class ValidateEnvTests(unittest.TestCase):
             'missing required repository provider env var: BITBUCKET_API_TOKEN',
             errors,
         )
+        self.assertIn(
+            'missing required repository provider env var: BITBUCKET_API_EMAIL',
+            errors,
+        )
 
     def test_validate_agent_env_accepts_provider_token_for_discovered_bitbucket_repo(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -173,6 +178,7 @@ class ValidateEnvTests(unittest.TestCase):
                     'OPENHANDS_API_KEY': 'local',
                     'BITBUCKET_API_TOKEN': 'bb-token',
                     'BITBUCKET_USERNAME': 'bb-user',
+                    'BITBUCKET_API_EMAIL': 'bb-user@example.com',
                 }
             )
 
