@@ -13,3 +13,4 @@ docker_data
 openhands_agent.db
 
 docker-composebackup.txt
+mount_docker_data
