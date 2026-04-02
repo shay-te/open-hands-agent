@@ -19,6 +19,17 @@ from openhands_agent.data_layers.service.review_comment_service import (
 )
 from openhands_agent.data_layers.service.task_service import TaskService
 from openhands_agent.data_layers.service.testing_service import TestingService
+from openhands_agent.validation.branch_publishability import (
+    TaskBranchPublishabilityValidator,
+)
+from openhands_agent.validation.branch_push import TaskBranchPushValidator
+from openhands_agent.validation.model_access import TaskModelAccessValidator
+from openhands_agent.validation.repository_connections import (
+    RepositoryConnectionsValidator,
+)
+from openhands_agent.validation.startup_dependency_validator import (
+    StartupDependencyValidator,
+)
 from openhands_agent.helpers.logging_utils import configure_logger
 from openhands_agent.helpers.openhands_config_utils import (
     resolved_openhands_base_url,
@@ -95,6 +106,23 @@ class OpenHandsAgentCoreLib(CoreLib):
         task_service = TaskService(ticket_cfg, task_data_access)
         repository_service = RepositoryService(open_cfg, retry_cfg.max_retries)
         state_registry = AgentStateRegistry()
+        repository_connections_validator = RepositoryConnectionsValidator(repository_service)
+        startup_validator = StartupDependencyValidator(
+            repository_connections_validator,
+            task_service,
+            implementation_service,
+            testing_service,
+            skip_testing_enabled(open_cfg.openhands),
+        )
+        task_model_access_validator = TaskModelAccessValidator(
+            implementation_service,
+            testing_service,
+            skip_testing_enabled(open_cfg.openhands),
+        )
+        task_branch_push_validator = TaskBranchPushValidator(repository_service)
+        task_branch_publishability_validator = TaskBranchPublishabilityValidator(
+            repository_service
+        )
         review_comment_service = ReviewCommentService(
             task_service=task_service,
             implementation_service=implementation_service,
@@ -109,6 +137,11 @@ class OpenHandsAgentCoreLib(CoreLib):
             notification_service=self._build_notification_service(open_cfg),
             state_registry=state_registry,
             review_comment_service=review_comment_service,
+            repository_connections_validator=repository_connections_validator,
+            startup_validator=startup_validator,
+            task_model_access_validator=task_model_access_validator,
+            task_branch_push_validator=task_branch_push_validator,
+            task_branch_publishability_validator=task_branch_publishability_validator,
             skip_testing=skip_testing_enabled(open_cfg.openhands),
         )
 

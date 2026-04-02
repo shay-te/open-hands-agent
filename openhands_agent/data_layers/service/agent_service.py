@@ -63,6 +63,11 @@ class AgentService(Service):
         notification_service: NotificationService,
         state_registry: AgentStateRegistry | None = None,
         review_comment_service: ReviewCommentService | None = None,
+        repository_connections_validator: RepositoryConnectionsValidator | None = None,
+        startup_validator: StartupDependencyValidator | None = None,
+        task_model_access_validator: TaskModelAccessValidator | None = None,
+        task_branch_push_validator: TaskBranchPushValidator | None = None,
+        task_branch_publishability_validator: TaskBranchPublishabilityValidator | None = None,
         skip_testing: bool = False,
     ) -> None:
         self.logger = configure_logger(self.__class__.__name__)
@@ -70,8 +75,13 @@ class AgentService(Service):
             raise ValueError('testing_service is required')
         if notification_service is None:
             raise ValueError('notification_service is required')
-        if review_comment_service is not None and state_registry is None:
-            state_registry = review_comment_service._state_registry
+        if review_comment_service is not None:
+            review_state_registry = review_comment_service.state_registry
+            if state_registry is not None and review_state_registry is not state_registry:
+                raise ValueError(
+                    'state_registry must match review_comment_service.state_registry'
+                )
+            state_registry = state_registry or review_state_registry
         self._task_service = task_service
         self._implementation_service = implementation_service
         self._testing_service = testing_service
@@ -85,29 +95,29 @@ class AgentService(Service):
             self._repository_service,
             self._state_registry,
         )
-        self._repository_connections_validator = RepositoryConnectionsValidator(
-            self._repository_service
+        self._repository_connections_validator = (
+            repository_connections_validator
+            or RepositoryConnectionsValidator(self._repository_service)
         )
-        self._startup_validator = StartupDependencyValidator(
+        self._startup_validator = startup_validator or StartupDependencyValidator(
             self._repository_connections_validator,
             self._task_service,
             self._implementation_service,
             self._testing_service,
             self._skip_testing,
         )
-        self._task_model_access_validator = TaskModelAccessValidator(
+        self._task_model_access_validator = task_model_access_validator or TaskModelAccessValidator(
             self._implementation_service,
             self._testing_service,
             self._skip_testing,
         )
-        self._task_branch_push_validator = TaskBranchPushValidator(self._repository_service)
-        self._task_branch_publishability_validator = TaskBranchPublishabilityValidator(
-            self._repository_service
+        self._task_branch_push_validator = (
+            task_branch_push_validator or TaskBranchPushValidator(self._repository_service)
         )
-        self._pull_request_context_map = self._state_registry.pull_request_context_map
-        self._pull_request_task_map = self._state_registry.pull_request_task_map
-        self._processed_task_map = self._state_registry.processed_task_map
-        self._processed_review_comment_map = self._state_registry.processed_review_comment_map
+        self._task_branch_publishability_validator = (
+            task_branch_publishability_validator
+            or TaskBranchPublishabilityValidator(self._repository_service)
+        )
 
     @property
     def notification_service(self) -> NotificationService:
@@ -159,12 +169,12 @@ class AgentService(Service):
         return self._publish_task_execution(task, prepared_task, execution)
 
     def _processed_task_result(self, task_id: str) -> dict | None:
-        if not self._is_task_processed(task_id):
+        if not self._state_registry.is_task_processed(task_id):
             return None
         self.logger.info('skipping already processed task %s', task_id)
         return self._skip_task_result(
             task_id,
-            self._processed_task_pull_requests(task_id),
+            self._state_registry.processed_task_pull_requests(task_id),
         )
 
     def _prepare_task_execution_context(
@@ -172,9 +182,8 @@ class AgentService(Service):
         task: Task,
     ) -> PreparedTaskContext | dict | None:
         blocking_comment = self._active_execution_blocking_comment(task)
-        prepared_task = None
         if blocking_comment:
-            prepared_task = self._prepare_blocked_task_execution_context(
+            prepared_task = self._check_retry_preconditions(
                 task,
                 blocking_comment,
             )
@@ -182,11 +191,24 @@ class AgentService(Service):
                 return prepared_task
 
         self._log_task_step(task.id, 'starting mission: %s', str(task.summary or '').strip() or task.id)
-        if prepared_task is not None:
+        if blocking_comment:
             return prepared_task
-        return self._prepare_task_start(task, report_failures=True)
+        return self._prepare_initial_task_start(task)
 
-    def _prepare_blocked_task_execution_context(
+    def _prepare_initial_task_start(
+        self,
+        task: Task,
+    ) -> PreparedTaskContext | None:
+        return self._prepare_task_start(
+            task,
+            repository_resolution_failure_handler=self._handle_repository_resolution_failure,
+            repository_preparation_failure_handler=self._handle_task_failure,
+            task_definition_failure_handler=self._handle_task_definition_failure,
+            branch_preparation_failure_handler=self._handle_task_failure,
+            branch_push_failure_handler=self._handle_started_task_failure,
+        )
+
+    def _check_retry_preconditions(
         self,
         task: Task,
         blocking_comment: str,
@@ -198,7 +220,7 @@ class AgentService(Service):
             're-checking prior pre-start blocking comment before retry: %s',
             blocking_comment,
         )
-        prepared_task = self._prepare_task_start(task, report_failures=False)
+        prepared_task = self._prepare_task_start(task)
         if prepared_task is None:
             return self._skip_blocked_task_result(task, blocking_comment)
         self._log_task_step(
@@ -404,7 +426,7 @@ class AgentService(Service):
         except Exception as exc:
             self._handle_started_task_failure(task, exc, prepared_task=prepared_task)
             return None
-        self._mark_task_processed(task.id, pull_requests)
+        self._state_registry.mark_task_processed(task.id, pull_requests)
         self._notify_task_ready_for_review(task, pull_requests)
         self._log_task_step(task.id, 'workflow completed successfully')
         return {
@@ -418,19 +440,29 @@ class AgentService(Service):
         self,
         task: Task,
         *,
-        report_failures: bool,
+        repository_resolution_failure_handler: Callable[[Task, Exception, PreparedTaskContext | None], None] | None = None,
+        repository_preparation_failure_handler: Callable[[Task, Exception, PreparedTaskContext | None], None] | None = None,
+        task_definition_failure_handler: Callable[[Task], None] | None = None,
+        branch_preparation_failure_handler: Callable[[Task, Exception, PreparedTaskContext | None], None] | None = None,
+        branch_push_failure_handler: Callable[[Task, Exception, PreparedTaskContext | None], None] | None = None,
     ) -> PreparedTaskContext | None:
-        repositories = self._resolve_task_repositories(task, report_failures=report_failures)
+        repositories = self._resolve_task_repositories(
+            task,
+            failure_handler=repository_resolution_failure_handler,
+        )
         if repositories is None:
             return None
         repositories = self._prepare_task_repositories_for_start(
             task,
             repositories,
-            report_failures=report_failures,
+            failure_handler=repository_preparation_failure_handler,
         )
         if repositories is None:
             return None
-        if not self._task_definition_ready(task, report_failures=report_failures):
+        if not self._task_definition_ready(
+            task,
+            failure_handler=task_definition_failure_handler,
+        ):
             return None
         prepared_task = self._attach_task_repository_context(task, repositories)
         self._log_task_step(
@@ -441,21 +473,15 @@ class AgentService(Service):
         if not self._prepare_task_execution_branches(
             task,
             prepared_task,
-            report_failures=report_failures,
+            failure_handler=branch_preparation_failure_handler,
         ):
             return None
         self._log_task_step(task.id, 'prepared task branches')
-        try:
-            self._task_branch_push_validator.validate(
-                prepared_task.repositories,
-                prepared_task.repository_branches,
-            )
-        except Exception as exc:
-            self.logger.exception(
-                'failed to validate task branch push access for task %s',
-                task.id,
-            )
-            self._handle_started_task_failure(task, exc, prepared_task=prepared_task)
+        if not self._validate_task_branch_push_access(
+            task,
+            prepared_task,
+            failure_handler=branch_push_failure_handler,
+        ):
             return None
         self._log_task_step(task.id, 'task branches can be pushed')
         return prepared_task
@@ -464,18 +490,17 @@ class AgentService(Service):
         self,
         task: Task,
         *,
-        report_failures: bool,
+        failure_handler: Callable[[Task, Exception, PreparedTaskContext | None], None] | None = None,
     ) -> list[object] | None:
         repositories = self._run_pre_start_step(
             task,
             self._repository_service.resolve_task_repositories,
             task,
-            report_failures=report_failures,
             failure_log_message='failed to resolve repositories for task %s',
             blocked_log_message=(
                 'pre-start retry check is still blocked during repository resolution: %s'
             ),
-            failure_handler=self._handle_repository_resolution_failure,
+            failure_handler=failure_handler,
         )
         if repositories is not None:
             self._log_task_step(
@@ -490,17 +515,17 @@ class AgentService(Service):
         task: Task,
         repositories: list[object],
         *,
-        report_failures: bool,
+        failure_handler: Callable[[Task, Exception, PreparedTaskContext | None], None] | None = None,
     ) -> list[object] | None:
         repositories = self._run_pre_start_step(
             task,
             self._repository_service.prepare_task_repositories,
             repositories,
-            report_failures=report_failures,
             failure_log_message='failed to prepare repositories for task %s',
             blocked_log_message=(
                 'pre-start retry check is still blocked during repository preparation: %s'
             ),
+            failure_handler=failure_handler,
         )
         if repositories is not None:
             self._log_task_step(
@@ -514,13 +539,13 @@ class AgentService(Service):
         self,
         task: Task,
         *,
-        report_failures: bool,
+        failure_handler: Callable[[Task], None] | None = None,
     ) -> bool:
         if task_has_actionable_definition(task):
             return True
         self._handle_pre_start_task_definition_failure(
             task,
-            report_failures=report_failures,
+            failure_handler=failure_handler,
         )
         return False
 
@@ -529,21 +554,49 @@ class AgentService(Service):
         task: Task,
         prepared_task: PreparedTaskContext,
         *,
-        report_failures: bool,
+        failure_handler: Callable[[Task, Exception, PreparedTaskContext | None], None] | None = None,
     ) -> bool:
         prepared_branches = self._run_pre_start_step(
             task,
             self._repository_service.prepare_task_branches,
             prepared_task.repositories,
             prepared_task.repository_branches,
-            report_failures=report_failures,
             failure_log_message='failed to prepare task branches for task %s',
             blocked_log_message=(
                 'pre-start retry check is still blocked during task-branch preparation: %s'
             ),
             prepared_task=prepared_task,
+            failure_handler=failure_handler,
         )
         return prepared_branches is not None
+
+    def _validate_task_branch_push_access(
+        self,
+        task: Task,
+        prepared_task: PreparedTaskContext,
+        *,
+        failure_handler: Callable[[Task, Exception, PreparedTaskContext | None], None] | None = None,
+    ) -> bool:
+        try:
+            self._task_branch_push_validator.validate(
+                prepared_task.repositories,
+                prepared_task.repository_branches,
+            )
+        except Exception as exc:
+            if failure_handler is None:
+                self._log_task_step(
+                    task.id,
+                    'pre-start retry check is still blocked during task branch push validation: %s',
+                    exc,
+                )
+                return False
+            self.logger.exception(
+                'failed to validate task branch push access for task %s',
+                task.id,
+            )
+            failure_handler(task, exc, prepared_task)
+            return False
+        return True
 
     @staticmethod
     def _implementation_succeeded(execution: dict[str, str | bool]) -> bool:
@@ -652,7 +705,7 @@ class AgentService(Service):
         session_id: str,
         pull_request: dict[str, str],
     ) -> None:
-        self._remember_pull_request_context(
+        self._state_registry.remember_pull_request_context(
             pull_request,
             branch_name,
             session_id,
@@ -684,22 +737,6 @@ class AgentService(Service):
             repository.id,
             branch_name,
             getattr(repository, 'destination_branch', '') or 'the default branch',
-        )
-
-    def _remember_pull_request_context(
-        self,
-        pull_request: dict[str, str],
-        branch_name: str,
-        session_id: str = '',
-        task_id: str = '',
-        task_summary: str = '',
-    ) -> None:
-        self._state_registry.remember_pull_request_context(
-            pull_request,
-            branch_name,
-            session_id,
-            task_id,
-            task_summary,
         )
 
     def _notify_task_ready_for_review(self, task: Task, pull_requests) -> None:
@@ -955,7 +992,6 @@ class AgentService(Service):
         task: Task,
         step: Callable,
         *step_args,
-        report_failures: bool,
         failure_log_message: str,
         blocked_log_message: str,
         prepared_task: PreparedTaskContext | None = None,
@@ -967,7 +1003,6 @@ class AgentService(Service):
             self._handle_pre_start_exception(
                 task,
                 exc,
-                report_failures=report_failures,
                 failure_log_message=failure_log_message,
                 blocked_log_message=blocked_log_message,
                 prepared_task=prepared_task,
@@ -980,16 +1015,14 @@ class AgentService(Service):
         task: Task,
         error: Exception,
         *,
-        report_failures: bool,
         failure_log_message: str,
         blocked_log_message: str,
         prepared_task: PreparedTaskContext | None = None,
         failure_handler: Callable[[Task, Exception, PreparedTaskContext | None], None] | None = None,
     ) -> None:
-        if report_failures:
+        if failure_handler is not None:
             self.logger.exception(failure_log_message, task.id)
-            handler = failure_handler or self._handle_task_failure
-            handler(task, error, prepared_task)
+            failure_handler(task, error, prepared_task)
             return
         self._log_task_step(task.id, blocked_log_message, error)
 
@@ -1008,15 +1041,15 @@ class AgentService(Service):
         self,
         task: Task,
         *,
-        report_failures: bool,
+        failure_handler: Callable[[Task], None] | None = None,
     ) -> None:
         self._restore_task_repositories(task)
-        if report_failures:
+        if failure_handler is not None:
             self.logger.info(
                 'skipping task %s because the task definition is too thin to work from safely',
                 task.id,
             )
-            self._handle_task_definition_failure(task)
+            failure_handler(task)
             return
         self._log_task_step(
             task.id,
@@ -1093,50 +1126,7 @@ class AgentService(Service):
             self.logger.exception(failure_log_message, task_id)
             return False
 
-    def _is_task_processed(self, task_id: str) -> bool:
-        return self._state_registry.is_task_processed(task_id)
-
     @staticmethod
     def _active_execution_blocking_comment(task: Task) -> str:
         comments = getattr(task, TaskCommentFields.ALL_COMMENTS, [])
         return TicketClientBase.active_execution_blocking_comment(comments)
-
-    def _processed_task_pull_requests(self, task_id: str) -> list[dict[str, str]]:
-        return self._state_registry.processed_task_pull_requests(task_id)
-
-    def _mark_task_processed(self, task_id: str, pull_requests: list[dict[str, str]]) -> None:
-        self._state_registry.mark_task_processed(task_id, pull_requests)
-
-    def _is_review_comment_processed(
-        self,
-        repository_id: str,
-        pull_request_id: str,
-        comment_id: str,
-    ) -> bool:
-        return self._state_registry.is_review_comment_processed(
-            repository_id,
-            pull_request_id,
-            comment_id,
-        )
-
-    def _mark_review_comment_processed(
-        self,
-        repository_id: str,
-        pull_request_id: str,
-        comment_id: str,
-    ) -> None:
-        self._state_registry.mark_review_comment_processed(
-            repository_id,
-            pull_request_id,
-            comment_id,
-        )
-
-    def _task_id_for_pull_request(
-        self,
-        pull_request_id: str,
-        repository_id: str,
-    ) -> str:
-        return self._state_registry.task_id_for_pull_request(
-            pull_request_id,
-            repository_id,
-        )

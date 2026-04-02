@@ -764,9 +764,21 @@ class RepositoryService(Service):
             ['add', '-A'],
             f'failed to stage changes for branch {branch_name}',
         )
-        for validation_report_path in self._validation_report_paths_from_status(
-            status_output
-        ):
+        for artifact_path in self._generated_artifact_paths_from_status(status_output):
+            self._run_git(
+                local_path,
+                ['reset', 'HEAD', '--', artifact_path],
+                (
+                    f'failed to exclude generated artifact path '
+                    f'{artifact_path} from branch {branch_name}'
+                ),
+            )
+            artifact_full_path = os.path.join(local_path, artifact_path)
+            if os.path.isdir(artifact_full_path):
+                shutil.rmtree(artifact_full_path)
+            elif os.path.exists(artifact_full_path):
+                os.remove(artifact_full_path)
+        for validation_report_path in self._validation_report_paths_from_status(status_output):
             self._run_git(
                 local_path,
                 ['reset', 'HEAD', '--', validation_report_path],
@@ -1034,6 +1046,28 @@ class RepositoryService(Service):
             if path.endswith('validation_report.md'):
                 validation_report_paths.append(path)
         return validation_report_paths
+
+    @staticmethod
+    def _generated_artifact_paths_from_status(status_output: str) -> list[str]:
+        generated_artifact_paths: list[str] = []
+        generated_artifact_roots = {'build', 'dist', 'out', 'coverage', 'target'}
+        for line in status_output.splitlines():
+            if len(line) < 4:
+                continue
+            path = line[3:]
+            if ' -> ' in path:
+                path = path.split(' -> ', 1)[1]
+            normalized_path = path.strip().rstrip('/')
+            if not normalized_path:
+                continue
+            if normalized_path.endswith('validation_report.md'):
+                continue
+            path_root = normalized_path.split('/', 1)[0]
+            if path_root not in generated_artifact_roots:
+                continue
+            if path_root not in generated_artifact_paths:
+                generated_artifact_paths.append(path_root)
+        return generated_artifact_paths
 
     def _git_reference_exists(self, local_path: str, reference: str) -> bool:
         result = subprocess.run(

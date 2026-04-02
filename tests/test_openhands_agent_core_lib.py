@@ -187,6 +187,11 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
             notification_service=mock_notification_service_cls.return_value,
             state_registry=ANY,
             review_comment_service=ANY,
+            repository_connections_validator=ANY,
+            startup_validator=ANY,
+            task_model_access_validator=ANY,
+            task_branch_push_validator=ANY,
+            task_branch_publishability_validator=ANY,
             skip_testing=False,
         )
         mock_service_cls.return_value.validate_connections.assert_called_once_with()

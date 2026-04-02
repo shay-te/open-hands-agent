@@ -1045,7 +1045,93 @@ class RepositoryServiceTests(unittest.TestCase):
             ],
         )
         mock_push_branch.assert_called_once_with('.', 'feature/proj-1/backend', repository)
+
+    def test_create_pull_request_excludes_generated_build_artifacts_from_commit(self) -> None:
+        repository = self.backend_repo
+        data_access = Mock()
+        data_access.create_pull_request.return_value = {
+            PullRequestFields.ID: '17',
+            PullRequestFields.TITLE: 'PROJ-1: Fix bug',
+            PullRequestFields.URL: 'https://github.example/pull/17',
+        }
+        subprocess_results = [
+            Mock(returncode=0, stdout='feature/proj-1/backend\n', stderr=''),
+            Mock(
+                returncode=0,
+                stdout=' M app.py\n?? build/main.js\n?? validation_report.md\n',
+                stderr='',
+            ),
+            Mock(returncode=0, stdout='', stderr=''),
+            Mock(returncode=0, stdout='', stderr=''),
+            Mock(returncode=0, stdout='[feature/proj-1/backend abc123] Implement PROJ-1\n', stderr=''),
+            Mock(returncode=0, stdout='main\n', stderr=''),
+            Mock(returncode=0, stdout='1\n', stderr=''),
+            Mock(returncode=0, stdout='feature/proj-1/backend\n', stderr=''),
+            Mock(returncode=0, stdout='', stderr=''),
+            Mock(returncode=0, stdout='', stderr=''),
+            Mock(returncode=0, stdout='main\n', stderr=''),
+            Mock(returncode=0, stdout='', stderr=''),
+            Mock(returncode=0, stdout='main\n', stderr=''),
+            Mock(returncode=0, stdout='', stderr=''),
+        ]
+
+        def is_directory(path: str) -> bool:
+            return path.endswith('/build') or path.endswith('\\build')
+
+        def path_exists(path: str) -> bool:
+            return path.endswith('/build') or path.endswith('\\build') or path.endswith('validation_report.md')
+
+        with patch(
+            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            return_value='/usr/bin/git',
+        ), patch(
+            'openhands_agent.data_layers.service.repository_service.os.path.isdir',
+            side_effect=is_directory,
+        ), patch(
+            'openhands_agent.data_layers.service.repository_service.os.path.exists',
+            side_effect=path_exists,
+        ), patch(
+            'openhands_agent.data_layers.service.repository_service.os.remove',
+        ) as mock_remove, patch(
+            'openhands_agent.data_layers.service.repository_service.shutil.rmtree',
+        ) as mock_rmtree, patch(
+            'openhands_agent.data_layers.service.repository_service.RepositoryService._validate_destination_branch_tracking_state',
+        ), patch(
+            'openhands_agent.data_layers.service.repository_service.RepositoryService._ensure_branch_is_publishable',
+        ), patch(
+            'openhands_agent.data_layers.service.repository_service.RepositoryService._prepare_workspace_for_task',
+        ), patch(
+            'openhands_agent.data_layers.service.repository_service.RepositoryService._push_branch',
+        ) as mock_push_branch, patch(
+            'openhands_agent.data_layers.service.repository_service.RepositoryService._pull_request_data_access',
+            return_value=data_access,
+        ), patch(
+            'openhands_agent.data_layers.service.repository_service.subprocess.run',
+            side_effect=subprocess_results,
+        ) as mock_run:
+            service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+            service.create_pull_request(
+                repository,
+                title='PROJ-1: Fix bug',
+                source_branch='feature/proj-1/backend',
+                description='Ready',
+                commit_message='Implement PROJ-1',
+            )
+
+        self.assertEqual(
+            [call.args[0] for call in mock_run.call_args_list],
+            [
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'status', '--porcelain'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'add', '-A'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'reset', 'HEAD', '--', 'build'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'reset', 'HEAD', '--', 'validation_report.md'],
+                ['git', '-c', 'safe.directory=.', '-C', '.', 'commit', '-m', 'Implement PROJ-1'],
+            ],
+        )
+        mock_rmtree.assert_called_once_with('./build')
         mock_remove.assert_called_once_with('./validation_report.md')
+        mock_push_branch.assert_called_once_with('.', 'feature/proj-1/backend', repository)
 
     def test_create_pull_request_rejects_branch_without_committed_changes(self) -> None:
         repository = self.backend_repo

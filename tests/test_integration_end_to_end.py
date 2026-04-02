@@ -195,7 +195,7 @@ class TestAgentEndToEndIntegration(unittest.TestCase):
             'OpenHands completed task PROJ-1: Fix checkout flow in test-repo.',
             ticket_client.comments[1][TaskCommentFields.BODY],
         )
-        self.assertTrue(agent_service._is_task_processed('PROJ-1'))
+        self.assertTrue(agent_service._state_registry.is_task_processed('PROJ-1'))
 
         new_comments = agent_service.get_new_pull_request_comments()
 
@@ -218,7 +218,9 @@ class TestAgentEndToEndIntegration(unittest.TestCase):
             repository,
             new_comments[0],
         )
-        self.assertTrue(agent_service._is_review_comment_processed('test-repo', '17', '99'))
+        self.assertTrue(
+            agent_service._state_registry.is_review_comment_processed('test-repo', '17', '99')
+        )
         self.assertEqual(len(ticket_client.comments), 3)
         self.assertEqual(
             ticket_client.comments[2][TaskCommentFields.BODY],

@@ -38,6 +38,10 @@ class ReviewCommentService(Service):
         self._state_registry = state_registry
         self.logger = logger or configure_logger(self.__class__.__name__)
 
+    @property
+    def state_registry(self) -> AgentStateRegistry:
+        return self._state_registry
+
     def handle_pull_request_comment(self, payload: dict) -> dict[str, str]:
         comment = self._implementation_service.review_comment_from_payload(payload)
         return self.process_review_comment(comment)

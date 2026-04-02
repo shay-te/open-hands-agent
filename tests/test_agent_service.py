@@ -338,7 +338,7 @@ class AgentServiceTests(unittest.TestCase):
         self.assertIn('client: PROJ-1: Fix bug', completion_email[EmailFields.PULL_REQUEST_SUMMARY])
         self.assertIn('backend: PROJ-1: Fix bug', completion_email[EmailFields.PULL_REQUEST_SUMMARY])
         self.assertEqual(
-            self.service._pull_request_context_map,
+            self.service._state_registry.pull_request_context_map,
             {
                 '17': [
                     {
@@ -463,7 +463,7 @@ class AgentServiceTests(unittest.TestCase):
             self.repository_service,
             self.notification_service,
         )
-        service._mark_task_processed(
+        service._state_registry.mark_task_processed(
             'PROJ-1',
             [
                 {
@@ -1081,7 +1081,7 @@ class AgentServiceTests(unittest.TestCase):
             'failed to add completion comment',
             self.task_client.add_comment.call_args_list[2].args[1],
         )
-        self.assertEqual(self.service._processed_task_map, {})
+        self.assertEqual(self.service._state_registry.processed_task_map, {})
         self.assertEqual(self.email_core_lib.send.call_count, 2)
         self.service.logger.exception.assert_called_once_with(
             'failed to add review summary comment for task %s',
@@ -1122,7 +1122,7 @@ class AgentServiceTests(unittest.TestCase):
             'state update failed',
             self.task_client.add_comment.call_args_list[2].args[1],
         )
-        self.assertEqual(self.service._processed_task_map, {})
+        self.assertEqual(self.service._state_registry.processed_task_map, {})
         self.assertEqual(self.email_core_lib.send.call_count, 2)
         self.service.logger.exception.assert_called_once_with(
             'failed to move task %s to review',
@@ -1178,7 +1178,7 @@ class AgentServiceTests(unittest.TestCase):
         )
 
     def test_handle_pull_request_comment_updates_known_branch_and_repository(self) -> None:
-        self.service._pull_request_context_map['17'] = [
+        self.service._state_registry.pull_request_context_map['17'] = [
             {
                 PullRequestFields.REPOSITORY_ID: 'client',
                 'branch_name': 'feature/proj-1/client',
@@ -1225,7 +1225,7 @@ class AgentServiceTests(unittest.TestCase):
             self.repository_service,
             self.notification_service,
         )
-        service._pull_request_context_map['17'] = [
+        service._state_registry.pull_request_context_map['17'] = [
             {
                 PullRequestFields.REPOSITORY_ID: 'client',
                 'branch_name': 'feature/proj-1/client',
@@ -1251,7 +1251,7 @@ class AgentServiceTests(unittest.TestCase):
             'Address review comments',
         )
         self.repository_service.resolve_review_comment.assert_called_once()
-        self.assertTrue(service._is_review_comment_processed('client', '17', '99'))
+        self.assertTrue(service._state_registry.is_review_comment_processed('client', '17', '99'))
 
     def test_process_review_comment_does_not_mark_processed_when_publish_fails(self) -> None:
         self.repository_service.publish_review_fix.side_effect = RuntimeError('push failed')
@@ -1262,7 +1262,7 @@ class AgentServiceTests(unittest.TestCase):
             self.repository_service,
             self.notification_service,
         )
-        service._pull_request_context_map['17'] = [
+        service._state_registry.pull_request_context_map['17'] = [
             {
                 PullRequestFields.REPOSITORY_ID: 'client',
                 'branch_name': 'feature/proj-1/client',
@@ -1284,7 +1284,7 @@ class AgentServiceTests(unittest.TestCase):
             force=True,
         )
         self.repository_service.resolve_review_comment.assert_not_called()
-        self.assertFalse(service._is_review_comment_processed('client', '17', '99'))
+        self.assertFalse(service._state_registry.is_review_comment_processed('client', '17', '99'))
 
     def test_process_review_comment_does_not_mark_processed_when_resolution_fails(self) -> None:
         self.repository_service.resolve_review_comment.side_effect = RuntimeError('provider down')
@@ -1295,7 +1295,7 @@ class AgentServiceTests(unittest.TestCase):
             self.repository_service,
             self.notification_service,
         )
-        service._pull_request_context_map['17'] = [
+        service._state_registry.pull_request_context_map['17'] = [
             {
                 PullRequestFields.REPOSITORY_ID: 'client',
                 'branch_name': 'feature/proj-1/client',
@@ -1317,14 +1317,14 @@ class AgentServiceTests(unittest.TestCase):
             force=True,
         )
         self.repository_service.publish_review_fix.assert_called_once()
-        self.assertFalse(service._is_review_comment_processed('client', '17', '99'))
+        self.assertFalse(service._state_registry.is_review_comment_processed('client', '17', '99'))
 
     def test_handle_pull_request_comment_rejects_unknown_pull_request(self) -> None:
         with self.assertRaisesRegex(ValueError, 'unknown pull request id'):
             self.service.handle_pull_request_comment(build_review_comment_payload())
 
     def test_handle_pull_request_comment_rejects_ambiguous_pull_request(self) -> None:
-        self.service._pull_request_context_map['17'] = [
+        self.service._state_registry.pull_request_context_map['17'] = [
             {
                 PullRequestFields.REPOSITORY_ID: 'client',
                 'branch_name': 'feature/proj-1/client',
@@ -1339,7 +1339,7 @@ class AgentServiceTests(unittest.TestCase):
             self.service.handle_pull_request_comment(build_review_comment_payload())
 
     def test_handle_pull_request_comment_uses_repository_id_to_resolve_ambiguity(self) -> None:
-        self.service._pull_request_context_map['17'] = [
+        self.service._state_registry.pull_request_context_map['17'] = [
             {
                 PullRequestFields.REPOSITORY_ID: 'client',
                 'branch_name': 'feature/proj-1/client',
@@ -1358,7 +1358,7 @@ class AgentServiceTests(unittest.TestCase):
 
     def test_handle_pull_request_comment_raises_when_fix_fails(self) -> None:
         self.openhands_client.fix_review_comment.return_value = {ImplementationFields.SUCCESS: False}
-        self.service._pull_request_context_map['17'] = [
+        self.service._state_registry.pull_request_context_map['17'] = [
             {
                 PullRequestFields.REPOSITORY_ID: 'client',
                 'branch_name': 'feature/proj-1/client',
@@ -1390,7 +1390,7 @@ class AgentServiceTests(unittest.TestCase):
             self.repository_service,
             self.notification_service,
         )
-        service._mark_task_processed(
+        service._state_registry.mark_task_processed(
             'PROJ-1',
             [
                 {
@@ -1399,14 +1399,14 @@ class AgentServiceTests(unittest.TestCase):
                 }
             ],
         )
-        service._pull_request_context_map['17'] = [
+        service._state_registry.pull_request_context_map['17'] = [
             {
                 PullRequestFields.ID: '17',
                 PullRequestFields.REPOSITORY_ID: 'client',
                 'branch_name': 'feature/proj-1/client',
             }
         ]
-        service._mark_review_comment_processed('client', '17', '98')
+        service._state_registry.mark_review_comment_processed('client', '17', '98')
         self.task_client.get_assigned_tasks.return_value = [build_task(task_id='PROJ-1')]
 
         comments = service.get_new_pull_request_comments()
@@ -1460,7 +1460,7 @@ class AgentServiceTests(unittest.TestCase):
             self.repository_service,
             self.notification_service,
         )
-        service._mark_task_processed(
+        service._state_registry.mark_task_processed(
             'PROJ-1',
             [
                 {
@@ -1469,7 +1469,7 @@ class AgentServiceTests(unittest.TestCase):
                 }
             ],
         )
-        service._pull_request_context_map['17'] = [
+        service._state_registry.pull_request_context_map['17'] = [
             {
                 PullRequestFields.ID: '17',
                 PullRequestFields.REPOSITORY_ID: 'client',
@@ -1497,7 +1497,7 @@ class AgentServiceTests(unittest.TestCase):
             self.repository_service,
             self.notification_service,
         )
-        service._mark_task_processed(
+        service._state_registry.mark_task_processed(
             'PROJ-1',
             [
                 {
@@ -1506,7 +1506,7 @@ class AgentServiceTests(unittest.TestCase):
                 }
             ],
         )
-        service._mark_task_processed(
+        service._state_registry.mark_task_processed(
             'PROJ-2',
             [
                 {
@@ -1515,14 +1515,14 @@ class AgentServiceTests(unittest.TestCase):
                 }
             ],
         )
-        service._pull_request_context_map['17'] = [
+        service._state_registry.pull_request_context_map['17'] = [
             {
                 PullRequestFields.ID: '17',
                 PullRequestFields.REPOSITORY_ID: 'client',
                 'branch_name': 'feature/proj-1/client',
             }
         ]
-        service._pull_request_context_map['18'] = [
+        service._state_registry.pull_request_context_map['18'] = [
             {
                 PullRequestFields.ID: '18',
                 PullRequestFields.REPOSITORY_ID: 'backend',
@@ -1540,13 +1540,13 @@ class AgentServiceTests(unittest.TestCase):
         )
 
     def test_get_new_pull_request_comments_uses_in_memory_processed_tasks_without_state_storage(self) -> None:
-        self.service._pull_request_context_map['17'] = [
+        self.service._state_registry.pull_request_context_map['17'] = [
             {
                 PullRequestFields.REPOSITORY_ID: 'client',
                 'branch_name': 'feature/proj-1/client',
             }
         ]
-        self.service._mark_task_processed(
+        self.service._state_registry.mark_task_processed(
             'PROJ-1',
             [
                 {
