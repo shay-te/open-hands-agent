@@ -5,7 +5,7 @@ from unittest.mock import patch
 from openhands_agent.client.bitbucket_issues_client import BitbucketIssuesClient
 from openhands_agent.data_layers.data.task import Task
 from openhands_agent.fields import TaskCommentFields
-from utils import mock_response
+from utils import assert_client_basic_auth_and_timeout, mock_response
 
 
 class BitbucketIssuesClientTests(unittest.TestCase):
@@ -20,6 +20,17 @@ class BitbucketIssuesClientTests(unittest.TestCase):
             '/repositories/workspace/repo/issues',
             params={'pagelen': 1},
         )
+
+    def test_uses_basic_auth_when_username_is_configured(self) -> None:
+        client = BitbucketIssuesClient(
+            'https://api.bitbucket.org/2.0',
+            'bb-token',
+            'workspace',
+            'repo',
+            username='bb-user',
+        )
+
+        assert_client_basic_auth_and_timeout(self, client, 'bb-user', 'bb-token', 30)
 
     def test_get_assigned_tasks_filters_by_assignee_and_loads_comments(self) -> None:
         client = BitbucketIssuesClient('https://api.bitbucket.org/2.0', 'bb-token', 'workspace', 'repo')

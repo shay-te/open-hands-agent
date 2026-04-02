@@ -121,12 +121,14 @@ ISSUE_PLATFORM_DETAILS = {
         'label': 'Bitbucket Issues',
         'base_url_key': 'BITBUCKET_ISSUES_BASE_URL',
         'token_key': 'BITBUCKET_API_TOKEN',
+        'username_key': 'BITBUCKET_USERNAME',
         'workspace_key': 'BITBUCKET_ISSUES_WORKSPACE',
         'workspace_label': 'workspace',
         'repo_slug_key': 'BITBUCKET_ISSUES_REPO_SLUG',
         'repo_slug_label': 'issues repository slug',
         'assignee_key': 'BITBUCKET_ISSUES_ASSIGNEE',
         'assignee_label': 'assignee username',
+        'username_label': 'username for app-password auth',
         'progress_state_field_key': 'BITBUCKET_ISSUES_PROGRESS_STATE_FIELD',
         'progress_state_key': 'BITBUCKET_ISSUES_PROGRESS_STATE',
         'review_state_field_key': 'BITBUCKET_ISSUES_REVIEW_STATE_FIELD',
@@ -447,6 +449,7 @@ def _prompt_issue_platform_optional_values(
         ('repo_key', 'repo_label', False),
         ('workspace_key', 'workspace_label', False),
         ('repo_slug_key', 'repo_slug_label', False),
+        ('username_key', 'username_label', True),
         ('email_key', None, True),
     ]
     for key_name, label_key, allow_empty in optional_prompts:
@@ -456,6 +459,8 @@ def _prompt_issue_platform_optional_values(
         prompt = (
             f'{label} user email for basic auth'
             if key_name == 'email_key'
+            else f'{label} {details[label_key]}'
+            if key_name == 'username_key'
             else f"{label} {details[label_key]}"
         )
         values[env_key] = input_str(

@@ -25,9 +25,20 @@ def build_pull_request_client(
     max_retries: int,
 ) -> PullRequestClientBase:
     provider = detect_pull_request_provider(config.base_url)
-    client_cls = {
-        'bitbucket': BitbucketClient,
-        'github': GitHubClient,
-        'gitlab': GitLabClient,
-    }[provider]
-    return client_cls(config.base_url, config.token, max_retries)
+    if provider == 'bitbucket':
+        username = getattr(config, 'username', '')
+        if username:
+            return BitbucketClient(
+                config.base_url,
+                config.token,
+                max_retries,
+                username=username,
+            )
+        return BitbucketClient(
+            config.base_url,
+            config.token,
+            max_retries,
+        )
+    if provider == 'github':
+        return GitHubClient(config.base_url, config.token, max_retries)
+    return GitLabClient(config.base_url, config.token, max_retries)

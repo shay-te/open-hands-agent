@@ -76,6 +76,7 @@ openhands_agent:
   bitbucket_issues:
     base_url: https://api.bitbucket.org/2.0
     token: test-bitbucket-issues-token
+    username: ""
     workspace: test-workspace
     repo_slug: test-repo
     project: test-repo

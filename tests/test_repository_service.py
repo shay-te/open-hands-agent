@@ -1169,12 +1169,13 @@ class RepositoryServiceTests(unittest.TestCase):
                     bitbucket_issues=types.SimpleNamespace(
                         base_url='https://api.bitbucket.org/2.0',
                         token='bb-token',
+                        username='bb-user',
                     ),
                 ),
                 3,
             )
             expected_header = 'Authorization: Basic ' + base64.b64encode(
-                b'workspace:bb-token'
+                b'bb-user:bb-token'
             ).decode('ascii')
 
             with patch(

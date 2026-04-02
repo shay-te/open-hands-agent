@@ -78,6 +78,23 @@ class TicketClientFactoryTests(unittest.TestCase):
             5,
         )
 
+    def test_builds_bitbucket_issues_client_with_username(self) -> None:
+        cfg = build_test_cfg()
+        cfg.openhands_agent.bitbucket_issues.username = 'bb-user'
+
+        with patch('openhands_agent.client.ticket_client_factory.BitbucketIssuesClient') as mock_client_cls:
+            client = build_ticket_client('bitbucket', cfg.openhands_agent.bitbucket_issues, 5)
+
+        self.assertIs(client, mock_client_cls.return_value)
+        mock_client_cls.assert_called_once_with(
+            cfg.openhands_agent.bitbucket_issues.base_url,
+            cfg.openhands_agent.bitbucket_issues.token,
+            cfg.openhands_agent.bitbucket_issues.workspace,
+            cfg.openhands_agent.bitbucket_issues.repo_slug,
+            5,
+            username='bb-user',
+        )
+
     def test_rejects_unknown_ticket_system(self) -> None:
         cfg = build_test_cfg()
 

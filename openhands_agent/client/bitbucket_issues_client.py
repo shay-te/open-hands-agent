@@ -1,20 +1,33 @@
 from typing import Any
 
+from openhands_agent.client.bitbucket_auth import bitbucket_basic_auth_header
 from openhands_agent.client.ticket_client_base import TicketClientBase
 from openhands_agent.data_layers.data.task import Task
 from openhands_agent.fields import (
     BitbucketIssueCommentFields,
     BitbucketIssueFields,
 )
+from openhands_agent.text_utils import normalized_text
 
 
 class BitbucketIssuesClient(TicketClientBase):
     provider_name = 'bitbucket'
 
-    def __init__(self, base_url: str, token: str, workspace: str, repo_slug: str, max_retries: int = 3) -> None:
+    def __init__(
+        self,
+        base_url: str,
+        token: str,
+        workspace: str,
+        repo_slug: str,
+        max_retries: int = 3,
+        *,
+        username: str = '',
+    ) -> None:
         super().__init__(base_url, token, timeout=30, max_retries=max_retries)
         self._workspace = str(workspace).strip()
         self._repo_slug = str(repo_slug).strip()
+        if normalized_text(username):
+            self.set_headers({'Authorization': bitbucket_basic_auth_header(username, token)})
 
     def validate_connection(self, project: str, assignee: str, states: list[str]) -> None:
         response = self._get_with_retry(

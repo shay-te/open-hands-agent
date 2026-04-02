@@ -188,6 +188,8 @@ class OpenHandsClientTests(unittest.TestCase):
         self.assertIn('When you finish, use the finish tool.', prompt)
         self.assertIn('Do not pass extra finish-tool arguments', prompt)
         self.assertIn('Do not report success until all intended changes are saved in the repository worktree', prompt)
+        self.assertIn('Do not run npm run build, yarn build, pnpm build, or any equivalent production build command unless the task explicitly requires it.', prompt)
+        self.assertIn('Do not commit or stage generated build artifacts such as build, dist, out, coverage, or target directories.', prompt)
         self.assertIn('If no dedicated tests are defined for this task', prompt)
         self.assertIn(
             'Do not create validation_report.md; if the task completes successfully and you have a validation report',
@@ -239,6 +241,8 @@ class OpenHandsClientTests(unittest.TestCase):
         self.assertIn('Do not create a pull request.', prompt)
         self.assertIn('When you finish, use the finish tool.', prompt)
         self.assertIn('Do not report success until all intended changes are saved in the repository worktree', prompt)
+        self.assertIn('Do not run npm run build, yarn build, pnpm build, or any equivalent production build command unless the task explicitly requires it.', prompt)
+        self.assertIn('Do not commit or stage generated build artifacts such as build, dist, out, coverage, or target directories.', prompt)
         self.assertIn('If no dedicated tests are defined or available', prompt)
         self.assertIn(
             'Do not create validation_report.md; if the task completes successfully and you have a validation report',

@@ -78,6 +78,7 @@ openhands_agent:
   bitbucket_issues:
     base_url: ${oc.env:BITBUCKET_ISSUES_BASE_URL,"https://api.bitbucket.org/2.0"}
     token: ${oc.env:BITBUCKET_API_TOKEN,""}
+    username: ${oc.env:BITBUCKET_USERNAME,""}
     workspace: ${oc.env:BITBUCKET_ISSUES_WORKSPACE,""}
     repo_slug: ${oc.env:BITBUCKET_ISSUES_REPO_SLUG,""}
     project: ${oc.env:BITBUCKET_ISSUES_REPO_SLUG,""}

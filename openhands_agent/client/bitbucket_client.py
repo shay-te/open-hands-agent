@@ -1,5 +1,6 @@
 from typing import Any
 
+from openhands_agent.client.bitbucket_auth import bitbucket_basic_auth_header
 from openhands_agent.client.pull_request_client_base import PullRequestClientBase
 from openhands_agent.data_layers.data.review_comment import ReviewComment
 from openhands_agent.fields import PullRequestFields, ReviewCommentFields
@@ -9,8 +10,17 @@ from openhands_agent.text_utils import normalized_text, text_from_attr
 class BitbucketClient(PullRequestClientBase):
     provider_name = 'bitbucket'
 
-    def __init__(self, base_url: str, token: str, max_retries: int = 3) -> None:
+    def __init__(
+        self,
+        base_url: str,
+        token: str,
+        max_retries: int = 3,
+        *,
+        username: str = '',
+    ) -> None:
         super().__init__(base_url, token, timeout=30, max_retries=max_retries)
+        if normalized_text(username):
+            self.set_headers({'Authorization': bitbucket_basic_auth_header(username, token)})
 
     def validate_connection(self, repo_owner: str, repo_slug: str) -> None:
         response = self._get_with_retry(f'/repositories/{repo_owner}/{repo_slug}')

@@ -117,6 +117,7 @@ class ValidateEnvTests(unittest.TestCase):
                 'OPENHANDS_AGENT_ISSUE_PLATFORM': 'bitbucket',
                 'BITBUCKET_ISSUES_BASE_URL': 'https://api.bitbucket.org/2.0',
                 'BITBUCKET_API_TOKEN': 'bb-token',
+                'BITBUCKET_USERNAME': 'bb-user',
                 'BITBUCKET_ISSUES_WORKSPACE': 'workspace',
                 'BITBUCKET_ISSUES_REPO_SLUG': 'repo',
                 'BITBUCKET_ISSUES_ASSIGNEE': 'reviewer',
@@ -171,6 +172,7 @@ class ValidateEnvTests(unittest.TestCase):
                     'OPENHANDS_BASE_URL': 'http://localhost:3000',
                     'OPENHANDS_API_KEY': 'local',
                     'BITBUCKET_API_TOKEN': 'bb-token',
+                    'BITBUCKET_USERNAME': 'bb-user',
                 }
             )
 

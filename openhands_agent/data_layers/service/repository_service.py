@@ -1,4 +1,3 @@
-import base64
 import os
 import re
 import shutil
@@ -9,6 +8,7 @@ from urllib.parse import urlparse
 from core_lib.data_layers.service.service import Service
 from omegaconf import OmegaConf
 
+from openhands_agent.client.bitbucket_auth import basic_auth_header
 from openhands_agent.client.pull_request_client_factory import build_pull_request_client
 from openhands_agent.data_layers.data_access.pull_request_data_access import PullRequestDataAccess
 from openhands_agent.data_layers.data.task import Task
@@ -268,6 +268,7 @@ class RepositoryService(Service):
             return {
                 RepositoryFields.PROVIDER_BASE_URL: text_from_attr(provider_cfg, 'base_url'),
                 'token': text_from_attr(provider_cfg, 'token'),
+                'username': text_from_attr(provider_cfg, 'username'),
             }
 
         return {
@@ -507,6 +508,7 @@ class RepositoryService(Service):
             repository,
             provider,
         )
+        username = self._resolved_bitbucket_username(repository) if provider == 'bitbucket' else ''
         self._validate_pull_request_api_values(
             repository.id,
             provider,
@@ -518,6 +520,7 @@ class RepositoryService(Service):
             provider,
             provider_base_url,
             token,
+            username,
         )
 
     def _resolved_pull_request_provider(self, repository) -> str:
@@ -554,6 +557,15 @@ class RepositoryService(Service):
             text_from_attr(repository, 'remote_url'),
         ), token
 
+    def _resolved_bitbucket_username(self, repository) -> str:
+        username = text_from_attr(repository, 'bitbucket_username') or text_from_attr(
+            repository,
+            'username',
+        )
+        if username:
+            return username
+        return normalized_text(self._provider_api_defaults.get('bitbucket', {}).get('username', ''))
+
     def _validate_pull_request_api_values(
         self,
         repository_id: str,
@@ -577,10 +589,13 @@ class RepositoryService(Service):
         provider: str,
         provider_base_url: str,
         token: str,
+        username: str = '',
     ) -> None:
         setattr(repository, 'provider', provider)
         setattr(repository, RepositoryFields.PROVIDER_BASE_URL, provider_base_url)
         setattr(repository, 'token', token)
+        if provider == 'bitbucket':
+            setattr(repository, 'bitbucket_username', username)
 
     def _publish_repository_branch(
         self,
@@ -606,6 +621,10 @@ class RepositoryService(Service):
         owner = text_from_attr(repository, RepositoryFields.OWNER)
         repo_slug = text_from_attr(repository, RepositoryFields.REPO_SLUG)
         token = text_from_attr(repository, 'token')
+        username = text_from_attr(repository, 'bitbucket_username') or text_from_attr(
+            repository,
+            'username',
+        )
         destination_branch = text_from_attr(repository, RepositoryFields.DESTINATION_BRANCH)
         if not provider_base_url or not owner or not repo_slug or not token:
             raise ValueError(
@@ -615,6 +634,7 @@ class RepositoryService(Service):
             {
                 'base_url': provider_base_url,
                 'token': token,
+                'username': username,
                 'owner': owner,
                 'repo_slug': repo_slug,
                 RepositoryFields.DESTINATION_BRANCH: destination_branch,
@@ -1061,16 +1081,16 @@ class RepositoryService(Service):
         username = cls._git_http_username(repository, remote_url)
         if not username:
             return ''
-        encoded_credentials = base64.b64encode(
-            f'{username}:{token}'.encode('utf-8')
-        ).decode('ascii')
-        return f'Authorization: Basic {encoded_credentials}'
+        return f'Authorization: {basic_auth_header(username, token)}'
 
     @classmethod
     def _git_http_username(cls, repository, remote_url: str) -> str:
         parsed = urlparse(remote_url)
         provider = normalized_lower_text(text_from_attr(repository, 'provider'))
         if provider == 'bitbucket':
+            bitbucket_username = text_from_attr(repository, 'bitbucket_username')
+            if bitbucket_username:
+                return bitbucket_username
             owner = text_from_attr(repository, 'owner')
             if owner:
                 return owner

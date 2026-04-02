@@ -1,3 +1,4 @@
+from base64 import b64encode
 import threading
 import unittest
 from unittest.mock import Mock, patch
@@ -33,6 +34,18 @@ def assert_client_headers_and_timeout(
     timeout: int,
 ) -> None:
     test_case.assertEqual(client.headers, {'Authorization': f'Bearer {token}'})
+    test_case.assertEqual(client.timeout, timeout)
+
+
+def assert_client_basic_auth_and_timeout(
+    test_case: unittest.TestCase,
+    client: object,
+    username: str,
+    token: str,
+    timeout: int,
+) -> None:
+    encoded = b64encode(f'{username}:{token}'.encode('utf-8')).decode('ascii')
+    test_case.assertEqual(client.headers, {'Authorization': f'Basic {encoded}'})
     test_case.assertEqual(client.timeout, timeout)
 
 
@@ -138,6 +151,7 @@ def build_test_cfg() -> DictConfig:
                     'provider_name': 'bitbucket',
                     'base_url': 'https://api.bitbucket.org/2.0',
                     'token': 'bb-issues-token',
+                    'username': '',
                     'workspace': 'workspace',
                     'repo_slug': 'issues-repo',
                     'project': 'issues-repo',

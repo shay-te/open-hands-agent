@@ -7,5 +7,7 @@ if [ -n "$container_ids" ]; then
   docker rm -f $container_ids
 fi
 sudo docker system prune --all --volumes --force
-docker volume rm openhands-agent-data || true
+if docker volume inspect openhands-agent-data >/dev/null 2>&1; then
+  docker volume rm openhands-agent-data
+fi
 rm -rf docker_data

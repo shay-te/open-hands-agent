@@ -131,6 +131,45 @@ class ConfigureProjectTests(unittest.TestCase):
         self.assertEqual(self._validate_agent_env(values), [])
         self.assertEqual(validate_openhands_env(values), [])
 
+    def test_build_configuration_values_for_bitbucket_includes_username(self) -> None:
+        with self._patch_prompts(
+            {
+                'Where are your tasks tracked': 'bitbucket',
+                'Bitbucket Issues base URL': 'https://api.bitbucket.org/2.0',
+                'Bitbucket Issues token': 'bb-token',
+                'Bitbucket Issues username for app-password auth': 'bb-user',
+                'Bitbucket Issues assignee username': 'reviewer',
+                'Bitbucket Issues workspace': 'workspace',
+                'Bitbucket Issues issues repository slug': 'repo',
+                'Bitbucket Issues in-progress state field': 'state',
+                'Bitbucket Issues in-progress state value': 'open',
+                'Bitbucket Issues review state field': 'state',
+                'Bitbucket Issues review state value': 'resolved',
+                'Bitbucket Issues issue states to process': ['new', 'triaged'],
+                'Scan a projects folder for checked-out repositories': False,
+                'Projects root folder containing checked-out repositories': '.',
+                'OpenHands base URL': 'http://localhost:3000',
+                'OpenHands API key': 'local',
+                'OpenHands secret key': 'openhands-secret',
+                'Maximum retries for external API calls': 5,
+                'OpenHands LLM model': 'openai/gpt-4o',
+                'OpenHands LLM API key': 'llm-key',
+                'OpenHands LLM base URL': 'https://api.openai.com/v1',
+                'Skip testing before publishing pull requests': False,
+                'Use a dedicated OpenHands testing container': False,
+                'Enable failure notification emails': False,
+                'Enable completion notification emails': False,
+            }
+        ):
+            values = configure_project.build_configuration_values({})
+
+        self.assertEqual(values['BITBUCKET_USERNAME'], 'bb-user')
+        self.assertEqual(values['BITBUCKET_API_TOKEN'], 'bb-token')
+        self.assertEqual(values['BITBUCKET_ISSUES_WORKSPACE'], 'workspace')
+        self.assertEqual(values['BITBUCKET_ISSUES_REPO_SLUG'], 'repo')
+        self.assertEqual(self._validate_agent_env(values), [])
+        self.assertEqual(validate_openhands_env(values), [])
+
     def test_build_configuration_values_for_bedrock_access_keys_includes_session_token(self) -> None:
         with self._patch_prompts(
             {

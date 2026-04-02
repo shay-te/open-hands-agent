@@ -216,7 +216,8 @@ The list below mirrors `.env.example`.
 | `GITLAB_ISSUES_REVIEW_STATE` | GitLab Issues value used for the review transition. |
 | `GITLAB_ISSUES_ISSUE_STATES` | GitLab Issues states that qualify for processing. |
 | `BITBUCKET_ISSUES_BASE_URL` | Bitbucket Issues API base URL. |
-| `BITBUCKET_API_TOKEN` | Bitbucket API token. Also used for Bitbucket git push and pull request creation when needed. |
+| `BITBUCKET_API_TOKEN` | Bitbucket API token. Also used as the password for Bitbucket Basic auth when `BITBUCKET_USERNAME` is set, and for Bitbucket git push and pull request creation when needed. |
+| `BITBUCKET_USERNAME` | Bitbucket username used with `BITBUCKET_API_TOKEN` for Basic auth. Leave empty to keep the legacy token-only flow. |
 | `BITBUCKET_ISSUES_WORKSPACE` | Bitbucket workspace used to scope issues. |
 | `BITBUCKET_ISSUES_REPO_SLUG` | Bitbucket repository slug used to scope issues. |
 | `BITBUCKET_ISSUES_ASSIGNEE` | Bitbucket assignee to scan for tasks. |

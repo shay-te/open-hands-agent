@@ -7,6 +7,7 @@ from openhands_agent.fields import PullRequestFields, ReviewCommentFields
 from utils import (
     ClientTimeout,
     assert_client_headers_and_timeout,
+    assert_client_basic_auth_and_timeout,
     build_review_comment,
     create_pull_request_with_defaults,
     mock_response,
@@ -21,6 +22,15 @@ class BitbucketClientTests(unittest.TestCase):
     def test_uses_minimum_retry_count_of_one(self) -> None:
         client = BitbucketClient('https://bitbucket.example', 'bb-token', max_retries=0)
         self.assertEqual(client.max_retries, 1)
+
+    def test_uses_basic_auth_when_username_is_configured(self) -> None:
+        client = BitbucketClient(
+            'https://bitbucket.example',
+            'bb-token',
+            username='bb-user',
+        )
+
+        assert_client_basic_auth_and_timeout(self, client, 'bb-user', 'bb-token', 30)
 
     def test_validate_connection_checks_configured_repository(self) -> None:
         client = BitbucketClient('https://bitbucket.example', 'bb-token')

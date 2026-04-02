@@ -31,3 +31,15 @@ class PullRequestClientFactoryTests(unittest.TestCase):
     def test_builds_bitbucket_client(self) -> None:
         config = type('Config', (), {'base_url': 'https://api.bitbucket.org/2.0', 'token': 'bb-token'})
         self.assertIsInstance(build_pull_request_client(config, 3), BitbucketClient)
+
+    def test_builds_bitbucket_client_with_username(self) -> None:
+        config = type(
+            'Config',
+            (),
+            {
+                'base_url': 'https://api.bitbucket.org/2.0',
+                'token': 'bb-token',
+                'username': 'bb-user',
+            },
+        )
+        self.assertIsInstance(build_pull_request_client(config, 3), BitbucketClient)
