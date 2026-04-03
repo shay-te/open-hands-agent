@@ -10,6 +10,7 @@ from openhands_agent.data_layers.service.agent_state_registry import AgentStateR
 from openhands_agent.data_layers.service.notification_service import NotificationService
 from openhands_agent.data_layers.service.repository_service import RepositoryService
 from openhands_agent.data_layers.service.task_failure_handler import TaskFailureHandler
+from openhands_agent.data_layers.service.task_state_service import TaskStateService
 from openhands_agent.data_layers.service.task_service import TaskService
 from openhands_agent.helpers.error_handling_utils import run_best_effort
 from openhands_agent.helpers.logging_utils import configure_logger
@@ -25,9 +26,11 @@ from openhands_agent.helpers.task_execution_utils import task_execution_report
 
 
 class TaskPublisher(Service):
+    """Publish finished task work as pull requests, summary comments, and completion notifications."""
     def __init__(
         self,
         task_service: TaskService,
+        task_state_service: TaskStateService,
         repository_service: RepositoryService,
         notification_service: NotificationService,
         state_registry: AgentStateRegistry,
@@ -35,6 +38,7 @@ class TaskPublisher(Service):
         logger=None,
     ) -> None:
         self._task_service = task_service
+        self._task_state_service = task_state_service
         self._repository_service = repository_service
         self._notification_service = notification_service
         self._state_registry = state_registry
@@ -285,7 +289,7 @@ class TaskPublisher(Service):
         pull_requests: list[dict[str, str]],
     ) -> dict[str, object] | None:
         try:
-            self._task_service.move_task_to_review(task.id)
+            self._task_state_service.move_task_to_review(task.id)
         except Exception as exc:
             self._failure_handler.handle_started_task_failure(
                 task,

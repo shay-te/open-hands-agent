@@ -6,6 +6,9 @@ import base64
 from unittest.mock import Mock, patch
 
 
+from openhands_agent.data_layers.service.repository_inventory_service import (
+    RepositoryInventoryService,
+)
 from openhands_agent.data_layers.service.repository_service import RepositoryService
 from openhands_agent.data_layers.data.fields import PullRequestFields, ReviewCommentFields
 from utils import build_review_comment, build_task, build_test_cfg
@@ -732,7 +735,7 @@ class RepositoryServiceTests(unittest.TestCase):
         ) as mock_prepare_workspace, patch(
             'openhands_agent.data_layers.service.repository_service.RepositoryService._push_branch',
         ) as mock_push_branch, patch(
-            'openhands_agent.data_layers.service.repository_service.RepositoryService._pull_request_data_access',
+            'openhands_agent.data_layers.service.repository_inventory_service.RepositoryInventoryService._pull_request_data_access',
             return_value=data_access,
         ):
             service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
@@ -785,7 +788,7 @@ class RepositoryServiceTests(unittest.TestCase):
         ) as mock_prepare_workspace, patch(
             'openhands_agent.data_layers.service.repository_service.RepositoryService._push_branch',
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.RepositoryService._pull_request_data_access',
+            'openhands_agent.data_layers.service.repository_inventory_service.RepositoryInventoryService._pull_request_data_access',
             return_value=data_access,
         ):
             service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
@@ -843,7 +846,7 @@ class RepositoryServiceTests(unittest.TestCase):
             'openhands_agent.data_layers.service.repository_service.RepositoryService._push_branch',
             side_effect=record_push,
         ) as mock_push_branch, patch(
-            'openhands_agent.data_layers.service.repository_service.RepositoryService._pull_request_data_access',
+            'openhands_agent.data_layers.service.repository_inventory_service.RepositoryInventoryService._pull_request_data_access',
             return_value=data_access,
         ):
             data_access.create_pull_request.side_effect = record_create_pull_request
@@ -893,7 +896,7 @@ class RepositoryServiceTests(unittest.TestCase):
             'openhands_agent.data_layers.service.repository_service.RepositoryService._push_branch',
             side_effect=RuntimeError('push failed'),
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.RepositoryService._pull_request_data_access',
+            'openhands_agent.data_layers.service.repository_inventory_service.RepositoryInventoryService._pull_request_data_access',
         ):
             service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
             with self.assertRaisesRegex(RuntimeError, 'push failed'):
@@ -951,7 +954,7 @@ class RepositoryServiceTests(unittest.TestCase):
         ), patch(
             'openhands_agent.data_layers.service.repository_service.RepositoryService._push_branch',
         ) as mock_push_branch, patch(
-            'openhands_agent.data_layers.service.repository_service.RepositoryService._pull_request_data_access',
+            'openhands_agent.data_layers.service.repository_inventory_service.RepositoryInventoryService._pull_request_data_access',
             return_value=data_access,
         ), patch(
             'openhands_agent.data_layers.service.repository_service.subprocess.run',
@@ -1049,7 +1052,7 @@ class RepositoryServiceTests(unittest.TestCase):
         ), patch(
             'openhands_agent.data_layers.service.repository_service.RepositoryService._push_branch',
         ) as mock_push_branch, patch(
-            'openhands_agent.data_layers.service.repository_service.RepositoryService._pull_request_data_access',
+            'openhands_agent.data_layers.service.repository_inventory_service.RepositoryInventoryService._pull_request_data_access',
             return_value=data_access,
         ), patch(
             'openhands_agent.data_layers.service.repository_service.subprocess.run',
@@ -1154,7 +1157,7 @@ class RepositoryServiceTests(unittest.TestCase):
         ), patch(
             'openhands_agent.data_layers.service.repository_service.RepositoryService._push_branch',
         ) as mock_push_branch, patch(
-            'openhands_agent.data_layers.service.repository_service.RepositoryService._pull_request_data_access',
+            'openhands_agent.data_layers.service.repository_inventory_service.RepositoryInventoryService._pull_request_data_access',
             return_value=data_access,
         ), patch(
             'openhands_agent.data_layers.service.repository_service.subprocess.run',
@@ -1766,7 +1769,7 @@ class RepositoryServiceTests(unittest.TestCase):
         service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
 
         with patch(
-            'openhands_agent.data_layers.service.repository_service.RepositoryService._pull_request_data_access',
+            'openhands_agent.data_layers.service.repository_inventory_service.RepositoryInventoryService._pull_request_data_access',
             return_value=data_access,
         ):
             comments = service.list_pull_request_comments(repository, '17')
@@ -1831,7 +1834,7 @@ class RepositoryServiceTests(unittest.TestCase):
         service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
 
         with patch(
-            'openhands_agent.data_layers.service.repository_service.RepositoryService._pull_request_data_access',
+            'openhands_agent.data_layers.service.repository_inventory_service.RepositoryInventoryService._pull_request_data_access',
             return_value=data_access,
         ):
             service.resolve_review_comment(repository, comment)
@@ -1852,10 +1855,10 @@ class RepositoryServiceTests(unittest.TestCase):
             bitbucket_api_email='bb-user@example.com',
             username='legacy-user',
         )
-        service = RepositoryService([repository], 3)
+        service = RepositoryInventoryService([repository])
 
         with patch(
-            'openhands_agent.data_layers.service.repository_service.build_pull_request_client',
+            'openhands_agent.data_layers.service.repository_inventory_service.build_pull_request_client',
             return_value=Mock(),
         ) as mock_build:
             service._pull_request_data_access(repository)

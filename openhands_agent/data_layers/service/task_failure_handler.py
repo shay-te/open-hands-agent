@@ -3,6 +3,7 @@ from core_lib.data_layers.service.service import Service
 from openhands_agent.data_layers.data.task import Task
 from openhands_agent.data_layers.service.notification_service import NotificationService
 from openhands_agent.data_layers.service.repository_service import RepositoryService
+from openhands_agent.data_layers.service.task_state_service import TaskStateService
 from openhands_agent.data_layers.service.task_service import TaskService
 from openhands_agent.helpers.error_handling_utils import run_best_effort
 from openhands_agent.helpers.logging_utils import configure_logger
@@ -11,14 +12,17 @@ from openhands_agent.helpers.task_context_utils import PreparedTaskContext
 
 
 class TaskFailureHandler(Service):
+    """Own task failure recovery, user-facing failure comments, and follow-up notifications."""
     def __init__(
         self,
         task_service: TaskService,
+        task_state_service: TaskStateService,
         repository_service: RepositoryService,
         notification_service: NotificationService,
         logger=None,
     ) -> None:
         self._task_service = task_service
+        self._task_state_service = task_state_service
         self._repository_service = repository_service
         self._notification_service = notification_service
         self.logger = logger or configure_logger(self.__class__.__name__)
@@ -195,7 +199,7 @@ class TaskFailureHandler(Service):
     def _move_task_to_open(self, task_id: str) -> bool:
         try:
             self._log_task_step(task_id, 'moving issue back to open')
-            self._task_service.move_task_to_open(task_id)
+            self._task_state_service.move_task_to_open(task_id)
             self._log_task_step(task_id, 'moved issue back to open')
             return True
         except Exception:

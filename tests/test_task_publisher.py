@@ -12,6 +12,7 @@ from openhands_agent.data_layers.service.agent_state_registry import AgentStateR
 from openhands_agent.data_layers.service.notification_service import NotificationService
 from openhands_agent.data_layers.service.repository_service import RepositoryService
 from openhands_agent.data_layers.service.task_failure_handler import TaskFailureHandler
+from openhands_agent.data_layers.service.task_state_service import TaskStateService
 from openhands_agent.data_layers.service.task_publisher import TaskPublisher
 from openhands_agent.data_layers.service.task_service import TaskService
 from utils import build_task
@@ -21,13 +22,15 @@ class TaskPublisherTests(unittest.TestCase):
     def setUp(self) -> None:
         self.task_service = Mock(spec=TaskService)
         self.task_service.add_comment = Mock()
-        self.task_service.move_task_to_review = Mock()
+        self.task_state_service = Mock(spec=TaskStateService)
+        self.task_state_service.move_task_to_review = Mock()
         self.repository_service = Mock(spec=RepositoryService)
         self.notification_service = Mock(spec=NotificationService)
         self.state_registry = Mock(spec=AgentStateRegistry)
         self.failure_handler = Mock(spec=TaskFailureHandler)
         self.publisher = TaskPublisher(
             self.task_service,
+            self.task_state_service,
             self.repository_service,
             self.notification_service,
             self.state_registry,
@@ -74,7 +77,7 @@ class TaskPublisherTests(unittest.TestCase):
         result = self.publisher.publish_task_execution(task, prepared_task, execution)
 
         self.assertEqual(result[StatusFields.STATUS], StatusFields.READY_FOR_REVIEW)
-        self.task_service.move_task_to_review.assert_called_once_with(task.id)
+        self.task_state_service.move_task_to_review.assert_called_once_with(task.id)
         self.state_registry.mark_task_processed.assert_called_once()
         processed_args = self.state_registry.mark_task_processed.call_args.args
         self.assertEqual(processed_args[0], task.id)
@@ -158,7 +161,7 @@ class TaskPublisherTests(unittest.TestCase):
             PullRequestFields.SOURCE_BRANCH: 'feature/proj-1/client',
             PullRequestFields.DESTINATION_BRANCH: 'master',
         }
-        self.task_service.move_task_to_review.side_effect = RuntimeError('transition failed')
+        self.task_state_service.move_task_to_review.side_effect = RuntimeError('transition failed')
 
         result = self.publisher.publish_task_execution(task, prepared_task, execution)
 

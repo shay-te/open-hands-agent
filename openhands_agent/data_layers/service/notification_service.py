@@ -12,6 +12,7 @@ from openhands_agent.helpers.logging_utils import configure_logger
 
 
 class NotificationService(Service):
+    """Format and send task outcome notifications through the email core-lib adapter."""
     def __init__(
         self,
         app_name: str,

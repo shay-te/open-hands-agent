@@ -25,6 +25,7 @@ from openhands_agent.validation.branch_publishability import (
 
 
 class TaskPreflightService(Service):
+    """Prepare a task for execution by validating access, repositories, and branch readiness."""
     def __init__(
         self,
         task_model_access_validator: TaskModelAccessValidator,

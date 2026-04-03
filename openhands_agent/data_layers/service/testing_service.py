@@ -8,6 +8,7 @@ from openhands_agent.helpers.logging_utils import configure_logger
 
 
 class TestingService(Service):
+    """Delegate OpenHands testing validation for a task."""
     def __init__(self, client: OpenHandsClient) -> None:
         self._client = client
         self.logger = configure_logger(self.__class__.__name__)

@@ -5,18 +5,10 @@ import subprocess
 from pathlib import Path
 from urllib.parse import urlparse
 
-from omegaconf import OmegaConf
-
 from openhands_agent.client.bitbucket_auth import basic_auth_header
-from openhands_agent.client.pull_request_client_factory import build_pull_request_client
 from openhands_agent.data_layers.data.task import Task
-from openhands_agent.data_layers.data.fields import PullRequestFields, RepositoryFields
-from openhands_agent.data_layers.data_access.pull_request_data_access import PullRequestDataAccess
+from openhands_agent.data_layers.data.fields import RepositoryFields
 from openhands_agent.helpers.logging_utils import configure_logger
-from openhands_agent.helpers.repository_discovery_utils import (
-    remote_web_base_url,
-    review_url_for_remote,
-)
 from openhands_agent.helpers.text_utils import (
     normalized_lower_text,
     normalized_text,
@@ -31,10 +23,10 @@ from openhands_agent.data_layers.service.repository_publication_service import (
 
 
 class RepositoryService(RepositoryInventoryService):
+    """Manage repository worktree preparation, branch publication, and cleanup."""
 
     def __init__(self, repositories_config, max_retries: int) -> None:
-        super().__init__(repositories_config)
-        self._max_retries = max_retries
+        super().__init__(repositories_config, max_retries)
         self._publication_service = RepositoryPublicationService(self, max_retries)
 
     def prepare_task_repositories(self, repositories: list[object]) -> list[object]:
@@ -258,116 +250,6 @@ class RepositoryService(RepositoryInventoryService):
         )
         return repository
 
-    def _prepare_pull_request_api(self, repository) -> None:
-        provider = self._resolved_pull_request_provider(repository)
-        provider_base_url, token = self._resolved_pull_request_api_values(
-            repository,
-            provider,
-        )
-        api_email = self._resolved_bitbucket_api_email(repository) if provider == 'bitbucket' else ''
-        self._validate_pull_request_api_values(
-            repository.id,
-            provider,
-            provider_base_url,
-            token,
-            api_email,
-        )
-        self._apply_pull_request_api_values(
-            repository,
-            provider,
-            provider_base_url,
-            token,
-            api_email,
-        )
-
-    def _resolved_pull_request_provider(self, repository) -> str:
-        provider = normalized_lower_text(text_from_attr(repository, 'provider'))
-        if provider:
-            return provider
-        provider_base_url = text_from_attr(repository, RepositoryFields.PROVIDER_BASE_URL)
-        provider = self._provider_from_base_url(provider_base_url)
-        if provider:
-            return provider
-        provider = self._provider_from_remote_url(text_from_attr(repository, 'remote_url'))
-        if provider:
-            return provider
-        raise ValueError(
-            f'unable to determine pull request provider for repository {repository.id}'
-        )
-
-    def _resolved_pull_request_api_values(
-        self,
-        repository,
-        provider: str,
-    ) -> tuple[str, str]:
-        defaults = self._provider_api_defaults.get(provider, {})
-        provider_base_url = text_from_attr(repository, RepositoryFields.PROVIDER_BASE_URL)
-        token = text_from_attr(repository, 'token')
-        provider_base_url = provider_base_url or normalized_text(
-            defaults.get(RepositoryFields.PROVIDER_BASE_URL, '')
-        )
-        token = token or normalized_text(defaults.get('token', ''))
-        if provider_base_url:
-            return provider_base_url, token
-        return self._default_provider_base_url(
-            provider,
-            text_from_attr(repository, 'remote_url'),
-        ), token
-
-    def _resolved_bitbucket_username(self, repository) -> str:
-        username = text_from_attr(repository, RepositoryFields.BITBUCKET_USERNAME) or text_from_attr(
-            repository,
-            'username',
-        )
-        if username:
-            return username
-        return normalized_text(self._provider_api_defaults.get('bitbucket', {}).get('username', ''))
-
-    def _resolved_bitbucket_api_email(self, repository) -> str:
-        api_email = text_from_attr(repository, RepositoryFields.BITBUCKET_API_EMAIL) or text_from_attr(
-            repository,
-            'api_email',
-        )
-        if api_email:
-            return api_email
-        return normalized_text(self._provider_api_defaults.get('bitbucket', {}).get('api_email', ''))
-
-    def _validate_pull_request_api_values(
-        self,
-        repository_id: str,
-        provider: str,
-        provider_base_url: str,
-        token: str,
-        api_email: str = '',
-    ) -> None:
-        if not provider_base_url:
-            raise ValueError(
-                f'missing pull request API base URL for repository {repository_id}'
-            )
-        if token:
-            if provider != 'bitbucket' or api_email:
-                return
-            raise ValueError(
-                f'missing Bitbucket API email for repository {repository_id}'
-            )
-        raise ValueError(
-            self._missing_pull_request_token_message(repository_id, provider)
-        )
-
-    @staticmethod
-    def _apply_pull_request_api_values(
-        repository,
-        provider: str,
-        provider_base_url: str,
-        token: str,
-        api_email: str = '',
-    ) -> None:
-        setattr(repository, 'provider', provider)
-        setattr(repository, RepositoryFields.PROVIDER_BASE_URL, provider_base_url)
-        setattr(repository, 'token', token)
-        if provider == 'bitbucket':
-            setattr(repository, RepositoryFields.BITBUCKET_API_EMAIL, api_email)
-
     def _publish_repository_branch(
         self,
         repository,
@@ -386,34 +268,6 @@ class RepositoryService(RepositoryInventoryService):
             repository,
         )
         return destination_branch
-
-    def _pull_request_data_access(self, repository) -> PullRequestDataAccess:
-        provider_base_url = text_from_attr(repository, RepositoryFields.PROVIDER_BASE_URL)
-        owner = text_from_attr(repository, RepositoryFields.OWNER)
-        repo_slug = text_from_attr(repository, RepositoryFields.REPO_SLUG)
-        token = text_from_attr(repository, 'token')
-        api_email = text_from_attr(repository, RepositoryFields.BITBUCKET_API_EMAIL)
-        destination_branch = text_from_attr(repository, RepositoryFields.DESTINATION_BRANCH)
-        if not provider_base_url or not owner or not repo_slug or not token:
-            raise ValueError(
-                f'incomplete pull request configuration for repository {repository.id}'
-            )
-        if provider_base_url and 'bitbucket' in provider_base_url.lower() and not api_email:
-            raise ValueError(
-                f'missing Bitbucket API email for repository {repository.id}'
-            )
-        config = OmegaConf.create(
-            {
-                'base_url': provider_base_url,
-                'token': token,
-                'owner': owner,
-                'repo_slug': repo_slug,
-                'api_email': api_email,
-                RepositoryFields.DESTINATION_BRANCH: destination_branch,
-            }
-        )
-        client = build_pull_request_client(config, self._max_retries)
-        return PullRequestDataAccess(config, client)
 
     @staticmethod
     def _validate_git_executable() -> None:
@@ -958,108 +812,6 @@ class RepositoryService(RepositoryInventoryService):
     def _uses_http_remote(remote_url: str) -> bool:
         normalized = normalized_lower_text(remote_url)
         return normalized.startswith('https://') or normalized.startswith('http://')
-
-    def _review_url(self, repository, source_branch: str, destination_branch: str) -> str:
-        remote_url = text_from_attr(repository, 'remote_url')
-        provider = text_from_attr(repository, 'provider')
-        owner = text_from_attr(repository, 'owner')
-        repo_slug = text_from_attr(repository, 'repo_slug')
-
-        if remote_url and provider and owner and repo_slug:
-            return review_url_for_remote(
-                remote_url=remote_url,
-                provider=provider,
-                owner=owner,
-                repo_slug=repo_slug,
-                source_branch=source_branch,
-                destination_branch=destination_branch,
-            )
-
-        web_base_url = self._fallback_web_base_url(repository)
-        if not web_base_url or not owner or not repo_slug:
-            return ''
-        provider = provider or self._provider_from_base_url(
-            text_from_attr(repository, 'provider_base_url')
-        )
-        if provider:
-            return review_url_for_remote(
-                remote_url=f'{web_base_url}/{owner}/{repo_slug}.git',
-                provider=provider,
-                owner=owner,
-                repo_slug=repo_slug,
-                source_branch=source_branch,
-                destination_branch=destination_branch,
-            )
-        repository_path = f'{owner}/{repo_slug}'.strip('/')
-        return f'{web_base_url}/{repository_path}'
-
-    @staticmethod
-    def _fallback_web_base_url(repository) -> str:
-        remote_url = text_from_attr(repository, 'remote_url')
-        if remote_url:
-            return remote_web_base_url(remote_url)
-        provider_base_url = text_from_attr(repository, 'provider_base_url')
-        if not provider_base_url:
-            return ''
-        if 'api.bitbucket.org' in provider_base_url:
-            return 'https://bitbucket.org'
-        if provider_base_url.rstrip('/').endswith('/api/v4'):
-            return provider_base_url[: -len('/api/v4')]
-        if provider_base_url.rstrip('/').endswith('/api/v3'):
-            return provider_base_url[: -len('/api/v3')]
-        if provider_base_url.rstrip('/').endswith('/api'):
-            return provider_base_url[: -len('/api')]
-        return provider_base_url
-
-    @staticmethod
-    def _provider_from_base_url(provider_base_url: str) -> str:
-        normalized = provider_base_url.lower()
-        if 'bitbucket' in normalized:
-            return 'bitbucket'
-        if 'github' in normalized:
-            return 'github'
-        if 'gitlab' in normalized:
-            return 'gitlab'
-        return ''
-
-    @staticmethod
-    def _provider_from_remote_url(remote_url: str) -> str:
-        normalized = remote_url.lower()
-        if 'bitbucket' in normalized:
-            return 'bitbucket'
-        if 'github' in normalized:
-            return 'github'
-        if 'gitlab' in normalized:
-            return 'gitlab'
-        return ''
-
-    @staticmethod
-    def _default_provider_base_url(provider: str, remote_url: str) -> str:
-        web_base_url = remote_web_base_url(remote_url)
-        if not web_base_url:
-            return ''
-        host = str(urlparse(web_base_url).hostname or '').lower()
-        if provider == 'github':
-            if host == 'github.com':
-                return 'https://api.github.com'
-            return f'{web_base_url}/api/v3'
-        if provider == 'gitlab':
-            return f'{web_base_url}/api/v4'
-        if provider == 'bitbucket' and host == 'bitbucket.org':
-            return 'https://api.bitbucket.org/2.0'
-        return ''
-
-    @staticmethod
-    def _missing_pull_request_token_message(repository_id: str, provider: str) -> str:
-        env_key = {
-            'github': 'GITHUB_API_TOKEN',
-            'gitlab': 'GITLAB_API_TOKEN',
-            'bitbucket': 'BITBUCKET_API_TOKEN',
-        }.get(provider, '<provider-token>')
-        return (
-            f'missing pull request API token for repository {repository_id}; '
-            f'set {env_key} or configure repository token explicitly'
-        )
 
     @staticmethod
     def _infer_default_branch(local_path: str) -> str:

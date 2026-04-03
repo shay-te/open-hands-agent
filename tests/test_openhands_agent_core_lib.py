@@ -100,6 +100,8 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
         ) as mock_task_da_cls, patch(
             'openhands_agent.openhands_agent_core_lib.TaskService'
         ) as mock_task_service_cls, patch(
+            'openhands_agent.openhands_agent_core_lib.TaskStateService'
+        ) as mock_task_state_service_cls, patch(
             'openhands_agent.openhands_agent_core_lib.ImplementationService'
         ) as mock_impl_service_cls, patch(
             'openhands_agent.openhands_agent_core_lib.TestingService'
@@ -178,11 +180,13 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
         )
         mock_task_failure_handler_cls.assert_called_once_with(
             task_service=mock_task_service_cls.return_value,
+            task_state_service=mock_task_state_service_cls.return_value,
             repository_service=mock_repository_service_cls.return_value,
             notification_service=mock_notification_service_cls.return_value,
         )
         mock_task_publisher_cls.assert_called_once_with(
             task_service=mock_task_service_cls.return_value,
+            task_state_service=mock_task_state_service_cls.return_value,
             repository_service=mock_repository_service_cls.return_value,
             notification_service=mock_notification_service_cls.return_value,
             state_registry=ANY,
@@ -196,6 +200,10 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
             self.cfg.openhands_agent.youtrack,
             mock_task_da_cls.return_value,
         )
+        mock_task_state_service_cls.assert_called_once_with(
+            self.cfg.openhands_agent.youtrack,
+            mock_task_da_cls.return_value,
+        )
         mock_impl_service_cls.assert_called_once_with(implementation_client)
         mock_testing_service_cls.assert_called_once_with(testing_client)
         mock_notification_service_cls.assert_called_once_with(
@@ -206,6 +214,7 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
         )
         mock_service_cls.assert_called_once_with(
             task_service=mock_task_service_cls.return_value,
+            task_state_service=mock_task_state_service_cls.return_value,
             implementation_service=mock_impl_service_cls.return_value,
             testing_service=mock_testing_service_cls.return_value,
             repository_service=mock_repository_service_cls.return_value,
@@ -241,6 +250,8 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
             'openhands_agent.openhands_agent_core_lib.TaskDataAccess'
         ), patch(
             'openhands_agent.openhands_agent_core_lib.TaskService'
+        ), patch(
+            'openhands_agent.openhands_agent_core_lib.TaskStateService'
         ), patch(
             'openhands_agent.openhands_agent_core_lib.ImplementationService'
         ), patch(
@@ -384,6 +395,8 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
         ), patch(
             'openhands_agent.openhands_agent_core_lib.TaskService'
         ), patch(
+            'openhands_agent.openhands_agent_core_lib.TaskStateService'
+        ), patch(
             'openhands_agent.openhands_agent_core_lib.ImplementationService'
         ), patch(
             'openhands_agent.openhands_agent_core_lib.TestingService'
@@ -412,6 +425,8 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
             'openhands_agent.openhands_agent_core_lib.TaskDataAccess'
         ), patch(
             'openhands_agent.openhands_agent_core_lib.TaskService'
+        ), patch(
+            'openhands_agent.openhands_agent_core_lib.TaskStateService'
         ), patch(
             'openhands_agent.openhands_agent_core_lib.ImplementationService'
         ), patch(
@@ -444,6 +459,8 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
             'openhands_agent.openhands_agent_core_lib.TaskDataAccess'
         ), patch(
             'openhands_agent.openhands_agent_core_lib.TaskService'
+        ), patch(
+            'openhands_agent.openhands_agent_core_lib.TaskStateService'
         ), patch(
             'openhands_agent.openhands_agent_core_lib.ImplementationService'
         ), patch(

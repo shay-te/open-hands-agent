@@ -15,6 +15,7 @@ from openhands_agent.helpers.logging_utils import configure_logger
 from openhands_agent.helpers.review_comment_utils import (
     ReviewFixContext,
     comment_context_entry,
+    review_comment_from_payload,
     review_comment_fixed_comment,
     review_comment_resolution_key,
     review_fix_context_from_mapping,
@@ -24,6 +25,8 @@ from openhands_agent.helpers.text_utils import text_from_attr
 
 
 class ReviewCommentService(Service):
+    """Handle review-comment polling, fix publication, and comment resolution."""
+
     def __init__(
         self,
         task_service: TaskService,
@@ -43,7 +46,7 @@ class ReviewCommentService(Service):
         return self._state_registry
 
     def handle_pull_request_comment(self, payload: dict) -> dict[str, str]:
-        comment = self._implementation_service.review_comment_from_payload(payload)
+        comment = review_comment_from_payload(payload)
         return self.process_review_comment(comment)
 
     def process_review_comment(self, comment: ReviewComment) -> dict[str, str]:

@@ -16,8 +16,10 @@ import types
 
 from openhands_agent.data_layers.service.agent_service import AgentService
 from openhands_agent.data_layers.service.implementation_service import ImplementationService
+from openhands_agent.helpers.review_comment_utils import review_comment_from_payload
 from openhands_agent.data_layers.service.repository_service import RepositoryService
 from openhands_agent.data_layers.service.notification_service import NotificationService
+from openhands_agent.data_layers.service.task_state_service import TaskStateService
 from openhands_agent.data_layers.service.task_service import TaskService
 from openhands_agent.data_layers.service.testing_service import TestingService
 from openhands_agent.data_layers.data_access.task_data_access import TaskDataAccess
@@ -105,6 +107,7 @@ class TestAgentEndToEndIntegration(unittest.TestCase):
         )
         task_data_access = TaskDataAccess(cfg.openhands_agent.youtrack, ticket_client)
         task_service = TaskService(cfg.openhands_agent.youtrack, task_data_access)
+        task_state_service = TaskStateService(cfg.openhands_agent.youtrack, task_data_access)
 
         repository = types.SimpleNamespace(
             id='test-repo',
@@ -167,6 +170,7 @@ class TestAgentEndToEndIntegration(unittest.TestCase):
         notification_service = Mock(spec=NotificationService)
         agent_service = AgentService(
             task_service=task_service,
+            task_state_service=task_state_service,
             implementation_service=ImplementationService(openhands_client),
             testing_service=TestingService(openhands_client),
             repository_service=repository_service,
@@ -272,6 +276,7 @@ class TestAgentEndToEndIntegration(unittest.TestCase):
         # Initialize the complete agent service with mocked dependencies
         agent_service = AgentService(
             task_service=self.mock_task_data_access,
+            task_state_service=Mock(spec=TaskStateService),
             implementation_service=self.mock_implementation_service,
             testing_service=self.mock_testing_service,
             repository_service=self.mock_repository_service,
@@ -321,11 +326,8 @@ class TestAgentEndToEndIntegration(unittest.TestCase):
             ]
         }
         
-        # Initialize services with mocks
-        implementation_service = ImplementationService(Mock())
-        
-        # This validates integration between payload parsing and LLM processing
-        comment = implementation_service.review_comment_from_payload(payload)
+        # This validates the helper used by the review-comment service boundary
+        comment = review_comment_from_payload(payload)
         
         # Verify the parsing worked correctly
         self.assertEqual(comment.pull_request_id, "pr-123")
@@ -349,6 +351,7 @@ class TestAgentEndToEndIntegration(unittest.TestCase):
         # Test that error propagation works correctly  
         agent_service = AgentService(
             task_service=self.mock_task_data_access,
+            task_state_service=Mock(spec=TaskStateService),
             implementation_service=self.mock_implementation_service,
             testing_service=self.mock_testing_service,
             repository_service=self.mock_repository_service,

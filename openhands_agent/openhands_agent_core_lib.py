@@ -21,6 +21,7 @@ from openhands_agent.data_layers.service.review_comment_service import (
     ReviewCommentService,
 )
 from openhands_agent.data_layers.service.task_publisher import TaskPublisher
+from openhands_agent.data_layers.service.task_state_service import TaskStateService
 from openhands_agent.data_layers.service.task_service import TaskService
 from openhands_agent.data_layers.service.testing_service import TestingService
 from openhands_agent.validation.branch_publishability import (
@@ -85,6 +86,7 @@ class OpenHandsAgentCoreLib(CoreLib):
         )
         task_data_access = TaskDataAccess(ticket_cfg, ticket_client)
         task_service = TaskService(ticket_cfg, task_data_access)
+        task_state_service = TaskStateService(ticket_cfg, task_data_access)
         repository_service = RepositoryService(open_cfg, retry_cfg.max_retries)
         notification_service = self._build_notification_service(open_cfg)
         state_registry = AgentStateRegistry()
@@ -112,11 +114,13 @@ class OpenHandsAgentCoreLib(CoreLib):
         )
         task_failure_handler = TaskFailureHandler(
             task_service=task_service,
+            task_state_service=task_state_service,
             repository_service=repository_service,
             notification_service=notification_service,
         )
         task_publisher = TaskPublisher(
             task_service=task_service,
+            task_state_service=task_state_service,
             repository_service=repository_service,
             notification_service=notification_service,
             state_registry=state_registry,
@@ -130,6 +134,7 @@ class OpenHandsAgentCoreLib(CoreLib):
         )
         return AgentService(
             task_service=task_service,
+            task_state_service=task_state_service,
             implementation_service=implementation_service,
             testing_service=testing_service,
             repository_service=repository_service,

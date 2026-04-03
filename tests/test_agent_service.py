@@ -10,6 +10,7 @@ from openhands_agent.data_layers.service.implementation_service import (
     ImplementationService,
 )
 from openhands_agent.data_layers.service.notification_service import NotificationService
+from openhands_agent.data_layers.service.task_state_service import TaskStateService
 from openhands_agent.data_layers.service.task_service import TaskService
 from openhands_agent.data_layers.data.fields import (
     EmailFields,
@@ -45,6 +46,10 @@ class AgentServiceTests(unittest.TestCase):
         )
         self.task_client = task_client
         self.task_data_access = TaskService(
+            self.cfg.openhands_agent.youtrack,
+            TaskDataAccess(self.cfg.openhands_agent.youtrack, task_client),
+        )
+        self.task_state_service = TaskStateService(
             self.cfg.openhands_agent.youtrack,
             TaskDataAccess(self.cfg.openhands_agent.youtrack, task_client),
         )
@@ -126,6 +131,7 @@ class AgentServiceTests(unittest.TestCase):
         )
         self.service = AgentService(
             self.task_data_access,
+            self.task_state_service,
             self.implementation_service,
             self.testing_service,
             self.repository_service,
@@ -136,6 +142,7 @@ class AgentServiceTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'testing_service is required'):
             AgentService(
                 self.task_data_access,
+                self.task_state_service,
                 self.implementation_service,
                 None,
                 self.repository_service,
@@ -146,6 +153,7 @@ class AgentServiceTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'notification_service is required'):
             AgentService(
                 self.task_data_access,
+                self.task_state_service,
                 self.implementation_service,
                 self.testing_service,
                 self.repository_service,
@@ -388,6 +396,7 @@ class AgentServiceTests(unittest.TestCase):
     def test_process_assigned_task_can_skip_testing_validation(self) -> None:
         service = AgentService(
             self.task_data_access,
+            self.task_state_service,
             self.implementation_service,
             self.testing_service,
             self.repository_service,
@@ -454,6 +463,7 @@ class AgentServiceTests(unittest.TestCase):
     def test_process_assigned_task_skips_already_processed_tasks(self) -> None:
         service = AgentService(
             self.task_data_access,
+            self.task_state_service,
             self.implementation_service,
             self.testing_service,
             self.repository_service,
@@ -1216,6 +1226,7 @@ class AgentServiceTests(unittest.TestCase):
     def test_process_review_comment_marks_comment_processed(self) -> None:
         service = AgentService(
             self.task_data_access,
+            self.task_state_service,
             self.implementation_service,
             self.testing_service,
             self.repository_service,
@@ -1253,6 +1264,7 @@ class AgentServiceTests(unittest.TestCase):
         self.repository_service.publish_review_fix.side_effect = RuntimeError('push failed')
         service = AgentService(
             self.task_data_access,
+            self.task_state_service,
             self.implementation_service,
             self.testing_service,
             self.repository_service,
@@ -1286,6 +1298,7 @@ class AgentServiceTests(unittest.TestCase):
         self.repository_service.resolve_review_comment.side_effect = RuntimeError('provider down')
         service = AgentService(
             self.task_data_access,
+            self.task_state_service,
             self.implementation_service,
             self.testing_service,
             self.repository_service,
@@ -1381,6 +1394,7 @@ class AgentServiceTests(unittest.TestCase):
         ]
         service = AgentService(
             self.task_data_access,
+            self.task_state_service,
             self.implementation_service,
             self.testing_service,
             self.repository_service,
@@ -1451,6 +1465,7 @@ class AgentServiceTests(unittest.TestCase):
         self.repository_service.list_pull_request_comments.return_value = [first, second]
         service = AgentService(
             self.task_data_access,
+            self.task_state_service,
             self.implementation_service,
             self.testing_service,
             self.repository_service,
@@ -1488,6 +1503,7 @@ class AgentServiceTests(unittest.TestCase):
         self.repository_service.list_pull_request_comments.return_value = []
         service = AgentService(
             self.task_data_access,
+            self.task_state_service,
             self.implementation_service,
             self.testing_service,
             self.repository_service,

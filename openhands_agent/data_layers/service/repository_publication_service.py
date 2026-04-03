@@ -8,6 +8,7 @@ from openhands_agent.helpers.text_utils import normalized_text
 
 
 class RepositoryPublicationService(Service):
+    """Publish repository branch updates, pull requests, and review-fix pushes."""
     def __init__(self, repository_service, max_retries: int, logger=None) -> None:
         self._repository_service = repository_service
         self._max_retries = max_retries

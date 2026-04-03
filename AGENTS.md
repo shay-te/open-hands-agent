@@ -14,6 +14,7 @@ This repository uses OpenHands to implement YouTrack tasks and fix review commen
 - Do not create compatibility shim modules, barrel exports, or `__all__` re-export files; import from the real module directly.
 - Put shared utility modules under `openhands_agent/helpers/` instead of scattering them across service or root packages, and name them with the `_utils.py` suffix.
 - Put validation rules under `openhands_agent/validation/` instead of `data_layers/service/validation/`.
+- Give each service class a short responsibility comment or docstring. If the description clearly contains more than one job, split that class into smaller collaborators instead of letting it grow.
 
 ## Required Behavior
 
@@ -107,4 +108,5 @@ The goal is to keep the code:
 - Extract repeated workflow steps such as git, scp, and path building into helpers.
 - Prefer small reusable helpers over copy-pasted branches of similar code.
 - When service-layer orchestration repeats the same control-flow, error handling, or logging pattern, extract a small private helper in that service before introducing a broader shared abstraction.
+- When a service file starts carrying two different responsibilities, split the responsibilities into dedicated service/helper classes and keep the remaining class focused on one job.
 - When deduplicating code, preserve the existing behavior, task-state transitions, log messages, and test-visible outputs unless the task explicitly requires changing them.

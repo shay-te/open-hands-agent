@@ -6,6 +6,7 @@ from openhands_agent.data_layers.data.task import Task
 from openhands_agent.data_layers.service.notification_service import NotificationService
 from openhands_agent.data_layers.service.repository_service import RepositoryService
 from openhands_agent.data_layers.service.task_failure_handler import TaskFailureHandler
+from openhands_agent.data_layers.service.task_state_service import TaskStateService
 from openhands_agent.data_layers.service.task_service import TaskService
 from utils import build_task
 
@@ -13,10 +14,12 @@ from utils import build_task
 class TaskFailureHandlerTests(unittest.TestCase):
     def setUp(self) -> None:
         self.task_service = Mock(spec=TaskService)
+        self.task_state_service = Mock(spec=TaskStateService)
         self.repository_service = Mock(spec=RepositoryService)
         self.notification_service = Mock(spec=NotificationService)
         self.handler = TaskFailureHandler(
             self.task_service,
+            self.task_state_service,
             self.repository_service,
             self.notification_service,
         )
@@ -36,7 +39,7 @@ class TaskFailureHandlerTests(unittest.TestCase):
         comment = self.task_service.add_comment.call_args.args[1]
         self.assertIn('could not detect which repository', comment)
         self.assertIn('repository name or alias', comment)
-        self.task_service.move_task_to_open.assert_not_called()
+        self.task_state_service.move_task_to_open.assert_not_called()
         self.notification_service.notify_failure.assert_not_called()
 
     def test_handle_task_failure_restores_repositories_and_notifies_without_reopening(self) -> None:
@@ -58,7 +61,7 @@ class TaskFailureHandlerTests(unittest.TestCase):
             'OpenHands agent could not safely process this task: repository service down',
             self.task_service.add_comment.call_args.args[1],
         )
-        self.task_service.move_task_to_open.assert_not_called()
+        self.task_state_service.move_task_to_open.assert_not_called()
         self.notification_service.notify_failure.assert_called_once()
         notify_args = self.notification_service.notify_failure.call_args.args
         self.assertEqual(notify_args[0], 'process_assigned_task')
@@ -79,7 +82,7 @@ class TaskFailureHandlerTests(unittest.TestCase):
             prepared_task.repositories,
             force=True,
         )
-        self.task_service.move_task_to_open.assert_called_once_with(task.id)
+        self.task_state_service.move_task_to_open.assert_called_once_with(task.id)
         self.task_service.add_comment.assert_called_once()
         self.assertIn(
             'OpenHands agent stopped working on this task: push failed',

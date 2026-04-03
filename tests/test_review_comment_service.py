@@ -21,7 +21,6 @@ class ReviewCommentServiceTests(unittest.TestCase):
             add_comment=Mock(),
         )
         self.implementation_service = types.SimpleNamespace(
-            review_comment_from_payload=Mock(),
             fix_review_comment=Mock(
                 return_value={
                     ImplementationFields.SUCCESS: True,

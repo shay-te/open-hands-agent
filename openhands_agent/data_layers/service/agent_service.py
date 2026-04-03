@@ -4,6 +4,7 @@ from openhands_agent.data_layers.service.agent_state_registry import AgentStateR
 from openhands_agent.data_layers.service.task_failure_handler import TaskFailureHandler
 from openhands_agent.data_layers.service.review_comment_service import ReviewCommentService
 from openhands_agent.data_layers.service.task_publisher import TaskPublisher
+from openhands_agent.data_layers.service.task_state_service import TaskStateService
 from openhands_agent.validation.repository_connections import (
     RepositoryConnectionsValidator,
 )
@@ -38,11 +39,13 @@ from openhands_agent.helpers.task_execution_utils import (
 
 
 class AgentService(Service):
+    """Orchestrate the end-to-end task workflow and delegate specialized work to collaborators."""
     # NOTE: Task and review coordination state is kept in memory only.
     # It is not durable across process restarts.
     def __init__(
         self,
         task_service: TaskService,
+        task_state_service: TaskStateService,
         implementation_service: ImplementationService,
         testing_service: TestingService,
         repository_service: RepositoryService,
@@ -59,6 +62,8 @@ class AgentService(Service):
         self.logger = configure_logger(self.__class__.__name__)
         if testing_service is None:
             raise ValueError('testing_service is required')
+        if task_state_service is None:
+            raise ValueError('task_state_service is required')
         if notification_service is None:
             raise ValueError('notification_service is required')
         if review_comment_service is not None:
@@ -69,6 +74,7 @@ class AgentService(Service):
                 )
             state_registry = state_registry or review_state_registry
         self._task_service = task_service
+        self._task_state_service = task_state_service
         self._implementation_service = implementation_service
         self._testing_service = testing_service
         self._repository_service = repository_service
@@ -87,6 +93,7 @@ class AgentService(Service):
         )
         self._task_failure_handler = task_failure_handler or TaskFailureHandler(
             self._task_service,
+            self._task_state_service,
             self._repository_service,
             self._notification_service,
         )
@@ -112,6 +119,7 @@ class AgentService(Service):
         )
         self._task_publisher = task_publisher or TaskPublisher(
             self._task_service,
+            self._task_state_service,
             self._repository_service,
             self._notification_service,
             self._state_registry,
@@ -184,7 +192,7 @@ class AgentService(Service):
     def _start_task_processing(self, task: Task, prepared_task: PreparedTaskContext) -> bool:
         try:
             self._log_task_step(task.id, 'moving issue to in progress')
-            self._task_service.move_task_to_in_progress(task.id)
+            self._task_state_service.move_task_to_in_progress(task.id)
             self._log_task_step(task.id, 'moved issue to in progress')
         except Exception as exc:
             self._task_failure_handler.handle_task_failure(task, exc, prepared_task=prepared_task)
