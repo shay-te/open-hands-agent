@@ -1884,14 +1884,50 @@ class RepositoryServiceTests(unittest.TestCase):
             service._validation_report_text('/tmp/does-not-exist/validation_report.md'),
         )
 
-    def test_validation_report_text_returns_empty_string_when_file_is_blank(self) -> None:
+    def test_commit_branch_changes_uses_validation_report_file_and_removes_it(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             report_path = Path(temp_dir) / 'validation_report.md'
-            report_path.write_text('   \n', encoding='utf-8')
+            report_path.write_text(
+                'Validation report:\n- verified the task manually.\n',
+                encoding='utf-8',
+            )
 
             service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
 
-            self.assertEqual(service._validation_report_text(str(report_path)), '')
+            with patch.object(
+                service,
+                '_working_tree_status',
+                return_value=' M app.py\n?? validation_report.md\n',
+            ), patch.object(
+                service,
+                '_ensure_clean_worktree',
+            ) as mock_ensure_clean_worktree, patch.object(
+                service,
+                '_run_git',
+            ) as mock_run_git:
+                validation_report_description = service._commit_branch_changes_if_needed(
+                    temp_dir,
+                    'feature/proj-1/backend',
+                    'Implement PROJ-1',
+                )
+
+            self.assertEqual(
+                validation_report_description,
+                'Validation report:\n- verified the task manually.',
+            )
+            self.assertFalse(report_path.exists())
+            self.assertEqual(
+                [call.args[1] for call in mock_run_git.call_args_list],
+                [
+                    ['add', '-A'],
+                    ['reset', 'HEAD', '--', 'validation_report.md'],
+                    ['commit', '-m', 'Implement PROJ-1'],
+                ],
+            )
+            mock_ensure_clean_worktree.assert_called_once_with(
+                temp_dir,
+                'feature/proj-1/backend',
+            )
 
     def test_validation_report_paths_from_status_handles_renamed_report(self) -> None:
         status_output = 'R  old-report.md -> validation_report.md\n?? app.py\n'

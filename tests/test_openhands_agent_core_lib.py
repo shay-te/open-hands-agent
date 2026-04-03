@@ -110,6 +110,10 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
         ) as mock_notification_service_cls, patch(
             'openhands_agent.openhands_agent_core_lib.TaskPreflightService'
         ) as mock_task_preflight_service_cls, patch(
+            'openhands_agent.openhands_agent_core_lib.TaskFailureHandler'
+        ) as mock_task_failure_handler_cls, patch(
+            'openhands_agent.openhands_agent_core_lib.TaskPublisher'
+        ) as mock_task_publisher_cls, patch(
             'openhands_agent.openhands_agent_core_lib.AgentService'
         ) as mock_service_cls:
             app = OpenHandsAgentCoreLib(self.cfg)
@@ -171,6 +175,18 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
             repository_service=mock_repository_service_cls.return_value,
             task_branch_push_validator=ANY,
         )
+        mock_task_failure_handler_cls.assert_called_once_with(
+            task_service=mock_task_service_cls.return_value,
+            repository_service=mock_repository_service_cls.return_value,
+            notification_service=mock_notification_service_cls.return_value,
+        )
+        mock_task_publisher_cls.assert_called_once_with(
+            task_service=mock_task_service_cls.return_value,
+            repository_service=mock_repository_service_cls.return_value,
+            notification_service=mock_notification_service_cls.return_value,
+            state_registry=ANY,
+            failure_handler=mock_task_failure_handler_cls.return_value,
+        )
         mock_task_da_cls.assert_called_once_with(
             self.cfg.openhands_agent.youtrack,
             mock_build_ticket_client.return_value,
@@ -195,6 +211,8 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
             notification_service=mock_notification_service_cls.return_value,
             state_registry=ANY,
             review_comment_service=ANY,
+            task_failure_handler=mock_task_failure_handler_cls.return_value,
+            task_publisher=mock_task_publisher_cls.return_value,
             repository_connections_validator=ANY,
             startup_validator=ANY,
             task_preflight_service=mock_task_preflight_service_cls.return_value,

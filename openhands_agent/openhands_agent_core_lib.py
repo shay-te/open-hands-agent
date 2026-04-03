@@ -14,12 +14,14 @@ from openhands_agent.data_layers.service.implementation_service import (
 )
 from openhands_agent.data_layers.service.notification_service import NotificationService
 from openhands_agent.data_layers.service.repository_service import RepositoryService
+from openhands_agent.data_layers.service.task_failure_handler import TaskFailureHandler
 from openhands_agent.data_layers.service.task_preflight_service import (
     TaskPreflightService,
 )
 from openhands_agent.data_layers.service.review_comment_service import (
     ReviewCommentService,
 )
+from openhands_agent.data_layers.service.task_publisher import TaskPublisher
 from openhands_agent.data_layers.service.task_service import TaskService
 from openhands_agent.data_layers.service.testing_service import TestingService
 from openhands_agent.validation.branch_publishability import (
@@ -108,6 +110,7 @@ class OpenHandsAgentCoreLib(CoreLib):
         task_data_access = TaskDataAccess(ticket_cfg, ticket_client)
         task_service = TaskService(ticket_cfg, task_data_access)
         repository_service = RepositoryService(open_cfg, retry_cfg.max_retries)
+        notification_service = self._build_notification_service(open_cfg)
         state_registry = AgentStateRegistry()
         repository_connections_validator = RepositoryConnectionsValidator(repository_service)
         startup_validator = StartupDependencyValidator(
@@ -130,6 +133,18 @@ class OpenHandsAgentCoreLib(CoreLib):
             repository_service=repository_service,
             task_branch_push_validator=task_branch_push_validator,
         )
+        task_failure_handler = TaskFailureHandler(
+            task_service=task_service,
+            repository_service=repository_service,
+            notification_service=notification_service,
+        )
+        task_publisher = TaskPublisher(
+            task_service=task_service,
+            repository_service=repository_service,
+            notification_service=notification_service,
+            state_registry=state_registry,
+            failure_handler=task_failure_handler,
+        )
         review_comment_service = ReviewCommentService(
             task_service=task_service,
             implementation_service=implementation_service,
@@ -141,9 +156,11 @@ class OpenHandsAgentCoreLib(CoreLib):
             implementation_service=implementation_service,
             testing_service=testing_service,
             repository_service=repository_service,
-            notification_service=self._build_notification_service(open_cfg),
+            notification_service=notification_service,
             state_registry=state_registry,
             review_comment_service=review_comment_service,
+            task_failure_handler=task_failure_handler,
+            task_publisher=task_publisher,
             repository_connections_validator=repository_connections_validator,
             startup_validator=startup_validator,
             task_preflight_service=task_preflight_service,
