@@ -959,6 +959,7 @@ class RepositoryServiceTests(unittest.TestCase):
         ) as mock_run:
             service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
             service.logger = Mock()
+            service._publication_service.logger = Mock()
             service.create_pull_request(
                 repository,
                 title='PROJ-1: Fix bug',
@@ -993,7 +994,7 @@ class RepositoryServiceTests(unittest.TestCase):
             description='Ready',
         )
         mock_push_branch.assert_called_once_with('.', 'feature/proj-1/backend', repository)
-        service.logger.warning.assert_called_once_with(
+        service._publication_service.logger.warning.assert_called_once_with(
             'validation report was missing or empty for repository %s; '
             'falling back to structured pull request description',
             repository.id,
