@@ -606,7 +606,7 @@ class AgentService(Service):
         failed_repositories: list[str] = []
         description = pull_request_description(task, execution)
         session_id = text_from_mapping(execution, ImplementationFields.SESSION_ID)
-        commit_message = self._task_commit_message(task, execution)
+        commit_message = self._task_commit_message(task)
         for repository in prepared_task.repositories or []:
             pull_request = self._create_pull_request_for_repository(
                 task,
@@ -626,7 +626,6 @@ class AgentService(Service):
     @staticmethod
     def _task_commit_message(
         task: Task,
-        execution: dict[str, str | bool],
     ) -> str:
         return f'Implement {task.id}'
 
@@ -844,11 +843,7 @@ class AgentService(Service):
         task: Task,
         prepared_task: PreparedTaskContext | None = None,
     ) -> None:
-        repositories = (
-            prepared_task.repositories
-            if prepared_task is not None
-            else getattr(task, 'repositories', [])
-        )
+        repositories = prepared_task.repositories if prepared_task is not None else []
         repositories = repositories or []
         if not repositories:
             return

@@ -158,9 +158,23 @@ class RepositoryService(Service):
                 repository,
                 restore_workspace=False,
             )
-            pull_request_description = (
-                normalized_text(validation_report_description) or normalized_text(description)
+            normalized_validation_report_description = normalized_text(
+                validation_report_description
             )
+            pull_request_description = (
+                normalized_validation_report_description or normalized_text(description)
+            )
+            if normalized_validation_report_description:
+                self.logger.info(
+                    'using validation report as pull request description for repository %s',
+                    repository.id,
+                )
+            elif normalized_text(description):
+                self.logger.warning(
+                    'validation report was missing or empty for repository %s; '
+                    'falling back to structured pull request description',
+                    repository.id,
+                )
             pull_request = self._pull_request_data_access(repository).create_pull_request(
                 title=title,
                 source_branch=source_branch,
@@ -802,7 +816,17 @@ class RepositoryService(Service):
             validation_report_description = self._validation_report_text(
                 validation_report_full_path,
             )
-            if validation_report_description:
+            if validation_report_description is None:
+                self.logger.warning(
+                    'validation report file was reported by git status but missing at %s',
+                    validation_report_full_path,
+                )
+            elif not validation_report_description:
+                self.logger.warning(
+                    'validation report file was empty at %s',
+                    validation_report_full_path,
+                )
+            else:
                 validation_report_descriptions.append(validation_report_description)
             if os.path.exists(validation_report_full_path):
                 os.remove(validation_report_full_path)
@@ -1070,9 +1094,9 @@ class RepositoryService(Service):
         return validation_report_paths
 
     @staticmethod
-    def _validation_report_text(validation_report_full_path: str) -> str:
+    def _validation_report_text(validation_report_full_path: str) -> str | None:
         if not os.path.exists(validation_report_full_path):
-            return ''
+            return None
         return Path(validation_report_full_path).read_text(encoding='utf-8').strip()
 
     @staticmethod

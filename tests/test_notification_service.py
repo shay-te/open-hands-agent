@@ -275,3 +275,24 @@ class NotificationServiceTests(unittest.TestCase):
             )
 
         self.assertEqual(self.service.logger.exception.call_count, 2)
+
+    def test_pull_request_summary_uses_one_block_per_pull_request(self) -> None:
+        summary = self.service._pull_request_summary(
+            [
+                {
+                    PullRequestFields.REPOSITORY_ID: 'client',
+                    PullRequestFields.TITLE: 'Client fix',
+                    PullRequestFields.URL: 'https://bitbucket/pr/17',
+                },
+                {
+                    PullRequestFields.REPOSITORY_ID: 'backend',
+                    PullRequestFields.TITLE: 'Backend fix',
+                    PullRequestFields.URL: '',
+                },
+            ]
+        )
+
+        self.assertEqual(
+            summary,
+            '- client: Client fix\nhttps://bitbucket/pr/17\n\n- backend: Backend fix',
+        )

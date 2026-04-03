@@ -945,6 +945,7 @@ class RepositoryServiceTests(unittest.TestCase):
             side_effect=subprocess_results,
         ) as mock_run:
             service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+            service.logger = Mock()
             service.create_pull_request(
                 repository,
                 title='PROJ-1: Fix bug',
@@ -979,6 +980,11 @@ class RepositoryServiceTests(unittest.TestCase):
             description='Ready',
         )
         mock_push_branch.assert_called_once_with('.', 'feature/proj-1/backend', repository)
+        service.logger.warning.assert_called_once_with(
+            'validation report was missing or empty for repository %s; '
+            'falling back to structured pull request description',
+            repository.id,
+        )
 
     def test_create_pull_request_excludes_validation_report_from_commit(self) -> None:
         repository = self.backend_repo
@@ -1857,6 +1863,22 @@ class RepositoryServiceTests(unittest.TestCase):
                 service._validation_report_text(str(report_path)),
                 'Validation report:\n- checked the branch.',
             )
+
+    def test_validation_report_text_returns_none_when_file_is_missing(self) -> None:
+        service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+
+        self.assertIsNone(
+            service._validation_report_text('/tmp/does-not-exist/validation_report.md'),
+        )
+
+    def test_validation_report_text_returns_empty_string_when_file_is_blank(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            report_path = Path(temp_dir) / 'validation_report.md'
+            report_path.write_text('   \n', encoding='utf-8')
+
+            service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+
+            self.assertEqual(service._validation_report_text(str(report_path)), '')
 
     def test_publish_branch_updates_returns_to_destination_branch_when_push_fails(self) -> None:
         with patch(

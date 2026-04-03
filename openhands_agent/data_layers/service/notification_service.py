@@ -169,6 +169,8 @@ class NotificationService(Service):
             repository_label = pull_request.get(PullRequestFields.REPOSITORY_ID, 'repository')
             title = pull_request.get(PullRequestFields.TITLE, '')
             url = pull_request.get(PullRequestFields.URL, '')
-            lines.append(f'- {repository_label}: {title}')
-            lines.append(url)
-        return '\n'.join(line for line in lines if line)
+            entry_lines = [f'- {repository_label}: {title}']
+            if url:
+                entry_lines.append(url)
+            lines.append('\n'.join(entry_lines))
+        return '\n\n'.join(lines)
