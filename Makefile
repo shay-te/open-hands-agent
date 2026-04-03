@@ -1,7 +1,7 @@
 PYTHON ?= python3
 VENV_PYTHON = .venv/bin/python
 
-.PHONY: bootstrap configure doctor doctor-agent doctor-openhands test install run compose-up
+.PHONY: bootstrap configure doctor doctor-agent doctor-openhands test run compose-up
 
 bootstrap:
 	./scripts/bootstrap.sh
@@ -21,16 +21,13 @@ doctor-openhands:
 test:
 	$(VENV_PYTHON) -m unittest discover -s tests
 
-install:
-	$(VENV_PYTHON) -m openhands_agent.install
-
 run:
 	./scripts/run-local.sh
 
 compose-up:
 	@if [ -f .env ]; then set -a; . ./.env; set +a; fi; \
 	if [ "$${OPENHANDS_SKIP_TESTING:-false}" != "true" ] && [ "$${OPENHANDS_TESTING_CONTAINER_ENABLED:-false}" = "true" ]; then \
-		docker compose --profile testing up --build --attach install --attach openhands-agent; \
+		docker compose --profile testing up --build --attach openhands-agent; \
 	else \
-		docker compose up --build --attach install --attach openhands-agent; \
+		docker compose up --build --attach openhands-agent; \
 	fi

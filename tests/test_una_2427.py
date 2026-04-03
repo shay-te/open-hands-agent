@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 from openhands_agent.openhands_agent_core_lib import OpenHandsAgentCoreLib
 from utils import build_test_cfg
@@ -53,28 +53,6 @@ class TestUna2427(unittest.TestCase):
             # Validate service and its components
             self.assertIsNotNone(core_lib.service)
             self.assertTrue(hasattr(core_lib.service, 'validate_connections'))
-
-    def test_core_lib_lifecycle_operations(self) -> None:
-        """Test CoreLib lifecycle operations without local persistence"""
-        with patch('openhands_agent.openhands_agent_core_lib.GlobalHydra.instance') as mock_hydra_instance, \
-             patch('openhands_agent.openhands_agent_core_lib.logger.info') as mock_info:
-            OpenHandsAgentCoreLib.install(self.cfg)
-            mock_hydra_instance.return_value.clear.assert_called_once_with()
-
-            mock_hydra_instance.reset_mock()
-
-            # Test uninstall
-            OpenHandsAgentCoreLib.uninstall(self.cfg)
-            mock_hydra_instance.return_value.clear.assert_called_once_with()
-            mock_info.assert_any_call(
-                'Installing OpenHandsAgentCoreLib without a local persistence layer'
-            )
-            mock_info.assert_any_call('OpenHandsAgentCoreLib installed successfully')
-            mock_info.assert_any_call(
-                'Uninstalling OpenHandsAgentCoreLib without a local persistence layer'
-            )
-            mock_info.assert_any_call('OpenHandsAgentCoreLib uninstalled successfully')
-
 
 if __name__ == '__main__':
     unittest.main()

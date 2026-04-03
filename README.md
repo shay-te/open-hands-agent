@@ -405,8 +405,6 @@ What is automated now:
 - `make run`
   - loads `.env`
   - starts the app
-- `make install`
-  - runs `OpenHandsAgentCoreLib.install`
 - Docker entrypoint
   - waits for OpenHands
   - starts the app
@@ -446,13 +444,7 @@ make doctor
 make run
 ```
 
-5. Run the app install hook:
-
-```bash
-make install
-```
-
-6. Or run with Docker:
+5. Or run with Docker:
 
 ```bash
 make compose-up
@@ -530,7 +522,6 @@ openhands_agent:
 set -a
 source .env
 set +a
-python -m openhands_agent.install
 python -m openhands_agent.main
 ```
 
@@ -545,7 +536,6 @@ docker compose up --build
 What the compose stack does:
 
 - starts an `openhands` container on port `3000`
-- runs an `install` container that calls `OpenHandsAgentCoreLib.install`
 - builds and starts an `openhands-agent` container from this repo
 - makes the agent wait until OpenHands is reachable at `http://openhands:3000`
 - then runs `python -m openhands_agent.main`

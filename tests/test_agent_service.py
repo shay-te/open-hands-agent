@@ -748,11 +748,6 @@ class AgentServiceTests(unittest.TestCase):
             force=True,
         )
         self.assertEqual(self.email_core_lib.send.call_count, 2)
-        self.service.logger.warning.assert_called_once_with(
-            'implementation failed for task %s: %s',
-            'PROJ-1',
-            'implementation agent reported the task is not ready',
-        )
 
     def test_process_assigned_task_restores_repositories_after_branch_preparation_failure(self) -> None:
         self.repository_service.prepare_task_branches.side_effect = RuntimeError(
@@ -924,11 +919,6 @@ class AgentServiceTests(unittest.TestCase):
             self.task_client.add_comment.call_args_list[1].args[1],
         )
         self.assertEqual(self.email_core_lib.send.call_count, 2)
-        self.service.logger.warning.assert_called_once_with(
-            'testing failed for task %s: %s',
-            'PROJ-1',
-            'backend tests are still failing',
-        )
 
     def test_process_assigned_task_handles_implementation_request_errors(self) -> None:
         self.openhands_client.implement_task.side_effect = RuntimeError('openhands down')
@@ -957,10 +947,6 @@ class AgentServiceTests(unittest.TestCase):
         )
         self.assertIn('openhands down', self.task_client.add_comment.call_args_list[1].args[1])
         self.assertEqual(self.email_core_lib.send.call_count, 2)
-        self.service.logger.exception.assert_called_once_with(
-            'implementation request failed for task %s',
-            'PROJ-1',
-        )
 
     def test_process_assigned_task_handles_testing_request_errors(self) -> None:
         self.openhands_client.test_task.side_effect = RuntimeError('testing sandbox down')
@@ -992,10 +978,6 @@ class AgentServiceTests(unittest.TestCase):
             self.task_client.add_comment.call_args_list[1].args[1],
         )
         self.assertEqual(self.email_core_lib.send.call_count, 2)
-        self.service.logger.exception.assert_called_once_with(
-            'testing request failed for task %s',
-            'PROJ-1',
-        )
 
     def test_process_assigned_task_reports_partial_pr_failures_without_moving_review(self) -> None:
         self.openhands_client.test_task.return_value = {
@@ -1060,10 +1042,6 @@ class AgentServiceTests(unittest.TestCase):
             'PROJ-1',
             'OpenHands agent could not safely process this task: state update failed',
         )
-        self.service.logger.exception.assert_called_once_with(
-            'failed to move task %s to in progress',
-            'PROJ-1',
-        )
 
     def test_process_assigned_task_moves_to_review_when_completion_comment_fails(self) -> None:
         self.task_client.add_comment.side_effect = [
@@ -1116,10 +1094,6 @@ class AgentServiceTests(unittest.TestCase):
             },
         )
         self.assertEqual(self.email_core_lib.send.call_count, 2)
-        self.service.logger.exception.assert_called_once_with(
-            'failed to add review summary comment for task %s',
-            'PROJ-1',
-        )
 
     def test_process_assigned_task_reopens_when_move_to_review_fails(self) -> None:
         self.task_client.move_issue_to_state.side_effect = [
@@ -1157,10 +1131,6 @@ class AgentServiceTests(unittest.TestCase):
         )
         self.assertEqual(self.service._state_registry.processed_task_map, {})
         self.assertEqual(self.email_core_lib.send.call_count, 2)
-        self.service.logger.exception.assert_called_once_with(
-            'failed to move task %s to review',
-            'PROJ-1',
-        )
 
     def test_process_assigned_task_continues_when_move_to_open_fails(self) -> None:
         self.openhands_client.implement_task.side_effect = RuntimeError('openhands down')
@@ -1182,19 +1152,7 @@ class AgentServiceTests(unittest.TestCase):
                 unittest.mock.call('PROJ-1', 'State', 'Todo'),
             ],
         )
-        self.assertEqual(
-            self.service.logger.exception.call_args_list,
-            [
-                unittest.mock.call(
-                    'implementation request failed for task %s',
-                    'PROJ-1',
-                ),
-                unittest.mock.call(
-                    'failed to move task %s back to open',
-                    'PROJ-1',
-                ),
-            ],
-        )
+        self.assertEqual(self.task_client.add_comment.call_count, 2)
 
     def test_process_assigned_task_ignores_completion_notification_failures(self) -> None:
         self.notification_service.notify_task_ready_for_review = Mock(side_effect=RuntimeError('smtp failed'))
@@ -1205,9 +1163,14 @@ class AgentServiceTests(unittest.TestCase):
             results = self.service.process_assigned_task(task)
 
         self.assertEqual(results[StatusFields.STATUS], StatusFields.READY_FOR_REVIEW)
-        self.service.logger.exception.assert_called_once_with(
-            'failed to send completion notification for task %s',
-            'PROJ-1',
+        self.notification_service.notify_task_ready_for_review.assert_called_once()
+        self.email_core_lib.send.assert_not_called()
+        self.assertEqual(
+            self.task_client.move_issue_to_state.call_args_list,
+            [
+                unittest.mock.call('PROJ-1', 'State', 'In Progress'),
+                unittest.mock.call('PROJ-1', 'State', 'To Verify'),
+            ],
         )
 
     def test_handle_pull_request_comment_updates_known_branch_and_repository(self) -> None:

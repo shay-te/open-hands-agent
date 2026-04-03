@@ -316,9 +316,6 @@ class DeploymentFilesTests(unittest.TestCase):
         makefile_text = (REPO_ROOT / 'Makefile').read_text(encoding='utf-8')
         compose_text = (REPO_ROOT / 'docker-compose.yaml').read_text(encoding='utf-8')
         gitignore_text = (REPO_ROOT / '.gitignore').read_text(encoding='utf-8')
-        install_entrypoint_text = (
-            REPO_ROOT / 'docker' / 'entrypoint-install.sh'
-        ).read_text(encoding='utf-8')
         run_entrypoint_text = (
             REPO_ROOT / 'docker' / 'entrypoint-run.sh'
         ).read_text(encoding='utf-8')
@@ -338,19 +335,18 @@ class DeploymentFilesTests(unittest.TestCase):
         self.assertNotIn('sqlalchemy', install_deps_text)
         self.assertNotIn('pydantic', install_deps_text)
         self.assertNotIn('deps-only', install_deps_text)
+        self.assertNotIn('--install-only', run_local_text)
+        self.assertNotIn('openhands_agent.install', run_local_text)
         self.assertNotIn('openhands_agent.validate_env --mode agent', run_local_text)
-        self.assertIn('openhands_agent.install', run_local_text)
         self.assertIn('bootstrap:', makefile_text)
         self.assertIn('configure:', makefile_text)
         self.assertIn('scripts/generate_env.py --output .env', makefile_text)
         self.assertIn('doctor:', makefile_text)
-        self.assertIn('install:', makefile_text)
         self.assertIn('run:', makefile_text)
         self.assertIn('--profile testing', makefile_text)
         self.assertIn('OPENHANDS_SKIP_TESTING', makefile_text)
-        self.assertIn('--attach install --attach openhands-agent', makefile_text)
+        self.assertIn('--attach openhands-agent', makefile_text)
         self.assertNotIn('.docker-compose.selected-repos.yaml', makefile_text)
-        self.assertIn('python -m openhands_agent.install', install_entrypoint_text)
         self.assertIn('OPENHANDS_TESTING_CONTAINER_ENABLED', run_entrypoint_text)
         self.assertIn('OPENHANDS_SKIP_TESTING', run_entrypoint_text)
         self.assertIn('OPENHANDS_TESTING_BASE_URL', run_entrypoint_text)
@@ -358,8 +354,6 @@ class DeploymentFilesTests(unittest.TestCase):
         self.assertIn('username=%s', run_entrypoint_text)
         self.assertNotIn('username=shacoshe', run_entrypoint_text)
         self.assertNotIn('BITBUCKET_API_USERNAME', compose_text)
-        self.assertIn('install:', compose_text)
-        self.assertIn('/app/docker/entrypoint-install.sh', compose_text)
         self.assertIn('/app/docker/entrypoint-run.sh', compose_text)
         self.assertIn('build/', gitignore_text)
         self.assertIn('dist/', gitignore_text)
@@ -388,10 +382,7 @@ class DeploymentFilesTests(unittest.TestCase):
         self.assertIn('COPY . .', dockerfile_text)
         self.assertNotIn('COPY pyproject.toml ./', dockerfile_text)
         self.assertIn('apt-get install -y --no-install-recommends git', dockerfile_text)
-        self.assertIn(
-            'chmod +x /app/docker/entrypoint-run.sh /app/docker/entrypoint-install.sh',
-            dockerfile_text,
-        )
+        self.assertIn('chmod +x /app/docker/entrypoint-run.sh', dockerfile_text)
         self.assertNotIn('CMD ["/app/docker/entrypoint-run.sh"]', dockerfile_text)
         self.assertNotIn(
             'RUN sh /app/scripts/install-python-deps.sh python deps-only',
@@ -405,14 +396,13 @@ class DeploymentFilesTests(unittest.TestCase):
             'AGENT_SERVER_IMAGE_TAG: ${OPENHANDS_AGENT_SERVER_IMAGE_TAG:-1.12.0-python}',
             compose_text,
         )
-        openhands_section = compose_text.split('  install:')[0]
         self.assertIn(
             'AGENT_SERVER_IMAGE_REPOSITORY: ${OPENHANDS_AGENT_SERVER_IMAGE_REPOSITORY:-ghcr.io/openhands/agent-server}',
-            openhands_section,
+            compose_text,
         )
         self.assertIn(
             'AGENT_SERVER_IMAGE_TAG: ${OPENHANDS_AGENT_SERVER_IMAGE_TAG:-1.12.0-python}',
-            openhands_section,
+            compose_text,
         )
         self.assertIn('repositories:', config_text)
         self.assertIn('YOUTRACK_ISSUE_STATES', config_text)
@@ -435,7 +425,7 @@ class DeploymentFilesTests(unittest.TestCase):
         self.assertIn('coverage run -m unittest discover -s tests', workflow_text)
         self.assertIn('coverage report --show-missing', workflow_text)
         self.assertIn(
-            'shellcheck scripts/bootstrap.sh scripts/install-python-deps.sh scripts/run-local.sh docker/entrypoint-run.sh docker/entrypoint-install.sh',
+            'shellcheck scripts/bootstrap.sh scripts/install-python-deps.sh scripts/run-local.sh docker/entrypoint-run.sh',
             workflow_text,
         )
 

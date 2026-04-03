@@ -11,4 +11,4 @@ RUN sh /app/scripts/install-python-deps.sh python && \
     apt-get update && \
     apt-get install -y --no-install-recommends git && \
     rm -rf /var/lib/apt/lists/* && \
-    chmod +x /app/docker/entrypoint-run.sh /app/docker/entrypoint-install.sh
+    chmod +x /app/docker/entrypoint-run.sh

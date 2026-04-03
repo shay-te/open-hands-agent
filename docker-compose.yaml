@@ -162,14 +162,6 @@ services:
   #   extra_hosts:
   #     - host.docker.internal:host-gateway
 
-  install:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    entrypoint: ["/app/docker/entrypoint-install.sh"]
-    environment: *openhands-agent-env
-    restart: "no"
-
   openhands-agent:
     build:
       context: .
@@ -178,8 +170,6 @@ services:
     depends_on:
       openhands:
         condition: service_started
-      install:
-        condition: service_completed_successfully
     environment:
       <<: *openhands-agent-env
       REPOSITORY_ROOT_PATH: /workspace/project

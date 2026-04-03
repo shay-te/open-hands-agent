@@ -18,8 +18,4 @@ set -a
 . ./.env
 set +a
 
-if [ "${1:-}" = "--install-only" ]; then
-  exec .venv/bin/python -m openhands_agent.install
-fi
-
 exec .venv/bin/python -m openhands_agent.main

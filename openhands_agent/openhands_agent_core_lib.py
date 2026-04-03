@@ -1,4 +1,3 @@
-from hydra.core.global_hydra import GlobalHydra
 from omegaconf import DictConfig
 
 from core_lib.core_lib import CoreLib
@@ -56,29 +55,6 @@ ISSUE_PLATFORM_CONFIG_NAMES = {
 
 
 class OpenHandsAgentCoreLib(CoreLib):
-    @staticmethod
-    def install(cfg: DictConfig):
-        GlobalHydra.instance().clear()
-        logger.info('Installing OpenHandsAgentCoreLib without a local persistence layer')
-        logger.info('OpenHandsAgentCoreLib installed successfully')
-
-    @staticmethod
-    def uninstall(cfg: DictConfig):
-        GlobalHydra.instance().clear()
-        logger.info('Uninstalling OpenHandsAgentCoreLib without a local persistence layer')
-        logger.info('OpenHandsAgentCoreLib uninstalled successfully')
-
-    @staticmethod
-    def create(cfg: DictConfig, name: str):
-        logger.info(
-            'Skipping core-lib create hook for %s because persistence support is disabled',
-            name,
-        )
-
-    @staticmethod
-    def downgrade(cfg: DictConfig):
-        logger.info('Skipping core-lib downgrade because persistence support is disabled')
-
     def __init__(self, cfg: DictConfig) -> None:
         CoreLib.__init__(self)
         self.config = cfg
