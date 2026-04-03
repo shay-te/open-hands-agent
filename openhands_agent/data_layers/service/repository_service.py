@@ -8,6 +8,12 @@ from urllib.parse import urlparse
 from openhands_agent.client.bitbucket_auth import basic_auth_header
 from openhands_agent.data_layers.data.task import Task
 from openhands_agent.data_layers.data.fields import RepositoryFields
+from openhands_agent.helpers.git_clean_utils import (
+    generated_artifact_paths_from_status,
+    git_ready_command_summary,
+    status_contains_only_removable_artifacts,
+    validation_report_paths_from_status,
+)
 from openhands_agent.helpers.logging_utils import configure_logger
 from openhands_agent.helpers.text_utils import (
     normalized_lower_text,
@@ -229,24 +235,17 @@ class RepositoryService(RepositoryInventoryService):
                 current_branch or '<unknown>',
             )
         try:
-            checkout_args = ['checkout']
-            if dirty_worktree:
-                checkout_args.append('-f')
-            checkout_args.append(destination_branch)
-            self._run_git(
-                repository.local_path,
-                checkout_args,
-                f'failed to restore repository at {repository.local_path} to {destination_branch}',
-                repository,
-            )
             if dirty_worktree and force:
+                self._make_git_ready_for_work(
+                    repository.local_path,
+                    destination_branch,
+                    repository,
+                )
+            else:
                 self._run_git(
                     repository.local_path,
-                    ['clean', '-fd'],
-                    (
-                        f'failed to remove untracked files while restoring repository '
-                        f'at {repository.local_path} to {destination_branch}'
-                    ),
+                    ['checkout', destination_branch],
+                    f'failed to restore repository at {repository.local_path} to {destination_branch}',
                     repository,
                 )
             self.logger.info(
@@ -273,6 +272,7 @@ class RepositoryService(RepositoryInventoryService):
             repository.local_path,
             destination_branch,
             branch_name,
+            repository,
         )
         return repository
 
@@ -494,14 +494,20 @@ class RepositoryService(RepositoryInventoryService):
         repository=None,
     ) -> None:
         current_branch = self._current_branch(local_path)
-        self._ensure_clean_worktree(local_path, current_branch)
+        if self._working_tree_status(local_path):
+            current_branch = self._make_git_ready_for_work(
+                local_path,
+                destination_branch,
+                repository,
+            )
         current_branch = self._ensure_destination_branch_checked_out(
             local_path,
             destination_branch,
             current_branch,
         )
         self._validate_destination_branch_tracking_state(local_path, destination_branch)
-        self._pull_destination_branch(local_path, destination_branch, repository)
+        if self._uses_remote_destination_sync(repository):
+            self._pull_destination_branch(local_path, destination_branch, repository)
         current_branch = self._current_branch(local_path)
         self._assert_current_branch(local_path, destination_branch, current_branch)
         self._ensure_clean_worktree(local_path, current_branch)
@@ -511,9 +517,15 @@ class RepositoryService(RepositoryInventoryService):
         local_path: str,
         destination_branch: str,
         branch_name: str,
+        repository=None,
     ) -> None:
         current_branch = self._current_branch(local_path)
-        self._ensure_clean_worktree(local_path, current_branch)
+        if self._working_tree_status(local_path):
+            current_branch = self._make_git_ready_for_work(
+                local_path,
+                destination_branch,
+                repository,
+            )
         self._validate_destination_branch_tracking_state(local_path, destination_branch)
         current_branch = self._ensure_task_branch_checked_out(
             local_path,
@@ -528,6 +540,10 @@ class RepositoryService(RepositoryInventoryService):
         status_output = self._working_tree_status(local_path)
         if not status_output:
             return
+        if self._discard_only_generated_artifacts(local_path, status_output, current_branch):
+            status_output = self._working_tree_status(local_path)
+            if not status_output:
+                return
         status_details = status_output.strip()
         self.logger.warning(
             'repository at %s still has uncommitted changes on branch %s:\n%s',
@@ -539,6 +555,104 @@ class RepositoryService(RepositoryInventoryService):
             f'repository at {local_path} has uncommitted changes on branch '
             f'{current_branch or "<unknown>"}; refusing to start a new task\n'
             f'{status_details}'
+        )
+
+    def _discard_only_generated_artifacts(
+        self,
+        local_path: str,
+        status_output: str,
+        current_branch: str,
+    ) -> bool:
+        generated_artifact_paths = self._generated_artifact_paths_from_status(status_output)
+        validation_report_paths = self._validation_report_paths_from_status(status_output)
+        removable_paths = [*generated_artifact_paths, *validation_report_paths]
+        if not removable_paths:
+            return False
+        if not self._status_contains_only_removable_artifacts(
+            status_output,
+            generated_artifact_paths,
+            validation_report_paths,
+        ):
+            return False
+        if not current_branch:
+            return False
+        self.logger.warning(
+            'discarding generated artifacts on branch %s before continuing:\n%s',
+            current_branch,
+            status_output.strip(),
+        )
+        self._run_git(
+            local_path,
+            ['checkout', '-f', current_branch],
+            (
+                f'failed to discard generated artifacts while resetting branch '
+                f'{current_branch} at {local_path}'
+            ),
+        )
+        self._run_git(
+            local_path,
+            ['clean', '-fd'],
+            f'failed to remove generated artifacts while cleaning branch {current_branch}',
+        )
+        return True
+
+    def _make_git_ready_for_work(
+        self,
+        local_path: str,
+        destination_branch: str,
+        repository=None,
+    ) -> str:
+        include_remote_sync = self._uses_remote_destination_sync(repository)
+        self.logger.info(
+            'making git ready before starting work at %s: %s',
+            local_path,
+            git_ready_command_summary(
+                destination_branch,
+                include_remote_sync=include_remote_sync,
+            ),
+        )
+        if include_remote_sync:
+            self._run_git(
+                local_path,
+                ['fetch', 'origin'],
+                f'failed to fetch origin for repository at {local_path}',
+                repository,
+            )
+        self._run_git(
+            local_path,
+            ['checkout', '-f', destination_branch],
+            f'failed to switch repository at {local_path} to {destination_branch}',
+            repository,
+        )
+        if include_remote_sync:
+            self._run_git(
+                local_path,
+                ['reset', '--hard', f'origin/{destination_branch}'],
+                (
+                    f'failed to reset repository at {local_path} to '
+                    f'origin/{destination_branch}'
+                ),
+                repository,
+            )
+        self._run_git(
+            local_path,
+            ['clean', '-fd'],
+            f'failed to remove untracked files while cleaning repository at {local_path}',
+            repository,
+        )
+        current_branch = self._current_branch(local_path)
+        self._assert_current_branch(local_path, destination_branch, current_branch)
+        self._ensure_clean_worktree(local_path, current_branch)
+        return current_branch
+
+    @staticmethod
+    def _uses_remote_destination_sync(repository) -> bool:
+        return bool(
+            repository is not None
+            and (
+                normalized_text(text_from_attr(repository, 'remote_url'))
+                or normalized_text(text_from_attr(repository, 'repo_slug'))
+            )
         )
 
     def _ensure_destination_branch_checked_out(
@@ -669,16 +783,7 @@ class RepositoryService(RepositoryInventoryService):
 
     @staticmethod
     def _validation_report_paths_from_status(status_output: str) -> list[str]:
-        validation_report_paths = []
-        for line in status_output.splitlines():
-            if len(line) < 4:
-                continue
-            path = line[3:]
-            if ' -> ' in path:
-                path = path.split(' -> ', 1)[1]
-            if path.endswith('validation_report.md'):
-                validation_report_paths.append(path)
-        return validation_report_paths
+        return validation_report_paths_from_status(status_output)
 
     @staticmethod
     def _validation_report_text(validation_report_full_path: str) -> str | None:
@@ -688,25 +793,20 @@ class RepositoryService(RepositoryInventoryService):
 
     @staticmethod
     def _generated_artifact_paths_from_status(status_output: str) -> list[str]:
-        generated_artifact_paths: list[str] = []
-        generated_artifact_roots = {'build', 'dist', 'out', 'coverage', 'target'}
-        for line in status_output.splitlines():
-            if len(line) < 4:
-                continue
-            path = line[3:]
-            if ' -> ' in path:
-                path = path.split(' -> ', 1)[1]
-            normalized_path = path.strip().rstrip('/')
-            if not normalized_path:
-                continue
-            if normalized_path.endswith('validation_report.md'):
-                continue
-            path_root = normalized_path.split('/', 1)[0]
-            if path_root not in generated_artifact_roots:
-                continue
-            if path_root not in generated_artifact_paths:
-                generated_artifact_paths.append(path_root)
-        return generated_artifact_paths
+        return generated_artifact_paths_from_status(status_output)
+
+    @classmethod
+    def _status_contains_only_removable_artifacts(
+        cls,
+        status_output: str,
+        generated_artifact_paths: list[str],
+        validation_report_paths: list[str],
+    ) -> bool:
+        return status_contains_only_removable_artifacts(
+            status_output,
+            generated_artifact_paths,
+            validation_report_paths,
+        )
 
     def _git_reference_exists(self, local_path: str, reference: str) -> bool:
         result = subprocess.run(

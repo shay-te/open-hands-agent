@@ -588,6 +588,39 @@ class RepositoryServiceTests(unittest.TestCase):
             ],
         )
 
+    def test_prepare_task_branches_cleans_untracked_build_output_before_reusing_branch(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_path = Path(temp_dir) / 'client'
+            self._create_real_git_repository(repo_path)
+            self._run_git(repo_path, ['checkout', '-b', 'UNA-2298'])
+            build_dir = repo_path / 'build'
+            build_dir.mkdir()
+            (build_dir / 'main.js').write_text('compiled\n', encoding='utf-8')
+
+            repository = types.SimpleNamespace(
+                id='client',
+                local_path=str(repo_path),
+                destination_branch='main',
+            )
+            service = RepositoryService([], 3)
+
+            with patch(
+                'openhands_agent.data_layers.service.repository_service.shutil.which',
+                return_value='/usr/bin/git',
+            ):
+                prepared_repositories = service.prepare_task_branches(
+                    [repository],
+                    {'client': 'UNA-2298'},
+                )
+
+            self.assertEqual(prepared_repositories, [repository])
+            self.assertEqual(
+                self._git_stdout(repo_path, ['rev-parse', '--abbrev-ref', 'HEAD']),
+                'UNA-2298',
+            )
+            self.assertEqual(self._git_stdout(repo_path, ['status', '--porcelain']), '')
+            self.assertFalse(build_dir.exists())
+
     def test_prepare_task_repositories_raises_when_checkout_does_not_leave_destination_branch(self) -> None:
         service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
 
@@ -612,7 +645,7 @@ class RepositoryServiceTests(unittest.TestCase):
             ):
                 service.prepare_task_repositories([self.backend_repo])
 
-    def test_prepare_task_repositories_rejects_dirty_repository_before_next_task(self) -> None:
+    def test_prepare_task_repositories_makes_git_ready_when_dirty_before_next_task(self) -> None:
         service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
 
         with patch(
@@ -621,21 +654,31 @@ class RepositoryServiceTests(unittest.TestCase):
         ), patch(
             'openhands_agent.data_layers.service.repository_service.os.path.isdir',
             return_value=True,
+        ), patch.object(
+            RepositoryService,
+            '_make_git_ready_for_work',
+            return_value='main',
+        ) as mock_make_git_ready, patch.object(
+            RepositoryService,
+            '_validate_destination_branch_tracking_state',
+        ), patch.object(
+            RepositoryService,
+            '_pull_destination_branch',
         ), patch(
             'openhands_agent.data_layers.service.repository_service.subprocess.run',
             side_effect=[
                 Mock(returncode=0, stdout='feature/proj-1/backend\n', stderr=''),
                 Mock(returncode=0, stdout=' M app.py\n', stderr=''),
+                Mock(returncode=0, stdout='main\n', stderr=''),
+                Mock(returncode=0, stdout='', stderr=''),
             ],
         ):
-            with self.assertRaisesRegex(
-                RuntimeError,
-                'repository at \\. has uncommitted changes on branch feature/proj-1/backend; '
-                'refusing to start a new task\\nM app.py',
-            ):
-                service.prepare_task_repositories([self.backend_repo])
+            prepared_repositories = service.prepare_task_repositories([self.backend_repo])
 
-    def test_prepare_task_repositories_rejects_dirty_real_git_repository_before_next_task(self) -> None:
+        self.assertEqual(prepared_repositories[0].destination_branch, 'main')
+        mock_make_git_ready.assert_called_once_with('.', 'main', self.backend_repo)
+
+    def test_prepare_task_repositories_cleans_dirty_real_git_repository_before_next_task(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             repo_path = Path(temp_dir) / 'client'
             self._create_real_git_repository(repo_path)
@@ -655,12 +698,14 @@ class RepositoryServiceTests(unittest.TestCase):
                 RepositoryService,
                 '_prepare_repository_access',
             ):
-                with self.assertRaisesRegex(
-                    RuntimeError,
-                    r'repository at .* has uncommitted changes on branch main; '
-                    r'refusing to start a new task\nM README\.md',
-                ):
-                    service.prepare_task_repositories([repository])
+                prepared_repositories = service.prepare_task_repositories([repository])
+
+            self.assertEqual(prepared_repositories, [repository])
+            self.assertEqual(
+                self._git_stdout(repo_path, ['rev-parse', '--abbrev-ref', 'HEAD']),
+                'main',
+            )
+            self.assertEqual(self._git_stdout(repo_path, ['status', '--porcelain']), '')
 
     def test_prepare_task_repositories_rejects_destination_branch_with_local_only_commits(self) -> None:
         service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
