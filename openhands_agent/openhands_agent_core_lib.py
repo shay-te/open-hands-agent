@@ -14,6 +14,9 @@ from openhands_agent.data_layers.service.implementation_service import (
 )
 from openhands_agent.data_layers.service.notification_service import NotificationService
 from openhands_agent.data_layers.service.repository_service import RepositoryService
+from openhands_agent.data_layers.service.task_preflight_service import (
+    TaskPreflightService,
+)
 from openhands_agent.data_layers.service.review_comment_service import (
     ReviewCommentService,
 )
@@ -121,6 +124,12 @@ class OpenHandsAgentCoreLib(CoreLib):
         task_branch_publishability_validator = TaskBranchPublishabilityValidator(
             repository_service
         )
+        task_preflight_service = TaskPreflightService(
+            task_model_access_validator=task_model_access_validator,
+            task_service=task_service,
+            repository_service=repository_service,
+            task_branch_push_validator=task_branch_push_validator,
+        )
         review_comment_service = ReviewCommentService(
             task_service=task_service,
             implementation_service=implementation_service,
@@ -137,8 +146,7 @@ class OpenHandsAgentCoreLib(CoreLib):
             review_comment_service=review_comment_service,
             repository_connections_validator=repository_connections_validator,
             startup_validator=startup_validator,
-            task_model_access_validator=task_model_access_validator,
-            task_branch_push_validator=task_branch_push_validator,
+            task_preflight_service=task_preflight_service,
             task_branch_publishability_validator=task_branch_publishability_validator,
             skip_testing=skip_testing_enabled(open_cfg.openhands),
         )

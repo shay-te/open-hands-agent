@@ -6,6 +6,7 @@ This repository uses OpenHands to implement YouTrack tasks and fix review commen
 
 - Keep orchestration logic in services.
 - Keep external API calls inside clients and data-access layers.
+- When `AgentService` starts accumulating a second coherent workflow cluster, split it into a dedicated service and inject that service through the constructor instead of adding more private helper methods there. Preflight/startup logic such as model-access checks, blocking-comment retries, repository resolution, branch preparation, and push validation should live in a dedicated service rather than in `AgentService`.
 - Do not add pass-through helper methods on `OpenHandsAgentCoreLib` when the service can be used directly.
 - Prefer constants from `openhands_agent/data_layers/data/fields.py` over free-text field names.
 - Reuse existing utilities before introducing duplicate helper logic.

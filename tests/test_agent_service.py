@@ -360,12 +360,6 @@ class AgentServiceTests(unittest.TestCase):
                 ],
             },
         )
-        self.service.logger.info.assert_any_call(
-            'Mission %s: resolved repositories: %s',
-            'PROJ-1',
-            'client, backend',
-        )
-
     def test_process_assigned_task_uses_orchestration_commit_message_for_publish(self) -> None:
         task = self.task_data_access.get_assigned_tasks()[0]
         self.openhands_client.test_task.return_value = {
@@ -812,6 +806,27 @@ class AgentServiceTests(unittest.TestCase):
         )
         self.openhands_client.implement_task.assert_not_called()
         self.openhands_client.test_task.assert_not_called()
+
+    def test_validate_task_branch_push_access_returns_false_without_failure_handler(self) -> None:
+        self.service._task_preflight_service._task_branch_push_validator.validate = Mock(
+            side_effect=RuntimeError('failed to push branch PROJ-1')
+        )
+        prepared_task = types.SimpleNamespace(
+            repositories=[self.client_repo],
+            repository_branches={'client': 'feature/proj-1/client'},
+        )
+
+        result = self.service._task_preflight_service.validate_task_branch_push_access(
+            build_task(),
+            prepared_task,
+        )
+
+        self.assertFalse(result)
+        self.service._task_preflight_service._task_branch_push_validator.validate.assert_called_once_with(
+            [self.client_repo],
+            {'client': 'feature/proj-1/client'},
+        )
+        self.repository_service.restore_task_repositories.assert_not_called()
 
     def test_process_assigned_task_handles_ambiguous_or_missing_repository_scope(self) -> None:
         self.repository_service.resolve_task_repositories.side_effect = ValueError('no configured repository matched task PROJ-1')

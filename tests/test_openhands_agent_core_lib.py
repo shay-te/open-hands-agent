@@ -108,6 +108,8 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
         ) as mock_repository_service_cls, patch(
             'openhands_agent.openhands_agent_core_lib.NotificationService'
         ) as mock_notification_service_cls, patch(
+            'openhands_agent.openhands_agent_core_lib.TaskPreflightService'
+        ) as mock_task_preflight_service_cls, patch(
             'openhands_agent.openhands_agent_core_lib.AgentService'
         ) as mock_service_cls:
             app = OpenHandsAgentCoreLib(self.cfg)
@@ -163,6 +165,12 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
             self.cfg.openhands_agent,
             self.cfg.openhands_agent.retry.max_retries,
         )
+        mock_task_preflight_service_cls.assert_called_once_with(
+            task_model_access_validator=ANY,
+            task_service=mock_task_service_cls.return_value,
+            repository_service=mock_repository_service_cls.return_value,
+            task_branch_push_validator=ANY,
+        )
         mock_task_da_cls.assert_called_once_with(
             self.cfg.openhands_agent.youtrack,
             mock_build_ticket_client.return_value,
@@ -189,8 +197,7 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
             review_comment_service=ANY,
             repository_connections_validator=ANY,
             startup_validator=ANY,
-            task_model_access_validator=ANY,
-            task_branch_push_validator=ANY,
+            task_preflight_service=mock_task_preflight_service_cls.return_value,
             task_branch_publishability_validator=ANY,
             skip_testing=False,
         )

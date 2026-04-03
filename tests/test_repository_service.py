@@ -166,6 +166,19 @@ class RepositoryServiceTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'no configured repository matched task PROJ-1'):
             service.resolve_task_repositories(task)
 
+    def test_repository_matches_does_not_match_partial_substrings(self) -> None:
+        repository = types.SimpleNamespace(
+            id='myrepo',
+            display_name='My Repository',
+            local_path='/workspace/myrepo',
+            repo_slug='myrepo',
+            aliases=['myrepo'],
+        )
+        service = RepositoryService([repository], 3)
+
+        self.assertFalse(service._repository_matches('myrepo-extra needs changes', repository))
+        self.assertTrue(service._repository_matches('work in myrepo please', repository))
+
     def test_prepare_task_repositories_sets_resolved_destination_branch(self) -> None:
         repository = self.cfg.openhands_agent.repositories[0]
         repository.destination_branch = ''
@@ -1879,6 +1892,22 @@ class RepositoryServiceTests(unittest.TestCase):
             service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
 
             self.assertEqual(service._validation_report_text(str(report_path)), '')
+
+    def test_validation_report_paths_from_status_handles_renamed_report(self) -> None:
+        status_output = 'R  old-report.md -> validation_report.md\n?? app.py\n'
+
+        self.assertEqual(
+            RepositoryService._validation_report_paths_from_status(status_output),
+            ['validation_report.md'],
+        )
+
+    def test_generated_artifact_paths_from_status_detects_known_roots_and_ignores_validation_report(self) -> None:
+        status_output = ' M app.py\n?? build/main.js\n?? dist/app.js\n?? validation_report.md\n'
+
+        self.assertEqual(
+            RepositoryService._generated_artifact_paths_from_status(status_output),
+            ['build', 'dist'],
+        )
 
     def test_publish_branch_updates_returns_to_destination_branch_when_push_fails(self) -> None:
         with patch(
