@@ -84,6 +84,7 @@ class GitHubIssuesClient(TicketClientBase):
                 comment_entries,
             ),
             comment_entries=comment_entries,
+            tags=self._task_tags(payload.get(GitHubIssueFields.LABELS)),
         )
 
     def _issue_comments(self, issue_id: str) -> list[dict[str, Any]]:

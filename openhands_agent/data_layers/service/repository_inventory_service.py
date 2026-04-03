@@ -58,6 +58,9 @@ class RepositoryInventoryService(Service):
         RepositoryConnectionsValidator(self).validate()
 
     def resolve_task_repositories(self, task) -> list[object]:
+        tagged_repositories = self._repositories_from_task_tags(task)
+        if tagged_repositories:
+            return tagged_repositories
         searchable_text = f'{task.summary}\n{task.description}'.lower()
         matches = [
             repository
@@ -66,6 +69,24 @@ class RepositoryInventoryService(Service):
         ]
         if not matches:
             raise ValueError(f'no configured repository matched task {task.id}')
+        return matches
+
+    def _repositories_from_task_tags(self, task) -> list[object]:
+        repository_tags = self._repository_tags(task)
+        if not repository_tags:
+            return []
+        matches = [
+            repository
+            for repository in self._repositories
+            if any(
+                self._repository_matches(repository_tag, repository)
+                for repository_tag in repository_tags
+            )
+        ]
+        if not matches:
+            raise ValueError(
+                f'no configured repository matched repo tags on task {task.id}'
+            )
         return matches
 
     def get_repository(self, repository_id: str):
@@ -230,6 +251,26 @@ class RepositoryInventoryService(Service):
         for alias in getattr(repository, 'aliases', []) or []:
             aliases.append(normalized_lower_text(alias))
         return [alias for alias in aliases if alias]
+
+    @staticmethod
+    def _repository_tags(task) -> list[str]:
+        raw_tags = getattr(task, 'tags', []) or []
+        if isinstance(raw_tags, str):
+            raw_tags = [raw_tags]
+        repository_tags: list[str] = []
+        for raw_tag in raw_tags:
+            if isinstance(raw_tag, dict):
+                tag_text = normalized_text(raw_tag.get('name', ''))
+            else:
+                tag_text = normalized_text(getattr(raw_tag, 'name', raw_tag))
+            if not tag_text.lower().startswith(RepositoryFields.REPOSITORY_TAG_PREFIX):
+                continue
+            repository_tag = normalized_text(
+                tag_text[len(RepositoryFields.REPOSITORY_TAG_PREFIX) :]
+            )
+            if repository_tag:
+                repository_tags.append(repository_tag)
+        return repository_tags
 
     @staticmethod
     def _validate_local_path(repository) -> None:

@@ -188,6 +188,7 @@ class TicketClientBase(RetryingClientBase):
         description: object,
         comment_entries: list[dict[str, str]],
         branch_name: object = '',
+        tags: list[str] | None = None,
     ) -> Task:
         task = Task(
             id=normalized_text(issue_id),
@@ -195,9 +196,24 @@ class TicketClientBase(RetryingClientBase):
             description=normalized_text(description),
             branch_name=normalized_text(branch_name)
             or f'feature/{normalized_lower_text(issue_id)}',
+            tags=tags,
         )
         self._set_task_comments(task, comment_entries)
         return task
+
+    @staticmethod
+    def _task_tags(values: object) -> list[str]:
+        if not isinstance(values, list):
+            return []
+        tags: list[str] = []
+        for value in values:
+            if isinstance(value, dict):
+                tag = normalized_text(value.get('name') or value.get('label') or value.get('text'))
+            else:
+                tag = normalized_text(value)
+            if tag:
+                tags.append(tag)
+        return tags
 
     def _normalize_issue_tasks(
         self,

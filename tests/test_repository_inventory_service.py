@@ -119,6 +119,42 @@ class RepositoryInventoryServiceTests(unittest.TestCase):
 
         self.assertEqual([repository.id for repository in repositories], ['client', 'backend'])
 
+    def test_resolve_task_repositories_uses_repo_tags_before_task_text(self) -> None:
+        service = RepositoryInventoryService([self.client_repo, self.backend_repo])
+        task = build_task(
+            summary='Update client and backend endpoints',
+            description='This should not drive selection when tags are present.',
+            tags=[f'{RepositoryFields.REPOSITORY_TAG_PREFIX}backend'],
+        )
+
+        repositories = service.resolve_task_repositories(task)
+
+        self.assertEqual([repository.id for repository in repositories], ['backend'])
+
+    def test_resolve_task_repositories_matches_multiple_repo_tags(self) -> None:
+        service = RepositoryInventoryService([self.client_repo, self.backend_repo])
+        task = build_task(
+            tags=[
+                f'{RepositoryFields.REPOSITORY_TAG_PREFIX}client',
+                f'{RepositoryFields.REPOSITORY_TAG_PREFIX}backend',
+            ]
+        )
+
+        repositories = service.resolve_task_repositories(task)
+
+        self.assertEqual([repository.id for repository in repositories], ['client', 'backend'])
+
+    def test_resolve_task_repositories_rejects_unmatched_repo_tags(self) -> None:
+        service = RepositoryInventoryService([self.client_repo, self.backend_repo])
+
+        with self.assertRaisesRegex(
+            ValueError,
+            'no configured repository matched repo tags on task PROJ-1',
+        ):
+            service.resolve_task_repositories(
+                build_task(tags=[f'{RepositoryFields.REPOSITORY_TAG_PREFIX}missing'])
+            )
+
     def test_resolve_task_repositories_rejects_partial_substrings(self) -> None:
         repository = types.SimpleNamespace(
             id='myrepo',

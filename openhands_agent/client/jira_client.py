@@ -51,6 +51,7 @@ class JiraClient(TicketClientBase):
                         JiraIssueFields.DESCRIPTION,
                         JiraIssueFields.COMMENT,
                         JiraIssueFields.ATTACHMENT,
+                        JiraIssueFields.LABELS,
                     ]
                 ),
                 'maxResults': 100,
@@ -124,6 +125,7 @@ class JiraClient(TicketClientBase):
                 attachments,
             ),
             comment_entries=comment_entries,
+            tags=self._task_tags(fields.get(JiraIssueFields.LABELS)),
         )
 
     @staticmethod

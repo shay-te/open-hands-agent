@@ -73,6 +73,7 @@ class RepositoryFields:
     BITBUCKET_USERNAME = 'bitbucket_username'
     BITBUCKET_API_EMAIL = 'bitbucket_api_email'
     ALIASES = 'aliases'
+    REPOSITORY_TAG_PREFIX = 'repo:'
 
 
 class YouTrackAttachmentFields:
@@ -98,6 +99,10 @@ class YouTrackCustomFieldFields:
     TYPE = '$type'
 
 
+class YouTrackTagFields:
+    NAME = 'name'
+
+
 class JiraIssueFields:
     KEY = 'key'
     FIELDS = 'fields'
@@ -105,6 +110,7 @@ class JiraIssueFields:
     DESCRIPTION = 'description'
     COMMENT = 'comment'
     ATTACHMENT = 'attachment'
+    LABELS = 'labels'
     STATUS = 'status'
 
 
@@ -171,6 +177,7 @@ class BitbucketIssueFields:
     RAW = 'raw'
     STATE = 'state'
     ASSIGNEE = 'assignee'
+    LABELS = 'labels'
     DISPLAY_NAME = 'display_name'
     NICKNAME = 'nickname'
 

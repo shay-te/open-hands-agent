@@ -6,6 +6,7 @@ from openhands_agent.data_layers.data.fields import (
     YouTrackAttachmentFields,
     YouTrackCommentFields,
     YouTrackCustomFieldFields,
+    YouTrackTagFields,
 )
 from openhands_agent.helpers.text_utils import (
     alphanumeric_lower_text,
@@ -56,6 +57,7 @@ class YouTrackClient(TicketClientBase):
     )
     MAX_TEXT_ATTACHMENT_CHARS = 5000
     STATE_MACHINE_CUSTOM_FIELD_TYPE = 'StateMachineIssueCustomField'
+    TAG_FIELDS = YouTrackTagFields.NAME
 
     def __init__(self, base_url: str, token: str, max_retries: int = 3) -> None:
         super().__init__(base_url, token, timeout=30, max_retries=max_retries)
@@ -168,6 +170,7 @@ class YouTrackClient(TicketClientBase):
 
     def _to_task(self, payload: dict[str, Any]) -> Task:
         issue_id = payload['idReadable']
+        tags = self._task_tags(issue_id)
         comment_entries = self._task_comment_entries(self._get_issue_comments(issue_id))
         attachments = self._get_issue_attachments(issue_id)
         return self._build_task(
@@ -179,7 +182,23 @@ class YouTrackClient(TicketClientBase):
                 attachments,
             ),
             comment_entries=comment_entries,
+            tags=tags,
         )
+
+    def _task_tags(self, issue_id: str) -> list[str]:
+        response = self._get_with_retry(
+            f'/api/issues/{issue_id}/tags',
+            params={'fields': self.TAG_FIELDS, '$top': 100},
+        )
+        response.raise_for_status()
+        tags: list[str] = []
+        for item in self._json_items(response):
+            if not isinstance(item, dict):
+                continue
+            tag_name = normalized_text(item.get(YouTrackTagFields.NAME))
+            if tag_name:
+                tags.append(tag_name)
+        return tags
 
     @staticmethod
     def _build_assigned_tasks_query(project: str, assignee: str, states: list[str]) -> str:

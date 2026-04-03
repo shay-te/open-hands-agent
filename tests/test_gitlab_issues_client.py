@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 from openhands_agent.client.gitlab_issues_client import GitLabIssuesClient
 from openhands_agent.data_layers.data.task import Task
-from openhands_agent.data_layers.data.fields import GitLabCommentFields, TaskCommentFields
+from openhands_agent.data_layers.data.fields import GitLabCommentFields, GitLabIssueFields, TaskCommentFields
 from utils import mock_response
 
 
@@ -31,6 +31,7 @@ class GitLabIssuesClientTests(unittest.TestCase):
                     'title': 'Fix bug',
                     'description': 'Details',
                     'state': 'opened',
+                    GitLabIssueFields.LABELS: ['repo:client', 'priority:high'],
                 }
             ]
         )
@@ -54,6 +55,27 @@ class GitLabIssuesClientTests(unittest.TestCase):
         self.assertIsInstance(tasks[0], Task)
         self.assertEqual(tasks[0].id, '17')
         self.assertIn('Reviewer: Please add tests.', tasks[0].description)
+        self.assertEqual(tasks[0].tags, ['repo:client', 'priority:high'])
+
+    def test_get_assigned_tasks_uses_issue_labels_as_task_tags(self) -> None:
+        client = GitLabIssuesClient('https://gitlab.example/api/v4', 'gl-token', 'group/repo')
+        issues_response = mock_response(
+            json_data=[
+                {
+                    'iid': 17,
+                    'title': 'Fix bug',
+                    'description': 'Details',
+                    'state': 'opened',
+                    GitLabIssueFields.LABELS: ['repo:client', 'priority:high'],
+                }
+            ]
+        )
+        notes_response = mock_response(json_data=[])
+
+        with patch.object(client, '_get', side_effect=[issues_response, notes_response]):
+            tasks = client.get_assigned_tasks('group/repo', 'developer', ['opened'])
+
+        self.assertEqual(tasks[0].tags, ['repo:client', 'priority:high'])
 
     def test_get_assigned_tasks_ignores_agent_operational_comments(self) -> None:
         client = GitLabIssuesClient('https://gitlab.example/api/v4', 'gl-token', 'group/repo')

@@ -260,6 +260,7 @@ def build_task(
     summary: str = 'Fix bug',
     description: str = 'Details',
     branch_name: str = 'feature/proj-1',
+    tags: list[str] | None = None,
     repositories: list | None = None,
     repository_branches: dict | None = None,
     comments: list[dict[str, str]] | None = None,
@@ -269,6 +270,7 @@ def build_task(
         summary=summary,
         description=description,
         branch_name=branch_name,
+        tags=tags,
     )
     if repositories is not None:
         task.repositories = repositories
