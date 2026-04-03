@@ -15,6 +15,14 @@ def pull_request_repositories_text(pull_requests) -> str:
     return ', '.join(repository_ids) if repository_ids else '<none>'
 
 
+def pull_request_title(task: Task) -> str:
+    task_id = str(task.id or '').strip()
+    task_summary = str(task.summary or '').strip()
+    if task_id and task_summary:
+        return f'{task_id} {task_summary}'
+    return task_id or task_summary or 'OpenHands task'
+
+
 def pull_request_summary_comment(
     task: Task,
     pull_requests: list[dict[str, str]],

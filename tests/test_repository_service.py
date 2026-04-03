@@ -730,9 +730,10 @@ class RepositoryServiceTests(unittest.TestCase):
         ), patch(
             'openhands_agent.data_layers.service.repository_service.RepositoryService._prepare_branch_for_publication',
             return_value='',
-        ) as mock_prepare_branch, patch(
-            'openhands_agent.data_layers.service.repository_service.RepositoryService._prepare_workspace_for_task',
-        ) as mock_prepare_workspace, patch(
+        ) as mock_prepare_branch, patch.object(
+            RepositoryService,
+            'restore_task_repositories',
+        ) as mock_restore_repositories, patch(
             'openhands_agent.data_layers.service.repository_service.RepositoryService._push_branch',
         ) as mock_push_branch, patch(
             'openhands_agent.data_layers.service.repository_inventory_service.RepositoryInventoryService._pull_request_data_access',
@@ -767,7 +768,7 @@ class RepositoryServiceTests(unittest.TestCase):
             'Implement PROJ-1',
         )
         mock_push_branch.assert_called_once_with('.', 'feature/proj-1/client', repository)
-        mock_prepare_workspace.assert_called_once_with('.', 'main', repository)
+        mock_restore_repositories.assert_called_once_with([repository], force=True)
 
     def test_create_pull_request_returns_to_destination_branch_even_when_pr_creation_fails(self) -> None:
         repository = self.backend_repo
@@ -783,9 +784,10 @@ class RepositoryServiceTests(unittest.TestCase):
         ), patch(
             'openhands_agent.data_layers.service.repository_service.RepositoryService._prepare_branch_for_publication',
             return_value='',
-        ), patch(
-            'openhands_agent.data_layers.service.repository_service.RepositoryService._prepare_workspace_for_task',
-        ) as mock_prepare_workspace, patch(
+        ), patch.object(
+            RepositoryService,
+            'restore_task_repositories',
+        ) as mock_restore_repositories, patch(
             'openhands_agent.data_layers.service.repository_service.RepositoryService._push_branch',
         ), patch(
             'openhands_agent.data_layers.service.repository_inventory_service.RepositoryInventoryService._pull_request_data_access',
@@ -801,7 +803,7 @@ class RepositoryServiceTests(unittest.TestCase):
                     commit_message='Implement PROJ-1',
                 )
 
-        mock_prepare_workspace.assert_called_once_with('.', 'main', repository)
+        mock_restore_repositories.assert_called_once_with([repository], force=True)
 
     def test_create_pull_request_creates_pr_before_restoring_workspace(self) -> None:
         repository = self.backend_repo
@@ -813,11 +815,10 @@ class RepositoryServiceTests(unittest.TestCase):
         }
         call_order: list[str] = []
 
-        def assert_workspace_restored_after_pr(local_path: str, destination_branch: str, repository_arg) -> None:
+        def assert_workspace_restored_after_pr(repositories, *, force: bool) -> None:
             self.assertEqual(data_access.create_pull_request.call_count, 1)
-            self.assertEqual(local_path, '.')
-            self.assertEqual(destination_branch, 'main')
-            self.assertIs(repository_arg, repository)
+            self.assertEqual(repositories, [repository])
+            self.assertTrue(force)
             call_order.append('restore')
 
         def record_push(local_path: str, branch_name: str, repository_arg) -> None:
@@ -839,10 +840,11 @@ class RepositoryServiceTests(unittest.TestCase):
         ), patch(
             'openhands_agent.data_layers.service.repository_service.RepositoryService._prepare_branch_for_publication',
             return_value='',
-        ) as mock_prepare_branch, patch(
-            'openhands_agent.data_layers.service.repository_service.RepositoryService._prepare_workspace_for_task',
+        ) as mock_prepare_branch, patch.object(
+            RepositoryService,
+            'restore_task_repositories',
             side_effect=assert_workspace_restored_after_pr,
-        ) as mock_prepare_workspace, patch(
+        ) as mock_restore_repositories, patch(
             'openhands_agent.data_layers.service.repository_service.RepositoryService._push_branch',
             side_effect=record_push,
         ) as mock_push_branch, patch(
@@ -866,7 +868,7 @@ class RepositoryServiceTests(unittest.TestCase):
             'Implement PROJ-1',
         )
         mock_push_branch.assert_called_once_with('.', 'feature/proj-1/backend', repository)
-        mock_prepare_workspace.assert_called_once_with('.', 'main', repository)
+        mock_restore_repositories.assert_called_once_with([repository], force=True)
         data_access.create_pull_request.assert_called_once_with(
             title='PROJ-1: Fix bug',
             source_branch='feature/proj-1/backend',
@@ -890,9 +892,10 @@ class RepositoryServiceTests(unittest.TestCase):
         ), patch(
             'openhands_agent.data_layers.service.repository_service.RepositoryService._prepare_branch_for_publication',
             return_value='',
-        ), patch(
-            'openhands_agent.data_layers.service.repository_service.RepositoryService._prepare_workspace_for_task',
-        ) as mock_prepare_workspace, patch(
+        ), patch.object(
+            RepositoryService,
+            'restore_task_repositories',
+        ) as mock_restore_repositories, patch(
             'openhands_agent.data_layers.service.repository_service.RepositoryService._push_branch',
             side_effect=RuntimeError('push failed'),
         ), patch(
@@ -908,7 +911,7 @@ class RepositoryServiceTests(unittest.TestCase):
                     commit_message='Implement PROJ-1',
                 )
 
-        mock_prepare_workspace.assert_called_once_with('.', 'main', repository)
+        mock_restore_repositories.assert_called_once_with([repository], force=True)
 
     def test_create_pull_request_commits_remaining_changes_before_push(self) -> None:
         repository = self.backend_repo
@@ -953,7 +956,10 @@ class RepositoryServiceTests(unittest.TestCase):
             return_value='Validation report:\n- verified the task manually.',
         ), patch(
             'openhands_agent.data_layers.service.repository_service.RepositoryService._push_branch',
-        ) as mock_push_branch, patch(
+        ) as mock_push_branch, patch.object(
+            RepositoryService,
+            'restore_task_repositories',
+        ) as mock_restore_repositories, patch(
             'openhands_agent.data_layers.service.repository_inventory_service.RepositoryInventoryService._pull_request_data_access',
             return_value=data_access,
         ), patch(
@@ -981,13 +987,6 @@ class RepositoryServiceTests(unittest.TestCase):
                 ['git', '-c', 'safe.directory=.', '-C', '.', 'status', '--porcelain'],
                 ['git', '-c', 'safe.directory=.', '-C', '.', 'rev-parse', '--verify', 'main'],
                 ['git', '-c', 'safe.directory=.', '-C', '.', 'rev-list', '--count', 'main..feature/proj-1/backend'],
-                ['git', '-c', 'safe.directory=.', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
-                ['git', '-c', 'safe.directory=.', '-C', '.', 'status', '--porcelain'],
-                ['git', '-c', 'safe.directory=.', '-C', '.', 'checkout', 'main'],
-                ['git', '-c', 'safe.directory=.', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
-                ['git', '-c', 'safe.directory=.', '-C', '.', 'pull', '--ff-only', 'origin', 'main'],
-                ['git', '-c', 'safe.directory=.', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
-                ['git', '-c', 'safe.directory=.', '-C', '.', 'status', '--porcelain'],
             ],
         )
         data_access.create_pull_request.assert_called_once_with(
@@ -997,6 +996,7 @@ class RepositoryServiceTests(unittest.TestCase):
             description='Ready',
         )
         mock_push_branch.assert_called_once_with('.', 'feature/proj-1/backend', repository)
+        mock_restore_repositories.assert_called_once_with([repository], force=True)
         service._publication_service.logger.warning.assert_called_once_with(
             'validation report was missing or empty for repository %s; '
             'falling back to structured pull request description',
@@ -1049,7 +1049,10 @@ class RepositoryServiceTests(unittest.TestCase):
         ), patch(
             'openhands_agent.data_layers.service.repository_service.RepositoryService._validation_report_text',
             return_value='Validation report:\n- verified the task manually.',
-        ), patch(
+        ), patch.object(
+            RepositoryService,
+            'restore_task_repositories',
+        ) as mock_restore_repositories, patch(
             'openhands_agent.data_layers.service.repository_service.RepositoryService._push_branch',
         ) as mock_push_branch, patch(
             'openhands_agent.data_layers.service.repository_inventory_service.RepositoryInventoryService._pull_request_data_access',
@@ -1078,15 +1081,9 @@ class RepositoryServiceTests(unittest.TestCase):
                 ['git', '-c', 'safe.directory=.', '-C', '.', 'status', '--porcelain'],
                 ['git', '-c', 'safe.directory=.', '-C', '.', 'rev-parse', '--verify', 'main'],
                 ['git', '-c', 'safe.directory=.', '-C', '.', 'rev-list', '--count', 'main..feature/proj-1/backend'],
-                ['git', '-c', 'safe.directory=.', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
-                ['git', '-c', 'safe.directory=.', '-C', '.', 'status', '--porcelain'],
-                ['git', '-c', 'safe.directory=.', '-C', '.', 'checkout', 'main'],
-                ['git', '-c', 'safe.directory=.', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
-                ['git', '-c', 'safe.directory=.', '-C', '.', 'pull', '--ff-only', 'origin', 'main'],
-                ['git', '-c', 'safe.directory=.', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD'],
-                ['git', '-c', 'safe.directory=.', '-C', '.', 'status', '--porcelain'],
             ],
         )
+        mock_restore_repositories.assert_called_once_with([repository], force=True)
         data_access.create_pull_request.assert_called_once_with(
             title='PROJ-1: Fix bug',
             source_branch='feature/proj-1/backend',
@@ -1150,8 +1147,8 @@ class RepositoryServiceTests(unittest.TestCase):
         ), patch(
             'openhands_agent.data_layers.service.repository_service.RepositoryService._ensure_branch_is_publishable',
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.RepositoryService._prepare_workspace_for_task',
-        ), patch(
+            'openhands_agent.data_layers.service.repository_service.RepositoryService.restore_task_repositories',
+        ) as mock_restore_repositories, patch(
             'openhands_agent.data_layers.service.repository_service.RepositoryService._validation_report_text',
             return_value='Validation report:\n- verified the task manually.',
         ), patch(
@@ -1184,6 +1181,7 @@ class RepositoryServiceTests(unittest.TestCase):
                 ['git', '-c', 'safe.directory=.', '-C', '.', 'status', '--porcelain'],
             ],
         )
+        mock_restore_repositories.assert_called_once_with([repository], force=True)
         data_access.create_pull_request.assert_called_once_with(
             title='PROJ-1: Fix bug',
             source_branch='feature/proj-1/backend',

@@ -19,6 +19,7 @@ from openhands_agent.helpers.pull_request_utils import (
     pull_request_description,
     pull_request_repositories_text,
     pull_request_summary_comment,
+    pull_request_title,
 )
 from openhands_agent.helpers.text_utils import text_from_mapping
 from openhands_agent.helpers.task_context_utils import PreparedTaskContext, task_started_comment
@@ -160,7 +161,7 @@ class TaskPublisher(Service):
             self._log_pull_request_creation(task.id, repository, branch_name)
             return self._repository_service.create_pull_request(
                 repository,
-                title=f'{task.id}: {task.summary}',
+                title=pull_request_title(task),
                 source_branch=branch_name,
                 description=description,
                 commit_message=commit_message,

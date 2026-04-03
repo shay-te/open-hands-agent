@@ -5,6 +5,7 @@ from openhands_agent.helpers.pull_request_utils import (
     pull_request_description,
     pull_request_repositories_text,
     pull_request_summary_comment,
+    pull_request_title,
 )
 from openhands_agent.helpers.mission_logging_utils import log_mission_step
 from openhands_agent.helpers.review_comment_utils import (
@@ -92,6 +93,14 @@ class AgentServiceUtilsTests(unittest.TestCase):
             'client, backend',
         )
         self.assertEqual(pull_request_repositories_text('bad'), '<none>')
+
+    def test_pull_request_title_uses_task_code_and_task_title(self) -> None:
+        task = build_task(task_id='UNA-2308', summary='Enhance Sidebar Scroll Buttons with Long-Press Scrolling and Gradient UI')
+
+        self.assertEqual(
+            pull_request_title(task),
+            'UNA-2308 Enhance Sidebar Scroll Buttons with Long-Press Scrolling and Gradient UI',
+        )
 
     def test_session_suffix_and_started_comment_cover_empty_and_repository_scopes(self) -> None:
         self.assertEqual(session_suffix({}), '')

@@ -88,6 +88,7 @@ class TaskPublisherTests(unittest.TestCase):
         self.notification_service.notify_task_ready_for_review.assert_called_once()
         self.assertEqual(self.repository_service.create_pull_request.call_count, 2)
         first_call = self.repository_service.create_pull_request.call_args_list[0]
+        self.assertEqual(first_call.kwargs['title'], 'PROJ-1 Fix bug')
         self.assertIn('Requested change:', first_call.kwargs['description'])
         self.assertIn('Implementation summary:', first_call.kwargs['description'])
         self.assertIn('Execution notes:', first_call.kwargs['description'])

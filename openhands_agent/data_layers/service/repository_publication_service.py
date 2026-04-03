@@ -76,11 +76,7 @@ class RepositoryPublicationService(Service):
                 PullRequestFields.DESCRIPTION: pull_request_description,
             }
         finally:
-            self._repository_service._prepare_workspace_for_task(
-                repository.local_path,
-                destination_branch,
-                repository,
-            )
+            self._restore_workspace_after_publication(repository, destination_branch)
 
     def publish_review_fix(
         self,
@@ -118,3 +114,13 @@ class RepositoryPublicationService(Service):
         self._repository_service._pull_request_data_access(repository).resolve_review_comment(
             comment
         )
+
+    def _restore_workspace_after_publication(self, repository, destination_branch: str) -> None:
+        try:
+            self._repository_service.restore_task_repositories([repository], force=True)
+        except Exception:
+            self.logger.exception(
+                'failed to restore repository %s to %s after publication',
+                repository.id,
+                destination_branch,
+            )
