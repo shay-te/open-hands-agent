@@ -123,12 +123,18 @@ class BitbucketClient(PullRequestClientBase):
         comment: ReviewComment,
         body: str,
     ) -> None:
-        parent_id = text_from_attr(
+        parent_id_text = text_from_attr(
             comment,
             ReviewCommentFields.RESOLUTION_TARGET_ID,
         ) or normalized_text(comment.comment_id)
-        if not parent_id:
+        if not parent_id_text:
             raise ValueError('bitbucket review comment id is required to post a reply')
+        try:
+            parent_id = int(parent_id_text)
+        except ValueError as exc:
+            raise ValueError(
+                f'invalid bitbucket review comment id for reply: {parent_id_text}'
+            ) from exc
         response = self._post_with_retry(
             f'/repositories/{repo_owner}/{repo_slug}/pullrequests/{comment.pull_request_id}/comments',
             json={

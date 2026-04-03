@@ -349,6 +349,6 @@ class BitbucketClientTests(unittest.TestCase):
             '/repositories/workspace/repo/pullrequests/17/comments',
             json={
                 'content': {'raw': 'Done. Added support for creating new options.'},
-                'parent': {'id': '99'},
+                'parent': {'id': 99},
             },
         )
