@@ -4,15 +4,6 @@ from openhands_agent.data_layers.service.agent_state_registry import AgentStateR
 from openhands_agent.data_layers.service.task_failure_handler import TaskFailureHandler
 from openhands_agent.data_layers.service.review_comment_service import ReviewCommentService
 from openhands_agent.data_layers.service.task_publisher import TaskPublisher
-from openhands_agent.validation.branch_publishability import (
-    TaskBranchPublishabilityValidator,
-)
-from openhands_agent.validation.branch_push import (
-    TaskBranchPushValidator,
-)
-from openhands_agent.validation.model_access import (
-    TaskModelAccessValidator,
-)
 from openhands_agent.validation.repository_connections import (
     RepositoryConnectionsValidator,
 )
@@ -20,18 +11,10 @@ from openhands_agent.validation.startup_dependency_validator import (
     StartupDependencyValidator,
 )
 from openhands_agent.helpers.logging_utils import configure_logger
+from openhands_agent.helpers.mission_logging_utils import log_mission_step
 from openhands_agent.data_layers.data.task import Task
-from openhands_agent.data_layers.data.fields import (
-    ImplementationFields,
-    PullRequestFields,
-    StatusFields,
-)
 from openhands_agent.data_layers.service.implementation_service import ImplementationService
-from openhands_agent.helpers.task_context_utils import (
-    PreparedTaskContext,
-    session_suffix,
-    task_started_comment,
-)
+from openhands_agent.helpers.task_context_utils import PreparedTaskContext, session_suffix
 from openhands_agent.data_layers.service.notification_service import NotificationService
 from openhands_agent.data_layers.service.repository_service import RepositoryService
 from openhands_agent.data_layers.service.task_preflight_service import (
@@ -39,6 +22,19 @@ from openhands_agent.data_layers.service.task_preflight_service import (
 )
 from openhands_agent.data_layers.service.task_service import TaskService
 from openhands_agent.data_layers.service.testing_service import TestingService
+from openhands_agent.data_layers.data.fields import ImplementationFields
+from openhands_agent.validation.branch_publishability import (
+    TaskBranchPublishabilityValidator,
+)
+from openhands_agent.validation.branch_push import TaskBranchPushValidator
+from openhands_agent.validation.model_access import TaskModelAccessValidator
+from openhands_agent.helpers.task_execution_utils import (
+    apply_testing_message,
+    implementation_succeeded,
+    skip_task_result,
+    testing_failed_result,
+    testing_succeeded,
+)
 
 
 class AgentService(Service):
@@ -58,7 +54,6 @@ class AgentService(Service):
         repository_connections_validator: RepositoryConnectionsValidator | None = None,
         startup_validator: StartupDependencyValidator | None = None,
         task_preflight_service: TaskPreflightService | None = None,
-        task_branch_publishability_validator: TaskBranchPublishabilityValidator | None = None,
         skip_testing: bool = False,
     ) -> None:
         self.logger = configure_logger(self.__class__.__name__)
@@ -111,10 +106,9 @@ class AgentService(Service):
             task_branch_push_validator=TaskBranchPushValidator(
                 self._repository_service,
             ),
-        )
-        self._task_branch_publishability_validator = (
-            task_branch_publishability_validator
-            or TaskBranchPublishabilityValidator(self._repository_service)
+            task_branch_publishability_validator=TaskBranchPublishabilityValidator(
+                self._repository_service,
+            ),
         )
         self._task_publisher = task_publisher or TaskPublisher(
             self._task_service,
@@ -182,7 +176,7 @@ class AgentService(Service):
         if not self._state_registry.is_task_processed(task_id):
             return None
         self.logger.info('skipping already processed task %s', task_id)
-        return self._skip_task_result(
+        return skip_task_result(
             task_id,
             self._state_registry.processed_task_pull_requests(task_id),
         )
@@ -195,7 +189,7 @@ class AgentService(Service):
         except Exception as exc:
             self._task_failure_handler.handle_task_failure(task, exc, prepared_task=prepared_task)
             return False
-        self._comment_task_started(task, prepared_task.repositories)
+        self._task_publisher.comment_task_started(task, prepared_task.repositories)
         return True
 
     def _run_task_implementation(
@@ -217,7 +211,7 @@ class AgentService(Service):
                 prepared_task=prepared_task,
             )
             return None
-        if not self._implementation_succeeded(execution):
+        if not implementation_succeeded(execution):
             self._task_failure_handler.handle_implementation_failure(
                 task,
                 execution,
@@ -242,34 +236,24 @@ class AgentService(Service):
             execution.pop(ImplementationFields.MESSAGE, None)
             self._log_task_step(task.id, 'testing validation skipped by configuration')
             return True, None, execution
-        try:
-            self._task_branch_publishability_validator.validate(
-                prepared_task.repositories,
-                prepared_task.repository_branches,
-            )
-        except Exception as exc:
-            self.logger.exception(
-                'failed to validate task branches before testing for task %s',
-                task.id,
-            )
-            self._task_failure_handler.handle_started_task_failure(
-                task,
-                exc,
-                prepared_task=prepared_task,
-            )
+        if not self._task_preflight_service.validate_task_branch_publishability(
+            task,
+            prepared_task,
+            failure_handler=self._task_failure_handler.handle_started_task_failure,
+        ):
             return False, None, execution
         self._log_task_step(task.id, 'task branches contain changes')
         testing = self._request_testing_validation(task, prepared_task)
         if testing is None:
             return False, None, execution
-        if not self._testing_succeeded(testing):
+        if not testing_succeeded(testing):
             self._task_failure_handler.handle_testing_failure(
                 task,
                 testing,
                 prepared_task=prepared_task,
             )
-            return False, self._testing_failed_result(task.id), execution
-        execution = self._apply_testing_message(execution, testing)
+            return False, testing_failed_result(task.id), execution
+        execution = apply_testing_message(execution, testing)
         self._log_task_step(task.id, 'testing validation passed')
         return True, None, execution
 
@@ -293,68 +277,5 @@ class AgentService(Service):
             )
             return None
 
-    @staticmethod
-    def _testing_failed_result(task_id: str) -> dict[str, object]:
-        return {
-            Task.id.key: task_id,
-            StatusFields.STATUS: StatusFields.TESTING_FAILED,
-            PullRequestFields.PULL_REQUESTS: [],
-            PullRequestFields.FAILED_REPOSITORIES: [],
-        }
-
-    @staticmethod
-    def _apply_testing_message(
-        execution: dict[str, str | bool],
-        testing: dict[str, str | bool],
-    ) -> dict[str, str | bool]:
-        testing_message = str(
-            testing.get(ImplementationFields.MESSAGE, '') or ''
-        ).strip()
-        if testing_message:
-            execution = dict(execution)
-            execution[ImplementationFields.MESSAGE] = testing_message
-        return execution
-
-    @staticmethod
-    def _implementation_succeeded(execution: dict[str, str | bool]) -> bool:
-        return bool(execution.get(ImplementationFields.SUCCESS, False))
-
-    @staticmethod
-    def _testing_succeeded(testing: dict[str, str | bool]) -> bool:
-        return bool(testing.get(ImplementationFields.SUCCESS, False))
-
-    @staticmethod
-    def _skip_task_result(
-        task_id: str,
-        pull_requests: list[dict[str, str]] | None = None,
-    ) -> dict[str, object]:
-        return {
-            Task.id.key: task_id,
-            StatusFields.STATUS: StatusFields.SKIPPED,
-            PullRequestFields.PULL_REQUESTS: pull_requests or [],
-            PullRequestFields.FAILED_REPOSITORIES: [],
-        }
-
-    def _comment_task_started(
-        self,
-        task: Task,
-        repositories: list[object] | None = None,
-    ) -> None:
-        self._log_task_step(task.id, 'adding started comment')
-        try:
-            self._task_service.add_comment(
-                task.id,
-                task_started_comment(task, repositories),
-            )
-            self._log_task_step(task.id, 'added started comment')
-        except Exception:
-            self.logger.exception('failed to add started comment for task %s', task.id)
-
     def _log_task_step(self, task_id: str, message: str, *args) -> None:
-        formatted_message = message
-        if args:
-            try:
-                formatted_message = message % args
-            except Exception:
-                formatted_message = ' '.join([message, *[str(arg) for arg in args]])
-        self.logger.info('Mission %s: %s', task_id, formatted_message)
+        log_mission_step(self.logger, task_id, message, *args)

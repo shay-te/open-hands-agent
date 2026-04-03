@@ -6,6 +6,7 @@ from openhands_agent.data_layers.service.repository_service import RepositorySer
 from openhands_agent.data_layers.service.task_service import TaskService
 from openhands_agent.helpers.error_handling_utils import run_best_effort
 from openhands_agent.helpers.logging_utils import configure_logger
+from openhands_agent.helpers.mission_logging_utils import log_mission_step
 from openhands_agent.helpers.task_context_utils import PreparedTaskContext
 
 
@@ -206,10 +207,4 @@ class TaskFailureHandler(Service):
         return isinstance(error, ValueError) and 'no configured repository matched task' in str(error)
 
     def _log_task_step(self, task_id: str, message: str, *args) -> None:
-        formatted_message = message
-        if args:
-            try:
-                formatted_message = message % args
-            except Exception:
-                formatted_message = ' '.join([message, *[str(arg) for arg in args]])
-        self.logger.info('Mission %s: %s', task_id, formatted_message)
+        log_mission_step(self.logger, task_id, message, *args)

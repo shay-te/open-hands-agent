@@ -6,11 +6,20 @@ from openhands_agent.helpers.pull_request_utils import (
     pull_request_repositories_text,
     pull_request_summary_comment,
 )
+from openhands_agent.helpers.mission_logging_utils import log_mission_step
 from openhands_agent.helpers.review_comment_utils import (
     review_fix_context_from_mapping,
     review_fix_result,
     review_comment_fixed_comment,
     review_comment_resolution_key,
+)
+from openhands_agent.helpers.task_execution_utils import (
+    apply_testing_message,
+    implementation_succeeded,
+    skip_task_result,
+    task_execution_report,
+    testing_failed_result,
+    testing_succeeded,
 )
 from openhands_agent.helpers.task_context_utils import (
     repository_branch_text,
@@ -24,8 +33,10 @@ from openhands_agent.data_layers.data.fields import (
     ImplementationFields,
     PullRequestFields,
     ReviewCommentFields,
+    StatusFields,
     TaskFields,
 )
+from openhands_agent.data_layers.data.task import Task
 from utils import build_review_comment, build_task
 
 
@@ -214,3 +225,56 @@ class AgentServiceUtilsTests(unittest.TestCase):
         self.assertIn('Files changed:', description)
         self.assertIn('Execution notes:', description)
         self.assertIn('Validation report: no tests were defined.', description)
+
+    def test_task_execution_helpers_cover_success_and_result_shapes(self) -> None:
+        execution = {
+            ImplementationFields.SUCCESS: True,
+            ImplementationFields.MESSAGE: 'Implementation note',
+            Task.summary.key: 'Files changed:\n- client/app.ts',
+        }
+        testing = {
+            ImplementationFields.SUCCESS: True,
+            ImplementationFields.MESSAGE: 'Validation report: all good',
+        }
+
+        self.assertTrue(implementation_succeeded(execution))
+        self.assertTrue(testing_succeeded(testing))
+        self.assertEqual(
+            apply_testing_message(dict(execution), testing)[ImplementationFields.MESSAGE],
+            'Validation report: all good',
+        )
+        self.assertEqual(
+            task_execution_report(apply_testing_message(dict(execution), testing)),
+            'Implementation summary:\nFiles changed:\n- client/app.ts\nValidation report:\nValidation report: all good',
+        )
+        self.assertEqual(
+            testing_failed_result('PROJ-1'),
+            {
+                'id': 'PROJ-1',
+                StatusFields.STATUS: StatusFields.TESTING_FAILED,
+                PullRequestFields.PULL_REQUESTS: [],
+                PullRequestFields.FAILED_REPOSITORIES: [],
+            },
+        )
+        self.assertEqual(
+            skip_task_result('PROJ-1', [{'id': '17'}]),
+            {
+                'id': 'PROJ-1',
+                StatusFields.STATUS: StatusFields.SKIPPED,
+                PullRequestFields.PULL_REQUESTS: [{'id': '17'}],
+                PullRequestFields.FAILED_REPOSITORIES: [],
+            },
+        )
+
+    def test_log_mission_step_formats_messages_safely(self) -> None:
+        logger = unittest.mock.Mock()
+
+        log_mission_step(logger, 'PROJ-1', 'created %s pull request', 'one')
+        log_mission_step(logger, 'PROJ-2', 'literal message with %s and %d')
+
+        logger.info.assert_any_call('Mission %s: %s', 'PROJ-1', 'created one pull request')
+        logger.info.assert_any_call(
+            'Mission %s: %s',
+            'PROJ-2',
+            'literal message with %s and %d',
+        )

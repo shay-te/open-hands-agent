@@ -3,13 +3,12 @@ from collections.abc import Callable
 from core_lib.data_layers.service.service import Service
 
 from openhands_agent.client.ticket_client_base import TicketClientBase
-from openhands_agent.data_layers.data.fields import PullRequestFields
-from openhands_agent.data_layers.data.fields import StatusFields
 from openhands_agent.data_layers.data.fields import TaskCommentFields
 from openhands_agent.data_layers.data.task import Task
 from openhands_agent.data_layers.service.repository_service import RepositoryService
 from openhands_agent.data_layers.service.task_service import TaskService
 from openhands_agent.helpers.logging_utils import configure_logger
+from openhands_agent.helpers.mission_logging_utils import log_mission_step
 from openhands_agent.helpers.task_context_utils import (
     PreparedTaskContext,
     repository_branch_text,
@@ -17,8 +16,12 @@ from openhands_agent.helpers.task_context_utils import (
     repository_ids_text,
     task_has_actionable_definition,
 )
+from openhands_agent.helpers.task_execution_utils import skip_task_result
 from openhands_agent.validation.branch_push import TaskBranchPushValidator
 from openhands_agent.validation.model_access import TaskModelAccessValidator
+from openhands_agent.validation.branch_publishability import (
+    TaskBranchPublishabilityValidator,
+)
 
 
 class TaskPreflightService(Service):
@@ -28,12 +31,14 @@ class TaskPreflightService(Service):
         task_service: TaskService,
         repository_service: RepositoryService,
         task_branch_push_validator: TaskBranchPushValidator,
+        task_branch_publishability_validator: TaskBranchPublishabilityValidator,
         logger=None,
     ) -> None:
         self._task_model_access_validator = task_model_access_validator
         self._task_service = task_service
         self._repository_service = repository_service
         self._task_branch_push_validator = task_branch_push_validator
+        self._task_branch_publishability_validator = task_branch_publishability_validator
         self.logger = logger or configure_logger(self.__class__.__name__)
 
     def prepare_task_execution_context(
@@ -285,14 +290,34 @@ class TaskPreflightService(Service):
             return False
         return True
 
-    def _log_task_step(self, task_id: str, message: str, *args) -> None:
-        formatted_message = message
-        if args:
-            try:
-                formatted_message = message % args
-            except Exception:
-                formatted_message = ' '.join([message, *[str(arg) for arg in args]])
-        self.logger.info('Mission %s: %s', task_id, formatted_message)
+    def validate_task_branch_publishability(
+        self,
+        task: Task,
+        prepared_task: PreparedTaskContext,
+        *,
+        failure_handler: Callable[[Task, Exception, PreparedTaskContext | None], None] | None = None,
+    ) -> bool:
+        try:
+            self._task_branch_publishability_validator.validate(
+                prepared_task.repositories,
+                prepared_task.repository_branches,
+            )
+        except Exception as exc:
+            if failure_handler is None:
+                log_mission_step(
+                    self.logger,
+                    task.id,
+                    'pre-testing validation is still blocked during task branch publishability validation: %s',
+                    exc,
+                )
+                return False
+            self.logger.exception(
+                'failed to validate task branch publishability for task %s',
+                task.id,
+            )
+            failure_handler(task, exc, prepared_task)
+            return False
+        return True
 
     @staticmethod
     def _blocking_comment_kind(blocking_comment: str) -> str:
@@ -317,7 +342,7 @@ class TaskPreflightService(Service):
             self._blocking_comment_kind(blocking_comment),
             blocking_comment,
         )
-        return self._skip_task_result(task.id)
+        return skip_task_result(task.id)
 
     def _run_pre_start_step(
         self,
@@ -356,7 +381,7 @@ class TaskPreflightService(Service):
             self.logger.exception(failure_log_message, task.id)
             failure_handler(task, error, prepared_task)
             return
-        self._log_task_step(task.id, blocked_log_message, error)
+        log_mission_step(self.logger, task.id, blocked_log_message, error)
 
     def _handle_pre_start_task_definition_failure(
         self,
@@ -371,7 +396,8 @@ class TaskPreflightService(Service):
             )
             failure_handler(task)
             return
-        self._log_task_step(
+        log_mission_step(
+            self.logger,
             task.id,
             'pre-start retry check is still blocked because the task definition remains too thin',
         )
@@ -430,19 +456,10 @@ class TaskPreflightService(Service):
             self.logger.exception(failure_log_message, task_id)
             return False
 
+    def _log_task_step(self, task_id: str, message: str, *args) -> None:
+        log_mission_step(self.logger, task_id, message, *args)
+
     @staticmethod
     def _active_execution_blocking_comment(task: Task) -> str:
         comments = getattr(task, TaskCommentFields.ALL_COMMENTS, [])
         return TicketClientBase.active_execution_blocking_comment(comments)
-
-    @staticmethod
-    def _skip_task_result(
-        task_id: str,
-        pull_requests: list[dict[str, str]] | None = None,
-    ) -> dict[str, object]:
-        return {
-            Task.id.key: task_id,
-            StatusFields.STATUS: StatusFields.SKIPPED,
-            PullRequestFields.PULL_REQUESTS: pull_requests or [],
-            PullRequestFields.FAILED_REPOSITORIES: [],
-        }

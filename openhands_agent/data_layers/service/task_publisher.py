@@ -13,13 +13,15 @@ from openhands_agent.data_layers.service.task_failure_handler import TaskFailure
 from openhands_agent.data_layers.service.task_service import TaskService
 from openhands_agent.helpers.error_handling_utils import run_best_effort
 from openhands_agent.helpers.logging_utils import configure_logger
+from openhands_agent.helpers.mission_logging_utils import log_mission_step
 from openhands_agent.helpers.pull_request_utils import (
     pull_request_description,
     pull_request_repositories_text,
     pull_request_summary_comment,
 )
 from openhands_agent.helpers.text_utils import text_from_mapping
-from openhands_agent.helpers.task_context_utils import PreparedTaskContext
+from openhands_agent.helpers.task_context_utils import PreparedTaskContext, task_started_comment
+from openhands_agent.helpers.task_execution_utils import task_execution_report
 
 
 class TaskPublisher(Service):
@@ -66,6 +68,21 @@ class TaskPublisher(Service):
             )
         return self._complete_successful_publish(task, prepared_task, pull_requests)
 
+    def comment_task_started(
+        self,
+        task: Task,
+        repositories: list[object] | None = None,
+    ) -> None:
+        self._log_task_step(task.id, 'adding started comment')
+        try:
+            self._task_service.add_comment(
+                task.id,
+                task_started_comment(task, repositories),
+            )
+            self._log_task_step(task.id, 'added started comment')
+        except Exception:
+            self.logger.exception('failed to add started comment for task %s', task.id)
+
     def _create_pull_requests(
         self,
         task: Task,
@@ -98,18 +115,6 @@ class TaskPublisher(Service):
         task: Task,
     ) -> str:
         return f'Implement {task.id}'
-
-    def _task_execution_report(self, execution: dict[str, str | bool]) -> str:
-        report_lines: list[str] = []
-        implementation_summary = str(execution.get(Task.summary.key, '') or '').strip()
-        if implementation_summary:
-            report_lines.append('Implementation summary:')
-            report_lines.append(implementation_summary)
-        validation_report = str(execution.get(ImplementationFields.MESSAGE, '') or '').strip()
-        if validation_report:
-            report_lines.append('Validation report:')
-            report_lines.append(validation_report)
-        return '\n'.join(report_lines)
 
     def _create_pull_request_for_repository(
         self,
@@ -220,7 +225,7 @@ class TaskPublisher(Service):
             'adding review summary comment for %s',
             pull_request_repositories_text(pull_requests),
         )
-        execution_report = self._task_execution_report(execution)
+        execution_report = task_execution_report(execution)
         self._comment_task_completed(
             task,
             pull_requests,
@@ -318,10 +323,4 @@ class TaskPublisher(Service):
         )
 
     def _log_task_step(self, task_id: str, message: str, *args) -> None:
-        formatted_message = message
-        if args:
-            try:
-                formatted_message = message % args
-            except Exception:
-                formatted_message = ' '.join([message, *[str(arg) for arg in args]])
-        self.logger.info('Mission %s: %s', task_id, formatted_message)
+        log_mission_step(self.logger, task_id, message, *args)

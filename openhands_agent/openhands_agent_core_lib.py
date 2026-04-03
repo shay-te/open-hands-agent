@@ -108,6 +108,7 @@ class OpenHandsAgentCoreLib(CoreLib):
             task_service=task_service,
             repository_service=repository_service,
             task_branch_push_validator=task_branch_push_validator,
+            task_branch_publishability_validator=task_branch_publishability_validator,
         )
         task_failure_handler = TaskFailureHandler(
             task_service=task_service,
@@ -140,7 +141,6 @@ class OpenHandsAgentCoreLib(CoreLib):
             repository_connections_validator=repository_connections_validator,
             startup_validator=startup_validator,
             task_preflight_service=task_preflight_service,
-            task_branch_publishability_validator=task_branch_publishability_validator,
             skip_testing=skip_testing_enabled(open_cfg.openhands),
         )
 

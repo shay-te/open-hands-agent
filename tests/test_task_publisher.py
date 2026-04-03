@@ -170,3 +170,15 @@ class TaskPublisherTests(unittest.TestCase):
         self.assertEqual(failure_kwargs['prepared_task'], prepared_task)
         self.state_registry.mark_task_processed.assert_not_called()
         self.notification_service.notify_task_ready_for_review.assert_not_called()
+
+    def test_comment_task_started_uses_repository_context(self) -> None:
+        task = build_task(description='Update client and backend APIs')
+
+        self.publisher.comment_task_started(
+            task,
+            [types.SimpleNamespace(id='client'), types.SimpleNamespace(id='backend')],
+        )
+
+        self.task_service.add_comment.assert_called_once()
+        comment = self.task_service.add_comment.call_args.args[1]
+        self.assertIn('started working on this task in repositories: client, backend', comment)

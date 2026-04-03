@@ -174,6 +174,7 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
             task_service=mock_task_service_cls.return_value,
             repository_service=mock_repository_service_cls.return_value,
             task_branch_push_validator=ANY,
+            task_branch_publishability_validator=ANY,
         )
         mock_task_failure_handler_cls.assert_called_once_with(
             task_service=mock_task_service_cls.return_value,
@@ -216,7 +217,6 @@ class OpenHandsAgentCoreLibTests(unittest.TestCase):
             repository_connections_validator=ANY,
             startup_validator=ANY,
             task_preflight_service=mock_task_preflight_service_cls.return_value,
-            task_branch_publishability_validator=ANY,
             skip_testing=False,
         )
         mock_service_cls.return_value.validate_connections.assert_called_once_with()
