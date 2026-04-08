@@ -283,6 +283,50 @@ class DeploymentFilesTests(unittest.TestCase):
         self.assertIn('AWS_SESSION_TOKEN=', env_example_text)
         self.assertIn('AWS_BEARER_TOKEN_BEDROCK=', env_example_text)
 
+    def test_env_example_keeps_all_kato_variables_at_the_top(self) -> None:
+        env_example_lines = (REPO_ROOT / '.env.example').read_text(encoding='utf-8').splitlines()
+        ordered_kato_keys: list[str] = []
+        seen_non_kato_setting = False
+
+        for line in env_example_lines:
+            stripped = line.strip()
+            if not stripped or stripped.startswith('#') or '=' not in line:
+                continue
+
+            key = line.split('=', 1)[0].strip()
+            if key.startswith('KATO_'):
+                self.assertFalse(
+                    seen_non_kato_setting,
+                    f'{key} appears after non-KATO env settings in .env.example',
+                )
+                ordered_kato_keys.append(key)
+            else:
+                seen_non_kato_setting = True
+
+        self.assertEqual(
+            ordered_kato_keys,
+            [
+                'KATO_ISSUE_PLATFORM',
+                'KATO_LOG_LEVEL',
+                'KATO_WORKFLOW_LOG_LEVEL',
+                'KATO_EXTERNAL_API_MAX_RETRIES',
+                'KATO_IGNORED_REPOSITORY_FOLDERS',
+                'KATO_SOURCE_FINGERPRINT',
+                'KATO_FAILURE_EMAIL_ENABLED',
+                'KATO_FAILURE_EMAIL_TEMPLATE_ID',
+                'KATO_FAILURE_EMAIL_TO',
+                'KATO_FAILURE_EMAIL_SENDER_NAME',
+                'KATO_FAILURE_EMAIL_SENDER_EMAIL',
+                'KATO_COMPLETION_EMAIL_ENABLED',
+                'KATO_COMPLETION_EMAIL_TEMPLATE_ID',
+                'KATO_COMPLETION_EMAIL_TO',
+                'KATO_COMPLETION_EMAIL_SENDER_NAME',
+                'KATO_COMPLETION_EMAIL_SENDER_EMAIL',
+                'KATO_AGENT_SERVER_IMAGE_REPOSITORY',
+                'KATO_AGENT_SERVER_IMAGE_TAG',
+            ],
+        )
+
     def test_agents_file_exists_for_openhands_rules(self) -> None:
         agents_text = (REPO_ROOT / 'AGENTS.md').read_text(encoding='utf-8')
         readme_text = (REPO_ROOT / 'README.md').read_text(encoding='utf-8')
