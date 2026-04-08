@@ -470,6 +470,44 @@ class RepositoryServiceTests(unittest.TestCase):
             self.assertFalse(cleared)
             self.assertTrue(lock_path.exists())
 
+    def test_clear_stale_git_index_lock_returns_false_when_lock_is_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_path = Path(temp_dir) / 'client'
+            (repo_path / '.git').mkdir(parents=True)
+            service = RepositoryService([], 3)
+
+            with patch.object(
+                RepositoryService,
+                '_has_running_git_process',
+                return_value=False,
+            ):
+                cleared = service._clear_stale_git_index_lock(str(repo_path))
+
+            self.assertFalse(cleared)
+
+    def test_run_git_subprocess_uses_env_based_http_auth_and_timeout(self) -> None:
+        service = RepositoryService([], 3)
+        repository = types.SimpleNamespace(
+            provider='github',
+            remote_url='https://github.example/acme/repo.git',
+            token='secret-token',
+        )
+
+        with patch(
+            'kato.data_layers.service.repository_service.subprocess.run',
+            return_value=Mock(returncode=0, stdout='', stderr=''),
+        ) as mock_run:
+            service._run_git_subprocess('.', ['status'], repository)
+
+        command = mock_run.call_args.args[0]
+        kwargs = mock_run.call_args.kwargs
+        self.assertNotIn('http.extraHeader', command)
+        self.assertEqual(kwargs['timeout'], RepositoryService.GIT_SUBPROCESS_TIMEOUT_SECONDS)
+        self.assertEqual(kwargs['env']['GIT_TERMINAL_PROMPT'], '0')
+        self.assertEqual(kwargs['env']['GIT_CONFIG_COUNT'], '1')
+        self.assertEqual(kwargs['env']['GIT_CONFIG_KEY_0'], 'http.extraHeader')
+        self.assertTrue(kwargs['env']['GIT_CONFIG_VALUE_0'].startswith('Authorization: '))
+
     def test_prepare_task_branches_creates_new_task_branch_from_destination_branch(self) -> None:
         service = RepositoryService(self.cfg.kato.repositories, 3)
 
@@ -1217,6 +1255,7 @@ class RepositoryServiceTests(unittest.TestCase):
             Mock(returncode=0, stdout='', stderr=''),
             Mock(returncode=0, stdout='', stderr=''),
             Mock(returncode=0, stdout='', stderr=''),
+            Mock(returncode=0, stdout='', stderr=''),
             Mock(returncode=0, stdout='[feature/proj-1/backend abc123] Implement PROJ-1\n', stderr=''),
             Mock(returncode=0, stdout='', stderr=''),
             Mock(returncode=0, stdout='main\n', stderr=''),
@@ -1238,11 +1277,6 @@ class RepositoryServiceTests(unittest.TestCase):
             'kato.data_layers.service.repository_service.os.path.isdir',
             return_value=True,
         ), patch(
-            'kato.data_layers.service.repository_service.os.path.exists',
-            return_value=True,
-        ), patch(
-            'kato.data_layers.service.repository_service.os.remove',
-        ) as mock_remove, patch(
             'kato.data_layers.service.repository_service.RepositoryService._validate_destination_branch_tracking_state',
         ), patch(
             'kato.data_layers.service.repository_service.RepositoryService._validation_report_text',
@@ -1275,6 +1309,7 @@ class RepositoryServiceTests(unittest.TestCase):
                     ['git', '-c', 'safe.directory=.', '-C', '.', 'status', '--porcelain'],
                     ['git', '-c', 'safe.directory=.', '-C', '.', 'add', '-A'],
                     ['git', '-c', 'safe.directory=.', '-C', '.', 'reset', 'HEAD', '--', 'validation_report.md'],
+                    ['git', '-c', 'safe.directory=.', '-C', '.', 'clean', '-fd', '--', 'validation_report.md'],
                     ['git', '-c', 'safe.directory=.', '-C', '.', 'add', '-A'],
                     ['git', '-c', 'safe.directory=.', '-C', '.', 'commit', '-m', 'Implement PROJ-1'],
                     ['git', '-c', 'safe.directory=.', '-C', '.', 'status', '--porcelain'],
@@ -1310,6 +1345,7 @@ class RepositoryServiceTests(unittest.TestCase):
             Mock(returncode=0, stdout='', stderr=''),
             Mock(returncode=0, stdout='', stderr=''),
             Mock(returncode=0, stdout='', stderr=''),
+            Mock(returncode=0, stdout='', stderr=''),
             Mock(returncode=0, stdout='[feature/proj-1/backend abc123] Implement PROJ-1\n', stderr=''),
             Mock(returncode=0, stdout='', stderr=''),
             Mock(returncode=0, stdout='main\n', stderr=''),
@@ -1327,9 +1363,6 @@ class RepositoryServiceTests(unittest.TestCase):
         def is_directory(path: str) -> bool:
             return path.endswith('/build') or path.endswith('\\build')
 
-        def path_exists(path: str) -> bool:
-            return path.endswith('/build') or path.endswith('\\build') or path.endswith('validation_report.md')
-
         with patch(
             'kato.data_layers.service.repository_service.shutil.which',
             return_value='/usr/bin/git',
@@ -1337,13 +1370,6 @@ class RepositoryServiceTests(unittest.TestCase):
             'kato.data_layers.service.repository_service.os.path.isdir',
             side_effect=is_directory,
         ), patch(
-            'kato.data_layers.service.repository_service.os.path.exists',
-            side_effect=path_exists,
-        ), patch(
-            'kato.data_layers.service.repository_service.os.remove',
-        ) as mock_remove, patch(
-            'kato.data_layers.service.repository_service.shutil.rmtree',
-        ) as mock_rmtree, patch(
             'kato.data_layers.service.repository_service.RepositoryService._validate_destination_branch_tracking_state',
         ), patch(
             'kato.data_layers.service.repository_service.RepositoryService._ensure_branch_is_publishable',
@@ -1377,7 +1403,9 @@ class RepositoryServiceTests(unittest.TestCase):
                     ['git', '-c', 'safe.directory=.', '-C', '.', 'status', '--porcelain'],
                     ['git', '-c', 'safe.directory=.', '-C', '.', 'add', '-A'],
                     ['git', '-c', 'safe.directory=.', '-C', '.', 'reset', 'HEAD', '--', 'build'],
+                    ['git', '-c', 'safe.directory=.', '-C', '.', 'clean', '-fd', '--', 'build'],
                     ['git', '-c', 'safe.directory=.', '-C', '.', 'reset', 'HEAD', '--', 'validation_report.md'],
+                    ['git', '-c', 'safe.directory=.', '-C', '.', 'clean', '-fd', '--', 'validation_report.md'],
                     ['git', '-c', 'safe.directory=.', '-C', '.', 'add', '-A'],
                     ['git', '-c', 'safe.directory=.', '-C', '.', 'commit', '-m', 'Implement PROJ-1'],
                     ['git', '-c', 'safe.directory=.', '-C', '.', 'status', '--porcelain'],
@@ -1390,8 +1418,6 @@ class RepositoryServiceTests(unittest.TestCase):
             destination_branch='main',
             description='Validation report:\n- verified the task manually.',
         )
-        mock_rmtree.assert_called_once_with('./build')
-        mock_remove.assert_called_once_with('./validation_report.md')
         mock_push_branch.assert_called_once_with('.', 'feature/proj-1/backend', repository)
 
     def test_create_pull_request_rejects_branch_without_committed_changes(self) -> None:

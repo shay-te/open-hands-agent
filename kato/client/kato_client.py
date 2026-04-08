@@ -14,6 +14,7 @@ from kato.data_layers.data.fields import (
 )
 from kato.helpers.kato_result_utils import build_openhands_result
 from kato.helpers.kato_config_utils import is_openrouter_model
+from kato.helpers.logging_utils import configure_logger
 from kato.helpers.task_context_utils import PreparedTaskContext
 from kato.helpers.text_utils import (
     condensed_text,
@@ -22,6 +23,9 @@ from kato.helpers.text_utils import (
     text_from_attr,
     text_from_mapping,
 )
+
+
+logger = configure_logger(__name__)
 
 
 class KatoClient(RetryingClientBase):
@@ -816,6 +820,10 @@ class KatoClient(RetryingClientBase):
         try:
             payload = json.loads(arguments_text)
         except json.JSONDecodeError:
+            logger.warning(
+                'failed to parse OpenHands tool arguments as JSON: %s',
+                condensed_text(arguments_text),
+            )
             return {}
         if isinstance(payload, dict):
             return payload
@@ -883,6 +891,10 @@ class KatoClient(RetryingClientBase):
         try:
             payload = json.loads(arguments)
         except json.JSONDecodeError:
+            logger.warning(
+                'failed to parse OpenHands finish arguments as JSON: %s',
+                condensed_text(arguments),
+            )
             return {}
         return payload if isinstance(payload, dict) else {}
 
@@ -958,6 +970,11 @@ class KatoClient(RetryingClientBase):
                 continue
             if isinstance(payload, dict):
                 return payload
+        if candidates:
+            logger.warning(
+                'failed to parse OpenHands result JSON from message: %s',
+                condensed_text(message_text),
+            )
         return None
 
     @staticmethod

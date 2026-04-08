@@ -1301,6 +1301,19 @@ class KatoClientTests(unittest.TestCase):
             },
         )
 
+    def test_tool_call_arguments_logs_invalid_json(self) -> None:
+        with patch('kato.client.kato_client.logger') as mock_logger:
+            payload = KatoClient._tool_call_arguments(
+                {
+                    'tool_call': {
+                        'arguments': '{not valid json',
+                    }
+                }
+            )
+
+        self.assertEqual(payload, {})
+        mock_logger.warning.assert_called_once()
+
     def test_run_prompt_uses_title_fallback_when_events_do_not_include_parseable_result(self) -> None:
         client = KatoClient('https://openhands.example', 'oh-token')
 

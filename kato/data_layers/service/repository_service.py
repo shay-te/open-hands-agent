@@ -31,6 +31,8 @@ from kato.data_layers.service.repository_publication_service import (
 class RepositoryService(RepositoryInventoryService):
     """Manage repository worktree preparation, branch publication, and cleanup."""
 
+    GIT_SUBPROCESS_TIMEOUT_SECONDS = 300
+
     def __init__(self, repositories_config, max_retries: int) -> None:
         super().__init__(repositories_config, max_retries)
         self._publication_service = RepositoryPublicationService(self, max_retries)
@@ -169,7 +171,12 @@ class RepositoryService(RepositoryInventoryService):
         if configured_branch:
             return configured_branch
         self._validate_local_path(repository)
-        inferred_branch = self._infer_default_branch(repository.local_path)
+        try:
+            inferred_branch = self._infer_default_branch(repository.local_path)
+        except ValueError as exc:
+            raise ValueError(
+                f'unable to determine destination branch for repository {repository.id}'
+            ) from exc
         if not inferred_branch:
             raise ValueError(
                 f'unable to determine destination branch for repository {repository.id}'
@@ -371,11 +378,14 @@ class RepositoryService(RepositoryInventoryService):
                     f'{artifact_path} from branch {branch_name}'
                 ),
             )
-            artifact_full_path = os.path.join(local_path, artifact_path)
-            if os.path.isdir(artifact_full_path):
-                shutil.rmtree(artifact_full_path)
-            elif os.path.exists(artifact_full_path):
-                os.remove(artifact_full_path)
+            self._run_git(
+                local_path,
+                ['clean', '-fd', '--', artifact_path],
+                (
+                    f'failed to clean generated artifact path '
+                    f'{artifact_path} from branch {branch_name}'
+                ),
+            )
         for validation_report_path in self._validation_report_paths_from_status(status_output):
             self._run_git(
                 local_path,
@@ -402,8 +412,14 @@ class RepositoryService(RepositoryInventoryService):
                 )
             else:
                 validation_report_descriptions.append(validation_report_description)
-            if os.path.exists(validation_report_full_path):
-                os.remove(validation_report_full_path)
+            self._run_git(
+                local_path,
+                ['clean', '-fd', '--', validation_report_path],
+                (
+                    f'failed to clean validation report file '
+                    f'{validation_report_path} from branch {branch_name}'
+                ),
+            )
         self._run_git(
             local_path,
             ['add', '-A'],
@@ -814,6 +830,7 @@ class RepositoryService(RepositoryInventoryService):
             capture_output=True,
             text=True,
             check=False,
+            timeout=self.GIT_SUBPROCESS_TIMEOUT_SECONDS,
         )
         return result.returncode == 0
 
@@ -886,13 +903,20 @@ class RepositoryService(RepositoryInventoryService):
         env['GIT_TERMINAL_PROMPT'] = '0'
         auth_header = self._git_http_auth_header(repository)
         if auth_header:
-            command.extend(['-c', f'http.extraHeader={auth_header}'])
+            env['GIT_CONFIG_COUNT'] = '1'
+            env['GIT_CONFIG_KEY_0'] = 'http.extraHeader'
+            env['GIT_CONFIG_VALUE_0'] = auth_header
+        else:
+            env.pop('GIT_CONFIG_COUNT', None)
+            env.pop('GIT_CONFIG_KEY_0', None)
+            env.pop('GIT_CONFIG_VALUE_0', None)
         return subprocess.run(
             [*command, *self._git_safe_directory_args(local_path), '-C', local_path, *args],
             capture_output=True,
             text=True,
             check=False,
             env=env,
+            timeout=self.GIT_SUBPROCESS_TIMEOUT_SECONDS,
         )
 
     @staticmethod
@@ -902,15 +926,16 @@ class RepositoryService(RepositoryInventoryService):
 
     def _clear_stale_git_index_lock(self, local_path: str) -> bool:
         lock_path = Path(local_path) / '.git' / 'index.lock'
-        if not lock_path.exists():
-            return False
         if self._has_running_git_process(local_path):
             self.logger.warning(
                 'leaving git index lock in place at %s because another git process is still running',
                 lock_path,
             )
             return False
-        lock_path.unlink()
+        try:
+            lock_path.unlink()
+        except FileNotFoundError:
+            return False
         self.logger.warning('removed stale git index lock at %s', lock_path)
         return True
 
@@ -922,6 +947,7 @@ class RepositoryService(RepositoryInventoryService):
                 capture_output=True,
                 text=True,
                 check=False,
+                timeout=self.GIT_SUBPROCESS_TIMEOUT_SECONDS,
             )
         except OSError:
             return False
@@ -1021,6 +1047,7 @@ class RepositoryService(RepositoryInventoryService):
                 capture_output=True,
                 text=True,
                 check=False,
+                timeout=RepositoryService.GIT_SUBPROCESS_TIMEOUT_SECONDS,
             )
             output = result.stdout.strip()
             if result.returncode != 0 or not output:
@@ -1028,4 +1055,6 @@ class RepositoryService(RepositoryInventoryService):
             if output.startswith('refs/remotes/'):
                 return output.rsplit('/', 1)[-1]
             return output
-        return ''
+        raise ValueError(
+            f'unable to determine destination branch for repository at {local_path}'
+        )

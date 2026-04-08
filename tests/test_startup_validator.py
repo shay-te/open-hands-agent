@@ -85,7 +85,7 @@ class StartupDependencyValidatorTests(unittest.TestCase):
     def test_validate_raises_when_repository_validation_fails(self) -> None:
         self.repository_connections_validator.validate.side_effect = RuntimeError('repo down')
 
-        with self.assertRaisesRegex(RuntimeError, 'repo down'):
+        with self.assertRaisesRegex(RuntimeError, 'repo down') as exc_context:
             self.validator.validate(self.logger)
 
         self.repository_connections_validator.validate.assert_called_once_with()
@@ -96,3 +96,5 @@ class StartupDependencyValidatorTests(unittest.TestCase):
         self.assertEqual(self.logger.error.call_args.args[0], 'failed to validate repositories connection: %s')
         self.assertIsInstance(self.logger.error.call_args.args[1], RuntimeError)
         self.assertEqual(str(self.logger.error.call_args.args[1]), 'repo down')
+        self.assertIsInstance(exc_context.exception.__cause__, RuntimeError)
+        self.assertEqual(str(exc_context.exception.__cause__), 'repo down')

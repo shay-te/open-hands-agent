@@ -61,7 +61,7 @@ class StartupDependencyValidator(ValidationBase):
             logger.info('validated repositories connection')
         except Exception as exc:
             logger.error('failed to validate repositories connection: %s', exc)
-            raise RuntimeError(str(exc)) from None
+            raise RuntimeError(str(exc)) from exc
 
     def _dependency_steps(self) -> list[DependencyValidationStep]:
         steps = [
