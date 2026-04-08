@@ -2,14 +2,14 @@ import types
 import unittest
 from unittest.mock import Mock
 
-from openhands_agent.data_layers.service.implementation_service import (
+from kato.data_layers.service.implementation_service import (
     ImplementationService,
 )
 from utils import build_task
 
 
 class ImplementationServiceTests(unittest.TestCase):
-    def test_passes_openhands_client_calls(self) -> None:
+    def test_passes_kato_client_calls(self) -> None:
         client = types.SimpleNamespace(
             implement_task=Mock(),
             fix_review_comment=Mock(),

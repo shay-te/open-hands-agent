@@ -2,13 +2,13 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import Mock
 
-from openhands_agent.validation.branch_publishability import (
+from kato.validation.branch_publishability import (
     TaskBranchPublishabilityValidator,
 )
-from openhands_agent.validation.branch_push import (
+from kato.validation.branch_push import (
     TaskBranchPushValidator,
 )
-from openhands_agent.validation.model_access import (
+from kato.validation.model_access import (
     TaskModelAccessValidator,
 )
 from utils import build_task

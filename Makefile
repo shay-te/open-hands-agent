@@ -1,6 +1,6 @@
 PYTHON ?= python3
 VENV_PYTHON = .venv/bin/python
-OPENHANDS_AGENT_SOURCE_FINGERPRINT := $(shell $(PYTHON) -m openhands_agent.helpers.runtime_identity_utils --root .)
+KATO_SOURCE_FINGERPRINT := $(shell $(PYTHON) -m kato.helpers.runtime_identity_utils --root .)
 
 .PHONY: bootstrap configure doctor doctor-agent doctor-openhands test run compose-up
 
@@ -11,13 +11,13 @@ configure:
 	$(VENV_PYTHON) scripts/generate_env.py --output .env
 
 doctor:
-	$(VENV_PYTHON) -m openhands_agent.validate_env --env-file .env --mode all
+	$(VENV_PYTHON) -m kato.validate_env --env-file .env --mode all
 
 doctor-agent:
-	$(VENV_PYTHON) -m openhands_agent.validate_env --env-file .env --mode agent
+	$(VENV_PYTHON) -m kato.validate_env --env-file .env --mode agent
 
 doctor-openhands:
-	$(VENV_PYTHON) -m openhands_agent.validate_env --env-file .env --mode openhands
+	$(VENV_PYTHON) -m kato.validate_env --env-file .env --mode openhands
 
 test:
 	$(VENV_PYTHON) -m unittest discover -s tests
@@ -27,9 +27,9 @@ run:
 
 compose-up:
 	@if [ -f .env ]; then set -a; . ./.env; set +a; fi; \
-	export OPENHANDS_AGENT_SOURCE_FINGERPRINT='$(OPENHANDS_AGENT_SOURCE_FINGERPRINT)'; \
+	export KATO_SOURCE_FINGERPRINT='$(KATO_SOURCE_FINGERPRINT)'; \
 	if [ "$${OPENHANDS_SKIP_TESTING:-false}" != "true" ] && [ "$${OPENHANDS_TESTING_CONTAINER_ENABLED:-false}" = "true" ]; then \
-		docker compose --profile testing up --build --attach openhands-agent; \
+		docker compose --profile testing up --build --attach kato; \
 	else \
-		docker compose up --build --attach openhands-agent; \
+		docker compose up --build --attach kato; \
 	fi

@@ -3,7 +3,7 @@ from pathlib import Path
 import tempfile
 from unittest.mock import patch
 
-from openhands_agent.validate_env import (
+from kato.validate_env import (
     validate_agent_env,
     validate_openhands_env,
 )
@@ -35,16 +35,16 @@ class ValidateEnvTests(unittest.TestCase):
                 'REPOSITORY_ROOT_PATH': '.',
                 'OPENHANDS_BASE_URL': 'http://localhost:3000',
                 'OPENHANDS_API_KEY': 'local',
-                'OPENHANDS_AGENT_FAILURE_EMAIL_ENABLED': 'true',
+                'KATO_FAILURE_EMAIL_ENABLED': 'true',
             }
         )
 
         self.assertIn(
-            'failure email is enabled but OPENHANDS_AGENT_FAILURE_EMAIL_TEMPLATE_ID is missing',
+            'failure email is enabled but KATO_FAILURE_EMAIL_TEMPLATE_ID is missing',
             errors,
         )
         self.assertIn(
-            'failure email is enabled but OPENHANDS_AGENT_FAILURE_EMAIL_TO is missing',
+            'failure email is enabled but KATO_FAILURE_EMAIL_TO is missing',
             errors,
         )
 
@@ -65,7 +65,7 @@ class ValidateEnvTests(unittest.TestCase):
     def test_validate_agent_env_accepts_jira_configuration(self) -> None:
         errors = self._validate_agent_env(
             {
-                'OPENHANDS_AGENT_ISSUE_PLATFORM': 'jira',
+                'KATO_ISSUE_PLATFORM': 'jira',
                 'JIRA_BASE_URL': 'https://jira.example',
                 'JIRA_TOKEN': 'jira-token',
                 'JIRA_PROJECT': 'PROJ',
@@ -81,7 +81,7 @@ class ValidateEnvTests(unittest.TestCase):
     def test_validate_agent_env_accepts_github_issues_configuration(self) -> None:
         errors = self._validate_agent_env(
             {
-                'OPENHANDS_AGENT_ISSUE_PLATFORM': 'github',
+                'KATO_ISSUE_PLATFORM': 'github',
                 'GITHUB_ISSUES_BASE_URL': 'https://api.github.com',
                 'GITHUB_API_TOKEN': 'gh-token',
                 'GITHUB_ISSUES_OWNER': 'workspace',
@@ -98,7 +98,7 @@ class ValidateEnvTests(unittest.TestCase):
     def test_validate_agent_env_accepts_gitlab_issues_configuration(self) -> None:
         errors = self._validate_agent_env(
             {
-                'OPENHANDS_AGENT_ISSUE_PLATFORM': 'gitlab',
+                'KATO_ISSUE_PLATFORM': 'gitlab',
                 'GITLAB_ISSUES_BASE_URL': 'https://gitlab.example/api/v4',
                 'GITLAB_API_TOKEN': 'gl-token',
                 'GITLAB_ISSUES_PROJECT': 'group/repo',
@@ -114,7 +114,7 @@ class ValidateEnvTests(unittest.TestCase):
     def test_validate_agent_env_accepts_bitbucket_issues_configuration(self) -> None:
         errors = self._validate_agent_env(
             {
-                'OPENHANDS_AGENT_ISSUE_PLATFORM': 'bitbucket',
+                'KATO_ISSUE_PLATFORM': 'bitbucket',
                 'BITBUCKET_ISSUES_BASE_URL': 'https://api.bitbucket.org/2.0',
                 'BITBUCKET_API_TOKEN': 'bb-token',
                 'BITBUCKET_USERNAME': 'bb-user',
@@ -187,7 +187,7 @@ class ValidateEnvTests(unittest.TestCase):
     def test_validate_agent_env_requires_github_api_token(self) -> None:
         errors = self._validate_agent_env(
             {
-                'OPENHANDS_AGENT_ISSUE_PLATFORM': 'github',
+                'KATO_ISSUE_PLATFORM': 'github',
                 'GITHUB_ISSUES_BASE_URL': 'https://api.github.com',
                 'GITHUB_ISSUES_OWNER': 'workspace',
                 'GITHUB_ISSUES_REPO': 'repo',
@@ -224,7 +224,7 @@ class ValidateEnvTests(unittest.TestCase):
     def test_validate_agent_env_requires_gitlab_api_token(self) -> None:
         errors = self._validate_agent_env(
             {
-                'OPENHANDS_AGENT_ISSUE_PLATFORM': 'gitlab',
+                'KATO_ISSUE_PLATFORM': 'gitlab',
                 'GITLAB_ISSUES_BASE_URL': 'https://gitlab.example/api/v4',
                 'GITLAB_ISSUES_PROJECT': 'group/repo',
                 'GITLAB_ISSUES_ASSIGNEE': 'developer',
@@ -237,7 +237,7 @@ class ValidateEnvTests(unittest.TestCase):
         self.assertIn('missing required agent env var: GITLAB_API_TOKEN', errors)
 
     def test_validate_agent_env_rejects_unknown_issue_platform(self) -> None:
-        errors = self._validate_agent_env({'OPENHANDS_AGENT_ISSUE_PLATFORM': 'linear'})
+        errors = self._validate_agent_env({'KATO_ISSUE_PLATFORM': 'linear'})
 
         self.assertIn('unsupported issue platform: linear', errors)
 
@@ -440,5 +440,5 @@ class ValidateEnvTests(unittest.TestCase):
 
     @staticmethod
     def _validate_agent_env(env: dict[str, str]) -> list[str]:
-        with patch('openhands_agent.validate_env.discover_git_repositories', return_value=[]):
+        with patch('kato.validate_env.discover_git_repositories', return_value=[]):
             return validate_agent_env(env)

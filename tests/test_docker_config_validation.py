@@ -10,7 +10,7 @@ import os
 import unittest
 from unittest.mock import patch
 
-from openhands_agent.validate_env import validate_environment
+from kato.validate_env import validate_environment
 
 
 class TestDockerConfigValidation(unittest.TestCase):
@@ -33,8 +33,8 @@ class TestDockerConfigValidation(unittest.TestCase):
         os.environ['YOUTRACK_TOKEN'] = 'test-token'
         os.environ['YOUTRACK_PROJECT'] = 'TEST'
         os.environ['YOUTRACK_ASSIGNEE'] = 'developer'
-        os.environ['OPENHANDS_AGENT_ISSUE_PLATFORM'] = 'youtrack'
-        os.environ['OPENHANDS_AGENT_TICKET_SYSTEM'] = 'youtrack'
+        os.environ['KATO_ISSUE_PLATFORM'] = 'youtrack'
+        os.environ['KATO_TICKET_SYSTEM'] = 'youtrack'
         os.environ['OPENHANDS_API_KEY'] = 'test-key'
         os.environ['OPENHANDS_BASE_URL'] = 'http://openhands:3000'
         os.environ['REPOSITORY_ROOT_PATH'] = '/test/path'

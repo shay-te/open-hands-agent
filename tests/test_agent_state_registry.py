@@ -1,7 +1,7 @@
 import unittest
 
-from openhands_agent.data_layers.data.fields import PullRequestFields, ReviewCommentFields, StatusFields
-from openhands_agent.data_layers.service.agent_state_registry import AgentStateRegistry
+from kato.data_layers.data.fields import PullRequestFields, ReviewCommentFields, StatusFields
+from kato.data_layers.service.agent_state_registry import AgentStateRegistry
 
 
 class AgentStateRegistryTests(unittest.TestCase):

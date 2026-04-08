@@ -3,16 +3,16 @@ import unittest
 from unittest.mock import ANY, Mock, patch
 
 
-from openhands_agent.data_layers.data.review_comment import ReviewComment
-from openhands_agent.data_layers.data_access.task_data_access import TaskDataAccess
-from openhands_agent.data_layers.service.agent_service import AgentService
-from openhands_agent.data_layers.service.implementation_service import (
+from kato.data_layers.data.review_comment import ReviewComment
+from kato.data_layers.data_access.task_data_access import TaskDataAccess
+from kato.data_layers.service.agent_service import AgentService
+from kato.data_layers.service.implementation_service import (
     ImplementationService,
 )
-from openhands_agent.data_layers.service.notification_service import NotificationService
-from openhands_agent.data_layers.service.task_state_service import TaskStateService
-from openhands_agent.data_layers.service.task_service import TaskService
-from openhands_agent.data_layers.data.fields import (
+from kato.data_layers.service.notification_service import NotificationService
+from kato.data_layers.service.task_state_service import TaskStateService
+from kato.data_layers.service.task_service import TaskService
+from kato.data_layers.data.fields import (
     EmailFields,
     ImplementationFields,
     PullRequestFields,
@@ -21,7 +21,7 @@ from openhands_agent.data_layers.data.fields import (
     TaskFields,
     TaskCommentFields,
 )
-from openhands_agent.data_layers.service.testing_service import TestingService
+from kato.data_layers.service.testing_service import TestingService
 from utils import build_review_comment_payload, build_task, build_test_cfg
 
 
@@ -36,8 +36,8 @@ class AgentServiceTests(unittest.TestCase):
             '  Added the backend support for the task.'
         )
         self.cfg = build_test_cfg()
-        self.client_repo = self.cfg.openhands_agent.repositories[0]
-        self.backend_repo = self.cfg.openhands_agent.repositories[1]
+        self.client_repo = self.cfg.kato.repositories[0]
+        self.backend_repo = self.cfg.kato.repositories[1]
         task_client = types.SimpleNamespace(
             provider_name='youtrack',
             get_assigned_tasks=Mock(return_value=[build_task(description=self.task_description)]),
@@ -46,14 +46,14 @@ class AgentServiceTests(unittest.TestCase):
         )
         self.task_client = task_client
         self.task_data_access = TaskService(
-            self.cfg.openhands_agent.youtrack,
-            TaskDataAccess(self.cfg.openhands_agent.youtrack, task_client),
+            self.cfg.kato.youtrack,
+            TaskDataAccess(self.cfg.kato.youtrack, task_client),
         )
         self.task_state_service = TaskStateService(
-            self.cfg.openhands_agent.youtrack,
-            TaskDataAccess(self.cfg.openhands_agent.youtrack, task_client),
+            self.cfg.kato.youtrack,
+            TaskDataAccess(self.cfg.kato.youtrack, task_client),
         )
-        self.openhands_client = types.SimpleNamespace(
+        self.kato_client = types.SimpleNamespace(
             validate_connection=Mock(),
             validate_model_access=Mock(),
             implement_task=Mock(
@@ -73,8 +73,8 @@ class AgentServiceTests(unittest.TestCase):
             ),
             fix_review_comment=Mock(return_value={ImplementationFields.SUCCESS: True}),
         )
-        self.implementation_service = ImplementationService(self.openhands_client)
-        self.testing_service = TestingService(self.openhands_client)
+        self.implementation_service = ImplementationService(self.kato_client)
+        self.testing_service = TestingService(self.kato_client)
         self.repository_service = types.SimpleNamespace(
             repositories=[self.client_repo, self.backend_repo],
             _validate_inventory=Mock(),
@@ -128,8 +128,8 @@ class AgentServiceTests(unittest.TestCase):
         self.notification_service = NotificationService(
             app_name=self.cfg.core_lib.app.name,
             email_core_lib=self.email_core_lib,
-            failure_email_cfg=self.cfg.openhands_agent.failure_email,
-            completion_email_cfg=self.cfg.openhands_agent.completion_email,
+            failure_email_cfg=self.cfg.kato.failure_email,
+            completion_email_cfg=self.cfg.kato.completion_email,
         )
         self.service = AgentService(
             self.task_data_access,
@@ -164,7 +164,7 @@ class AgentServiceTests(unittest.TestCase):
 
     def test_validate_connections_checks_all_dependencies(self) -> None:
         self.task_client.validate_connection = Mock()
-        self.openhands_client.validate_connection = Mock()
+        self.kato_client.validate_connection = Mock()
 
         self.service.validate_connections()
 
@@ -179,11 +179,11 @@ class AgentServiceTests(unittest.TestCase):
             assignee='me',
             states=['Todo', 'Open'],
         )
-        self.assertEqual(self.openhands_client.validate_connection.call_count, 2)
+        self.assertEqual(self.kato_client.validate_connection.call_count, 2)
 
     def test_validate_connections_raises_with_service_stack_traces(self) -> None:
         self.task_client.validate_connection = Mock(side_effect=RuntimeError('youtrack down'))
-        self.openhands_client.validate_connection = Mock(side_effect=RuntimeError('openhands down'))
+        self.kato_client.validate_connection = Mock(side_effect=RuntimeError('openhands down'))
         self.service.logger = Mock()
 
         with self.assertRaisesRegex(RuntimeError, 'startup dependency validation failed') as exc_context:
@@ -200,8 +200,8 @@ class AgentServiceTests(unittest.TestCase):
 
     def test_validate_connections_summarizes_retryable_failures_with_attempt_count(self) -> None:
         self.task_client.validate_connection = Mock()
-        self.openhands_client.max_retries = 5
-        self.openhands_client.validate_connection = Mock(side_effect=ConnectionError('connection refused'))
+        self.kato_client.max_retries = 5
+        self.kato_client.validate_connection = Mock(side_effect=ConnectionError('connection refused'))
         self.service.logger = Mock()
 
         with self.assertRaisesRegex(RuntimeError, 'startup dependency validation failed') as exc_context:
@@ -218,7 +218,7 @@ class AgentServiceTests(unittest.TestCase):
 
     def test_process_assigned_task_stops_when_model_access_validation_fails(self) -> None:
         self.service.logger = Mock()
-        self.openhands_client.validate_model_access = Mock(
+        self.kato_client.validate_model_access = Mock(
             side_effect=RuntimeError('openrouter is unavailable')
         )
         task = self.task_data_access.get_assigned_tasks()[0]
@@ -231,12 +231,12 @@ class AgentServiceTests(unittest.TestCase):
         self.repository_service.prepare_task_branches.assert_not_called()
         self.task_client.move_issue_to_state.assert_not_called()
         self.task_client.add_comment.assert_called()
-        self.openhands_client.implement_task.assert_not_called()
-        self.openhands_client.test_task.assert_not_called()
+        self.kato_client.implement_task.assert_not_called()
+        self.kato_client.test_task.assert_not_called()
 
     def test_validate_connections_reports_repository_inventory_errors_gracefully(self) -> None:
         self.task_client.validate_connection = Mock()
-        self.openhands_client.validate_connection = Mock()
+        self.kato_client.validate_connection = Mock()
         self.repository_service._validate_inventory.side_effect = ValueError(
             'at least one repository must be configured'
         )
@@ -247,12 +247,12 @@ class AgentServiceTests(unittest.TestCase):
 
         self.assertEqual(self.service.logger.error.call_count, 1)
         self.assertEqual(self.task_client.validate_connection.call_count, 0)
-        self.assertEqual(self.openhands_client.validate_connection.call_count, 0)
+        self.assertEqual(self.kato_client.validate_connection.call_count, 0)
         self.assertEqual(str(exc_context.exception), 'at least one repository must be configured')
 
     def test_validate_connections_stops_after_repository_validation_failure(self) -> None:
         self.task_client.validate_connection = Mock()
-        self.openhands_client.validate_connection = Mock()
+        self.kato_client.validate_connection = Mock()
         self.repository_service._validate_inventory.side_effect = RuntimeError(
             '[Error] /workspace/project missing git permissions. cannot work.'
         )
@@ -262,7 +262,7 @@ class AgentServiceTests(unittest.TestCase):
 
         self.repository_service._validate_inventory.assert_called_once_with()
         self.task_client.validate_connection.assert_not_called()
-        self.openhands_client.validate_connection.assert_not_called()
+        self.kato_client.validate_connection.assert_not_called()
         self.assertEqual(str(exc_context.exception), '[Error] /workspace/project missing git permissions. cannot work.')
 
     def test_process_assigned_task_creates_prs_for_all_selected_repositories(self) -> None:
@@ -298,7 +298,7 @@ class AgentServiceTests(unittest.TestCase):
             },
         )
         self.repository_service.resolve_task_repositories.assert_called_once()
-        self.openhands_client.test_task.assert_called_once_with(
+        self.kato_client.test_task.assert_called_once_with(
             task,
             prepared_task=ANY,
         )
@@ -319,7 +319,7 @@ class AgentServiceTests(unittest.TestCase):
         client_description = client_call.kwargs['description']
         backend_description = backend_call.kwargs['description']
         for description in (client_description, backend_description):
-            self.assertIn('OpenHands completed task PROJ-1: Fix bug.', description)
+            self.assertIn('Kato completed task PROJ-1: Fix bug.', description)
             self.assertIn('Requested change:', description)
             self.assertIn('Update client and backend APIs', description)
             self.assertIn('Implementation summary:', description)
@@ -372,7 +372,7 @@ class AgentServiceTests(unittest.TestCase):
         )
     def test_process_assigned_task_uses_orchestration_commit_message_for_publish(self) -> None:
         task = self.task_data_access.get_assigned_tasks()[0]
-        self.openhands_client.test_task.return_value = {
+        self.kato_client.test_task.return_value = {
             ImplementationFields.SUCCESS: True,
             ImplementationFields.COMMIT_MESSAGE: 'Finalize PROJ-1 after testing',
             ImplementationFields.MESSAGE: 'Validation report: no dedicated tests were defined.',
@@ -383,7 +383,7 @@ class AgentServiceTests(unittest.TestCase):
 
         client_call = self.repository_service.create_pull_request.call_args_list[0]
         client_description = client_call.kwargs['description']
-        self.assertIn('OpenHands completed task PROJ-1: Fix bug.', client_description)
+        self.assertIn('Kato completed task PROJ-1: Fix bug.', client_description)
         self.assertIn('Requested change:', client_description)
         self.assertIn('Update client and backend APIs', client_description)
         self.assertIn('Implementation summary:', client_description)
@@ -405,7 +405,7 @@ class AgentServiceTests(unittest.TestCase):
             self.notification_service,
             skip_testing=True,
         )
-        self.openhands_client.implement_task.return_value = {
+        self.kato_client.implement_task.return_value = {
             ImplementationFields.SUCCESS: True,
             ImplementationFields.SESSION_ID: 'conversation-1',
             ImplementationFields.COMMIT_MESSAGE: 'Implement PROJ-1',
@@ -417,7 +417,7 @@ class AgentServiceTests(unittest.TestCase):
         results = service.process_assigned_task(task)
 
         self.assertEqual(results[StatusFields.STATUS], StatusFields.READY_FOR_REVIEW)
-        self.openhands_client.test_task.assert_not_called()
+        self.kato_client.test_task.assert_not_called()
         self.assertEqual(self.repository_service.prepare_task_branches.call_count, 1)
         summary_comment = self.task_client.add_comment.call_args_list[1].args[1]
         self.assertNotIn('Validation report:', summary_comment)
@@ -452,7 +452,7 @@ class AgentServiceTests(unittest.TestCase):
             'branch feature/proj-1/client has no task changes ahead of master',
             self.task_client.add_comment.call_args_list[1].args[1],
         )
-        self.openhands_client.test_task.assert_not_called()
+        self.kato_client.test_task.assert_not_called()
         self.repository_service.create_pull_request.assert_not_called()
 
     def test_get_assigned_tasks_returns_empty_list_when_no_tasks_exist(self) -> None:
@@ -499,7 +499,7 @@ class AgentServiceTests(unittest.TestCase):
             },
         )
         self.repository_service.resolve_task_repositories.assert_not_called()
-        self.openhands_client.implement_task.assert_not_called()
+        self.kato_client.implement_task.assert_not_called()
 
     def test_process_assigned_task_skips_when_prior_failure_comment_is_still_active(self) -> None:
         task = build_task(
@@ -508,7 +508,7 @@ class AgentServiceTests(unittest.TestCase):
                 {
                     TaskCommentFields.AUTHOR: 'shay',
                     TaskCommentFields.BODY: (
-                        'OpenHands agent stopped working on this task: gateway timeout'
+                        'Kato agent stopped working on this task: gateway timeout'
                     ),
                 },
                 {
@@ -530,7 +530,7 @@ class AgentServiceTests(unittest.TestCase):
             },
         )
         self.repository_service.resolve_task_repositories.assert_not_called()
-        self.openhands_client.implement_task.assert_not_called()
+        self.kato_client.implement_task.assert_not_called()
         self.task_client.add_comment.assert_not_called()
         self.task_client.move_issue_to_state.assert_not_called()
         self.email_core_lib.send.assert_not_called()
@@ -542,7 +542,7 @@ class AgentServiceTests(unittest.TestCase):
                 {
                     TaskCommentFields.AUTHOR: 'shay',
                     TaskCommentFields.BODY: (
-                        'OpenHands completed task PROJ-1: Fix the auth flow.'
+                        'Kato completed task PROJ-1: Fix the auth flow.'
                     ),
                 },
                 {
@@ -564,7 +564,7 @@ class AgentServiceTests(unittest.TestCase):
             },
         )
         self.repository_service.resolve_task_repositories.assert_not_called()
-        self.openhands_client.implement_task.assert_not_called()
+        self.kato_client.implement_task.assert_not_called()
         self.task_client.add_comment.assert_not_called()
         self.task_client.move_issue_to_state.assert_not_called()
         self.email_core_lib.send.assert_not_called()
@@ -576,7 +576,7 @@ class AgentServiceTests(unittest.TestCase):
                 {
                     TaskCommentFields.AUTHOR: 'shay',
                     TaskCommentFields.BODY: (
-                        'OpenHands agent could not safely process this task: '
+                        'Kato agent could not safely process this task: '
                         'destination branch master at /workspace/project has 3 local '
                         'commit(s) not on origin/master; refusing to start a new task'
                     ),
@@ -592,7 +592,7 @@ class AgentServiceTests(unittest.TestCase):
             [self.client_repo, self.backend_repo]
         )
         self.assertEqual(self.repository_service.prepare_task_branches.call_count, 1)
-        self.openhands_client.implement_task.assert_called_once_with(
+        self.kato_client.implement_task.assert_called_once_with(
             task,
             '',
             prepared_task=ANY,
@@ -605,7 +605,7 @@ class AgentServiceTests(unittest.TestCase):
                 {
                     TaskCommentFields.AUTHOR: 'shay',
                     TaskCommentFields.BODY: (
-                        'OpenHands agent could not safely process this task: '
+                        'Kato agent could not safely process this task: '
                         'destination branch master at /workspace/project has 3 local '
                         'commit(s) not on origin/master; refusing to start a new task'
                     ),
@@ -632,7 +632,7 @@ class AgentServiceTests(unittest.TestCase):
         self.repository_service.prepare_task_repositories.assert_called_once_with(
             [self.client_repo, self.backend_repo]
         )
-        self.openhands_client.implement_task.assert_not_called()
+        self.kato_client.implement_task.assert_not_called()
         self.task_client.add_comment.assert_not_called()
         self.task_client.move_issue_to_state.assert_not_called()
         self.email_core_lib.send.assert_not_called()
@@ -645,7 +645,7 @@ class AgentServiceTests(unittest.TestCase):
                 {
                     TaskCommentFields.AUTHOR: 'shay',
                     TaskCommentFields.BODY: (
-                        'OpenHands agent skipped this task because it could not detect '
+                        'Kato agent skipped this task because it could not detect '
                         'which repository to use from the task content: no configured '
                         'repository matched task PROJ-1. Please mention the repository '
                         'name or alias in the task summary or description.'
@@ -658,7 +658,7 @@ class AgentServiceTests(unittest.TestCase):
 
         self.assertEqual(results[StatusFields.STATUS], StatusFields.READY_FOR_REVIEW)
         self.repository_service.resolve_task_repositories.assert_called_once_with(task)
-        self.openhands_client.implement_task.assert_called_once_with(
+        self.kato_client.implement_task.assert_called_once_with(
             task,
             '',
             prepared_task=ANY,
@@ -671,12 +671,12 @@ class AgentServiceTests(unittest.TestCase):
                 {
                     TaskCommentFields.AUTHOR: 'shay',
                     TaskCommentFields.BODY: (
-                        'OpenHands agent could not safely process this task: timeout'
+                        'Kato agent could not safely process this task: timeout'
                     ),
                 },
                 {
                     TaskCommentFields.AUTHOR: 'reviewer',
-                    TaskCommentFields.BODY: 'OpenHands: retry approved for this task.',
+                    TaskCommentFields.BODY: 'kato: retry approved for this task.',
                 },
             ],
         )
@@ -688,7 +688,7 @@ class AgentServiceTests(unittest.TestCase):
         self.repository_service.prepare_task_repositories.assert_called_once_with(
             [self.client_repo, self.backend_repo]
         )
-        self.openhands_client.implement_task.assert_called_once_with(
+        self.kato_client.implement_task.assert_called_once_with(
             task,
             '',
             prepared_task=ANY,
@@ -701,12 +701,12 @@ class AgentServiceTests(unittest.TestCase):
                 {
                     TaskCommentFields.AUTHOR: 'shay',
                     TaskCommentFields.BODY: (
-                        'OpenHands completed task PROJ-1: Fix the auth flow.'
+                        'Kato completed task PROJ-1: Fix the auth flow.'
                     ),
                 },
                 {
                     TaskCommentFields.AUTHOR: 'reviewer',
-                    TaskCommentFields.BODY: 'OpenHands: retry approved for this task.',
+                    TaskCommentFields.BODY: 'kato: retry approved for this task.',
                 },
             ],
         )
@@ -718,14 +718,14 @@ class AgentServiceTests(unittest.TestCase):
         self.repository_service.prepare_task_repositories.assert_called_once_with(
             [self.client_repo, self.backend_repo]
         )
-        self.openhands_client.implement_task.assert_called_once_with(
+        self.kato_client.implement_task.assert_called_once_with(
             task,
             '',
             prepared_task=ANY,
         )
 
     def test_process_assigned_task_skips_execution_without_success_flag(self) -> None:
-        self.openhands_client.implement_task.return_value = {}
+        self.kato_client.implement_task.return_value = {}
         self.service.logger = Mock()
         task = self.task_data_access.get_assigned_tasks()[0]
 
@@ -733,7 +733,7 @@ class AgentServiceTests(unittest.TestCase):
             results = self.service.process_assigned_task(task)
 
         self.assertIsNone(results)
-        self.openhands_client.test_task.assert_not_called()
+        self.kato_client.test_task.assert_not_called()
         self.repository_service.create_pull_request.assert_not_called()
         self.assertEqual(
             self.task_client.move_issue_to_state.call_args_list,
@@ -780,7 +780,7 @@ class AgentServiceTests(unittest.TestCase):
         )
         self.task_client.add_comment.assert_called_once()
         self.assertIn(
-            'OpenHands agent could not safely process this task: failed to prepare task branches',
+            'Kato agent could not safely process this task: failed to prepare task branches',
             self.task_client.add_comment.call_args.args[1],
         )
 
@@ -804,15 +804,15 @@ class AgentServiceTests(unittest.TestCase):
         )
         self.task_client.add_comment.assert_called_once()
         self.assertIn(
-            'OpenHands agent stopped working on this task: failed to push branch PROJ-1',
+            'Kato agent stopped working on this task: failed to push branch PROJ-1',
             self.task_client.add_comment.call_args.args[1],
         )
         self.assertEqual(
             self.task_client.move_issue_to_state.call_args_list,
             [unittest.mock.call('PROJ-1', 'State', 'Todo')],
         )
-        self.openhands_client.implement_task.assert_not_called()
-        self.openhands_client.test_task.assert_not_called()
+        self.kato_client.implement_task.assert_not_called()
+        self.kato_client.test_task.assert_not_called()
 
     def test_validate_task_branch_push_access_returns_false_without_failure_handler(self) -> None:
         self.service._task_preflight_service._task_branch_push_validator.validate = Mock(
@@ -856,7 +856,7 @@ class AgentServiceTests(unittest.TestCase):
         self.assertIsNone(results)
         self.task_client.add_comment.assert_called_once_with(
             'PROJ-1',
-            'OpenHands agent could not safely process this task: repository service down',
+            'Kato agent could not safely process this task: repository service down',
         )
         self.task_client.move_issue_to_state.assert_not_called()
         self.assertEqual(self.email_core_lib.send.call_count, 2)
@@ -872,11 +872,11 @@ class AgentServiceTests(unittest.TestCase):
         self.assertIsNone(results)
         self.task_client.add_comment.assert_called_once_with(
             'PROJ-1',
-            'OpenHands agent could not safely process this task: '
+            'Kato agent could not safely process this task: '
             'unable to determine destination branch for repository client',
         )
         self.task_client.move_issue_to_state.assert_not_called()
-        self.openhands_client.implement_task.assert_not_called()
+        self.kato_client.implement_task.assert_not_called()
 
     def test_process_assigned_task_skips_when_task_definition_is_too_thin(self) -> None:
         task = build_task(
@@ -889,16 +889,16 @@ class AgentServiceTests(unittest.TestCase):
         self.assertIsNone(results)
         self.task_client.add_comment.assert_called_once_with(
             'PROJ-1',
-            'OpenHands agent skipped this task because the task definition is too thin '
+            'Kato agent skipped this task because the task definition is too thin '
             'to work from safely. Please add a clearer description or issue comment '
             'describing the expected change.',
         )
         self.task_client.move_issue_to_state.assert_not_called()
-        self.openhands_client.implement_task.assert_not_called()
+        self.kato_client.implement_task.assert_not_called()
         self.email_core_lib.send.assert_not_called()
 
     def test_process_assigned_task_reports_testing_failures_before_pr_creation(self) -> None:
-        self.openhands_client.test_task.return_value = {
+        self.kato_client.test_task.return_value = {
             ImplementationFields.SUCCESS: False,
             'summary': 'backend tests are still failing',
         }
@@ -933,7 +933,7 @@ class AgentServiceTests(unittest.TestCase):
         self.assertEqual(self.email_core_lib.send.call_count, 2)
 
     def test_process_assigned_task_handles_implementation_request_errors(self) -> None:
-        self.openhands_client.implement_task.side_effect = RuntimeError('openhands down')
+        self.kato_client.implement_task.side_effect = RuntimeError('openhands down')
         self.service.logger = Mock()
         task = self.task_data_access.get_assigned_tasks()[0]
 
@@ -961,7 +961,7 @@ class AgentServiceTests(unittest.TestCase):
         self.assertEqual(self.email_core_lib.send.call_count, 2)
 
     def test_process_assigned_task_handles_testing_request_errors(self) -> None:
-        self.openhands_client.test_task.side_effect = RuntimeError('testing sandbox down')
+        self.kato_client.test_task.side_effect = RuntimeError('testing sandbox down')
         self.service.logger = Mock()
         task = self.task_data_access.get_assigned_tasks()[0]
 
@@ -992,7 +992,7 @@ class AgentServiceTests(unittest.TestCase):
         self.assertEqual(self.email_core_lib.send.call_count, 2)
 
     def test_process_assigned_task_reports_partial_pr_failures_without_moving_review(self) -> None:
-        self.openhands_client.test_task.return_value = {
+        self.kato_client.test_task.return_value = {
             ImplementationFields.SUCCESS: True,
             ImplementationFields.MESSAGE: 'Validation report: no dedicated tests were defined.',
             'summary': 'Testing agent validated the implementation',
@@ -1049,10 +1049,10 @@ class AgentServiceTests(unittest.TestCase):
             'State',
             'In Progress',
         )
-        self.openhands_client.implement_task.assert_not_called()
+        self.kato_client.implement_task.assert_not_called()
         self.task_client.add_comment.assert_called_once_with(
             'PROJ-1',
-            'OpenHands agent could not safely process this task: state update failed',
+            'Kato agent could not safely process this task: state update failed',
         )
 
     def test_process_assigned_task_moves_to_review_when_completion_comment_fails(self) -> None:
@@ -1130,7 +1130,7 @@ class AgentServiceTests(unittest.TestCase):
         )
         self.assertEqual(self.task_client.add_comment.call_count, 3)
         self.assertIn(
-            'OpenHands completed task PROJ-1: Fix bug.',
+            'Kato completed task PROJ-1: Fix bug.',
             self.task_client.add_comment.call_args_list[1].args[1],
         )
         self.assertIn(
@@ -1145,7 +1145,7 @@ class AgentServiceTests(unittest.TestCase):
         self.assertEqual(self.email_core_lib.send.call_count, 2)
 
     def test_process_assigned_task_continues_when_move_to_open_fails(self) -> None:
-        self.openhands_client.implement_task.side_effect = RuntimeError('openhands down')
+        self.kato_client.implement_task.side_effect = RuntimeError('openhands down')
         self.task_client.move_issue_to_state.side_effect = [
             None,
             RuntimeError('reopen failed'),
@@ -1207,14 +1207,14 @@ class AgentServiceTests(unittest.TestCase):
                 PullRequestFields.REPOSITORY_ID: 'client',
             },
         )
-        comment_arg = self.openhands_client.fix_review_comment.call_args.args[0]
+        comment_arg = self.kato_client.fix_review_comment.call_args.args[0]
         self.assertEqual(getattr(comment_arg, PullRequestFields.REPOSITORY_ID), 'client')
         self.assertEqual(
-            self.openhands_client.fix_review_comment.call_args.args[2],
+            self.kato_client.fix_review_comment.call_args.args[2],
             'conversation-1',
         )
         self.assertEqual(
-            self.openhands_client.fix_review_comment.call_args.kwargs,
+            self.kato_client.fix_review_comment.call_args.kwargs,
             {
                 'task_id': 'PROJ-1',
                 'task_summary': 'Fix bug',
@@ -1368,7 +1368,7 @@ class AgentServiceTests(unittest.TestCase):
         self.assertEqual(result[PullRequestFields.REPOSITORY_ID], 'backend')
 
     def test_handle_pull_request_comment_raises_when_fix_fails(self) -> None:
-        self.openhands_client.fix_review_comment.return_value = {ImplementationFields.SUCCESS: False}
+        self.kato_client.fix_review_comment.return_value = {ImplementationFields.SUCCESS: False}
         self.service._state_registry.pull_request_context_map['17'] = [
             {
                 PullRequestFields.REPOSITORY_ID: 'client',

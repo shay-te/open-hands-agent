@@ -1,11 +1,11 @@
 import unittest
 
-from openhands_agent.data_layers.data.fields import (
+from kato.data_layers.data.fields import (
     PullRequestFields,
     ReviewCommentFields,
 )
-from openhands_agent.data_layers.data.review_comment import ReviewComment
-from openhands_agent.helpers.review_comment_utils import (
+from kato.data_layers.data.review_comment import ReviewComment
+from kato.helpers.review_comment_utils import (
     normalize_comment_context,
     review_comment_from_payload,
 )

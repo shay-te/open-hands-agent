@@ -2,12 +2,12 @@ import types
 import unittest
 from unittest.mock import Mock, patch
 
-from openhands_agent.client.ticket_client_base import TicketClientBase
-from openhands_agent.data_layers.data.fields import PullRequestFields, StatusFields
-from openhands_agent.data_layers.service.task_preflight_service import (
+from kato.client.ticket_client_base import TicketClientBase
+from kato.data_layers.data.fields import PullRequestFields, StatusFields
+from kato.data_layers.service.task_preflight_service import (
     TaskPreflightService,
 )
-from openhands_agent.helpers.task_context_utils import PreparedTaskContext
+from kato.helpers.task_context_utils import PreparedTaskContext
 from utils import build_task
 
 
@@ -126,7 +126,7 @@ class TaskPreflightServiceTests(unittest.TestCase):
         with patch.object(
             self.service,
             '_active_execution_blocking_comment',
-            return_value='OpenHands completed task PROJ-1.',
+            return_value='Kato completed task PROJ-1.',
         ), patch.object(self.service, '_prepare_task_start') as mock_prepare_task_start:
             result = self.service.prepare_task_execution_context(self.task)
 

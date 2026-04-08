@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
 
-from openhands_agent.client.openrouter_client import OpenRouterClient
+from kato.client.openrouter_client import OpenRouterClient
 from utils import assert_client_headers_and_timeout, mock_response
 
 

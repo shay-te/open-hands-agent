@@ -2,8 +2,8 @@ import types
 import unittest
 from unittest.mock import Mock
 
-from openhands_agent.data_layers.data_access.task_data_access import TaskDataAccess
-from openhands_agent.data_layers.service.task_state_service import TaskStateService
+from kato.data_layers.data_access.task_data_access import TaskDataAccess
+from kato.data_layers.service.task_state_service import TaskStateService
 
 
 class TaskStateServiceTests(unittest.TestCase):

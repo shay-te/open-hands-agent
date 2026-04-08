@@ -1,5 +1,5 @@
 [project]
-name = "openhands-agent"
+name = "kato"
 version = "0.1.0"
 description = "Core-lib based developer agent for YouTrack, OpenHands, and Bitbucket."
 requires-python = ">=3.11"
@@ -18,7 +18,7 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools]
 
 [tool.setuptools.packages.find]
-include = ["openhands_agent*", "hydra_plugins*"]
+include = ["kato*", "hydra_plugins*"]
 
 [tool.setuptools.package-data]
-"openhands_agent.templates.email" = ["*.j2"]
+"kato.templates.email" = ["*.j2"]

@@ -3,7 +3,7 @@ import os
 import unittest
 from unittest.mock import patch
 
-from openhands_agent.helpers import logging_utils
+from kato.helpers import logging_utils
 
 
 class LoggingUtilsTests(unittest.TestCase):
@@ -28,7 +28,7 @@ class LoggingUtilsTests(unittest.TestCase):
         with patch.dict(os.environ, {}, clear=False):
             logger = logging_utils.configure_logger('AgentService')
 
-        self.assertEqual(logger.name, 'openhands_agent.workflow.AgentService')
+        self.assertEqual(logger.name, 'kato.workflow.AgentService')
         root_handler = self._named_handler(logging.getLogger(), logging_utils._ROOT_HANDLER_NAME)
         workflow_handler = self._named_handler(
             logging.getLogger(logging_utils._WORKFLOW_LOGGER_PREFIX),
@@ -44,8 +44,8 @@ class LoggingUtilsTests(unittest.TestCase):
         with patch.dict(
             os.environ,
             {
-                'OPENHANDS_AGENT_LOG_LEVEL': 'error',
-                'OPENHANDS_AGENT_WORKFLOW_LOG_LEVEL': 'debug',
+                'KATO_LOG_LEVEL': 'error',
+                'KATO_WORKFLOW_LOG_LEVEL': 'debug',
             },
             clear=False,
         ):
@@ -63,8 +63,8 @@ class LoggingUtilsTests(unittest.TestCase):
         with patch.dict(
             os.environ,
             {
-                'OPENHANDS_AGENT_LOG_LEVEL': 'LOUD',
-                'OPENHANDS_AGENT_WORKFLOW_LOG_LEVEL': 'CHATTER',
+                'KATO_LOG_LEVEL': 'LOUD',
+                'KATO_WORKFLOW_LOG_LEVEL': 'CHATTER',
             },
             clear=False,
         ):

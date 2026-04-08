@@ -2,9 +2,9 @@ import unittest
 from unittest.mock import patch
 
 
-from openhands_agent.client.bitbucket_issues_client import BitbucketIssuesClient
-from openhands_agent.data_layers.data.task import Task
-from openhands_agent.data_layers.data.fields import BitbucketIssueFields, TaskCommentFields
+from kato.client.bitbucket_issues_client import BitbucketIssuesClient
+from kato.data_layers.data.task import Task
+from kato.data_layers.data.fields import BitbucketIssueFields, TaskCommentFields
 from utils import assert_client_basic_auth_and_timeout, mock_response
 
 
@@ -120,7 +120,7 @@ class BitbucketIssuesClientTests(unittest.TestCase):
             json_data={
                 'values': [
                     {
-                        'content': {'raw': 'OpenHands agent could not safely process this task: timeout'},
+                        'content': {'raw': 'Kato agent could not safely process this task: timeout'},
                         'user': {'display_name': 'shay'},
                     },
                     {
@@ -143,7 +143,7 @@ class BitbucketIssuesClientTests(unittest.TestCase):
                 {
                     TaskCommentFields.AUTHOR: 'shay',
                     TaskCommentFields.BODY: (
-                        'OpenHands agent could not safely process this task: timeout'
+                        'Kato agent could not safely process this task: timeout'
                     ),
                 },
                 {

@@ -1,0 +1,946 @@
+from __future__ import annotations
+
+import argparse
+import logging
+import os
+from pathlib import Path
+import re
+import secrets
+
+from kato.helpers.kato_config_utils import (
+    is_bedrock_model,
+    is_openrouter_model,
+)
+from kato.helpers.repository_discovery_utils import (
+    discover_git_repositories,
+    read_git_remote_url,
+)
+from kato.validate_env import (
+    _read_env_file,
+    validate_agent_env,
+    validate_openhands_env,
+)
+
+try:
+    from core_lib.helpers.command_line import (
+        input_string as core_input_string,
+        input_yes_no as core_input_yes_no,
+    )
+    from core_lib.helpers.validation import is_int as core_is_int
+except (ImportError, ModuleNotFoundError):
+    core_input_string = None
+    core_input_yes_no = None
+    core_is_int = None
+
+
+ISSUE_PLATFORMS = ['youtrack', 'jira', 'github', 'gitlab', 'bitbucket']
+UNQUOTED_ENV_VALUE_PATTERN = re.compile(r'^[A-Za-z0-9_./:@%+=,\-~]*$')
+logger = logging.getLogger(__name__)
+OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1'
+ISSUE_PLATFORM_DETAILS = {
+    'youtrack': {
+        'label': 'YouTrack',
+        'base_url_key': 'YOUTRACK_BASE_URL',
+        'token_key': 'YOUTRACK_TOKEN',
+        'project_key': 'YOUTRACK_PROJECT',
+        'project_label': 'project key',
+        'assignee_key': 'YOUTRACK_ASSIGNEE',
+        'assignee_label': 'assignee login',
+        'progress_state_field_key': 'YOUTRACK_PROGRESS_STATE_FIELD',
+        'progress_state_key': 'YOUTRACK_PROGRESS_STATE',
+        'review_state_field_key': 'YOUTRACK_REVIEW_STATE_FIELD',
+        'review_state_key': 'YOUTRACK_REVIEW_STATE',
+        'issue_states_key': 'YOUTRACK_ISSUE_STATES',
+        'default_base_url': 'https://your-company.youtrack.cloud',
+        'default_progress_field': 'State',
+        'default_progress_state': 'In Progress',
+        'default_review_field': 'State',
+        'default_review_state': 'To Verify',
+        'default_issue_states': ['Todo', 'Open'],
+    },
+    'jira': {
+        'label': 'Jira',
+        'base_url_key': 'JIRA_BASE_URL',
+        'token_key': 'JIRA_TOKEN',
+        'project_key': 'JIRA_PROJECT',
+        'project_label': 'project key',
+        'assignee_key': 'JIRA_ASSIGNEE',
+        'assignee_label': 'assignee account id or username',
+        'progress_state_field_key': 'JIRA_PROGRESS_STATE_FIELD',
+        'progress_state_key': 'JIRA_PROGRESS_STATE',
+        'review_state_field_key': 'JIRA_REVIEW_STATE_FIELD',
+        'review_state_key': 'JIRA_REVIEW_STATE',
+        'issue_states_key': 'JIRA_ISSUE_STATES',
+        'default_base_url': 'https://your-company.atlassian.net',
+        'default_progress_field': 'status',
+        'default_progress_state': 'In Progress',
+        'default_review_field': 'status',
+        'default_review_state': 'In Review',
+        'default_issue_states': ['To Do', 'Open'],
+        'email_key': 'JIRA_EMAIL',
+    },
+    'github': {
+        'label': 'GitHub Issues',
+        'base_url_key': 'GITHUB_ISSUES_BASE_URL',
+        'token_key': 'GITHUB_API_TOKEN',
+        'owner_key': 'GITHUB_ISSUES_OWNER',
+        'owner_label': 'repository owner or organization',
+        'repo_key': 'GITHUB_ISSUES_REPO',
+        'repo_label': 'issues repository name',
+        'assignee_key': 'GITHUB_ISSUES_ASSIGNEE',
+        'assignee_label': 'assignee login',
+        'progress_state_field_key': 'GITHUB_ISSUES_PROGRESS_STATE_FIELD',
+        'progress_state_key': 'GITHUB_ISSUES_PROGRESS_STATE',
+        'review_state_field_key': 'GITHUB_ISSUES_REVIEW_STATE_FIELD',
+        'review_state_key': 'GITHUB_ISSUES_REVIEW_STATE',
+        'issue_states_key': 'GITHUB_ISSUES_ISSUE_STATES',
+        'default_base_url': 'https://api.github.com',
+        'default_progress_field': 'labels',
+        'default_progress_state': 'In Progress',
+        'default_review_field': 'labels',
+        'default_review_state': 'In Review',
+        'default_issue_states': ['open'],
+    },
+    'gitlab': {
+        'label': 'GitLab Issues',
+        'base_url_key': 'GITLAB_ISSUES_BASE_URL',
+        'token_key': 'GITLAB_API_TOKEN',
+        'project_key': 'GITLAB_ISSUES_PROJECT',
+        'project_label': 'project path or numeric id',
+        'assignee_key': 'GITLAB_ISSUES_ASSIGNEE',
+        'assignee_label': 'assignee username',
+        'progress_state_field_key': 'GITLAB_ISSUES_PROGRESS_STATE_FIELD',
+        'progress_state_key': 'GITLAB_ISSUES_PROGRESS_STATE',
+        'review_state_field_key': 'GITLAB_ISSUES_REVIEW_STATE_FIELD',
+        'review_state_key': 'GITLAB_ISSUES_REVIEW_STATE',
+        'issue_states_key': 'GITLAB_ISSUES_ISSUE_STATES',
+        'default_base_url': 'https://gitlab.com/api/v4',
+        'default_progress_field': 'labels',
+        'default_progress_state': 'In Progress',
+        'default_review_field': 'labels',
+        'default_review_state': 'In Review',
+        'default_issue_states': ['opened'],
+    },
+    'bitbucket': {
+        'label': 'Bitbucket Issues',
+        'base_url_key': 'BITBUCKET_ISSUES_BASE_URL',
+        'token_key': 'BITBUCKET_API_TOKEN',
+        'username_key': 'BITBUCKET_USERNAME',
+        'email_key': 'BITBUCKET_API_EMAIL',
+        'workspace_key': 'BITBUCKET_ISSUES_WORKSPACE',
+        'workspace_label': 'workspace',
+        'repo_slug_key': 'BITBUCKET_ISSUES_REPO_SLUG',
+        'repo_slug_label': 'issues repository slug',
+        'assignee_key': 'BITBUCKET_ISSUES_ASSIGNEE',
+        'assignee_label': 'assignee username',
+        'username_label': 'username for git auth',
+        'api_email_label': 'email for pull request auth',
+        'progress_state_field_key': 'BITBUCKET_ISSUES_PROGRESS_STATE_FIELD',
+        'progress_state_key': 'BITBUCKET_ISSUES_PROGRESS_STATE',
+        'review_state_field_key': 'BITBUCKET_ISSUES_REVIEW_STATE_FIELD',
+        'review_state_key': 'BITBUCKET_ISSUES_REVIEW_STATE',
+        'issue_states_key': 'BITBUCKET_ISSUES_ISSUE_STATES',
+        'default_base_url': 'https://api.bitbucket.org/2.0',
+        'default_progress_field': 'state',
+        'default_progress_state': 'open',
+        'default_review_field': 'state',
+        'default_review_state': 'resolved',
+        'default_issue_states': ['new', 'open'],
+    },
+}
+
+def input_yes_no(message: str, default: bool = True) -> bool:
+    if core_input_yes_no is not None:
+        return bool(core_input_yes_no(message, default=default))
+    return _input_yes_no_local(message, default=default)
+
+
+def input_bool(message: str, default: bool = True) -> bool:
+    return input_yes_no(message, default)
+
+
+def input_str(
+    message: str,
+    default: str | None = None,
+    allow_empty: bool = False,
+) -> str:
+    if core_input_string is not None and default is None and not allow_empty:
+        return str(core_input_string(f'{message}: '))
+    return _input_str_local(message, default=default, allow_empty=allow_empty)
+
+
+def input_int(message: str, default: int | None = None) -> int:
+    while True:
+        value = _input_str_local(
+            message,
+            default='' if default is None else str(default),
+            allow_empty=default is not None,
+        )
+        candidate = str(value).strip()
+        if not candidate and default is not None:
+            return default
+        if _is_int(candidate):
+            return int(candidate)
+        logger.info('Please enter a valid integer.')
+
+
+def input_enum(
+    message: str,
+    values: list[str],
+    default: str | None = None,
+) -> str:
+    options_by_number = {str(index): value for index, value in enumerate(values, start=1)}
+    default_number = next(
+        (number for number, value in options_by_number.items() if value == default),
+        None,
+    )
+    while True:
+        logger.info(message)
+        for number, value in options_by_number.items():
+            suffix = ' (default)' if number == default_number else ''
+            logger.info('%s. %s%s', number, value, suffix)
+        raw_value = _input_str_local(
+            'Select an option by number',
+            default=default_number,
+            allow_empty=default_number is not None,
+        ).strip()
+        selected = options_by_number.get(raw_value)
+        if selected is not None:
+            return selected
+        logger.info('Please choose one of: %s', ", ".join(options_by_number))
+
+
+def input_list(
+    message: str,
+    default: list[str] | None = None,
+) -> list[str]:
+    default_value = ', '.join(default or [])
+    raw_value = input_str(
+        f'{message} (comma-separated)',
+        default=default_value,
+        allow_empty=True,
+    )
+    return [part.strip() for part in raw_value.split(',') if part.strip()]
+
+
+def _input_str_local(
+    message: str,
+    default: str | None = None,
+    allow_empty: bool = False,
+) -> str:
+    prompt = message
+    if default not in {None, ''}:
+        prompt = f'{prompt} [{default}]'
+    prompt = f'{prompt}: '
+    while True:
+        value = input(prompt).strip()
+        if value:
+            return value
+        if default is not None:
+            return default
+        if allow_empty:
+            return ''
+        logger.info('This value is required.')
+
+
+def _input_yes_no_local(message: str, default: bool = True) -> bool:
+    default_hint = 'Yes' if default else 'No'
+    while True:
+        raw_value = _input_str_local(
+            f'{message}, Yes/No (enter for {default_hint})',
+            default='',
+            allow_empty=True,
+        ).strip().lower()
+        if not raw_value:
+            return default
+        if raw_value in {'y', 'yes'}:
+            return True
+        if raw_value in {'n', 'no'}:
+            return False
+        logger.info('Please answer Yes or No.')
+
+
+def _is_int(value: str) -> bool:
+    if core_is_int is not None:
+        return bool(core_is_int(value))
+    try:
+        int(value)
+    except ValueError:
+        return False
+    return True
+
+
+def build_configuration_values(
+    defaults: dict[str, str],
+) -> dict[str, str]:
+    values: dict[str, str] = {}
+    issue_platform = input_enum(
+        'Where are your tasks tracked',
+        ISSUE_PLATFORMS,
+        default=_default_str(defaults, 'KATO_ISSUE_PLATFORM', 'KATO_TICKET_SYSTEM', fallback='youtrack'),
+    )
+    values['KATO_ISSUE_PLATFORM'] = issue_platform
+    values['KATO_TICKET_SYSTEM'] = issue_platform
+
+    values.update(_prompt_issue_platform(defaults, issue_platform))
+    values.update(_prompt_repository(defaults))
+    values.update(_prompt_openhands(defaults))
+    values.update(_prompt_notifications(defaults))
+    return values
+
+
+def render_env_text(template_text: str, values: dict[str, str]) -> str:
+    lines: list[str] = []
+    seen_keys: set[str] = set()
+    for line in template_text.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith('#') or '=' not in line:
+            lines.append(line)
+            continue
+        key, _ = line.split('=', 1)
+        normalized_key = key.strip()
+        if normalized_key in values:
+            lines.append(f'{normalized_key}={_format_env_value(values[normalized_key])}')
+            seen_keys.add(normalized_key)
+        else:
+            lines.append(line)
+
+    for key in sorted(values):
+        if key in seen_keys:
+            continue
+        lines.append(f'{key}={_format_env_value(values[key])}')
+
+    return '\n'.join(lines) + '\n'
+
+
+def _format_env_value(value: object) -> str:
+    text = str(value)
+    if text == '':
+        return ''
+    if UNQUOTED_ENV_VALUE_PATTERN.fullmatch(text):
+        return text
+    return "'" + text.replace("'", "'\"'\"'") + "'"
+
+
+def main(argv: list[str] | None = None) -> int:
+    logging.basicConfig(level=logging.INFO, format='%(message)s')
+    args = _parse_main_args(argv)
+    template_path = Path(args.template)
+    output_path = Path(args.output)
+    current_env = _current_configuration_values(template_path, output_path)
+    if _configuration_cancelled(output_path):
+        logger.info('Configuration cancelled.')
+        return 1
+    return _write_configuration_file(template_path, output_path, current_env)
+
+
+def _parse_main_args(argv: list[str] | None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description='Interactively create the kato .env file.'
+    )
+    parser.add_argument('--template', default='.env.example')
+    parser.add_argument('--output', default='.env')
+    return parser.parse_args(argv)
+
+
+def _current_configuration_values(
+    template_path: Path,
+    output_path: Path,
+) -> dict[str, str]:
+    current_env = _read_env_file(str(template_path))
+    if output_path.exists():
+        current_env.update(_read_env_file(str(output_path)))
+    return current_env
+
+
+def _configuration_cancelled(output_path: Path) -> bool:
+    return output_path.exists() and not input_yes_no(
+        f'{output_path} already exists. Overwrite it',
+        default=True,
+    )
+
+
+def _write_configuration_file(
+    template_path: Path,
+    output_path: Path,
+    current_env: dict[str, str],
+) -> int:
+    values = current_env.copy()
+    values.update(build_configuration_values(current_env))
+    rendered = render_env_text(template_path.read_text(encoding='utf-8'), values)
+    output_path.write_text(rendered, encoding='utf-8')
+    logger.info('Wrote configuration to %s', output_path)
+    return _report_configuration_validation(values)
+
+
+def _report_configuration_validation(values: dict[str, str]) -> int:
+    errors = validate_agent_env(values)
+    errors.extend(validate_openhands_env(values))
+    if not errors:
+        logger.info('Configuration looks valid. Next: make doctor && make run')
+        return 0
+    logger.info('The file was written, but a few required values still need attention:')
+    for error in errors:
+        logger.info('- %s', error)
+    logger.info('Run make doctor after filling the remaining values.')
+    return 0
+
+
+def _prompt_issue_platform(
+    defaults: dict[str, str],
+    issue_platform: str,
+) -> dict[str, str]:
+    details = ISSUE_PLATFORM_DETAILS[issue_platform]
+    values = _prompt_issue_platform_core_values(defaults, details)
+    values.update(_prompt_issue_platform_optional_values(defaults, details))
+    return values
+
+
+def _prompt_issue_platform_core_values(
+    defaults: dict[str, str],
+    details: dict[str, object],
+) -> dict[str, str]:
+    values: dict[str, str] = {}
+    for key_name, prompt, fallback_key in _issue_platform_core_prompt_specs(details):
+        values[str(details[key_name])] = _prompt_issue_platform_text_value(
+            defaults,
+            details,
+            key_name=key_name,
+            prompt=prompt,
+            fallback_key=fallback_key,
+        )
+    values[str(details['issue_states_key'])] = _prompt_issue_platform_state_values(
+        defaults,
+        details,
+    )
+    return values
+
+
+def _issue_platform_core_prompt_specs(
+    details: dict[str, object],
+) -> list[tuple[str, str, str | None]]:
+    label = str(details['label'])
+    return [
+        ('base_url_key', f'{label} base URL', 'default_base_url'),
+        ('token_key', f'{label} token', None),
+        ('assignee_key', f"{label} {details['assignee_label']}", None),
+        (
+            'progress_state_field_key',
+            f'{label} in-progress state field',
+            'default_progress_field',
+        ),
+        (
+            'progress_state_key',
+            f'{label} in-progress state value',
+            'default_progress_state',
+        ),
+        (
+            'review_state_field_key',
+            f'{label} review state field',
+            'default_review_field',
+        ),
+        ('review_state_key', f'{label} review state value', 'default_review_state'),
+    ]
+
+
+def _prompt_issue_platform_optional_values(
+    defaults: dict[str, str],
+    details: dict[str, object],
+) -> dict[str, str]:
+    label = str(details['label'])
+    values: dict[str, str] = {}
+    optional_prompts = [
+        ('project_key', 'project_label', False),
+        ('owner_key', 'owner_label', False),
+        ('repo_key', 'repo_label', False),
+        ('workspace_key', 'workspace_label', False),
+        ('repo_slug_key', 'repo_slug_label', False),
+        ('username_key', 'username_label', True),
+        ('email_key', None, True),
+    ]
+    for key_name, label_key, allow_empty in optional_prompts:
+        env_key = str(details.get(key_name, '') or '')
+        if not env_key:
+            continue
+        if key_name == 'email_key':
+            prompt = f"{label} {details.get('api_email_label', 'user email for basic auth')}"
+        else:
+            prompt = f"{label} {details[label_key]}"
+        values[env_key] = input_str(
+            prompt,
+            default=_default_str(defaults, env_key),
+            allow_empty=allow_empty,
+        )
+    return values
+
+
+def _prompt_issue_platform_text_value(
+    defaults: dict[str, str],
+    details: dict[str, object],
+    *,
+    key_name: str,
+    prompt: str,
+    fallback_key: str | None = None,
+    allow_empty: bool = False,
+) -> str:
+    env_key = str(details[key_name])
+    fallback = str(details.get(fallback_key, '') or '') if fallback_key else ''
+    return input_str(
+        prompt,
+        default=_default_str(defaults, env_key, fallback=fallback),
+        allow_empty=allow_empty,
+    )
+
+
+def _prompt_issue_platform_state_values(
+    defaults: dict[str, str],
+    details: dict[str, object],
+) -> str:
+    states = input_list(
+        f"{details['label']} issue states to process",
+        default=_default_list(
+            defaults,
+            str(details['issue_states_key']),
+            list(details['default_issue_states']),
+        ),
+    )
+    return ','.join(states)
+
+
+def _prompt_repository(defaults: dict[str, str]) -> dict[str, str]:
+    if input_yes_no(
+        'Scan a projects folder for checked-out repositories',
+        default=True,
+    ):
+        discovered_values = _prompt_discovered_repository(defaults)
+        if discovered_values is not None:
+            return discovered_values
+
+    return _prompt_repository_fields(defaults)
+
+
+def _prompt_repository_fields(defaults: dict[str, str]) -> dict[str, str]:
+    repository_root_path = _normalize_repository_path(
+        _default_str(defaults, 'REPOSITORY_ROOT_PATH', fallback='.')
+    )
+    repository_root_path = _normalize_repository_path(
+        input_str(
+            'Projects root folder containing checked-out repositories',
+            default=repository_root_path,
+        )
+    )
+
+    return {
+        'REPOSITORY_ROOT_PATH': repository_root_path,
+    }
+
+
+def _prompt_discovered_repository(
+    defaults: dict[str, str],
+) -> dict[str, str] | None:
+    projects_root = _normalize_repository_path(
+        input_str(
+            'Projects folder to scan for repositories',
+            default=_default_projects_root(defaults),
+        )
+    )
+    discovered = discover_git_repositories(projects_root)
+    if not discovered:
+        raise ValueError(f'no git repositories were found under {projects_root}')
+
+    logger.info('Discovered repositories:')
+    for index, repository in enumerate(discovered, start=1):
+        remote_suffix = f' ({repository.remote_url})' if repository.remote_url else ''
+        logger.info('%s. %s%s', index, repository.local_path, remote_suffix)
+
+    discovered_defaults = dict(defaults)
+    discovered_defaults['REPOSITORY_ROOT_PATH'] = projects_root
+    values = _prompt_repository_fields(discovered_defaults)
+    return values
+
+
+def _prompt_openhands(
+    defaults: dict[str, str],
+) -> dict[str, str]:
+    testing_container_enabled = input_bool(
+        'Use a dedicated OpenHands testing container',
+        default=_default_bool(defaults, 'OPENHANDS_TESTING_CONTAINER_ENABLED'),
+    )
+    values = _prompt_openhands_core_values(defaults, testing_container_enabled)
+    values.update(_prompt_primary_openhands_llm(defaults))
+    values['OPENHANDS_CONTAINER_LOG_ALL_EVENTS'] = _bool_to_env(
+        _default_str(
+            defaults,
+            'OPENHANDS_CONTAINER_LOG_ALL_EVENTS',
+            fallback='true',
+        ).lower()
+        in {'1', 'true', 'yes', 'on'}
+    )
+    values.update(
+        _prompt_testing_openhands(
+            defaults,
+            primary_values=values,
+            testing_container_enabled=testing_container_enabled,
+        )
+    )
+    return values
+
+
+def _prompt_openhands_core_values(
+    defaults: dict[str, str],
+    testing_container_enabled: bool,
+) -> dict[str, str]:
+    return {
+        'OPENHANDS_BASE_URL': input_str(
+            'OpenHands base URL',
+            default=_default_str(defaults, 'OPENHANDS_BASE_URL', fallback='http://localhost:3000'),
+        ),
+        'OPENHANDS_API_KEY': input_str(
+            'OpenHands API key',
+            default=_default_str(defaults, 'OPENHANDS_API_KEY', fallback='local'),
+        ),
+        'OH_SECRET_KEY': input_str(
+            'OpenHands secret key',
+            default=_default_str(defaults, 'OH_SECRET_KEY', fallback=secrets.token_hex(32)),
+        ),
+        'OPENHANDS_SKIP_TESTING': _bool_to_env(
+            input_bool(
+                'Skip testing before publishing pull requests',
+                default=_default_bool(defaults, 'OPENHANDS_SKIP_TESTING'),
+            )
+        ),
+        'OPENHANDS_TESTING_CONTAINER_ENABLED': _bool_to_env(testing_container_enabled),
+        'OPENHANDS_TASK_SCAN_STARTUP_DELAY_SECONDS': _default_str(
+            defaults,
+            'OPENHANDS_TASK_SCAN_STARTUP_DELAY_SECONDS',
+            fallback='30',
+        ),
+        'OPENHANDS_TASK_SCAN_INTERVAL_SECONDS': _default_str(
+            defaults,
+            'OPENHANDS_TASK_SCAN_INTERVAL_SECONDS',
+            fallback='60',
+        ),
+        'OPENHANDS_MODEL_SMOKE_TEST_ENABLED': _bool_to_env(
+            _default_str(
+                defaults,
+                'OPENHANDS_MODEL_SMOKE_TEST_ENABLED',
+                fallback='true',
+            ).lower()
+            in {'1', 'true', 'yes', 'on'}
+        ),
+    }
+
+
+def _prompt_primary_openhands_llm(defaults: dict[str, str]) -> dict[str, str]:
+    values = _prompt_openhands_llm_values(
+        defaults,
+        model_prompt='OpenHands LLM model',
+        model_key='OPENHANDS_LLM_MODEL',
+        api_key_prompt='OpenHands LLM API key',
+        api_key_key='OPENHANDS_LLM_API_KEY',
+        base_url_prompt='OpenHands LLM base URL',
+        base_url_key='OPENHANDS_LLM_BASE_URL',
+    )
+    if is_bedrock_model(values['OPENHANDS_LLM_MODEL']):
+        values.update(_prompt_bedrock_auth(defaults))
+        return values
+    values.update(_blank_bedrock_auth_values())
+    return values
+
+
+def _prompt_testing_openhands(
+    defaults: dict[str, str],
+    primary_values: dict[str, str],
+    *,
+    testing_container_enabled: bool,
+) -> dict[str, str]:
+    values = _default_testing_openhands_values(defaults)
+    if not testing_container_enabled:
+        return values
+
+    values['OPENHANDS_TESTING_BASE_URL'] = input_str(
+        'OpenHands testing base URL',
+        default=values['OPENHANDS_TESTING_BASE_URL'],
+    )
+    values.update(
+        _prompt_openhands_llm_values(
+            defaults,
+            model_prompt='OpenHands testing LLM model',
+            model_key='OPENHANDS_TESTING_LLM_MODEL',
+            api_key_prompt='OpenHands testing LLM API key',
+            api_key_key='OPENHANDS_TESTING_LLM_API_KEY',
+            base_url_prompt='OpenHands testing LLM base URL',
+            base_url_key='OPENHANDS_TESTING_LLM_BASE_URL',
+            model_fallback=primary_values['OPENHANDS_LLM_MODEL'],
+            api_key_fallback=primary_values.get('OPENHANDS_LLM_API_KEY', ''),
+            base_url_fallback=primary_values.get('OPENHANDS_LLM_BASE_URL', ''),
+        )
+    )
+    return values
+
+
+def _default_testing_openhands_values(defaults: dict[str, str]) -> dict[str, str]:
+    return {
+        'OPENHANDS_TESTING_BASE_URL': _default_str(
+            defaults,
+            'OPENHANDS_TESTING_BASE_URL',
+            fallback='http://localhost:3001',
+        ),
+        'OPENHANDS_TESTING_LLM_MODEL': _default_str(defaults, 'OPENHANDS_TESTING_LLM_MODEL'),
+        'OPENHANDS_TESTING_LLM_API_KEY': _default_str(defaults, 'OPENHANDS_TESTING_LLM_API_KEY'),
+        'OPENHANDS_TESTING_LLM_BASE_URL': _default_str(
+            defaults,
+            'OPENHANDS_TESTING_LLM_BASE_URL',
+        ),
+    }
+
+
+def _prompt_openhands_llm_values(
+    defaults: dict[str, str],
+    *,
+    model_prompt: str,
+    model_key: str,
+    api_key_prompt: str,
+    api_key_key: str,
+    base_url_prompt: str,
+    base_url_key: str,
+    model_fallback: str = '',
+    api_key_fallback: str = '',
+    base_url_fallback: str = '',
+) -> dict[str, str]:
+    model = input_str(
+        model_prompt,
+        default=_default_str(defaults, model_key, fallback=model_fallback),
+    )
+    values = {model_key: model}
+    if is_bedrock_model(model):
+        values[api_key_key] = ''
+        values[base_url_key] = ''
+        return values
+
+    if is_openrouter_model(model):
+        base_url_fallback = OPENROUTER_BASE_URL
+
+    values[api_key_key] = input_str(
+        api_key_prompt,
+        default=_default_str(defaults, api_key_key, fallback=api_key_fallback),
+    )
+    values[base_url_key] = input_str(
+        base_url_prompt,
+        default=_default_str(defaults, base_url_key, fallback=base_url_fallback),
+        allow_empty=True,
+    )
+    return values
+
+
+def _prompt_bedrock_auth(defaults: dict[str, str]) -> dict[str, str]:
+    auth_mode = input_enum(
+        'How should OpenHands authenticate to Bedrock',
+        ['access_keys', 'bearer_token'],
+        default='access_keys' if _default_str(defaults, 'AWS_ACCESS_KEY_ID') else 'bearer_token',
+    )
+    if auth_mode == 'access_keys':
+        return {
+            'AWS_ACCESS_KEY_ID': input_str(
+                'AWS access key id',
+                default=_default_str(defaults, 'AWS_ACCESS_KEY_ID'),
+            ),
+            'AWS_SECRET_ACCESS_KEY': input_str(
+                'AWS secret access key',
+                default=_default_str(defaults, 'AWS_SECRET_ACCESS_KEY'),
+            ),
+            'AWS_REGION_NAME': input_str(
+                'AWS region name',
+                default=_default_str(defaults, 'AWS_REGION_NAME', fallback='us-west-2'),
+            ),
+            'AWS_SESSION_TOKEN': input_str(
+                'AWS session token (optional)',
+                default=_default_str(defaults, 'AWS_SESSION_TOKEN'),
+                allow_empty=True,
+            ),
+            'AWS_BEARER_TOKEN_BEDROCK': '',
+        }
+    return {
+        'AWS_BEARER_TOKEN_BEDROCK': input_str(
+            'AWS bearer token for Bedrock',
+            default=_default_str(defaults, 'AWS_BEARER_TOKEN_BEDROCK'),
+        ),
+        'AWS_ACCESS_KEY_ID': '',
+        'AWS_SECRET_ACCESS_KEY': '',
+        'AWS_REGION_NAME': '',
+        'AWS_SESSION_TOKEN': '',
+    }
+
+
+def _blank_bedrock_auth_values() -> dict[str, str]:
+    return {
+        'AWS_ACCESS_KEY_ID': '',
+        'AWS_SECRET_ACCESS_KEY': '',
+        'AWS_REGION_NAME': '',
+        'AWS_SESSION_TOKEN': '',
+        'AWS_BEARER_TOKEN_BEDROCK': '',
+    }
+
+
+def _prompt_notifications(
+    defaults: dict[str, str],
+) -> dict[str, str]:
+    failure_enabled = input_yes_no(
+        'Enable failure notification emails',
+        default=_default_bool(defaults, 'KATO_FAILURE_EMAIL_ENABLED'),
+    )
+    completion_enabled = input_yes_no(
+        'Enable completion notification emails',
+        default=_default_bool(defaults, 'KATO_COMPLETION_EMAIL_ENABLED'),
+    )
+    values = _notification_toggle_values(failure_enabled, completion_enabled)
+    values.update(
+        _notification_provider_values(
+            defaults,
+            enabled=failure_enabled or completion_enabled,
+        )
+    )
+    values.update(
+        _prompt_notification_block(
+            defaults,
+            enabled=failure_enabled,
+            prefix='KATO_FAILURE_EMAIL',
+            label='failure',
+        )
+    )
+    values.update(
+        _prompt_notification_block(
+            defaults,
+            enabled=completion_enabled,
+            prefix='KATO_COMPLETION_EMAIL',
+            label='completion',
+        )
+    )
+    return values
+
+
+def _notification_toggle_values(
+    failure_enabled: bool,
+    completion_enabled: bool,
+) -> dict[str, str]:
+    return {
+        'KATO_FAILURE_EMAIL_ENABLED': _bool_to_env(failure_enabled),
+        'KATO_COMPLETION_EMAIL_ENABLED': _bool_to_env(completion_enabled),
+    }
+
+
+def _notification_provider_values(
+    defaults: dict[str, str],
+    *,
+    enabled: bool,
+) -> dict[str, str]:
+    values = {
+        'EMAIL_CORE_LIB_SEND_IN_BLUE_API_KEY': _default_str(
+            defaults,
+            'EMAIL_CORE_LIB_SEND_IN_BLUE_API_KEY',
+        ),
+        'SLACK_WEBHOOK_URL_ERRORS_EMAIL': _default_str(
+            defaults,
+            'SLACK_WEBHOOK_URL_ERRORS_EMAIL',
+        ),
+    }
+    if not enabled:
+        return values
+    values['EMAIL_CORE_LIB_SEND_IN_BLUE_API_KEY'] = input_str(
+        'Email provider API key',
+        default=values['EMAIL_CORE_LIB_SEND_IN_BLUE_API_KEY'],
+    )
+    values['SLACK_WEBHOOK_URL_ERRORS_EMAIL'] = input_str(
+        'Slack webhook URL for email errors',
+        default=values['SLACK_WEBHOOK_URL_ERRORS_EMAIL'],
+        allow_empty=True,
+    )
+    return values
+
+
+def _prompt_notification_block(
+    defaults: dict[str, str],
+    enabled: bool,
+    prefix: str,
+    label: str,
+) -> dict[str, str]:
+    values = {
+        f'{prefix}_TEMPLATE_ID': _default_str(defaults, f'{prefix}_TEMPLATE_ID', fallback='0'),
+        f'{prefix}_TO': _default_str(defaults, f'{prefix}_TO'),
+        f'{prefix}_SENDER_NAME': _default_str(defaults, f'{prefix}_SENDER_NAME', fallback='Kato'),
+        f'{prefix}_SENDER_EMAIL': _default_str(defaults, f'{prefix}_SENDER_EMAIL', fallback='noreply@example.com'),
+    }
+    if not enabled:
+        return values
+
+    values[f'{prefix}_TEMPLATE_ID'] = str(
+        input_int(
+            f'{label.capitalize()} email template id',
+            default=int(_default_str(defaults, f'{prefix}_TEMPLATE_ID', fallback='0')),
+        )
+    )
+    values[f'{prefix}_TO'] = input_str(
+        f'{label.capitalize()} email recipient',
+        default=_default_str(defaults, f'{prefix}_TO'),
+    )
+    values[f'{prefix}_SENDER_NAME'] = input_str(
+        f'{label.capitalize()} email sender name',
+        default=_default_str(defaults, f'{prefix}_SENDER_NAME', fallback='Kato'),
+    )
+    values[f'{prefix}_SENDER_EMAIL'] = input_str(
+        f'{label.capitalize()} email sender address',
+        default=_default_str(defaults, f'{prefix}_SENDER_EMAIL', fallback='noreply@example.com'),
+    )
+    return values
+
+
+def _default_str(
+    values: dict[str, str],
+    *keys: str,
+    fallback: str = '',
+) -> str:
+    for key in keys:
+        value = str(values.get(key, '') or '').strip()
+        if value:
+            return value
+    return fallback
+
+
+def _default_list(
+    values: dict[str, str],
+    key: str,
+    fallback: list[str],
+) -> list[str]:
+    raw_value = str(values.get(key, '') or '').strip()
+    if not raw_value:
+        return list(fallback)
+    return [part.strip() for part in raw_value.split(',') if part.strip()]
+
+
+def _default_bool(values: dict[str, str], key: str) -> bool:
+    return _default_str(values, key).lower() in {'1', 'true', 'yes', 'on'}
+
+
+def _bool_to_env(value: bool) -> str:
+    return 'true' if value else 'false'
+
+
+def _default_projects_root(values: dict[str, str]) -> str:
+    root_path = _default_str(values, 'REPOSITORY_ROOT_PATH')
+    if root_path:
+        return _normalize_repository_path(root_path)
+    return str(Path.cwd())
+
+
+
+
+_read_git_remote_url = read_git_remote_url
+
+
+def _normalize_repository_path(raw_path: str) -> str:
+    path = Path(str(raw_path).strip()).expanduser()
+    return str(path.resolve())
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

@@ -1,11 +1,11 @@
 import unittest
 
 
-from openhands_agent.client.bitbucket_client import BitbucketClient
-from openhands_agent.client.github_client import GitHubClient
-from openhands_agent.client.gitlab_client import GitLabClient
-from openhands_agent.client.pull_request_client_base import PullRequestClientBase
-from openhands_agent.data_layers.data.fields import PullRequestFields, ReviewCommentFields
+from kato.client.bitbucket_client import BitbucketClient
+from kato.client.github_client import GitHubClient
+from kato.client.gitlab_client import GitLabClient
+from kato.client.pull_request_client_base import PullRequestClientBase
+from kato.data_layers.data.fields import PullRequestFields, ReviewCommentFields
 
 
 class PullRequestClientBaseTests(unittest.TestCase):

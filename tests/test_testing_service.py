@@ -2,8 +2,8 @@ import types
 import unittest
 from unittest.mock import Mock
 
-from openhands_agent.data_layers.service.testing_service import TestingService
-from openhands_agent.helpers.task_context_utils import PreparedTaskContext
+from kato.data_layers.service.testing_service import TestingService
+from kato.helpers.task_context_utils import PreparedTaskContext
 from utils import build_task
 
 

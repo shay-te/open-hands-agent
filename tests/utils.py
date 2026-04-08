@@ -6,10 +6,10 @@ from unittest.mock import Mock, patch
 from core_lib.core_lib import CoreLib
 from omegaconf import DictConfig, OmegaConf
 
-from openhands_agent.data_layers.data.review_comment import ReviewComment
-from openhands_agent.data_layers.data.task import Task
-from openhands_agent.data_layers.data.fields import ReviewCommentFields, TaskCommentFields
-from openhands_agent.openhands_agent_core_lib import OpenHandsAgentCoreLib
+from kato.data_layers.data.review_comment import ReviewComment
+from kato.data_layers.data.task import Task
+from kato.data_layers.data.fields import ReviewCommentFields, TaskCommentFields
+from kato.kato_core_lib import KatoCoreLib
 
 
 thread_lock = threading.Lock()
@@ -54,7 +54,7 @@ def build_test_cfg() -> DictConfig:
         {
             'core_lib': {
                 'app': {
-                    'name': 'openhands-agent',
+                    'name': 'kato',
                 },
                 'data': {},
                 'email_core_lib': {
@@ -65,7 +65,7 @@ def build_test_cfg() -> DictConfig:
                     },
                 },
             },
-            'openhands_agent': {
+            'kato': {
                 'issue_platform': 'youtrack',
                 'ticket_system': 'youtrack',
                 'retry': {
@@ -77,7 +77,7 @@ def build_test_cfg() -> DictConfig:
                     'body_template': 'failure_email.j2',
                     'recipients': ['ops@example.com', 'dev@example.com'],
                     'sender': {
-                        'name': 'OpenHands Agent',
+                        'name': 'Kato',
                         'email': 'noreply@example.com',
                     },
                 },
@@ -87,7 +87,7 @@ def build_test_cfg() -> DictConfig:
                     'body_template': 'completion_email.j2',
                     'recipients': ['reviewers@example.com', 'teamlead@example.com'],
                     'sender': {
-                        'name': 'OpenHands Agent',
+                        'name': 'Kato',
                         'email': 'noreply@example.com',
                     },
                 },
@@ -224,7 +224,7 @@ def load_config() -> DictConfig:
     return OblInstance.config
 
 
-def sync_create_start_core_lib() -> OpenHandsAgentCoreLib:
+def sync_create_start_core_lib() -> KatoCoreLib:
     with thread_lock:
         if not OblInstance.instance:
             [CoreLib.cache_registry.unregister(key) for key in CoreLib.cache_registry.registered()]
@@ -232,9 +232,9 @@ def sync_create_start_core_lib() -> OpenHandsAgentCoreLib:
             from unittest.mock import patch
 
             with patch(
-                'openhands_agent.openhands_agent_core_lib.AgentService.validate_connections'
+                'kato.kato_core_lib.AgentService.validate_connections'
             ):
-                OblInstance.instance = OpenHandsAgentCoreLib(load_config())
+                OblInstance.instance = KatoCoreLib(load_config())
             OblInstance.instance.start_core_lib()
 
         for key in CoreLib.cache_registry.registered():

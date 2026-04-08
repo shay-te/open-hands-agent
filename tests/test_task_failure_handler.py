@@ -2,12 +2,12 @@ import types
 import unittest
 from unittest.mock import Mock
 
-from openhands_agent.data_layers.data.task import Task
-from openhands_agent.data_layers.service.notification_service import NotificationService
-from openhands_agent.data_layers.service.repository_service import RepositoryService
-from openhands_agent.data_layers.service.task_failure_handler import TaskFailureHandler
-from openhands_agent.data_layers.service.task_state_service import TaskStateService
-from openhands_agent.data_layers.service.task_service import TaskService
+from kato.data_layers.data.task import Task
+from kato.data_layers.service.notification_service import NotificationService
+from kato.data_layers.service.repository_service import RepositoryService
+from kato.data_layers.service.task_failure_handler import TaskFailureHandler
+from kato.data_layers.service.task_state_service import TaskStateService
+from kato.data_layers.service.task_service import TaskService
 from utils import build_task
 
 
@@ -58,7 +58,7 @@ class TaskFailureHandlerTests(unittest.TestCase):
         )
         self.task_service.add_comment.assert_called_once()
         self.assertIn(
-            'OpenHands agent could not safely process this task: repository service down',
+            'Kato agent could not safely process this task: repository service down',
             self.task_service.add_comment.call_args.args[1],
         )
         self.task_state_service.move_task_to_open.assert_not_called()
@@ -85,7 +85,7 @@ class TaskFailureHandlerTests(unittest.TestCase):
         self.task_state_service.move_task_to_open.assert_called_once_with(task.id)
         self.task_service.add_comment.assert_called_once()
         self.assertIn(
-            'OpenHands agent stopped working on this task: push failed',
+            'Kato agent stopped working on this task: push failed',
             self.task_service.add_comment.call_args.args[1],
         )
         self.notification_service.notify_failure.assert_called_once()

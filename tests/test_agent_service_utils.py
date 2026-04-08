@@ -1,20 +1,20 @@
 import types
 import unittest
 
-from openhands_agent.helpers.pull_request_utils import (
+from kato.helpers.pull_request_utils import (
     pull_request_description,
     pull_request_repositories_text,
     pull_request_summary_comment,
     pull_request_title,
 )
-from openhands_agent.helpers.mission_logging_utils import log_mission_step
-from openhands_agent.helpers.review_comment_utils import (
+from kato.helpers.mission_logging_utils import log_mission_step
+from kato.helpers.review_comment_utils import (
     review_fix_context_from_mapping,
     review_fix_result,
     review_comment_fixed_comment,
     review_comment_resolution_key,
 )
-from openhands_agent.helpers.task_execution_utils import (
+from kato.helpers.task_execution_utils import (
     apply_testing_message,
     implementation_succeeded,
     skip_task_result,
@@ -22,7 +22,7 @@ from openhands_agent.helpers.task_execution_utils import (
     testing_failed_result,
     testing_succeeded,
 )
-from openhands_agent.helpers.task_context_utils import (
+from kato.helpers.task_context_utils import (
     repository_branch_text,
     repository_destination_text,
     repository_ids_text,
@@ -30,14 +30,14 @@ from openhands_agent.helpers.task_context_utils import (
     task_has_actionable_definition,
     task_started_comment,
 )
-from openhands_agent.data_layers.data.fields import (
+from kato.data_layers.data.fields import (
     ImplementationFields,
     PullRequestFields,
     ReviewCommentFields,
     StatusFields,
     TaskFields,
 )
-from openhands_agent.data_layers.data.task import Task
+from kato.data_layers.data.task import Task
 from utils import build_review_comment, build_task
 
 
@@ -120,15 +120,15 @@ class AgentServiceUtilsTests(unittest.TestCase):
 
         self.assertEqual(
             task_started_comment(no_repo_task),
-            'OpenHands agent started working on this task.',
+            'Kato agent started working on this task.',
         )
         self.assertEqual(
             task_started_comment(one_repo_task),
-            'OpenHands agent started working on this task in repository client.',
+            'Kato agent started working on this task in repository client.',
         )
         self.assertEqual(
             task_started_comment(multi_repo_task),
-            'OpenHands agent started working on this task in repositories: client, backend.',
+            'Kato agent started working on this task in repositories: client, backend.',
         )
 
     def test_review_comment_helpers_use_resolution_target_when_present(self) -> None:
@@ -149,7 +149,7 @@ class AgentServiceUtilsTests(unittest.TestCase):
         )
         self.assertEqual(
             review_comment_fixed_comment(default_comment),
-            'OpenHands addressed review comment 99 on pull request 17.',
+            'Kato addressed review comment 99 on pull request 17.',
         )
 
     def test_review_fix_context_and_result_use_normalized_mapping_values(self) -> None:
@@ -192,7 +192,7 @@ class AgentServiceUtilsTests(unittest.TestCase):
             ['backend'],
         )
 
-        self.assertIn('OpenHands completed task PROJ-1: Fix bug.', summary)
+        self.assertIn('Kato completed task PROJ-1: Fix bug.', summary)
         self.assertNotIn('Validation report:', summary)
         self.assertIn('Published review links:', summary)
         self.assertIn('- client: https://example.com/pr/17', summary)
@@ -227,7 +227,7 @@ class AgentServiceUtilsTests(unittest.TestCase):
             },
         )
 
-        self.assertIn('OpenHands completed task PROJ-1: Fix bug.', description)
+        self.assertIn('Kato completed task PROJ-1: Fix bug.', description)
         self.assertIn('Requested change:', description)
         self.assertIn('Update the checkout validation flow', description)
         self.assertIn('Implementation summary:', description)

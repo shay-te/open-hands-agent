@@ -1,7 +1,7 @@
 # @package _global_
 core_lib:
   app:
-    name: openhands-agent-test
+    name: kato-test
   data: {}
   email_core_lib:
     client:
@@ -9,7 +9,7 @@ core_lib:
       api_key: test-send-in-blue-api-key
       slack_email_error_url: ""
 
-openhands_agent:
+kato:
   issue_platform: youtrack
   ticket_system: youtrack
   retry:
@@ -21,7 +21,7 @@ openhands_agent:
     recipients:
       - ops@example.com
     sender:
-      name: OpenHands Agent
+      name: Kato
       email: noreply@example.com
   completion_email:
     enabled: true
@@ -30,7 +30,7 @@ openhands_agent:
     recipients:
       - reviewers@example.com
     sender:
-      name: OpenHands Agent
+      name: Kato
       email: noreply@example.com
   youtrack:
     base_url: http://localhost:8080

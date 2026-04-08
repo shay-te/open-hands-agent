@@ -2,7 +2,7 @@ import ast
 from pathlib import Path
 
 
-DATA_ACCESS_DIR = Path(__file__).resolve().parents[1] / 'openhands_agent' / 'data_layers' / 'data_access'
+DATA_ACCESS_DIR = Path(__file__).resolve().parents[1] / 'kato' / 'data_layers' / 'data_access'
 CRUD_METHOD_NAMES = {'create', 'update'}
 CRUD_BASE_CLASS = 'CRUDDataAccess'
 

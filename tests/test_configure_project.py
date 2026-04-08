@@ -5,8 +5,8 @@ from pathlib import Path
 import unittest
 from unittest.mock import Mock, patch
 
-import openhands_agent.configure_project as configure_project
-from openhands_agent.validate_env import _read_env_file, validate_agent_env, validate_openhands_env
+import kato.configure_project as configure_project
+from kato.validate_env import _read_env_file, validate_agent_env, validate_openhands_env
 
 
 class ConfigureProjectTests(unittest.TestCase):
@@ -62,8 +62,8 @@ class ConfigureProjectTests(unittest.TestCase):
         ):
             values = configure_project.build_configuration_values({})
 
-        self.assertEqual(values['OPENHANDS_AGENT_ISSUE_PLATFORM'], 'youtrack')
-        self.assertEqual(values['OPENHANDS_AGENT_TICKET_SYSTEM'], 'youtrack')
+        self.assertEqual(values['KATO_ISSUE_PLATFORM'], 'youtrack')
+        self.assertEqual(values['KATO_TICKET_SYSTEM'], 'youtrack')
         self.assertEqual(values['YOUTRACK_ISSUE_STATES'], 'Open,Ready for Dev')
         self.assertEqual(values['REPOSITORY_ROOT_PATH'], str(Path('./client').resolve()))
         self.assertNotIn('OPENHANDS_SANDBOX_VOLUMES', values)
@@ -142,7 +142,7 @@ class ConfigureProjectTests(unittest.TestCase):
                 'Slack webhook URL for email errors': '',
                 'Failure email template id': 42,
                 'Failure email recipient': 'ops@example.com',
-                'Failure email sender name': 'OpenHands Agent',
+                'Failure email sender name': 'Kato',
                 'Failure email sender address': 'noreply@example.com',
             }
         ):
@@ -159,7 +159,7 @@ class ConfigureProjectTests(unittest.TestCase):
         self.assertEqual(values['OPENHANDS_MODEL_SMOKE_TEST_ENABLED'], 'true')
         self.assertEqual(values['OPENHANDS_TASK_SCAN_STARTUP_DELAY_SECONDS'], '30')
         self.assertEqual(values['OPENHANDS_TASK_SCAN_INTERVAL_SECONDS'], '60')
-        self.assertEqual(values['OPENHANDS_AGENT_FAILURE_EMAIL_ENABLED'], 'true')
+        self.assertEqual(values['KATO_FAILURE_EMAIL_ENABLED'], 'true')
         self.assertEqual(values['OH_SECRET_KEY'], 'openhands-secret')
         self.assertEqual(self._validate_agent_env(values), [])
         self.assertEqual(validate_openhands_env(values), [])
@@ -348,37 +348,34 @@ class ConfigureProjectTests(unittest.TestCase):
 
     def test_render_env_text_replaces_existing_keys(self) -> None:
         rendered = configure_project.render_env_text(
-            '# heading\nOPENHANDS_AGENT_ISSUE_PLATFORM=youtrack\nYOUTRACK_ISSUE_STATES=Todo,Open\n',
+            '# heading\nKATO_ISSUE_PLATFORM=youtrack\nYOUTRACK_ISSUE_STATES=Todo,Open\n',
             {
-                'OPENHANDS_AGENT_ISSUE_PLATFORM': 'jira',
+                'KATO_ISSUE_PLATFORM': 'jira',
                 'YOUTRACK_ISSUE_STATES': 'Open,Ready for Dev',
                 'JIRA_ISSUE_STATES': 'To Do,Open',
             },
         )
 
-        self.assertIn('OPENHANDS_AGENT_ISSUE_PLATFORM=jira', rendered)
+        self.assertIn('KATO_ISSUE_PLATFORM=jira', rendered)
         self.assertIn("YOUTRACK_ISSUE_STATES='Open,Ready for Dev'", rendered)
         self.assertIn("JIRA_ISSUE_STATES='To Do,Open'", rendered)
 
     def test_render_env_text_quotes_values_with_spaces(self) -> None:
         rendered = configure_project.render_env_text(
             'YOUTRACK_REVIEW_STATE=In Review\n'
-            'OPENHANDS_AGENT_COMPLETION_EMAIL_SENDER_NAME=OpenHands Agent\n',
+            'KATO_COMPLETION_EMAIL_SENDER_NAME=Kato\n',
             {
                 'YOUTRACK_REVIEW_STATE': 'To Verify',
-                'OPENHANDS_AGENT_COMPLETION_EMAIL_SENDER_NAME': 'OpenHands Agent',
+                'KATO_COMPLETION_EMAIL_SENDER_NAME': 'Kato',
             },
         )
 
         self.assertIn("YOUTRACK_REVIEW_STATE='To Verify'", rendered)
-        self.assertIn(
-            "OPENHANDS_AGENT_COMPLETION_EMAIL_SENDER_NAME='OpenHands Agent'",
-            rendered,
-        )
+        self.assertIn('KATO_COMPLETION_EMAIL_SENDER_NAME=Kato', rendered)
 
     @staticmethod
     def _validate_agent_env(values: dict[str, str]) -> list[str]:
-        with patch('openhands_agent.validate_env.discover_git_repositories', return_value=[]):
+        with patch('kato.validate_env.discover_git_repositories', return_value=[]):
             return validate_agent_env(values)
 
     def test_main_writes_env_file(self) -> None:
@@ -387,8 +384,8 @@ class ConfigureProjectTests(unittest.TestCase):
             template_path = temp_path / '.env.example'
             output_path = temp_path / '.env'
             template_path.write_text(
-                'OPENHANDS_AGENT_ISSUE_PLATFORM=youtrack\n'
-                'OPENHANDS_AGENT_TICKET_SYSTEM=youtrack\n'
+                'KATO_ISSUE_PLATFORM=youtrack\n'
+                'KATO_TICKET_SYSTEM=youtrack\n'
                 'YOUTRACK_BASE_URL=\n'
                 'YOUTRACK_TOKEN=\n'
                 'YOUTRACK_PROJECT=\n'
@@ -417,16 +414,16 @@ class ConfigureProjectTests(unittest.TestCase):
                 'AWS_REGION_NAME=\n'
                 'AWS_SESSION_TOKEN=\n'
                 'AWS_BEARER_TOKEN_BEDROCK=\n'
-                'OPENHANDS_AGENT_FAILURE_EMAIL_ENABLED=false\n'
-                'OPENHANDS_AGENT_FAILURE_EMAIL_TEMPLATE_ID=0\n'
-                'OPENHANDS_AGENT_FAILURE_EMAIL_TO=\n'
-                'OPENHANDS_AGENT_FAILURE_EMAIL_SENDER_NAME=OpenHands Agent\n'
-                'OPENHANDS_AGENT_FAILURE_EMAIL_SENDER_EMAIL=noreply@example.com\n'
-                'OPENHANDS_AGENT_COMPLETION_EMAIL_ENABLED=false\n'
-                'OPENHANDS_AGENT_COMPLETION_EMAIL_TEMPLATE_ID=0\n'
-                'OPENHANDS_AGENT_COMPLETION_EMAIL_TO=\n'
-                'OPENHANDS_AGENT_COMPLETION_EMAIL_SENDER_NAME=OpenHands Agent\n'
-                'OPENHANDS_AGENT_COMPLETION_EMAIL_SENDER_EMAIL=noreply@example.com\n'
+                'KATO_FAILURE_EMAIL_ENABLED=false\n'
+                'KATO_FAILURE_EMAIL_TEMPLATE_ID=0\n'
+                'KATO_FAILURE_EMAIL_TO=\n'
+                'KATO_FAILURE_EMAIL_SENDER_NAME=Kato\n'
+                'KATO_FAILURE_EMAIL_SENDER_EMAIL=noreply@example.com\n'
+                'KATO_COMPLETION_EMAIL_ENABLED=false\n'
+                'KATO_COMPLETION_EMAIL_TEMPLATE_ID=0\n'
+                'KATO_COMPLETION_EMAIL_TO=\n'
+                'KATO_COMPLETION_EMAIL_SENDER_NAME=Kato\n'
+                'KATO_COMPLETION_EMAIL_SENDER_EMAIL=noreply@example.com\n'
                 'EMAIL_CORE_LIB_SEND_IN_BLUE_API_KEY=\n'
                 'SLACK_WEBHOOK_URL_ERRORS_EMAIL=\n',
                 encoding='utf-8',
@@ -469,7 +466,7 @@ class ConfigureProjectTests(unittest.TestCase):
 
             self.assertEqual(exit_code, 0)
             written_env = _read_env_file(str(output_path))
-            self.assertEqual(written_env['OPENHANDS_AGENT_ISSUE_PLATFORM'], 'youtrack')
+            self.assertEqual(written_env['KATO_ISSUE_PLATFORM'], 'youtrack')
             self.assertEqual(written_env['YOUTRACK_ISSUE_STATES'], 'Todo,Open')
             self.assertEqual(written_env['OH_SECRET_KEY'], 'openhands-secret')
             self.assertEqual(written_env['OPENHANDS_LLM_API_KEY'], 'llm-key')
@@ -483,8 +480,8 @@ class ConfigureProjectTests(unittest.TestCase):
             template_path = temp_path / '.env.example'
             output_path = temp_path / '.env'
             template_path.write_text(
-                'OPENHANDS_AGENT_ISSUE_PLATFORM=youtrack\n'
-                'OPENHANDS_AGENT_TICKET_SYSTEM=youtrack\n'
+                'KATO_ISSUE_PLATFORM=youtrack\n'
+                'KATO_TICKET_SYSTEM=youtrack\n'
                 'YOUTRACK_BASE_URL=\n'
                 'YOUTRACK_TOKEN=\n'
                 'YOUTRACK_PROJECT=\n'
@@ -513,16 +510,16 @@ class ConfigureProjectTests(unittest.TestCase):
                 'AWS_REGION_NAME=\n'
                 'AWS_SESSION_TOKEN=\n'
                 'AWS_BEARER_TOKEN_BEDROCK=\n'
-                'OPENHANDS_AGENT_FAILURE_EMAIL_ENABLED=false\n'
-                'OPENHANDS_AGENT_FAILURE_EMAIL_TEMPLATE_ID=0\n'
-                'OPENHANDS_AGENT_FAILURE_EMAIL_TO=\n'
-                'OPENHANDS_AGENT_FAILURE_EMAIL_SENDER_NAME=OpenHands Agent\n'
-                'OPENHANDS_AGENT_FAILURE_EMAIL_SENDER_EMAIL=noreply@example.com\n'
-                'OPENHANDS_AGENT_COMPLETION_EMAIL_ENABLED=false\n'
-                'OPENHANDS_AGENT_COMPLETION_EMAIL_TEMPLATE_ID=0\n'
-                'OPENHANDS_AGENT_COMPLETION_EMAIL_TO=\n'
-                'OPENHANDS_AGENT_COMPLETION_EMAIL_SENDER_NAME=OpenHands Agent\n'
-                'OPENHANDS_AGENT_COMPLETION_EMAIL_SENDER_EMAIL=noreply@example.com\n'
+                'KATO_FAILURE_EMAIL_ENABLED=false\n'
+                'KATO_FAILURE_EMAIL_TEMPLATE_ID=0\n'
+                'KATO_FAILURE_EMAIL_TO=\n'
+                'KATO_FAILURE_EMAIL_SENDER_NAME=Kato\n'
+                'KATO_FAILURE_EMAIL_SENDER_EMAIL=noreply@example.com\n'
+                'KATO_COMPLETION_EMAIL_ENABLED=false\n'
+                'KATO_COMPLETION_EMAIL_TEMPLATE_ID=0\n'
+                'KATO_COMPLETION_EMAIL_TO=\n'
+                'KATO_COMPLETION_EMAIL_SENDER_NAME=Kato\n'
+                'KATO_COMPLETION_EMAIL_SENDER_EMAIL=noreply@example.com\n'
                 'EMAIL_CORE_LIB_SEND_IN_BLUE_API_KEY=\n'
                 'SLACK_WEBHOOK_URL_ERRORS_EMAIL=\n',
                 encoding='utf-8',

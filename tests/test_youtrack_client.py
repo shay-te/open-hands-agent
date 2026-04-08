@@ -2,9 +2,9 @@ import unittest
 from unittest.mock import patch
 
 
-from openhands_agent.client.youtrack_client import YouTrackClient
-from openhands_agent.data_layers.data.task import Task
-from openhands_agent.data_layers.data.fields import (
+from kato.client.youtrack_client import YouTrackClient
+from kato.data_layers.data.task import Task
+from kato.data_layers.data.fields import (
     TaskCommentFields,
     YouTrackAttachmentFields,
     YouTrackCommentFields,
@@ -219,7 +219,7 @@ class YouTrackClientTests(unittest.TestCase):
         comments_response = mock_response(json_data=[
             {
                 YouTrackCommentFields.TEXT: (
-                    'OpenHands agent could not safely process this task: timeout'
+                    'Kato agent could not safely process this task: timeout'
                 ),
                 YouTrackCommentFields.AUTHOR: {
                     YouTrackCommentFields.NAME: 'shay'
@@ -227,7 +227,7 @@ class YouTrackClientTests(unittest.TestCase):
             },
             {
                 YouTrackCommentFields.TEXT: (
-                    'OpenHands agent skipped this task because it could not detect '
+                    'Kato agent skipped this task because it could not detect '
                     'which repository to use from the task content: no configured '
                     'repository matched task PROJ-1.'
                 ),
@@ -264,13 +264,13 @@ class YouTrackClientTests(unittest.TestCase):
                 {
                     TaskCommentFields.AUTHOR: 'shay',
                     TaskCommentFields.BODY: (
-                        'OpenHands agent could not safely process this task: timeout'
+                        'Kato agent could not safely process this task: timeout'
                     ),
                 },
                 {
                     TaskCommentFields.AUTHOR: 'shay',
                     TaskCommentFields.BODY: (
-                        'OpenHands agent skipped this task because it could not detect '
+                        'Kato agent skipped this task because it could not detect '
                         'which repository to use from the task content: no configured '
                         'repository matched task PROJ-1.'
                     ),

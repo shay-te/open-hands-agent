@@ -7,11 +7,11 @@ import base64
 from unittest.mock import Mock, patch
 
 
-from openhands_agent.data_layers.service.repository_inventory_service import (
+from kato.data_layers.service.repository_inventory_service import (
     RepositoryInventoryService,
 )
-from openhands_agent.data_layers.service.repository_service import RepositoryService
-from openhands_agent.data_layers.data.fields import PullRequestFields, ReviewCommentFields
+from kato.data_layers.service.repository_service import RepositoryService
+from kato.data_layers.data.fields import PullRequestFields, ReviewCommentFields
 from utils import build_review_comment, build_task, build_test_cfg
 
 
@@ -82,7 +82,7 @@ class RepositoryServiceTests(unittest.TestCase):
             service.validate_connections()
 
     def test_resolves_multiple_repositories_from_task_text(self) -> None:
-        service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+        service = RepositoryService(self.cfg.kato.repositories, 3)
         task = build_task(description='Update client and api endpoints')
 
         repositories = service.resolve_task_repositories(task)
@@ -164,7 +164,7 @@ class RepositoryServiceTests(unittest.TestCase):
         self.assertEqual([repository.id for repository in service.repositories], ['ob-love-admin-client'])
 
     def test_raises_when_no_repository_matches_task_text(self) -> None:
-        service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+        service = RepositoryService(self.cfg.kato.repositories, 3)
         task = build_task(description='Update mobile application')
 
         with self.assertRaisesRegex(ValueError, 'no configured repository matched task PROJ-1'):
@@ -184,17 +184,17 @@ class RepositoryServiceTests(unittest.TestCase):
         self.assertTrue(service._repository_matches('work in myrepo please', repository))
 
     def test_prepare_task_repositories_sets_resolved_destination_branch(self) -> None:
-        repository = self.cfg.openhands_agent.repositories[0]
+        repository = self.cfg.kato.repositories[0]
         repository.destination_branch = ''
-        service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+        service = RepositoryService(self.cfg.kato.repositories, 3)
 
         with patch(
-            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            'kato.data_layers.service.repository_service.shutil.which',
             return_value='/usr/bin/git',
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.RepositoryService._validate_destination_branch_tracking_state',
+            'kato.data_layers.service.repository_service.RepositoryService._validate_destination_branch_tracking_state',
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.subprocess.run',
+            'kato.data_layers.service.repository_service.subprocess.run',
             side_effect=[
                 Mock(returncode=0, stdout='refs/remotes/origin/master\n', stderr=''),
                 Mock(returncode=0, stdout='master\n', stderr=''),
@@ -209,18 +209,18 @@ class RepositoryServiceTests(unittest.TestCase):
         self.assertEqual(prepared_repositories[0].destination_branch, 'master')
 
     def test_prepare_task_repositories_switches_clean_repository_to_destination_branch(self) -> None:
-        service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+        service = RepositoryService(self.cfg.kato.repositories, 3)
 
         with patch(
-            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            'kato.data_layers.service.repository_service.shutil.which',
             return_value='/usr/bin/git',
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.os.path.isdir',
+            'kato.data_layers.service.repository_service.os.path.isdir',
             return_value=True,
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.RepositoryService._validate_destination_branch_tracking_state',
+            'kato.data_layers.service.repository_service.RepositoryService._validate_destination_branch_tracking_state',
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.subprocess.run',
+            'kato.data_layers.service.repository_service.subprocess.run',
             side_effect=[
                 Mock(returncode=0, stdout='feature/proj-1/backend\n', stderr=''),
                 Mock(returncode=0, stdout='', stderr=''),
@@ -248,18 +248,18 @@ class RepositoryServiceTests(unittest.TestCase):
         )
 
     def test_prepare_task_repositories_pulls_latest_destination_branch_before_next_task(self) -> None:
-        service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+        service = RepositoryService(self.cfg.kato.repositories, 3)
 
         with patch(
-            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            'kato.data_layers.service.repository_service.shutil.which',
             return_value='/usr/bin/git',
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.os.path.isdir',
+            'kato.data_layers.service.repository_service.os.path.isdir',
             return_value=True,
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.RepositoryService._validate_destination_branch_tracking_state',
+            'kato.data_layers.service.repository_service.RepositoryService._validate_destination_branch_tracking_state',
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.subprocess.run',
+            'kato.data_layers.service.repository_service.subprocess.run',
             side_effect=[
                 Mock(returncode=0, stdout='main\n', stderr=''),
                 Mock(returncode=0, stdout='', stderr=''),
@@ -290,13 +290,13 @@ class RepositoryServiceTests(unittest.TestCase):
         service = RepositoryService([], 3)
 
         with patch(
-            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            'kato.data_layers.service.repository_service.shutil.which',
             return_value='/usr/bin/git',
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.os.path.isdir',
+            'kato.data_layers.service.repository_service.os.path.isdir',
             return_value=True,
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.subprocess.run',
+            'kato.data_layers.service.repository_service.subprocess.run',
             side_effect=[
                 Mock(returncode=0, stdout='feature/proj-1/client\n', stderr=''),
                 Mock(returncode=0, stdout='', stderr=''),
@@ -324,13 +324,13 @@ class RepositoryServiceTests(unittest.TestCase):
         service = RepositoryService([], 3)
 
         with patch(
-            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            'kato.data_layers.service.repository_service.shutil.which',
             return_value='/usr/bin/git',
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.os.path.isdir',
+            'kato.data_layers.service.repository_service.os.path.isdir',
             return_value=True,
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.subprocess.run',
+            'kato.data_layers.service.repository_service.subprocess.run',
             side_effect=[
                 Mock(returncode=0, stdout='feature/proj-1/client\n', stderr=''),
                 Mock(returncode=0, stdout=' M app.py\n', stderr=''),
@@ -365,7 +365,7 @@ class RepositoryServiceTests(unittest.TestCase):
             service = RepositoryService([], 3)
 
             with patch(
-                'openhands_agent.data_layers.service.repository_service.shutil.which',
+                'kato.data_layers.service.repository_service.shutil.which',
                 return_value='/usr/bin/git',
             ):
                 restored_repositories = service.restore_task_repositories(
@@ -398,7 +398,7 @@ class RepositoryServiceTests(unittest.TestCase):
             service = RepositoryService([], 3)
 
             with patch(
-                'openhands_agent.data_layers.service.repository_service.shutil.which',
+                'kato.data_layers.service.repository_service.shutil.which',
                 return_value='/usr/bin/git',
             ):
                 restored_repositories = service.restore_task_repositories(
@@ -434,7 +434,7 @@ class RepositoryServiceTests(unittest.TestCase):
             service = RepositoryService([], 3)
 
             with patch(
-                'openhands_agent.data_layers.service.repository_service.shutil.which',
+                'kato.data_layers.service.repository_service.shutil.which',
                 return_value='/usr/bin/git',
             ):
                 restored_repositories = service.restore_task_repositories(
@@ -471,21 +471,21 @@ class RepositoryServiceTests(unittest.TestCase):
             self.assertTrue(lock_path.exists())
 
     def test_prepare_task_branches_creates_new_task_branch_from_destination_branch(self) -> None:
-        service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+        service = RepositoryService(self.cfg.kato.repositories, 3)
 
         with patch(
-            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            'kato.data_layers.service.repository_service.shutil.which',
             return_value='/usr/bin/git',
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.os.path.isdir',
+            'kato.data_layers.service.repository_service.os.path.isdir',
             return_value=True,
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.RepositoryService._validate_destination_branch_tracking_state',
+            'kato.data_layers.service.repository_service.RepositoryService._validate_destination_branch_tracking_state',
         ) as mock_validate_destination, patch(
-            'openhands_agent.data_layers.service.repository_service.RepositoryService._git_reference_exists',
+            'kato.data_layers.service.repository_service.RepositoryService._git_reference_exists',
             return_value=False,
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.subprocess.run',
+            'kato.data_layers.service.repository_service.subprocess.run',
             side_effect=[
                 Mock(returncode=0, stdout='main\n', stderr=''),
                 Mock(returncode=0, stdout='', stderr=''),
@@ -509,24 +509,24 @@ class RepositoryServiceTests(unittest.TestCase):
         )
 
     def test_prepare_task_branches_checks_out_existing_local_task_branch(self) -> None:
-        service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+        service = RepositoryService(self.cfg.kato.repositories, 3)
 
         def reference_exists(_local_path: str, reference: str) -> bool:
             return reference == 'refs/heads/UNA-2398'
 
         with patch(
-            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            'kato.data_layers.service.repository_service.shutil.which',
             return_value='/usr/bin/git',
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.os.path.isdir',
+            'kato.data_layers.service.repository_service.os.path.isdir',
             return_value=True,
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.RepositoryService._validate_destination_branch_tracking_state',
+            'kato.data_layers.service.repository_service.RepositoryService._validate_destination_branch_tracking_state',
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.RepositoryService._git_reference_exists',
+            'kato.data_layers.service.repository_service.RepositoryService._git_reference_exists',
             side_effect=reference_exists,
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.subprocess.run',
+            'kato.data_layers.service.repository_service.subprocess.run',
             side_effect=[
                 Mock(returncode=0, stdout='main\n', stderr=''),
                 Mock(returncode=0, stdout='', stderr=''),
@@ -549,24 +549,24 @@ class RepositoryServiceTests(unittest.TestCase):
         )
 
     def test_prepare_task_branches_restores_branch_from_origin_when_local_branch_is_missing(self) -> None:
-        service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+        service = RepositoryService(self.cfg.kato.repositories, 3)
 
         def reference_exists(_local_path: str, reference: str) -> bool:
             return reference == 'refs/remotes/origin/UNA-2398'
 
         with patch(
-            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            'kato.data_layers.service.repository_service.shutil.which',
             return_value='/usr/bin/git',
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.os.path.isdir',
+            'kato.data_layers.service.repository_service.os.path.isdir',
             return_value=True,
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.RepositoryService._validate_destination_branch_tracking_state',
+            'kato.data_layers.service.repository_service.RepositoryService._validate_destination_branch_tracking_state',
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.RepositoryService._git_reference_exists',
+            'kato.data_layers.service.repository_service.RepositoryService._git_reference_exists',
             side_effect=reference_exists,
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.subprocess.run',
+            'kato.data_layers.service.repository_service.subprocess.run',
             side_effect=[
                 Mock(returncode=0, stdout='main\n', stderr=''),
                 Mock(returncode=0, stdout='', stderr=''),
@@ -605,7 +605,7 @@ class RepositoryServiceTests(unittest.TestCase):
             service = RepositoryService([], 3)
 
             with patch(
-                'openhands_agent.data_layers.service.repository_service.shutil.which',
+                'kato.data_layers.service.repository_service.shutil.which',
                 return_value='/usr/bin/git',
             ):
                 prepared_repositories = service.prepare_task_branches(
@@ -622,16 +622,16 @@ class RepositoryServiceTests(unittest.TestCase):
             self.assertFalse(build_dir.exists())
 
     def test_prepare_task_repositories_raises_when_checkout_does_not_leave_destination_branch(self) -> None:
-        service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+        service = RepositoryService(self.cfg.kato.repositories, 3)
 
         with patch(
-            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            'kato.data_layers.service.repository_service.shutil.which',
             return_value='/usr/bin/git',
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.os.path.isdir',
+            'kato.data_layers.service.repository_service.os.path.isdir',
             return_value=True,
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.subprocess.run',
+            'kato.data_layers.service.repository_service.subprocess.run',
             side_effect=[
                 Mock(returncode=0, stdout='feature/proj-1/backend\n', stderr=''),
                 Mock(returncode=0, stdout='', stderr=''),
@@ -646,13 +646,13 @@ class RepositoryServiceTests(unittest.TestCase):
                 service.prepare_task_repositories([self.backend_repo])
 
     def test_prepare_task_repositories_makes_git_ready_when_dirty_before_next_task(self) -> None:
-        service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+        service = RepositoryService(self.cfg.kato.repositories, 3)
 
         with patch(
-            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            'kato.data_layers.service.repository_service.shutil.which',
             return_value='/usr/bin/git',
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.os.path.isdir',
+            'kato.data_layers.service.repository_service.os.path.isdir',
             return_value=True,
         ), patch.object(
             RepositoryService,
@@ -665,7 +665,7 @@ class RepositoryServiceTests(unittest.TestCase):
             RepositoryService,
             '_pull_destination_branch',
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.subprocess.run',
+            'kato.data_layers.service.repository_service.subprocess.run',
             side_effect=[
                 Mock(returncode=0, stdout='feature/proj-1/backend\n', stderr=''),
                 Mock(returncode=0, stdout=' M app.py\n', stderr=''),
@@ -692,7 +692,7 @@ class RepositoryServiceTests(unittest.TestCase):
             service = RepositoryService([], 3)
 
             with patch(
-                'openhands_agent.data_layers.service.repository_service.shutil.which',
+                'kato.data_layers.service.repository_service.shutil.which',
                 return_value='/usr/bin/git',
             ), patch.object(
                 RepositoryService,
@@ -708,16 +708,16 @@ class RepositoryServiceTests(unittest.TestCase):
             self.assertEqual(self._git_stdout(repo_path, ['status', '--porcelain']), '')
 
     def test_prepare_task_repositories_rejects_destination_branch_with_local_only_commits(self) -> None:
-        service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+        service = RepositoryService(self.cfg.kato.repositories, 3)
 
         with patch(
-            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            'kato.data_layers.service.repository_service.shutil.which',
             return_value='/usr/bin/git',
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.os.path.isdir',
+            'kato.data_layers.service.repository_service.os.path.isdir',
             return_value=True,
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.subprocess.run',
+            'kato.data_layers.service.repository_service.subprocess.run',
             side_effect=[
                 Mock(returncode=0, stdout='main\n', stderr=''),
                 Mock(returncode=0, stdout='', stderr=''),
@@ -733,16 +733,16 @@ class RepositoryServiceTests(unittest.TestCase):
                 service.prepare_task_repositories([self.backend_repo])
 
     def test_prepare_task_repositories_allows_destination_branch_behind_remote(self) -> None:
-        service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+        service = RepositoryService(self.cfg.kato.repositories, 3)
 
         with patch(
-            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            'kato.data_layers.service.repository_service.shutil.which',
             return_value='/usr/bin/git',
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.os.path.isdir',
+            'kato.data_layers.service.repository_service.os.path.isdir',
             return_value=True,
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.subprocess.run',
+            'kato.data_layers.service.repository_service.subprocess.run',
             side_effect=[
                 Mock(returncode=0, stdout='main\n', stderr=''),
                 Mock(returncode=0, stdout='', stderr=''),
@@ -781,12 +781,12 @@ class RepositoryServiceTests(unittest.TestCase):
             )
 
             with patch(
-                'openhands_agent.data_layers.service.repository_service.shutil.which',
+                'kato.data_layers.service.repository_service.shutil.which',
                 return_value='/usr/bin/git',
             ), patch(
-                'openhands_agent.data_layers.service.repository_service.RepositoryService._validate_destination_branch_tracking_state',
+                'kato.data_layers.service.repository_service.RepositoryService._validate_destination_branch_tracking_state',
             ), patch(
-                'openhands_agent.data_layers.service.repository_service.subprocess.run',
+                'kato.data_layers.service.repository_service.subprocess.run',
                 side_effect=[
                     Mock(returncode=0, stdout='refs/remotes/origin/main\n', stderr=''),
                     Mock(returncode=0, stdout='main\n', stderr=''),
@@ -827,7 +827,7 @@ class RepositoryServiceTests(unittest.TestCase):
             )
 
             with patch(
-                'openhands_agent.data_layers.service.repository_service.shutil.which',
+                'kato.data_layers.service.repository_service.shutil.which',
                 return_value='/usr/bin/git',
             ):
                 with self.assertRaisesRegex(
@@ -838,14 +838,14 @@ class RepositoryServiceTests(unittest.TestCase):
 
 
     def test_does_not_match_repository_alias_inside_hyphenated_word(self) -> None:
-        service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+        service = RepositoryService(self.cfg.kato.repositories, 3)
         task = build_task(description='Improve non-client rendering flow')
 
         with self.assertRaisesRegex(ValueError, 'no configured repository matched task PROJ-1'):
             service.resolve_task_repositories(task)
 
     def test_matches_repository_alias_surrounded_by_punctuation(self) -> None:
-        service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+        service = RepositoryService(self.cfg.kato.repositories, 3)
         task = build_task(description='Please update (backend), then circle back.')
 
         repositories = service.resolve_task_repositories(task)
@@ -853,7 +853,7 @@ class RepositoryServiceTests(unittest.TestCase):
         self.assertEqual([repository.id for repository in repositories], ['backend'])
 
     def test_matches_repository_by_display_name_from_summary(self) -> None:
-        service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+        service = RepositoryService(self.cfg.kato.repositories, 3)
         task = build_task(summary='Client polish pass', description='Tighten UX copy.')
 
         repositories = service.resolve_task_repositories(task)
@@ -861,36 +861,36 @@ class RepositoryServiceTests(unittest.TestCase):
         self.assertEqual([repository.id for repository in repositories], ['client'])
 
     def test_prefers_configured_destination_branch(self) -> None:
-        service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+        service = RepositoryService(self.cfg.kato.repositories, 3)
 
         self.assertEqual(service.destination_branch(self.backend_repo), 'main')
 
     @property
     def backend_repo(self):
-        return self.cfg.openhands_agent.repositories[1]
+        return self.cfg.kato.repositories[1]
 
     def test_infers_destination_branch_from_local_git_default_branch(self) -> None:
-        service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
-        repository = self.cfg.openhands_agent.repositories[0]
+        service = RepositoryService(self.cfg.kato.repositories, 3)
+        repository = self.cfg.kato.repositories[0]
 
         with patch(
-            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            'kato.data_layers.service.repository_service.shutil.which',
             return_value='/usr/bin/git',
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.subprocess.run',
+            'kato.data_layers.service.repository_service.subprocess.run',
             return_value=Mock(returncode=0, stdout='refs/remotes/origin/master\n'),
         ):
             self.assertEqual(service.destination_branch(repository), 'master')
 
     def test_destination_branch_raises_when_git_cannot_infer_default_branch(self) -> None:
-        service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
-        repository = self.cfg.openhands_agent.repositories[0]
+        service = RepositoryService(self.cfg.kato.repositories, 3)
+        repository = self.cfg.kato.repositories[0]
 
         with patch(
-            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            'kato.data_layers.service.repository_service.shutil.which',
             return_value='/usr/bin/git',
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.subprocess.run',
+            'kato.data_layers.service.repository_service.subprocess.run',
             return_value=Mock(returncode=1, stdout=''),
         ):
             with self.assertRaisesRegex(
@@ -900,7 +900,7 @@ class RepositoryServiceTests(unittest.TestCase):
                 service.destination_branch(repository)
 
     def test_build_branch_name_uses_task_id(self) -> None:
-        service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+        service = RepositoryService(self.cfg.kato.repositories, 3)
 
         branch_name = service.build_branch_name(build_task(task_id='UNA-222'), self.backend_repo)
 
@@ -916,24 +916,24 @@ class RepositoryServiceTests(unittest.TestCase):
         }
 
         with patch(
-            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            'kato.data_layers.service.repository_service.shutil.which',
             return_value='/usr/bin/git',
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.os.path.isdir',
+            'kato.data_layers.service.repository_service.os.path.isdir',
             return_value=True,
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.RepositoryService._prepare_branch_for_publication',
+            'kato.data_layers.service.repository_service.RepositoryService._prepare_branch_for_publication',
             return_value='',
         ) as mock_prepare_branch, patch.object(
             RepositoryService,
             'restore_task_repositories',
         ) as mock_restore_repositories, patch(
-            'openhands_agent.data_layers.service.repository_service.RepositoryService._push_branch',
+            'kato.data_layers.service.repository_service.RepositoryService._push_branch',
         ) as mock_push_branch, patch(
-            'openhands_agent.data_layers.service.repository_inventory_service.RepositoryInventoryService._pull_request_data_access',
+            'kato.data_layers.service.repository_inventory_service.RepositoryInventoryService._pull_request_data_access',
             return_value=data_access,
         ):
-            service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+            service = RepositoryService(self.cfg.kato.repositories, 3)
             result = service.create_pull_request(
                 repository,
                 title='PROJ-1: Fix bug',
@@ -970,24 +970,24 @@ class RepositoryServiceTests(unittest.TestCase):
         data_access.create_pull_request.side_effect = RuntimeError('provider down')
 
         with patch(
-            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            'kato.data_layers.service.repository_service.shutil.which',
             return_value='/usr/bin/git',
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.os.path.isdir',
+            'kato.data_layers.service.repository_service.os.path.isdir',
             return_value=True,
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.RepositoryService._prepare_branch_for_publication',
+            'kato.data_layers.service.repository_service.RepositoryService._prepare_branch_for_publication',
             return_value='',
         ), patch.object(
             RepositoryService,
             'restore_task_repositories',
         ) as mock_restore_repositories, patch(
-            'openhands_agent.data_layers.service.repository_service.RepositoryService._push_branch',
+            'kato.data_layers.service.repository_service.RepositoryService._push_branch',
         ), patch(
-            'openhands_agent.data_layers.service.repository_inventory_service.RepositoryInventoryService._pull_request_data_access',
+            'kato.data_layers.service.repository_inventory_service.RepositoryInventoryService._pull_request_data_access',
             return_value=data_access,
         ):
-            service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+            service = RepositoryService(self.cfg.kato.repositories, 3)
             with self.assertRaisesRegex(RuntimeError, 'provider down'):
                 service.create_pull_request(
                     repository,
@@ -1026,27 +1026,27 @@ class RepositoryServiceTests(unittest.TestCase):
             return pull_request_payload
 
         with patch(
-            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            'kato.data_layers.service.repository_service.shutil.which',
             return_value='/usr/bin/git',
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.os.path.isdir',
+            'kato.data_layers.service.repository_service.os.path.isdir',
             return_value=True,
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.RepositoryService._prepare_branch_for_publication',
+            'kato.data_layers.service.repository_service.RepositoryService._prepare_branch_for_publication',
             return_value='',
         ) as mock_prepare_branch, patch.object(
             RepositoryService,
             'restore_task_repositories',
             side_effect=assert_workspace_restored_after_pr,
         ) as mock_restore_repositories, patch(
-            'openhands_agent.data_layers.service.repository_service.RepositoryService._push_branch',
+            'kato.data_layers.service.repository_service.RepositoryService._push_branch',
             side_effect=record_push,
         ) as mock_push_branch, patch(
-            'openhands_agent.data_layers.service.repository_inventory_service.RepositoryInventoryService._pull_request_data_access',
+            'kato.data_layers.service.repository_inventory_service.RepositoryInventoryService._pull_request_data_access',
             return_value=data_access,
         ):
             data_access.create_pull_request.side_effect = record_create_pull_request
-            service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+            service = RepositoryService(self.cfg.kato.repositories, 3)
             service.create_pull_request(
                 repository,
                 title='PROJ-1: Fix bug',
@@ -1078,24 +1078,24 @@ class RepositoryServiceTests(unittest.TestCase):
         repository = self.backend_repo
 
         with patch(
-            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            'kato.data_layers.service.repository_service.shutil.which',
             return_value='/usr/bin/git',
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.os.path.isdir',
+            'kato.data_layers.service.repository_service.os.path.isdir',
             return_value=True,
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.RepositoryService._prepare_branch_for_publication',
+            'kato.data_layers.service.repository_service.RepositoryService._prepare_branch_for_publication',
             return_value='',
         ), patch.object(
             RepositoryService,
             'restore_task_repositories',
         ) as mock_restore_repositories, patch(
-            'openhands_agent.data_layers.service.repository_service.RepositoryService._push_branch',
+            'kato.data_layers.service.repository_service.RepositoryService._push_branch',
             side_effect=RuntimeError('push failed'),
         ), patch(
-            'openhands_agent.data_layers.service.repository_inventory_service.RepositoryInventoryService._pull_request_data_access',
+            'kato.data_layers.service.repository_inventory_service.RepositoryInventoryService._pull_request_data_access',
         ):
-            service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+            service = RepositoryService(self.cfg.kato.repositories, 3)
             with self.assertRaisesRegex(RuntimeError, 'push failed'):
                 service.create_pull_request(
                     repository,
@@ -1134,34 +1134,34 @@ class RepositoryServiceTests(unittest.TestCase):
         ]
 
         with patch(
-            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            'kato.data_layers.service.repository_service.shutil.which',
             return_value='/usr/bin/git',
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.os.path.isdir',
+            'kato.data_layers.service.repository_service.os.path.isdir',
             return_value=True,
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.os.path.exists',
+            'kato.data_layers.service.repository_service.os.path.exists',
             return_value=True,
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.os.remove',
+            'kato.data_layers.service.repository_service.os.remove',
         ) as mock_remove, patch(
-            'openhands_agent.data_layers.service.repository_service.RepositoryService._validate_destination_branch_tracking_state',
+            'kato.data_layers.service.repository_service.RepositoryService._validate_destination_branch_tracking_state',
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.RepositoryService._validation_report_text',
+            'kato.data_layers.service.repository_service.RepositoryService._validation_report_text',
             return_value='Validation report:\n- verified the task manually.',
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.RepositoryService._push_branch',
+            'kato.data_layers.service.repository_service.RepositoryService._push_branch',
         ) as mock_push_branch, patch.object(
             RepositoryService,
             'restore_task_repositories',
         ) as mock_restore_repositories, patch(
-            'openhands_agent.data_layers.service.repository_inventory_service.RepositoryInventoryService._pull_request_data_access',
+            'kato.data_layers.service.repository_inventory_service.RepositoryInventoryService._pull_request_data_access',
             return_value=data_access,
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.subprocess.run',
+            'kato.data_layers.service.repository_service.subprocess.run',
             side_effect=subprocess_results,
         ) as mock_run:
-            service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+            service = RepositoryService(self.cfg.kato.repositories, 3)
             service.logger = Mock()
             service._publication_service.logger = Mock()
             service.create_pull_request(
@@ -1232,34 +1232,34 @@ class RepositoryServiceTests(unittest.TestCase):
         ]
 
         with patch(
-            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            'kato.data_layers.service.repository_service.shutil.which',
             return_value='/usr/bin/git',
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.os.path.isdir',
+            'kato.data_layers.service.repository_service.os.path.isdir',
             return_value=True,
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.os.path.exists',
+            'kato.data_layers.service.repository_service.os.path.exists',
             return_value=True,
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.os.remove',
+            'kato.data_layers.service.repository_service.os.remove',
         ) as mock_remove, patch(
-            'openhands_agent.data_layers.service.repository_service.RepositoryService._validate_destination_branch_tracking_state',
+            'kato.data_layers.service.repository_service.RepositoryService._validate_destination_branch_tracking_state',
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.RepositoryService._validation_report_text',
+            'kato.data_layers.service.repository_service.RepositoryService._validation_report_text',
             return_value='Validation report:\n- verified the task manually.',
         ), patch.object(
             RepositoryService,
             'restore_task_repositories',
         ) as mock_restore_repositories, patch(
-            'openhands_agent.data_layers.service.repository_service.RepositoryService._push_branch',
+            'kato.data_layers.service.repository_service.RepositoryService._push_branch',
         ) as mock_push_branch, patch(
-            'openhands_agent.data_layers.service.repository_inventory_service.RepositoryInventoryService._pull_request_data_access',
+            'kato.data_layers.service.repository_inventory_service.RepositoryInventoryService._pull_request_data_access',
             return_value=data_access,
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.subprocess.run',
+            'kato.data_layers.service.repository_service.subprocess.run',
             side_effect=subprocess_results,
         ) as mock_run:
-            service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+            service = RepositoryService(self.cfg.kato.repositories, 3)
             service.create_pull_request(
                 repository,
                 title='PROJ-1: Fix bug',
@@ -1331,37 +1331,37 @@ class RepositoryServiceTests(unittest.TestCase):
             return path.endswith('/build') or path.endswith('\\build') or path.endswith('validation_report.md')
 
         with patch(
-            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            'kato.data_layers.service.repository_service.shutil.which',
             return_value='/usr/bin/git',
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.os.path.isdir',
+            'kato.data_layers.service.repository_service.os.path.isdir',
             side_effect=is_directory,
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.os.path.exists',
+            'kato.data_layers.service.repository_service.os.path.exists',
             side_effect=path_exists,
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.os.remove',
+            'kato.data_layers.service.repository_service.os.remove',
         ) as mock_remove, patch(
-            'openhands_agent.data_layers.service.repository_service.shutil.rmtree',
+            'kato.data_layers.service.repository_service.shutil.rmtree',
         ) as mock_rmtree, patch(
-            'openhands_agent.data_layers.service.repository_service.RepositoryService._validate_destination_branch_tracking_state',
+            'kato.data_layers.service.repository_service.RepositoryService._validate_destination_branch_tracking_state',
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.RepositoryService._ensure_branch_is_publishable',
+            'kato.data_layers.service.repository_service.RepositoryService._ensure_branch_is_publishable',
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.RepositoryService.restore_task_repositories',
+            'kato.data_layers.service.repository_service.RepositoryService.restore_task_repositories',
         ) as mock_restore_repositories, patch(
-            'openhands_agent.data_layers.service.repository_service.RepositoryService._validation_report_text',
+            'kato.data_layers.service.repository_service.RepositoryService._validation_report_text',
             return_value='Validation report:\n- verified the task manually.',
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.RepositoryService._push_branch',
+            'kato.data_layers.service.repository_service.RepositoryService._push_branch',
         ) as mock_push_branch, patch(
-            'openhands_agent.data_layers.service.repository_inventory_service.RepositoryInventoryService._pull_request_data_access',
+            'kato.data_layers.service.repository_inventory_service.RepositoryInventoryService._pull_request_data_access',
             return_value=data_access,
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.subprocess.run',
+            'kato.data_layers.service.repository_service.subprocess.run',
             side_effect=subprocess_results,
         ) as mock_run:
-            service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+            service = RepositoryService(self.cfg.kato.repositories, 3)
             service.create_pull_request(
                 repository,
                 title='PROJ-1: Fix bug',
@@ -1411,18 +1411,18 @@ class RepositoryServiceTests(unittest.TestCase):
         ]
 
         with patch(
-            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            'kato.data_layers.service.repository_service.shutil.which',
             return_value='/usr/bin/git',
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.os.path.isdir',
+            'kato.data_layers.service.repository_service.os.path.isdir',
             return_value=True,
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.RepositoryService._validate_destination_branch_tracking_state',
+            'kato.data_layers.service.repository_service.RepositoryService._validate_destination_branch_tracking_state',
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.subprocess.run',
+            'kato.data_layers.service.repository_service.subprocess.run',
             side_effect=subprocess_results,
         ):
-            service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+            service = RepositoryService(self.cfg.kato.repositories, 3)
             with self.assertRaisesRegex(
                 RuntimeError,
                 'branch feature/proj-1/backend has no task changes ahead of main',
@@ -1439,7 +1439,7 @@ class RepositoryServiceTests(unittest.TestCase):
         repository = self.backend_repo
 
         with patch(
-            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            'kato.data_layers.service.repository_service.shutil.which',
             return_value='/usr/bin/git',
         ), patch.object(
             RepositoryService,
@@ -1454,7 +1454,7 @@ class RepositoryServiceTests(unittest.TestCase):
             '_ahead_count',
             return_value=0,
         ):
-            service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+            service = RepositoryService(self.cfg.kato.repositories, 3)
             with self.assertRaisesRegex(
                 RuntimeError,
                 'branch feature/proj-1/backend has no task changes ahead of main',
@@ -1468,13 +1468,13 @@ class RepositoryServiceTests(unittest.TestCase):
         repository = self.backend_repo
 
         with patch(
-            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            'kato.data_layers.service.repository_service.shutil.which',
             return_value='/usr/bin/git',
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.subprocess.run',
+            'kato.data_layers.service.repository_service.subprocess.run',
             return_value=Mock(returncode=0, stdout=' M src/file.py\n', stderr=''),
         ) as mock_run:
-            service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+            service = RepositoryService(self.cfg.kato.repositories, 3)
             result = service.validate_task_branches_are_publishable(
                 [repository],
                 {'backend': 'feature/proj-1/backend'},
@@ -1493,13 +1493,13 @@ class RepositoryServiceTests(unittest.TestCase):
         repository = self.backend_repo
 
         with patch(
-            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            'kato.data_layers.service.repository_service.shutil.which',
             return_value='/usr/bin/git',
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.subprocess.run',
+            'kato.data_layers.service.repository_service.subprocess.run',
             return_value=Mock(returncode=0, stdout='', stderr=''),
         ) as mock_run:
-            service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+            service = RepositoryService(self.cfg.kato.repositories, 3)
             result = service.validate_task_branches_are_pushable(
                 [repository],
                 {'backend': 'feature/proj-1/backend'},
@@ -1527,10 +1527,10 @@ class RepositoryServiceTests(unittest.TestCase):
         repository = self.backend_repo
 
         with patch(
-            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            'kato.data_layers.service.repository_service.shutil.which',
             return_value='/usr/bin/git',
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.subprocess.run',
+            'kato.data_layers.service.repository_service.subprocess.run',
             return_value=Mock(
                 returncode=128,
                 stdout='',
@@ -1541,7 +1541,7 @@ class RepositoryServiceTests(unittest.TestCase):
                 ),
             ),
         ):
-            service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+            service = RepositoryService(self.cfg.kato.repositories, 3)
             with self.assertRaisesRegex(
                 RuntimeError,
                 r"\[Error\].*missing git push permissions\. cannot work\.\s+remote: Your credentials lack one or more required privilege scopes\.",
@@ -1553,13 +1553,13 @@ class RepositoryServiceTests(unittest.TestCase):
 
     def test_validate_connections_checks_local_paths(self) -> None:
         with patch(
-            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            'kato.data_layers.service.repository_service.shutil.which',
             return_value='/usr/bin/git',
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.os.path.isdir',
+            'kato.data_layers.service.repository_service.os.path.isdir',
             return_value=False,
         ):
-            service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+            service = RepositoryService(self.cfg.kato.repositories, 3)
             with self.assertRaisesRegex(ValueError, 'missing local repository path'):
                 service.validate_connections()
 
@@ -1591,10 +1591,10 @@ class RepositoryServiceTests(unittest.TestCase):
             ).decode('ascii')
 
             with patch(
-                'openhands_agent.data_layers.service.repository_service.shutil.which',
+                'kato.data_layers.service.repository_service.shutil.which',
                 return_value='/usr/bin/git',
             ), patch(
-                'openhands_agent.data_layers.service.repository_service.subprocess.run',
+                'kato.data_layers.service.repository_service.subprocess.run',
                 return_value=Mock(returncode=0, stdout='refs/heads/main\n', stderr=''),
             ) as mock_run:
                 service.validate_connections()
@@ -1649,10 +1649,10 @@ class RepositoryServiceTests(unittest.TestCase):
             ).decode('ascii')
 
             with patch(
-                'openhands_agent.data_layers.service.repository_service.shutil.which',
+                'kato.data_layers.service.repository_service.shutil.which',
                 return_value='/usr/bin/git',
             ), patch(
-                'openhands_agent.data_layers.service.repository_service.subprocess.run',
+                'kato.data_layers.service.repository_service.subprocess.run',
                 side_effect=[
                     Mock(returncode=0, stdout='refs/heads/main\n', stderr=''),
                     Mock(returncode=0, stdout='refs/heads/main\n', stderr=''),
@@ -1749,10 +1749,10 @@ class RepositoryServiceTests(unittest.TestCase):
             )
 
             with patch(
-                'openhands_agent.data_layers.service.repository_service.shutil.which',
+                'kato.data_layers.service.repository_service.shutil.which',
                 return_value='/usr/bin/git',
             ), patch(
-                'openhands_agent.data_layers.service.repository_service.subprocess.run',
+                'kato.data_layers.service.repository_service.subprocess.run',
                 return_value=Mock(
                     returncode=128,
                     stdout='',
@@ -1769,23 +1769,23 @@ class RepositoryServiceTests(unittest.TestCase):
                     service.validate_connections()
 
     def test_prepare_task_repositories_raises_when_local_path_is_missing(self) -> None:
-        service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+        service = RepositoryService(self.cfg.kato.repositories, 3)
 
         with patch(
-            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            'kato.data_layers.service.repository_service.shutil.which',
             return_value='/usr/bin/git',
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.os.path.isdir',
+            'kato.data_layers.service.repository_service.os.path.isdir',
             return_value=False,
         ):
             with self.assertRaisesRegex(ValueError, 'missing local repository path'):
-                service.prepare_task_repositories([self.cfg.openhands_agent.repositories[0]])
+                service.prepare_task_repositories([self.cfg.kato.repositories[0]])
 
     def test_validate_connections_requires_git_executable(self) -> None:
-        service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+        service = RepositoryService(self.cfg.kato.repositories, 3)
 
         with patch(
-            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            'kato.data_layers.service.repository_service.shutil.which',
             return_value=None,
         ):
             with self.assertRaisesRegex(
@@ -1811,14 +1811,14 @@ class RepositoryServiceTests(unittest.TestCase):
         service = RepositoryService([repository], 3)
 
         with patch.dict(
-            'openhands_agent.data_layers.service.repository_service.os.environ',
+            'kato.data_layers.service.repository_service.os.environ',
             {},
             clear=True,
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            'kato.data_layers.service.repository_service.shutil.which',
             return_value='/usr/bin/git',
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.os.path.isdir',
+            'kato.data_layers.service.repository_service.os.path.isdir',
             return_value=True,
         ):
             with self.assertRaisesRegex(
@@ -1844,17 +1844,17 @@ class RepositoryServiceTests(unittest.TestCase):
         service = RepositoryService([repository], 3)
 
         with patch.dict(
-            'openhands_agent.data_layers.service.repository_service.os.environ',
+            'kato.data_layers.service.repository_service.os.environ',
             {'SSH_AUTH_SOCK': '/ssh-agent'},
             clear=True,
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            'kato.data_layers.service.repository_service.shutil.which',
             return_value='/usr/bin/git',
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.os.path.isdir',
+            'kato.data_layers.service.repository_service.os.path.isdir',
             return_value=True,
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.os.path.exists',
+            'kato.data_layers.service.repository_service.os.path.exists',
             return_value=False,
         ):
             with self.assertRaisesRegex(
@@ -1877,10 +1877,10 @@ class RepositoryServiceTests(unittest.TestCase):
         ).decode('ascii')
 
         with patch(
-            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            'kato.data_layers.service.repository_service.shutil.which',
             return_value='/usr/bin/git',
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.subprocess.run',
+            'kato.data_layers.service.repository_service.subprocess.run',
             return_value=Mock(returncode=0, stdout='', stderr=''),
         ) as mock_run:
             service._pull_destination_branch('.', 'main', repository)
@@ -1917,10 +1917,10 @@ class RepositoryServiceTests(unittest.TestCase):
         ).decode('ascii')
 
         with patch(
-            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            'kato.data_layers.service.repository_service.shutil.which',
             return_value='/usr/bin/git',
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.subprocess.run',
+            'kato.data_layers.service.repository_service.subprocess.run',
             return_value=Mock(returncode=0, stdout='', stderr=''),
         ) as mock_run:
             service._push_branch('.', 'feature/proj-1/backend', repository)
@@ -1944,17 +1944,17 @@ class RepositoryServiceTests(unittest.TestCase):
         self.assertEqual(mock_run.call_args.kwargs['env']['GIT_TERMINAL_PROMPT'], '0')
 
     def test_prepare_task_repositories_requires_git_executable(self) -> None:
-        service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+        service = RepositoryService(self.cfg.kato.repositories, 3)
 
         with patch(
-            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            'kato.data_layers.service.repository_service.shutil.which',
             return_value=None,
         ):
             with self.assertRaisesRegex(
                 RuntimeError,
                 'git executable is required but was not found on PATH',
             ):
-                service.prepare_task_repositories([self.cfg.openhands_agent.repositories[0]])
+                service.prepare_task_repositories([self.cfg.kato.repositories[0]])
 
     def test_validate_connections_requires_at_least_one_repository(self) -> None:
         service = RepositoryService([], 3)
@@ -1963,13 +1963,13 @@ class RepositoryServiceTests(unittest.TestCase):
             service.validate_connections()
 
     def test_list_pull_request_comments_uses_provider_api_when_configured(self) -> None:
-        repository = self.cfg.openhands_agent.repositories[0]
+        repository = self.cfg.kato.repositories[0]
         data_access = Mock()
         data_access.list_pull_request_comments.return_value = ['comment']
-        service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+        service = RepositoryService(self.cfg.kato.repositories, 3)
 
         with patch(
-            'openhands_agent.data_layers.service.repository_inventory_service.RepositoryInventoryService._pull_request_data_access',
+            'kato.data_layers.service.repository_inventory_service.RepositoryInventoryService._pull_request_data_access',
             return_value=data_access,
         ):
             comments = service.list_pull_request_comments(repository, '17')
@@ -1997,18 +1997,18 @@ class RepositoryServiceTests(unittest.TestCase):
         repository = self.backend_repo
 
         with patch(
-            'openhands_agent.data_layers.service.repository_service.shutil.which',
+            'kato.data_layers.service.repository_service.shutil.which',
             return_value='/usr/bin/git',
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.os.path.isdir',
+            'kato.data_layers.service.repository_service.os.path.isdir',
             return_value=True,
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.RepositoryService._publish_branch_updates',
+            'kato.data_layers.service.repository_service.RepositoryService._publish_branch_updates',
         ) as mock_publish_branch_updates, patch(
-            'openhands_agent.data_layers.service.repository_service.RepositoryService.destination_branch',
+            'kato.data_layers.service.repository_service.RepositoryService.destination_branch',
             return_value='main',
         ):
-            service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+            service = RepositoryService(self.cfg.kato.repositories, 3)
             service.publish_review_fix(
                 repository,
                 branch_name='feature/proj-1/backend',
@@ -2024,17 +2024,17 @@ class RepositoryServiceTests(unittest.TestCase):
         )
 
     def test_resolve_review_comment_uses_provider_api(self) -> None:
-        repository = self.cfg.openhands_agent.repositories[0]
+        repository = self.cfg.kato.repositories[0]
         data_access = Mock()
         comment = build_review_comment(
             resolution_target_id='99',
             resolution_target_type='comment',
             resolvable=True,
         )
-        service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+        service = RepositoryService(self.cfg.kato.repositories, 3)
 
         with patch(
-            'openhands_agent.data_layers.service.repository_inventory_service.RepositoryInventoryService._pull_request_data_access',
+            'kato.data_layers.service.repository_inventory_service.RepositoryInventoryService._pull_request_data_access',
             return_value=data_access,
         ):
             service.resolve_review_comment(repository, comment)
@@ -2058,7 +2058,7 @@ class RepositoryServiceTests(unittest.TestCase):
         service = RepositoryInventoryService([repository])
 
         with patch(
-            'openhands_agent.data_layers.service.repository_inventory_service.build_pull_request_client',
+            'kato.data_layers.service.repository_inventory_service.build_pull_request_client',
             return_value=Mock(),
         ) as mock_build:
             service._pull_request_data_access(repository)
@@ -2074,7 +2074,7 @@ class RepositoryServiceTests(unittest.TestCase):
             report_path = Path(temp_dir) / 'validation_report.md'
             report_path.write_text('  Validation report:\n- checked the branch.  \n', encoding='utf-8')
 
-            service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+            service = RepositoryService(self.cfg.kato.repositories, 3)
 
             self.assertEqual(
                 service._validation_report_text(str(report_path)),
@@ -2082,7 +2082,7 @@ class RepositoryServiceTests(unittest.TestCase):
             )
 
     def test_validation_report_text_returns_none_when_file_is_missing(self) -> None:
-        service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+        service = RepositoryService(self.cfg.kato.repositories, 3)
 
         self.assertIsNone(
             service._validation_report_text('/tmp/does-not-exist/validation_report.md'),
@@ -2096,7 +2096,7 @@ class RepositoryServiceTests(unittest.TestCase):
                 encoding='utf-8',
             )
 
-            service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+            service = RepositoryService(self.cfg.kato.repositories, 3)
 
             with patch.object(
                 service,
@@ -2152,15 +2152,15 @@ class RepositoryServiceTests(unittest.TestCase):
 
     def test_publish_branch_updates_returns_to_destination_branch_when_push_fails(self) -> None:
         with patch(
-            'openhands_agent.data_layers.service.repository_service.RepositoryService._prepare_branch_for_publication',
+            'kato.data_layers.service.repository_service.RepositoryService._prepare_branch_for_publication',
             return_value='',
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.RepositoryService._push_branch',
+            'kato.data_layers.service.repository_service.RepositoryService._push_branch',
             side_effect=RuntimeError('push failed'),
         ), patch(
-            'openhands_agent.data_layers.service.repository_service.RepositoryService._prepare_workspace_for_task',
+            'kato.data_layers.service.repository_service.RepositoryService._prepare_workspace_for_task',
         ) as mock_prepare_workspace:
-            service = RepositoryService(self.cfg.openhands_agent.repositories, 3)
+            service = RepositoryService(self.cfg.kato.repositories, 3)
 
             with self.assertRaisesRegex(RuntimeError, 'push failed'):
                 service._publish_branch_updates(

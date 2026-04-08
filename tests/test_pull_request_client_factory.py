@@ -2,10 +2,10 @@ import unittest
 from unittest.mock import patch
 
 
-from openhands_agent.client.bitbucket_client import BitbucketClient
-from openhands_agent.client.github_client import GitHubClient
-from openhands_agent.client.gitlab_client import GitLabClient
-from openhands_agent.client.pull_request_client_factory import (
+from kato.client.bitbucket_client import BitbucketClient
+from kato.client.github_client import GitHubClient
+from kato.client.gitlab_client import GitLabClient
+from kato.client.pull_request_client_factory import (
     build_pull_request_client,
     detect_pull_request_provider,
 )

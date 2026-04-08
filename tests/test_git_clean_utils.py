@@ -1,6 +1,6 @@
 import unittest
 
-from openhands_agent.helpers.git_clean_utils import (
+from kato.helpers.git_clean_utils import (
     generated_artifact_paths_from_status,
     git_ready_command_summary,
     status_contains_only_removable_artifacts,

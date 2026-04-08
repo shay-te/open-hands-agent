@@ -1,19 +1,19 @@
-# OpenHands Rules
+# Kato Rules
 
-This repository uses OpenHands to implement YouTrack tasks and fix review comments.
+This repository uses Kato to implement YouTrack tasks and fix review comments.
 
 ## Architecture
 
 - Keep orchestration logic in services.
 - Keep external API calls inside clients and data-access layers.
 - When `AgentService` starts accumulating a second coherent workflow cluster, split it into a dedicated service and inject that service through the constructor instead of adding more private helper methods there. Preflight/startup logic such as model-access checks, blocking-comment retries, repository resolution, branch preparation, and push validation should live in a dedicated service rather than in `AgentService`.
-- If a service starts collecting a grab-bag of pure helpers, formatting functions, or repeated logging wrappers, move them into `openhands_agent/helpers/*_utils.py` or split them into a smaller service instead of keeping one oversized file.
-- Do not add pass-through helper methods on `OpenHandsAgentCoreLib` when the service can be used directly.
-- Prefer constants from `openhands_agent/data_layers/data/fields.py` over free-text field names.
+- If a service starts collecting a grab-bag of pure helpers, formatting functions, or repeated logging wrappers, move them into `kato/helpers/*_utils.py` or split them into a smaller service instead of keeping one oversized file.
+- Do not add pass-through helper methods on `KatoCoreLib` when the service can be used directly.
+- Prefer constants from `kato/data_layers/data/fields.py` over free-text field names.
 - Reuse existing utilities before introducing duplicate helper logic.
 - Do not create compatibility shim modules, barrel exports, or `__all__` re-export files; import from the real module directly.
-- Put shared utility modules under `openhands_agent/helpers/` instead of scattering them across service or root packages, and name them with the `_utils.py` suffix.
-- Put validation rules under `openhands_agent/validation/` instead of `data_layers/service/validation/`.
+- Put shared utility modules under `kato/helpers/` instead of scattering them across service or root packages, and name them with the `_utils.py` suffix.
+- Put validation rules under `kato/validation/` instead of `data_layers/service/validation/`.
 - Give each service class a short responsibility comment or docstring. If the description clearly contains more than one job, split that class into smaller collaborators instead of letting it grow.
 
 ## Required Behavior

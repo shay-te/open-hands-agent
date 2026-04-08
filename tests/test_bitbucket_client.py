@@ -2,8 +2,8 @@ import unittest
 from unittest.mock import patch
 
 
-from openhands_agent.client.bitbucket_client import BITBUCKET_PAGE_LENGTH, BitbucketClient
-from openhands_agent.data_layers.data.fields import PullRequestFields, ReviewCommentFields
+from kato.client.bitbucket_client import BITBUCKET_PAGE_LENGTH, BitbucketClient
+from kato.data_layers.data.fields import PullRequestFields, ReviewCommentFields
 from utils import (
     ClientTimeout,
     assert_client_headers_and_timeout,

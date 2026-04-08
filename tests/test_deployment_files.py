@@ -105,11 +105,11 @@ class DeploymentFilesTests(unittest.TestCase):
         self.assertIn('OH_WEB_URL: ${OPENHANDS_WEB_URL:-}', compose_text)
         self.assertIn('OH_PERSISTENCE_DIR: /.openhands', compose_text)
         self.assertIn(
-            'OPENHANDS_AGENT_ISSUE_PLATFORM: ${OPENHANDS_AGENT_ISSUE_PLATFORM:-}',
+            'KATO_ISSUE_PLATFORM: ${KATO_ISSUE_PLATFORM:-}',
             compose_text,
         )
         self.assertIn(
-            'OPENHANDS_AGENT_TICKET_SYSTEM: ${OPENHANDS_AGENT_TICKET_SYSTEM:-youtrack}',
+            'KATO_TICKET_SYSTEM: ${KATO_TICKET_SYSTEM:-youtrack}',
             compose_text,
         )
         self.assertIn(
@@ -162,19 +162,19 @@ class DeploymentFilesTests(unittest.TestCase):
         self.assertIn('BITBUCKET_USERNAME: ${BITBUCKET_USERNAME:-}', compose_text)
         self.assertIn('BITBUCKET_API_EMAIL: ${BITBUCKET_API_EMAIL:-}', compose_text)
         self.assertIn(
-            'OPENHANDS_AGENT_COMPLETION_EMAIL_ENABLED: ${OPENHANDS_AGENT_COMPLETION_EMAIL_ENABLED:-false}',
+            'KATO_COMPLETION_EMAIL_ENABLED: ${KATO_COMPLETION_EMAIL_ENABLED:-false}',
             compose_text,
         )
         self.assertIn(
-            'OPENHANDS_AGENT_LOG_LEVEL: ${OPENHANDS_AGENT_LOG_LEVEL:-warning}',
+            'KATO_LOG_LEVEL: ${KATO_LOG_LEVEL:-warning}',
             compose_text,
         )
         self.assertIn(
-            'OPENHANDS_AGENT_WORKFLOW_LOG_LEVEL: ${OPENHANDS_AGENT_WORKFLOW_LOG_LEVEL:-info}',
+            'KATO_WORKFLOW_LOG_LEVEL: ${KATO_WORKFLOW_LOG_LEVEL:-info}',
             compose_text,
         )
         self.assertIn(
-            'OPENHANDS_AGENT_SOURCE_FINGERPRINT: ${OPENHANDS_AGENT_SOURCE_FINGERPRINT:-}',
+            'KATO_SOURCE_FINGERPRINT: ${KATO_SOURCE_FINGERPRINT:-}',
             compose_text,
         )
         self.assertIn('REPOSITORY_ROOT_PATH: ${REPOSITORY_ROOT_PATH:-.}', compose_text)
@@ -190,7 +190,7 @@ class DeploymentFilesTests(unittest.TestCase):
         )
         self.assertIn('OH_PERSISTENCE_DIR: /data', compose_text)
         self.assertIn(
-            'OPENHANDS_AGENT_SOURCE_FINGERPRINT := $(shell $(PYTHON) -m openhands_agent.helpers.runtime_identity_utils --root .)',
+            'KATO_SOURCE_FINGERPRINT := $(shell $(PYTHON) -m kato.helpers.runtime_identity_utils --root .)',
             makefile_text,
         )
         self.assertIn(
@@ -211,10 +211,10 @@ class DeploymentFilesTests(unittest.TestCase):
     def test_env_example_includes_openhands_llm_variables(self) -> None:
         env_example_text = (REPO_ROOT / '.env.example').read_text(encoding='utf-8')
 
-        self.assertIn('OPENHANDS_AGENT_ISSUE_PLATFORM=', env_example_text)
-        self.assertIn('OPENHANDS_AGENT_TICKET_SYSTEM=', env_example_text)
+        self.assertIn('KATO_ISSUE_PLATFORM=', env_example_text)
+        self.assertIn('KATO_TICKET_SYSTEM=', env_example_text)
         self.assertIn('REPOSITORY_ROOT_PATH=', env_example_text)
-        self.assertIn('OPENHANDS_AGENT_IGNORED_REPOSITORY_FOLDERS=', env_example_text)
+        self.assertIn('KATO_IGNORED_REPOSITORY_FOLDERS=', env_example_text)
         self.assertIn('JIRA_BASE_URL=', env_example_text)
         self.assertIn('JIRA_TOKEN=', env_example_text)
         self.assertIn('YOUTRACK_PROGRESS_STATE=', env_example_text)
@@ -247,8 +247,8 @@ class DeploymentFilesTests(unittest.TestCase):
         self.assertNotIn('OPENHANDS_CONTAINER_AWS_REGION_NAME=', env_example_text)
         self.assertNotIn('OPENHANDS_CONTAINER_AWS_SESSION_TOKEN=', env_example_text)
         self.assertNotIn('OPENHANDS_CONTAINER_AWS_DEFAULT_REGION=', env_example_text)
-        self.assertIn('OPENHANDS_AGENT_LOG_LEVEL=', env_example_text)
-        self.assertIn('OPENHANDS_AGENT_WORKFLOW_LOG_LEVEL=', env_example_text)
+        self.assertIn('KATO_LOG_LEVEL=', env_example_text)
+        self.assertIn('KATO_WORKFLOW_LOG_LEVEL=', env_example_text)
         self.assertIn('OPENHANDS_SSH_AUTH_SOCK_HOST_PATH=', env_example_text)
         self.assertIn('OPENHANDS_LLM_MODEL=', env_example_text)
         self.assertIn('OPENHANDS_LLM_API_KEY=', env_example_text)
@@ -275,7 +275,7 @@ class DeploymentFilesTests(unittest.TestCase):
 
         self.assertIn('Keep orchestration logic in services.', agents_text)
         self.assertIn(
-            'Prefer constants from `openhands_agent/data_layers/data/fields.py` over free-text field names.',
+            'Prefer constants from `kato/data_layers/data/fields.py` over free-text field names.',
             agents_text,
         )
         self.assertIn('Write tests for new behavior when possible.', agents_text)
@@ -286,14 +286,14 @@ class DeploymentFilesTests(unittest.TestCase):
         )
         self.assertNotIn('/Users/shaytessler/', readme_text)
         self.assertIn('make configure', readme_text)
-        self.assertFalse((REPO_ROOT / 'openhands_agent' / 'fields.py').exists())
-        self.assertFalse((REPO_ROOT / 'openhands_agent' / 'error_handling.py').exists())
+        self.assertFalse((REPO_ROOT / 'kato' / 'fields.py').exists())
+        self.assertFalse((REPO_ROOT / 'kato' / 'error_handling.py').exists())
         self.assertFalse(
-            any((REPO_ROOT / 'openhands_agent' / 'data_layers' / 'service' / 'validation').glob('*.py'))
+            any((REPO_ROOT / 'kato' / 'data_layers' / 'service' / 'validation').glob('*.py'))
         )
 
     def test_helper_modules_use_utils_suffix(self) -> None:
-        helpers_dir = REPO_ROOT / 'openhands_agent' / 'helpers'
+        helpers_dir = REPO_ROOT / 'kato' / 'helpers'
 
         helper_modules = [
             path
@@ -306,7 +306,7 @@ class DeploymentFilesTests(unittest.TestCase):
         self.assertEqual(non_utils_modules, [])
 
     def test_validation_modules_live_in_top_level_validation_package(self) -> None:
-        validation_dir = REPO_ROOT / 'openhands_agent' / 'validation'
+        validation_dir = REPO_ROOT / 'kato' / 'validation'
 
         validation_modules = [
             path.name
@@ -331,7 +331,7 @@ class DeploymentFilesTests(unittest.TestCase):
             REPO_ROOT / 'docker' / 'entrypoint-run.sh'
         ).read_text(encoding='utf-8')
         config_text = (
-            REPO_ROOT / 'openhands_agent' / 'config' / 'openhands_agent_core_lib.yaml'
+            REPO_ROOT / 'kato' / 'config' / 'kato_core_lib.yaml'
         ).read_text(encoding='utf-8')
         install_deps_text = (
             REPO_ROOT / 'scripts' / 'install-python-deps.sh'
@@ -347,8 +347,8 @@ class DeploymentFilesTests(unittest.TestCase):
         self.assertNotIn('pydantic', install_deps_text)
         self.assertNotIn('deps-only', install_deps_text)
         self.assertNotIn('--install-only', run_local_text)
-        self.assertNotIn('openhands_agent.install', run_local_text)
-        self.assertNotIn('openhands_agent.validate_env --mode agent', run_local_text)
+        self.assertNotIn('kato.install', run_local_text)
+        self.assertNotIn('kato.validate_env --mode agent', run_local_text)
         self.assertIn('bootstrap:', makefile_text)
         self.assertIn('configure:', makefile_text)
         self.assertIn('scripts/generate_env.py --output .env', makefile_text)
@@ -356,7 +356,7 @@ class DeploymentFilesTests(unittest.TestCase):
         self.assertIn('run:', makefile_text)
         self.assertIn('--profile testing', makefile_text)
         self.assertIn('OPENHANDS_SKIP_TESTING', makefile_text)
-        self.assertIn('--attach openhands-agent', makefile_text)
+        self.assertIn('--attach kato', makefile_text)
         self.assertNotIn('.docker-compose.selected-repos.yaml', makefile_text)
         self.assertIn('OPENHANDS_TESTING_CONTAINER_ENABLED', run_entrypoint_text)
         self.assertIn('OPENHANDS_SKIP_TESTING', run_entrypoint_text)
@@ -385,12 +385,12 @@ class DeploymentFilesTests(unittest.TestCase):
         self.assertIn('docker.openhands.dev/openhands/openhands:1.5', compose_text)
         self.assertIn('pull_policy: ${OPENHANDS_PULL_POLICY:-missing}', compose_text)
         self.assertIn('OPENHANDS_PULL_POLICY=missing', env_example_text)
-        self.assertNotIn('/Users/shaytessler/Desktop/dev/openhands-agent:/workspace/project', compose_text)
+        self.assertNotIn('/Users/shaytessler/Desktop/dev/kato:/workspace/project', compose_text)
         self.assertNotIn('./docker_data/openhands:/data', compose_text)
         self.assertNotIn('./docker_data/openhands_state:/.openhands', compose_text)
         self.assertNotIn('docker_data/openhands-testing', compose_text)
         self.assertNotIn('docker_data/openhands_testing_state', compose_text)
-        self.assertNotIn('openhands-agent-data:/app/data', compose_text)
+        self.assertNotIn('kato-data:/app/data', compose_text)
         dockerfile_text = (REPO_ROOT / 'Dockerfile').read_text(encoding='utf-8')
         self.assertIn('COPY . .', dockerfile_text)
         self.assertNotIn('COPY pyproject.toml ./', dockerfile_text)
@@ -402,19 +402,19 @@ class DeploymentFilesTests(unittest.TestCase):
             dockerfile_text,
         )
         self.assertIn(
-            'AGENT_SERVER_IMAGE_REPOSITORY: ${OPENHANDS_AGENT_SERVER_IMAGE_REPOSITORY:-ghcr.io/openhands/agent-server}',
+            'AGENT_SERVER_IMAGE_REPOSITORY: ${KATO_AGENT_SERVER_IMAGE_REPOSITORY:-ghcr.io/openhands/agent-server}',
             compose_text,
         )
         self.assertIn(
-            'AGENT_SERVER_IMAGE_TAG: ${OPENHANDS_AGENT_SERVER_IMAGE_TAG:-1.12.0-python}',
+            'AGENT_SERVER_IMAGE_TAG: ${KATO_AGENT_SERVER_IMAGE_TAG:-1.12.0-python}',
             compose_text,
         )
         self.assertIn(
-            'AGENT_SERVER_IMAGE_REPOSITORY: ${OPENHANDS_AGENT_SERVER_IMAGE_REPOSITORY:-ghcr.io/openhands/agent-server}',
+            'AGENT_SERVER_IMAGE_REPOSITORY: ${KATO_AGENT_SERVER_IMAGE_REPOSITORY:-ghcr.io/openhands/agent-server}',
             compose_text,
         )
         self.assertIn(
-            'AGENT_SERVER_IMAGE_TAG: ${OPENHANDS_AGENT_SERVER_IMAGE_TAG:-1.12.0-python}',
+            'AGENT_SERVER_IMAGE_TAG: ${KATO_AGENT_SERVER_IMAGE_TAG:-1.12.0-python}',
             compose_text,
         )
         self.assertIn('repositories:', config_text)
@@ -444,7 +444,7 @@ class DeploymentFilesTests(unittest.TestCase):
 
     def test_repo_does_not_use_all_export_shims(self) -> None:
         forbidden_locations = []
-        for path in (REPO_ROOT / 'openhands_agent').rglob('*.py'):
+        for path in (REPO_ROOT / 'kato').rglob('*.py'):
             text = path.read_text(encoding='utf-8')
             if '__all__ =' in text:
                 forbidden_locations.append(str(path.relative_to(REPO_ROOT)))

@@ -2,7 +2,7 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import Mock
 
-from openhands_agent.validation.repository_connections import (
+from kato.validation.repository_connections import (
     RepositoryConnectionsValidator,
 )
 

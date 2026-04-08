@@ -1,6 +1,6 @@
-# OpenHands Ticket Agent
+# Kato
 
-Welcome to the OpenHands Ticket Agent! This repository is structured as a [`core-lib`](https://shay-te.github.io/core-lib/) application and follows the documented `core-lib` package layout.
+Welcome to Kato! This repository is structured as a [`core-lib`](https://shay-te.github.io/core-lib/) application and follows the documented `core-lib` package layout.
 
 ## Why Core-Lib
 
@@ -9,7 +9,7 @@ Welcome to the OpenHands Ticket Agent! This repository is structured as a [`core
 Why it works especially well here:
 
 - `core-lib` gives the project a clean layered shape: clients for external APIs, data-access wrappers for boundaries, services for orchestration, and jobs for entrypoints. That maps directly to what this agent does every day.
-- `core-lib` is built around a central application library object, which is exactly what this project needs. `OpenHandsAgentCoreLib` can be initialized once and reused from the CLI, scheduled jobs, and tests instead of rebuilding the application's wiring in multiple places.
+- `core-lib` is built around a central application library object, which is exactly what this project needs. `KatoCoreLib` can be initialized once and reused from the CLI, scheduled jobs, and tests instead of rebuilding the application's wiring in multiple places.
 - The `core-lib` docs emphasize fast setup, consistent structure, and reusable runtime wiring. That matters here because this project has to compose several providers cleanly: issue systems, repository systems, OpenHands, and notifications.
 - `core-lib` keeps configuration-driven behavior first-class. That is one of the main reasons this repo can support multiple source issue platforms without pushing provider-specific branching into the orchestration layer.
 - `core-lib` is very test-friendly. This project depends on many external systems, so confidence comes from isolating boundaries and mocking them cleanly. The layered `core-lib` structure makes that practical.
@@ -26,7 +26,7 @@ The agent is designed to:
 
 1. Read tasks assigned to it from the configured issue platform.
    Supported issue platforms are YouTrack, Jira, GitHub Issues, GitLab Issues, and Bitbucket Issues.
-   `openhands_agent.issue_platform` falls back to `openhands_agent.ticket_system`, and then defaults to `youtrack`.
+   `kato.issue_platform` falls back to `kato.ticket_system`, and then defaults to `youtrack`.
    Only tasks assigned to the configured assignee and currently in one of the configured `issue_states` are eligible.
    When loading a task, the agent also reads issue comments, text attachments, and screenshot attachment metadata so OpenHands gets more complete context.
 2. Read each task definition.
@@ -38,19 +38,19 @@ The agent is designed to:
 ## Structure
 
 ```text
-openhands_agent/
+kato/
   client/
     bitbucket_issues_client.py
     bitbucket_client.py
     github_issues_client.py
     gitlab_issues_client.py
     jira_client.py
-    openhands_client.py
+    kato_client.py
     ticket_client_base.py
     ticket_client_factory.py
     youtrack_client.py
   config/
-    openhands_agent_core_lib.yaml
+    kato_core_lib.yaml
   templates/
     email/
       completion_email.j2
@@ -66,8 +66,8 @@ openhands_agent/
   jobs/
     process_assigned_tasks.py
   main.py
-  openhands_agent_core_lib.py
-  openhands_agent_instance.py
+  kato_core_lib.py
+  kato_instance.py
 scripts/
   generate_env.py
 tests/
@@ -79,7 +79,7 @@ tests/
 
 This project follows the `core-lib` layering on purpose:
 
-- `OpenHandsAgentCoreLib` wires the app once at startup, builds the clients, data-access objects, and services, and validates the external connections before work starts.
+- `KatoCoreLib` wires the app once at startup, builds the clients, data-access objects, and services, and validates the external connections before work starts.
 - `client/` contains provider-specific API code for issue platforms, repository providers, and OpenHands.
 - `data_layers/data_access/` stays focused on boundary work such as ticket updates and pull-request API calls.
 - `data_layers/service/` owns the business workflow. This is where task selection, state transitions, repository preparation, OpenHands runs, publishing, notifications, and review-comment handling live.
@@ -163,7 +163,7 @@ If you prefer to edit the file manually, start here:
 cp .env.example .env
 ```
 
-Use `OPENHANDS_AGENT_ISSUE_PLATFORM` for new setups. `OPENHANDS_AGENT_TICKET_SYSTEM` is still accepted as a backward-compatible alias.
+Use `KATO_ISSUE_PLATFORM` for new setups. `KATO_TICKET_SYSTEM` is still accepted as a backward-compatible alias.
 
 ## Environment Reference
 
@@ -173,8 +173,8 @@ The list below mirrors `.env.example`.
 
 | Variable | What it does |
 | --- | --- |
-| `OPENHANDS_AGENT_ISSUE_PLATFORM` | Selects the active issue platform. Supported values are `youtrack`, `jira`, `github`, `gitlab`, and `bitbucket`. |
-| `OPENHANDS_AGENT_TICKET_SYSTEM` | Backward-compatible alias for `OPENHANDS_AGENT_ISSUE_PLATFORM`. |
+| `KATO_ISSUE_PLATFORM` | Selects the active issue platform. Supported values are `youtrack`, `jira`, `github`, `gitlab`, and `bitbucket`. |
+| `KATO_TICKET_SYSTEM` | Backward-compatible alias for `KATO_ISSUE_PLATFORM`. |
 | `YOUTRACK_BASE_URL` | YouTrack API base URL. |
 | `YOUTRACK_TOKEN` | YouTrack API token. |
 | `YOUTRACK_PROJECT` | YouTrack project key used to fetch tasks. |
@@ -227,9 +227,9 @@ The list below mirrors `.env.example`.
 | `BITBUCKET_ISSUES_ISSUE_STATES` | Bitbucket Issues states that qualify for processing. |
 | `REPOSITORY_ROOT_PATH` | Root folder where the agent scans for checked-out repositories. |
 | `MOUNT_DOCKER_DATA_ROOT` | Host folder that holds all Docker bind-mounted data under one parent directory. |
-| `OPENHANDS_AGENT_IGNORED_REPOSITORY_FOLDERS` | Comma-separated folder names to exclude from repository auto-discovery. |
+| `KATO_IGNORED_REPOSITORY_FOLDERS` | Comma-separated folder names to exclude from repository auto-discovery. |
 
-### OpenHands Agent Runtime
+### Kato Runtime
 
 | Variable | What it does |
 | --- | --- |
@@ -240,22 +240,22 @@ The list below mirrors `.env.example`.
 | `OPENHANDS_TESTING_BASE_URL` | Base URL for the dedicated testing OpenHands server. |
 | `OPENHANDS_TESTING_PORT` | Host port used for the optional testing container. |
 | `OPENHANDS_CONTAINER_LOG_ALL_EVENTS` | Enables all OpenHands event logging inside the `openhands` container. |
-| `OPENHANDS_AGENT_LOG_LEVEL` | Log level for the agent app process. |
-| `OPENHANDS_AGENT_WORKFLOW_LOG_LEVEL` | Log level for workflow-specific logs. |
-| `OPENHANDS_POLL_INTERVAL_SECONDS` | Delay between OpenHands conversation polling attempts. |
-| `OPENHANDS_MAX_POLL_ATTEMPTS` | Maximum number of times the agent waits for an OpenHands conversation result. |
+| `KATO_LOG_LEVEL` | Log level for the agent app process. |
+| `KATO_WORKFLOW_LOG_LEVEL` | Log level for workflow-specific logs. |
+| `OPENHANDS_POLL_INTERVAL_SECONDS` | Delay between Kato conversation polling attempts. |
+| `OPENHANDS_MAX_POLL_ATTEMPTS` | Maximum number of times the agent waits for an Kato conversation result. |
 | `OPENHANDS_TASK_SCAN_STARTUP_DELAY_SECONDS` | Delay before the agent starts scanning for tasks after startup. |
 | `OPENHANDS_TASK_SCAN_INTERVAL_SECONDS` | Delay between task scan cycles. |
-| `OPENHANDS_AGENT_FAILURE_EMAIL_ENABLED` | Enables failure notification emails. |
-| `OPENHANDS_AGENT_FAILURE_EMAIL_TEMPLATE_ID` | Template id used for failure notification emails. |
-| `OPENHANDS_AGENT_FAILURE_EMAIL_TO` | Recipient address for failure notification emails. |
-| `OPENHANDS_AGENT_FAILURE_EMAIL_SENDER_NAME` | Sender name for failure notification emails. |
-| `OPENHANDS_AGENT_FAILURE_EMAIL_SENDER_EMAIL` | Sender email for failure notification emails. |
-| `OPENHANDS_AGENT_COMPLETION_EMAIL_ENABLED` | Enables completion notification emails. |
-| `OPENHANDS_AGENT_COMPLETION_EMAIL_TEMPLATE_ID` | Template id used for completion notification emails. |
-| `OPENHANDS_AGENT_COMPLETION_EMAIL_TO` | Recipient address for completion notification emails. |
-| `OPENHANDS_AGENT_COMPLETION_EMAIL_SENDER_NAME` | Sender name for completion notification emails. |
-| `OPENHANDS_AGENT_COMPLETION_EMAIL_SENDER_EMAIL` | Sender email for completion notification emails. |
+| `KATO_FAILURE_EMAIL_ENABLED` | Enables failure notification emails. |
+| `KATO_FAILURE_EMAIL_TEMPLATE_ID` | Template id used for failure notification emails. |
+| `KATO_FAILURE_EMAIL_TO` | Recipient address for failure notification emails. |
+| `KATO_FAILURE_EMAIL_SENDER_NAME` | Sender name for failure notification emails. |
+| `KATO_FAILURE_EMAIL_SENDER_EMAIL` | Sender email for failure notification emails. |
+| `KATO_COMPLETION_EMAIL_ENABLED` | Enables completion notification emails. |
+| `KATO_COMPLETION_EMAIL_TEMPLATE_ID` | Template id used for completion notification emails. |
+| `KATO_COMPLETION_EMAIL_TO` | Recipient address for completion notification emails. |
+| `KATO_COMPLETION_EMAIL_SENDER_NAME` | Sender name for completion notification emails. |
+| `KATO_COMPLETION_EMAIL_SENDER_EMAIL` | Sender email for completion notification emails. |
 | `EMAIL_CORE_LIB_SEND_IN_BLUE_API_KEY` | SendInBlue API key used by `email-core-lib`. |
 | `SLACK_WEBHOOK_URL_ERRORS_EMAIL` | Slack webhook used by `email-core-lib` error reporting. |
 
@@ -271,8 +271,8 @@ The `openhands` container reuses the same `OPENHANDS_LLM_*` and `AWS_*` values f
 | `OPENHANDS_STATE_DIR` | Host path for OpenHands state storage. |
 | `OPENHANDS_WEB_URL` | Public URL that OpenHands should advertise. |
 | `OPENHANDS_RUNTIME` | Runtime backend used by OpenHands. |
-| `OPENHANDS_AGENT_SERVER_IMAGE_REPOSITORY` | Agent server image repository used by the OpenHands container. |
-| `OPENHANDS_AGENT_SERVER_IMAGE_TAG` | Agent server image tag used by the OpenHands container. |
+| `KATO_AGENT_SERVER_IMAGE_REPOSITORY` | Agent server image repository used by the OpenHands container. |
+| `KATO_AGENT_SERVER_IMAGE_TAG` | Agent server image tag used by the OpenHands container. |
 | `OPENHANDS_SSH_AUTH_SOCK_HOST_PATH` | Host SSH agent socket path forwarded into Docker for SSH git remotes. |
 
 ### OpenHands LLM
@@ -300,21 +300,21 @@ The `openhands` container reuses the same `OPENHANDS_LLM_*` and `AWS_*` values f
 
 For Bedrock specifically, you can use either standard AWS credentials or a Bedrock bearer token.
 
-The active issue provider comes from `openhands_agent.issue_platform`, which falls back to `openhands_agent.ticket_system`, and finally defaults to `youtrack`.
+The active issue provider comes from `kato.issue_platform`, which falls back to `kato.ticket_system`, and finally defaults to `youtrack`.
 Issue states can be configured directly in `.env` with `YOUTRACK_ISSUE_STATES`, `JIRA_ISSUE_STATES`, `GITHUB_ISSUES_ISSUE_STATES`, `GITLAB_ISSUES_ISSUE_STATES`, and `BITBUCKET_ISSUES_ISSUE_STATES`.
 The review-state target also comes from the active provider config:
-- YouTrack uses `openhands_agent.youtrack.review_state_field` and `openhands_agent.youtrack.review_state`.
-- Jira uses `openhands_agent.jira.review_state_field` and `openhands_agent.jira.review_state`.
-- GitHub Issues uses `openhands_agent.github_issues.review_state_field` and `openhands_agent.github_issues.review_state`.
-- GitLab Issues uses `openhands_agent.gitlab_issues.review_state_field` and `openhands_agent.gitlab_issues.review_state`.
-- Bitbucket Issues uses `openhands_agent.bitbucket_issues.review_state_field` and `openhands_agent.bitbucket_issues.review_state`.
+- YouTrack uses `kato.youtrack.review_state_field` and `kato.youtrack.review_state`.
+- Jira uses `kato.jira.review_state_field` and `kato.jira.review_state`.
+- GitHub Issues uses `kato.github_issues.review_state_field` and `kato.github_issues.review_state`.
+- GitLab Issues uses `kato.gitlab_issues.review_state_field` and `kato.gitlab_issues.review_state`.
+- Bitbucket Issues uses `kato.bitbucket_issues.review_state_field` and `kato.bitbucket_issues.review_state`.
 Processed task state, processed review-comment ids, and pull-request comment context are kept in memory during a run so the agent can skip already-completed work and poll for new review comments without writing local state.
 If email notifications are enabled, install the optional dependency set with `python -m pip install -e ".[notifications]"`.
-The email body text comes from [`completion_email.j2`](openhands_agent/templates/email/completion_email.j2) and [`failure_email.j2`](openhands_agent/templates/email/failure_email.j2), rendered with Jinja2 template variables at runtime.
-The Hydra config is registered through [`hydra_plugins/openhands_agent/openhands_agent_searchpath.py`](hydra_plugins/openhands_agent/openhands_agent_searchpath.py), so standard Hydra overrides work. Example:
+The email body text comes from [`completion_email.j2`](kato/templates/email/completion_email.j2) and [`failure_email.j2`](kato/templates/email/failure_email.j2), rendered with Jinja2 template variables at runtime.
+The Hydra config is registered through [`hydra_plugins/kato/kato_searchpath.py`](hydra_plugins/kato/kato_searchpath.py), so standard Hydra overrides work. Example:
 
 ```bash
-python -m openhands_agent.main openhands_agent.retry.max_retries=7
+python -m kato.main kato.retry.max_retries=7
 ```
 
 ### Open Source Notes
@@ -460,10 +460,10 @@ pip install -e .
 
 2. Fill `.env` instead of exporting variables one by one. Start from `.env.example` and update the values you need there.
 
-3. Adjust `openhands_agent/config/openhands_agent_core_lib.yaml` only if you need settings beyond what `.env` exposes, such as extra repositories or retry tuning. Issue states, review columns, and review-ready email recipients can now be configured directly in `.env`.
+3. Adjust `kato/config/kato_core_lib.yaml` only if you need settings beyond what `.env` exposes, such as extra repositories or retry tuning. Issue states, review columns, and review-ready email recipients can now be configured directly in `.env`.
 
 ```yaml
-openhands_agent:
+kato:
   issue_platform: youtrack
   ticket_system: youtrack
   retry:
@@ -522,7 +522,7 @@ openhands_agent:
 set -a
 source .env
 set +a
-python -m openhands_agent.main
+python -m kato.main
 ```
 
 ### Docker Compose
@@ -536,9 +536,9 @@ docker compose up --build
 What the compose stack does:
 
 - starts an `openhands` container on port `3000`
-- builds and starts an `openhands-agent` container from this repo
+- builds and starts an `kato` container from this repo
 - makes the agent wait until OpenHands is reachable at `http://openhands:3000`
-- then runs `python -m openhands_agent.main`
+- then runs `python -m kato.main`
 
 The compose file uses the current official OpenHands container image pattern from the OpenHands docs:
 
@@ -559,7 +559,7 @@ What happens when it runs:
 - It fetches only tasks assigned to the configured issue-platform assignee.
 - It ignores tasks that are not in the configured `issue_states`.
 - It enriches the task context with issue comments, text attachment contents, and screenshot attachment references when the selected platform exposes them.
-- It retries transient client failures up to `openhands_agent.retry.max_retries`.
+- It retries transient client failures up to `kato.retry.max_retries`.
 - If the overall run fails, it sends failure notifications through `email-core-lib` to the configured recipients.
 - For each eligible task, it infers the affected repositories, asks OpenHands to implement the work across that scoped workspace set, opens one pull request per repository, comments the aggregated PR summary back to the configured issue platform, moves the issue to the configured review state when all repositories succeed, and sends a completion email that asks for review.
 - After task processing, it polls tracked pull requests for new review comments, passes the full accumulated review-comment context into OpenHands for each unseen comment, and records processed comment ids so the same comment is not reprocessed on the next run.
@@ -636,7 +636,7 @@ cp .env.example .env
 # Saving costs tips
 
 Use a cheaper main OPENHANDS_LLM_MODEL. This is usually the largest lever.
-Lower `openhands_agent.retry.max_retries` from 3 to 2 or 3 if your setup is stable.
+Lower `kato.retry.max_retries` from 3 to 2 or 3 if your setup is stable.
 Keep YOUTRACK_ISSUE_STATES tight so only truly ready tasks get processed.
 Batch review feedback into fewer comments, because each review-fix cycle can trigger more OpenHands work.
 Keep task context lean: avoid huge pasted logs, long comment threads, and unnecessary attachments.

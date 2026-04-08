@@ -36,4 +36,4 @@ if os.getenv("OPENHANDS_SKIP_TESTING", "").strip().lower() not in TRUE_VALUES an
     )
 PY
 
-exec python -m openhands_agent.main
+exec python -m kato.main

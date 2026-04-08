@@ -2,9 +2,9 @@ import unittest
 from unittest.mock import patch
 
 
-from openhands_agent.client.gitlab_issues_client import GitLabIssuesClient
-from openhands_agent.data_layers.data.task import Task
-from openhands_agent.data_layers.data.fields import GitLabCommentFields, GitLabIssueFields, TaskCommentFields
+from kato.client.gitlab_issues_client import GitLabIssuesClient
+from kato.data_layers.data.task import Task
+from kato.data_layers.data.fields import GitLabCommentFields, GitLabIssueFields, TaskCommentFields
 from utils import mock_response
 
 
@@ -92,7 +92,7 @@ class GitLabIssuesClientTests(unittest.TestCase):
         notes_response = mock_response(
             json_data=[
                 {
-                    GitLabCommentFields.BODY: 'OpenHands agent could not safely process this task: timeout',
+                    GitLabCommentFields.BODY: 'Kato agent could not safely process this task: timeout',
                     GitLabCommentFields.AUTHOR: {GitLabCommentFields.NAME: 'shay'},
                 },
                 {
@@ -114,7 +114,7 @@ class GitLabIssuesClientTests(unittest.TestCase):
                 {
                     TaskCommentFields.AUTHOR: 'shay',
                     TaskCommentFields.BODY: (
-                        'OpenHands agent could not safely process this task: timeout'
+                        'Kato agent could not safely process this task: timeout'
                     ),
                 },
                 {

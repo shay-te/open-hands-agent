@@ -2,9 +2,9 @@ import unittest
 from unittest.mock import patch
 
 
-from openhands_agent.client.jira_client import JiraClient
-from openhands_agent.data_layers.data.task import Task
-from openhands_agent.data_layers.data.fields import JiraIssueFields, TaskCommentFields
+from kato.client.jira_client import JiraClient
+from kato.data_layers.data.task import Task
+from kato.data_layers.data.fields import JiraIssueFields, TaskCommentFields
 from utils import assert_client_headers_and_timeout, mock_response
 
 
@@ -163,7 +163,7 @@ class JiraClientTests(unittest.TestCase):
                                                     'content': [
                                                         {
                                                             'type': 'text',
-                                                            'text': 'OpenHands agent could not safely process this task: timeout',
+                                                            'text': 'Kato agent could not safely process this task: timeout',
                                                         }
                                                     ],
                                                 }
@@ -207,7 +207,7 @@ class JiraClientTests(unittest.TestCase):
                 {
                     TaskCommentFields.AUTHOR: 'shay',
                     TaskCommentFields.BODY: (
-                        'OpenHands agent could not safely process this task: timeout'
+                        'Kato agent could not safely process this task: timeout'
                     ),
                 },
                 {

@@ -3,7 +3,7 @@ import unittest
 from unittest.mock import Mock, call, patch
 
 
-from openhands_agent.main import _run_task_scan_loop, main
+from kato.main import _run_task_scan_loop, main
 from utils import build_test_cfg
 
 
@@ -14,10 +14,10 @@ class MainTests(unittest.TestCase):
     def test_main_returns_zero_on_success(self) -> None:
         app = types.SimpleNamespace(logger=Mock())
 
-        with patch('openhands_agent.main.OpenHandsAgentInstance.init') as mock_init, patch(
-            'openhands_agent.main.OpenHandsAgentInstance.get',
+        with patch('kato.main.KatoInstance.init') as mock_init, patch(
+            'kato.main.KatoInstance.get',
             return_value=app,
-        ), patch('openhands_agent.main._run_task_scan_loop') as mock_run_loop:
+        ), patch('kato.main._run_task_scan_loop') as mock_run_loop:
             result = main(self.cfg)
 
         self.assertEqual(result, 0)
@@ -27,18 +27,18 @@ class MainTests(unittest.TestCase):
             startup_delay_seconds=30.0,
             scan_interval_seconds=60.0,
         )
-        app.logger.info.assert_any_call('starting openhands agent')
+        app.logger.info.assert_any_call('starting kato agent')
 
     def test_main_configures_logger_when_app_logger_is_missing(self) -> None:
         configured_logger = Mock()
         app = types.SimpleNamespace(logger=None)
 
-        with patch('openhands_agent.main.configure_logger', return_value=configured_logger), patch(
-            'openhands_agent.main.OpenHandsAgentInstance.init'
+        with patch('kato.main.configure_logger', return_value=configured_logger), patch(
+            'kato.main.KatoInstance.init'
         ), patch(
-            'openhands_agent.main.OpenHandsAgentInstance.get',
+            'kato.main.KatoInstance.get',
             return_value=app,
-        ), patch('openhands_agent.main._run_task_scan_loop'):
+        ), patch('kato.main._run_task_scan_loop'):
             main(self.cfg)
 
         self.assertIs(app.logger, configured_logger)
@@ -48,8 +48,8 @@ class MainTests(unittest.TestCase):
         job = Mock()
         job.run.side_effect = [None, None]
 
-        with patch('openhands_agent.main.ProcessAssignedTasksJob', return_value=job) as mock_job_cls, patch(
-            'openhands_agent.main.time.sleep'
+        with patch('kato.main.ProcessAssignedTasksJob', return_value=job) as mock_job_cls, patch(
+            'kato.main.time.sleep'
         ) as mock_sleep:
             _run_task_scan_loop(
                 app,
@@ -64,7 +64,7 @@ class MainTests(unittest.TestCase):
         self.assertEqual(job.run.call_count, 2)
         mock_sleep.assert_has_calls([call(30.0), call(60.0)])
         app.logger.info.assert_any_call(
-            'waiting %s seconds for OpenHands to warm up before scanning tasks',
+            'waiting %s seconds for Kato to warm up before scanning tasks',
             30.0,
         )
 
@@ -73,8 +73,8 @@ class MainTests(unittest.TestCase):
         job = Mock()
         job.run.side_effect = [RuntimeError('service down'), None]
 
-        with patch('openhands_agent.main.ProcessAssignedTasksJob', return_value=job), patch(
-            'openhands_agent.main.time.sleep'
+        with patch('kato.main.ProcessAssignedTasksJob', return_value=job), patch(
+            'kato.main.time.sleep'
         ) as mock_sleep:
             _run_task_scan_loop(
                 app,
@@ -96,8 +96,8 @@ class MainTests(unittest.TestCase):
             '[Error] /workspace/project missing git permissions. cannot work.'
         )
 
-        with patch('openhands_agent.main.configure_logger', return_value=configured_logger), patch(
-            'openhands_agent.main.OpenHandsAgentInstance.init',
+        with patch('kato.main.configure_logger', return_value=configured_logger), patch(
+            'kato.main.KatoInstance.init',
             side_effect=startup_error,
         ):
             result = main(self.cfg)

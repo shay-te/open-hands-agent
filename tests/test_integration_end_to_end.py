@@ -14,19 +14,19 @@ from pathlib import Path
 import types
 
 
-from openhands_agent.data_layers.service.agent_service import AgentService
-from openhands_agent.data_layers.service.implementation_service import ImplementationService
-from openhands_agent.helpers.review_comment_utils import review_comment_from_payload
-from openhands_agent.data_layers.service.repository_service import RepositoryService
-from openhands_agent.data_layers.service.notification_service import NotificationService
-from openhands_agent.data_layers.service.task_state_service import TaskStateService
-from openhands_agent.data_layers.service.task_service import TaskService
-from openhands_agent.data_layers.service.testing_service import TestingService
-from openhands_agent.data_layers.data_access.task_data_access import TaskDataAccess
-from openhands_agent.data_layers.data.task import Task
-from openhands_agent.data_layers.data.review_comment import ReviewComment
-from openhands_agent.client.openhands_client import OpenHandsClient
-from openhands_agent.data_layers.data.fields import (
+from kato.data_layers.service.agent_service import AgentService
+from kato.data_layers.service.implementation_service import ImplementationService
+from kato.helpers.review_comment_utils import review_comment_from_payload
+from kato.data_layers.service.repository_service import RepositoryService
+from kato.data_layers.service.notification_service import NotificationService
+from kato.data_layers.service.task_state_service import TaskStateService
+from kato.data_layers.service.task_service import TaskService
+from kato.data_layers.service.testing_service import TestingService
+from kato.data_layers.data_access.task_data_access import TaskDataAccess
+from kato.data_layers.data.task import Task
+from kato.data_layers.data.review_comment import ReviewComment
+from kato.client.kato_client import KatoClient
+from kato.data_layers.data.fields import (
     ImplementationFields,
     PullRequestFields,
     ReviewCommentFields,
@@ -69,7 +69,7 @@ class InMemoryTicketClient:
     def add_comment(self, issue_id: str, comment: str) -> None:
         self._comments.append(
             {
-                TaskCommentFields.AUTHOR: 'openhands-agent',
+                TaskCommentFields.AUTHOR: 'kato',
                 TaskCommentFields.BODY: comment,
             }
         )
@@ -98,16 +98,16 @@ class TestAgentEndToEndIntegration(unittest.TestCase):
 
     def test_full_task_and_review_comment_flow_does_not_repeat_processed_review_comment(self):
         cfg = build_test_cfg()
-        cfg.openhands_agent.youtrack.issue_states = ['Open']
+        cfg.kato.youtrack.issue_states = ['Open']
         ticket_client = InMemoryTicketClient(
             task_id='PROJ-1',
             summary='Fix checkout flow in test-repo',
             description='Update test-repo checkout flow and add regression coverage.',
             initial_state='Open',
         )
-        task_data_access = TaskDataAccess(cfg.openhands_agent.youtrack, ticket_client)
-        task_service = TaskService(cfg.openhands_agent.youtrack, task_data_access)
-        task_state_service = TaskStateService(cfg.openhands_agent.youtrack, task_data_access)
+        task_data_access = TaskDataAccess(cfg.kato.youtrack, ticket_client)
+        task_service = TaskService(cfg.kato.youtrack, task_data_access)
+        task_state_service = TaskStateService(cfg.kato.youtrack, task_data_access)
 
         repository = types.SimpleNamespace(
             id='test-repo',
@@ -125,7 +125,7 @@ class TestAgentEndToEndIntegration(unittest.TestCase):
             resolvable=True,
         )
 
-        openhands_client = types.SimpleNamespace(
+        kato_client = types.SimpleNamespace(
             validate_connection=Mock(),
             validate_model_access=Mock(),
             implement_task=Mock(
@@ -179,8 +179,8 @@ class TestAgentEndToEndIntegration(unittest.TestCase):
         agent_service = AgentService(
             task_service=task_service,
             task_state_service=task_state_service,
-            implementation_service=ImplementationService(openhands_client),
-            testing_service=TestingService(openhands_client),
+            implementation_service=ImplementationService(kato_client),
+            testing_service=TestingService(kato_client),
             repository_service=repository_service,
             notification_service=notification_service,
         )
@@ -200,11 +200,11 @@ class TestAgentEndToEndIntegration(unittest.TestCase):
         )
         self.assertEqual(len(ticket_client.comments), 2)
         self.assertIn(
-            'OpenHands agent started working on this task in repository test-repo.',
+            'Kato agent started working on this task in repository test-repo.',
             ticket_client.comments[0][TaskCommentFields.BODY],
         )
         self.assertIn(
-            'OpenHands completed task PROJ-1: Fix checkout flow in test-repo.',
+            'Kato completed task PROJ-1: Fix checkout flow in test-repo.',
             ticket_client.comments[1][TaskCommentFields.BODY],
         )
         self.assertTrue(agent_service._state_registry.is_task_processed('PROJ-1'))
@@ -236,7 +236,7 @@ class TestAgentEndToEndIntegration(unittest.TestCase):
         self.assertEqual(len(ticket_client.comments), 3)
         self.assertEqual(
             ticket_client.comments[2][TaskCommentFields.BODY],
-            'OpenHands addressed review comment 99 on pull request 17.',
+            'Kato addressed review comment 99 on pull request 17.',
         )
 
         repeated_comments = agent_service.get_new_pull_request_comments()
@@ -246,16 +246,16 @@ class TestAgentEndToEndIntegration(unittest.TestCase):
 
     def test_review_comment_is_rediscovered_after_service_restart(self):
         cfg = build_test_cfg()
-        cfg.openhands_agent.youtrack.issue_states = ['Open']
+        cfg.kato.youtrack.issue_states = ['Open']
         ticket_client = InMemoryTicketClient(
             task_id='PROJ-1',
             summary='Fix checkout flow in test-repo',
             description='Update test-repo checkout flow and add regression coverage.',
             initial_state='Open',
         )
-        task_data_access = TaskDataAccess(cfg.openhands_agent.youtrack, ticket_client)
-        task_service = TaskService(cfg.openhands_agent.youtrack, task_data_access)
-        task_state_service = TaskStateService(cfg.openhands_agent.youtrack, task_data_access)
+        task_data_access = TaskDataAccess(cfg.kato.youtrack, ticket_client)
+        task_service = TaskService(cfg.kato.youtrack, task_data_access)
+        task_state_service = TaskStateService(cfg.kato.youtrack, task_data_access)
 
         repository = types.SimpleNamespace(
             id='test-repo',
@@ -273,7 +273,7 @@ class TestAgentEndToEndIntegration(unittest.TestCase):
             resolvable=True,
         )
 
-        openhands_client = types.SimpleNamespace(
+        kato_client = types.SimpleNamespace(
             validate_connection=Mock(),
             validate_model_access=Mock(),
             implement_task=Mock(
@@ -327,8 +327,8 @@ class TestAgentEndToEndIntegration(unittest.TestCase):
         first_agent_service = AgentService(
             task_service=task_service,
             task_state_service=task_state_service,
-            implementation_service=ImplementationService(openhands_client),
-            testing_service=TestingService(openhands_client),
+            implementation_service=ImplementationService(kato_client),
+            testing_service=TestingService(kato_client),
             repository_service=repository_service,
             notification_service=notification_service,
             skip_testing=True,
@@ -344,8 +344,8 @@ class TestAgentEndToEndIntegration(unittest.TestCase):
         restarted_agent_service = AgentService(
             task_service=task_service,
             task_state_service=task_state_service,
-            implementation_service=ImplementationService(openhands_client),
-            testing_service=TestingService(openhands_client),
+            implementation_service=ImplementationService(kato_client),
+            testing_service=TestingService(kato_client),
             repository_service=repository_service,
             notification_service=notification_service,
             skip_testing=True,
@@ -379,7 +379,7 @@ class TestAgentEndToEndIntegration(unittest.TestCase):
         )
         self.assertEqual(
             ticket_client.comments[-1][TaskCommentFields.BODY],
-            'OpenHands addressed review comment 99 on pull request 17.',
+            'Kato addressed review comment 99 on pull request 17.',
         )
         
     def test_complete_workflow_with_valid_task(self):
@@ -520,7 +520,7 @@ class TestAgentEndToEndIntegration(unittest.TestCase):
         # Similar to the docker-compose pattern we've established
         
         # Create a realistic minimal config scenario
-        from openhands_agent.validate_env import validate_openhands_env, validate_agent_env
+        from kato.validate_env import validate_openhands_env, validate_agent_env
         import os
         
         # Simulate what would be used in docker-compose context

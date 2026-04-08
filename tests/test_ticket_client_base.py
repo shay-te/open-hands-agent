@@ -1,40 +1,40 @@
 import unittest
 
-from openhands_agent.client.ticket_client_base import TicketClientBase
-from openhands_agent.data_layers.data.task import Task
-from openhands_agent.data_layers.data.fields import TaskCommentFields
+from kato.client.ticket_client_base import TicketClientBase
+from kato.data_layers.data.task import Task
+from kato.data_layers.data.fields import TaskCommentFields
 
 
 class TicketClientBaseTests(unittest.TestCase):
     def test_recognizes_agent_operational_comment_prefixes(self) -> None:
         self.assertTrue(
             TicketClientBase._is_agent_operational_comment(
-                'OpenHands agent started working on this task in repository backend.'
+                'Kato agent started working on this task in repository backend.'
             )
         )
         self.assertTrue(
             TicketClientBase._is_agent_operational_comment(
-                'OpenHands completed task PROJ-1: Fix the auth flow.'
+                'Kato completed task PROJ-1: Fix the auth flow.'
             )
         )
         self.assertTrue(
             TicketClientBase._is_agent_operational_comment(
-                'OpenHands addressed review comment 99 on pull request 17.'
+                'Kato addressed review comment 99 on pull request 17.'
             )
         )
         self.assertTrue(
             TicketClientBase._is_agent_operational_comment(
-                'OpenHands agent stopped working on this task: gateway timeout'
+                'Kato agent stopped working on this task: gateway timeout'
             )
         )
         self.assertTrue(
             TicketClientBase._is_agent_operational_comment(
-                'OpenHands agent could not safely process this task: timeout'
+                'Kato agent could not safely process this task: timeout'
             )
         )
         self.assertTrue(
             TicketClientBase._is_agent_operational_comment(
-                'OpenHands agent skipped this task because the task definition is too thin to work from safely.'
+                'Kato agent skipped this task because the task definition is too thin to work from safely.'
             )
         )
         self.assertFalse(
@@ -49,7 +49,7 @@ class TicketClientBaseTests(unittest.TestCase):
                 {
                     TaskCommentFields.AUTHOR: 'shay',
                     TaskCommentFields.BODY: (
-                        'OpenHands agent could not safely process this task: timeout'
+                        'Kato agent could not safely process this task: timeout'
                     ),
                 },
                 {
@@ -59,7 +59,7 @@ class TicketClientBaseTests(unittest.TestCase):
                 {
                     TaskCommentFields.AUTHOR: 'shay',
                     TaskCommentFields.BODY: (
-                        'OpenHands agent stopped working on this task: branch conflict'
+                        'Kato agent stopped working on this task: branch conflict'
                     ),
                 },
             ]
@@ -67,7 +67,7 @@ class TicketClientBaseTests(unittest.TestCase):
 
         self.assertEqual(
             comment,
-            'OpenHands agent stopped working on this task: branch conflict',
+            'Kato agent stopped working on this task: branch conflict',
         )
 
     def test_active_retry_blocking_comment_clears_after_explicit_retry_instruction(self) -> None:
@@ -76,14 +76,14 @@ class TicketClientBaseTests(unittest.TestCase):
                 {
                     TaskCommentFields.AUTHOR: 'shay',
                     TaskCommentFields.BODY: (
-                        'OpenHands agent skipped this task because it could not detect '
+                        'Kato agent skipped this task because it could not detect '
                         'which repository to use from the task content: no configured '
                         'repository matched task PROJ-1.'
                     ),
                 },
                 {
                     TaskCommentFields.AUTHOR: 'reviewer',
-                    TaskCommentFields.BODY: 'OpenHands: retry approved for this task.',
+                    TaskCommentFields.BODY: 'kato: retry approved for this task.',
                 },
             ]
         )
@@ -96,7 +96,7 @@ class TicketClientBaseTests(unittest.TestCase):
                 {
                     TaskCommentFields.AUTHOR: 'shay',
                     TaskCommentFields.BODY: (
-                        'OpenHands agent skipped this task because the task definition '
+                        'Kato agent skipped this task because the task definition '
                         'is too thin to work from safely.'
                     ),
                 }
@@ -105,7 +105,7 @@ class TicketClientBaseTests(unittest.TestCase):
 
         self.assertEqual(
             comment,
-            'OpenHands agent skipped this task because the task definition is too thin to work from safely.',
+            'Kato agent skipped this task because the task definition is too thin to work from safely.',
         )
 
     def test_active_retry_blocking_comment_does_not_clear_after_casual_retry_language(self) -> None:
@@ -114,7 +114,7 @@ class TicketClientBaseTests(unittest.TestCase):
                 {
                     TaskCommentFields.AUTHOR: 'shay',
                     TaskCommentFields.BODY: (
-                        'OpenHands agent stopped working on this task: branch conflict'
+                        'Kato agent stopped working on this task: branch conflict'
                     ),
                 },
                 {
@@ -126,7 +126,7 @@ class TicketClientBaseTests(unittest.TestCase):
 
         self.assertEqual(
             comment,
-            'OpenHands agent stopped working on this task: branch conflict',
+            'Kato agent stopped working on this task: branch conflict',
         )
 
     def test_active_execution_blocking_comment_tracks_completion_comment(self) -> None:
@@ -135,7 +135,7 @@ class TicketClientBaseTests(unittest.TestCase):
                 {
                     TaskCommentFields.AUTHOR: 'shay',
                     TaskCommentFields.BODY: (
-                        'OpenHands completed task PROJ-1: Fix the auth flow.'
+                        'Kato completed task PROJ-1: Fix the auth flow.'
                     ),
                 }
             ]
@@ -143,7 +143,7 @@ class TicketClientBaseTests(unittest.TestCase):
 
         self.assertEqual(
             comment,
-            'OpenHands completed task PROJ-1: Fix the auth flow.',
+            'Kato completed task PROJ-1: Fix the auth flow.',
         )
 
     def test_active_execution_blocking_comment_clears_completion_after_explicit_retry_instruction(self) -> None:
@@ -152,12 +152,12 @@ class TicketClientBaseTests(unittest.TestCase):
                 {
                     TaskCommentFields.AUTHOR: 'shay',
                     TaskCommentFields.BODY: (
-                        'OpenHands completed task PROJ-1: Fix the auth flow.'
+                        'Kato completed task PROJ-1: Fix the auth flow.'
                     ),
                 },
                 {
                     TaskCommentFields.AUTHOR: 'reviewer',
-                    TaskCommentFields.BODY: 'OpenHands: retry approved for this task.',
+                    TaskCommentFields.BODY: 'kato: retry approved for this task.',
                 },
             ]
         )
@@ -167,22 +167,22 @@ class TicketClientBaseTests(unittest.TestCase):
     def test_is_pre_start_blocking_comment_matches_only_pre_start_blockers(self) -> None:
         self.assertTrue(
             TicketClientBase.is_pre_start_blocking_comment(
-                'OpenHands agent could not safely process this task: timeout'
+                'Kato agent could not safely process this task: timeout'
             )
         )
         self.assertTrue(
             TicketClientBase.is_pre_start_blocking_comment(
-                'OpenHands agent skipped this task because the task definition is too thin to work from safely.'
+                'Kato agent skipped this task because the task definition is too thin to work from safely.'
             )
         )
         self.assertFalse(
             TicketClientBase.is_pre_start_blocking_comment(
-                'OpenHands agent stopped working on this task: branch conflict'
+                'Kato agent stopped working on this task: branch conflict'
             )
         )
         self.assertFalse(
             TicketClientBase.is_pre_start_blocking_comment(
-                'OpenHands completed task PROJ-1: Fix the auth flow.'
+                'Kato completed task PROJ-1: Fix the auth flow.'
             )
         )
 
@@ -192,13 +192,13 @@ class TicketClientBaseTests(unittest.TestCase):
                 {
                     TaskCommentFields.AUTHOR: 'shay',
                     TaskCommentFields.BODY: (
-                        'OpenHands agent could not safely process this task: timeout'
+                        'Kato agent could not safely process this task: timeout'
                     ),
                 },
                 {
                     TaskCommentFields.AUTHOR: 'shay',
                     TaskCommentFields.BODY: (
-                        'OpenHands agent started working on this task in repository backend.'
+                        'Kato agent started working on this task in repository backend.'
                     ),
                 },
             ]
@@ -206,7 +206,7 @@ class TicketClientBaseTests(unittest.TestCase):
 
         self.assertEqual(
             comment,
-            'OpenHands agent could not safely process this task: timeout',
+            'Kato agent could not safely process this task: timeout',
         )
 
     def test_build_task_description_with_comments_filters_operational_entries(self) -> None:
@@ -216,7 +216,7 @@ class TicketClientBaseTests(unittest.TestCase):
                 {
                     TaskCommentFields.AUTHOR: 'shay',
                     TaskCommentFields.BODY: (
-                        'OpenHands agent stopped working on this task: timeout'
+                        'Kato agent stopped working on this task: timeout'
                     ),
                 },
                 {

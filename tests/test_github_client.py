@@ -2,8 +2,8 @@ import unittest
 from unittest.mock import patch
 
 
-from openhands_agent.client.github_client import GitHubClient
-from openhands_agent.data_layers.data.fields import PullRequestFields, ReviewCommentFields
+from kato.client.github_client import GitHubClient
+from kato.data_layers.data.fields import PullRequestFields, ReviewCommentFields
 from utils import (
     ClientTimeout,
     assert_client_headers_and_timeout,

@@ -2,7 +2,7 @@ import types
 import unittest
 
 
-from openhands_agent.helpers.text_utils import (
+from kato.helpers.text_utils import (
     alphanumeric_lower_text,
     condensed_text,
     normalized_lower_text,

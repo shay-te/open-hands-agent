@@ -18,4 +18,4 @@ set -a
 . ./.env
 set +a
 
-exec .venv/bin/python -m openhands_agent.main
+exec .venv/bin/python -m kato.main

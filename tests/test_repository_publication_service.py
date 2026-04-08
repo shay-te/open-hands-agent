@@ -2,8 +2,8 @@ import types
 import unittest
 from unittest.mock import Mock
 
-from openhands_agent.data_layers.data.fields import PullRequestFields, RepositoryFields
-from openhands_agent.data_layers.service.repository_publication_service import (
+from kato.data_layers.data.fields import PullRequestFields, RepositoryFields
+from kato.data_layers.service.repository_publication_service import (
     RepositoryPublicationService,
 )
 
