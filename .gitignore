@@ -7,7 +7,6 @@ __pycache__/
 .env
 .venv/
 outputs/
-openhands_agent_state.json
 build/
 dist/
 out/
@@ -15,7 +14,7 @@ coverage/
 target/
 
 docker_data
-openhands_agent.db
+
 
 docker-composebackup.txt
 mount_docker_data

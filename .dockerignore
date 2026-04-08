@@ -9,4 +9,3 @@ __pycache__
 tests
 .DS_Store
 docker_data
-openhands_agent_state.json
