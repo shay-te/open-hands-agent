@@ -12,7 +12,10 @@ from kato.data_layers.data.fields import (
     TaskFields,
 )
 from kato.helpers.task_execution_utils import task_execution_report
-from kato.helpers.text_utils import text_from_mapping
+from kato.helpers.text_utils import normalized_text, text_from_mapping
+
+KATO_REVIEW_COMMENT_FIXED_PREFIX = 'Kato addressed review comment '
+KATO_REVIEW_COMMENT_REPLY_PREFIX = 'Kato addressed this review comment'
 
 
 @dataclass(frozen=True)
@@ -22,6 +25,7 @@ class ReviewFixContext:
     session_id: str
     task_id: str
     task_summary: str
+    pull_request_title: str
 
 
 def review_comment_from_payload(payload: dict) -> ReviewComment:
@@ -68,10 +72,28 @@ def review_comment_resolution_key(comment: ReviewComment) -> tuple[str, str]:
     return resolution_target_type, resolution_target_id
 
 
+def review_comment_processing_keys(comment: ReviewComment) -> set[str]:
+    keys = {normalized_text(comment.comment_id)}
+    resolution_target_type, resolution_target_id = review_comment_resolution_key(comment)
+    if resolution_target_id:
+        keys.add(f'{resolution_target_type}:{resolution_target_id}')
+    return {key for key in keys if key}
+
+
+def is_kato_review_comment_reply(comment: ReviewComment) -> bool:
+    body = normalized_text(comment.body)
+    return body.startswith(
+        (
+            KATO_REVIEW_COMMENT_FIXED_PREFIX,
+            KATO_REVIEW_COMMENT_REPLY_PREFIX,
+        )
+    )
+
+
 def review_comment_fixed_comment(comment: ReviewComment) -> str:
     return (
-        'Kato addressed review comment '
-        f'{comment.comment_id} on pull request {comment.pull_request_id}.'
+        f'{KATO_REVIEW_COMMENT_FIXED_PREFIX}{comment.comment_id} '
+        f'on pull request {comment.pull_request_id}.'
     )
 
 
@@ -120,6 +142,7 @@ def review_fix_context_from_mapping(context: dict[str, str]) -> ReviewFixContext
         session_id=text_from_mapping(context, ImplementationFields.SESSION_ID),
         task_id=text_from_mapping(context, TaskFields.ID),
         task_summary=text_from_mapping(context, TaskFields.SUMMARY),
+        pull_request_title=text_from_mapping(context, PullRequestFields.TITLE),
     )
 
 

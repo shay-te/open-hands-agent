@@ -15,6 +15,7 @@ def build_pull_request_context(
     session_id: str = '',
     task_id: str = '',
     task_summary: str = '',
+    pull_request_title: str = '',
 ) -> dict[str, str]:
     context = {
         PullRequestFields.REPOSITORY_ID: normalized_text(repository_id),
@@ -23,12 +24,15 @@ def build_pull_request_context(
     normalized_session_id = normalized_text(session_id)
     normalized_task_id = normalized_text(task_id)
     normalized_task_summary = normalized_text(task_summary)
+    normalized_pull_request_title = normalized_text(pull_request_title)
     if normalized_session_id:
         context[ImplementationFields.SESSION_ID] = normalized_session_id
     if normalized_task_id:
         context[TaskFields.ID] = normalized_task_id
     if normalized_task_summary:
         context[TaskFields.SUMMARY] = normalized_task_summary
+    if normalized_pull_request_title:
+        context[PullRequestFields.TITLE] = normalized_pull_request_title
     return context
 
 

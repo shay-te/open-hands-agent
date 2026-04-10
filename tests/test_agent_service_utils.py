@@ -9,9 +9,11 @@ from kato.helpers.pull_request_utils import (
 )
 from kato.helpers.mission_logging_utils import log_mission_step
 from kato.helpers.review_comment_utils import (
+    is_kato_review_comment_reply,
     review_fix_context_from_mapping,
     review_fix_result,
     review_comment_fixed_comment,
+    review_comment_processing_keys,
     review_comment_resolution_key,
 )
 from kato.helpers.task_execution_utils import (
@@ -138,6 +140,10 @@ class AgentServiceUtilsTests(unittest.TestCase):
             resolution_target_id='thread-17',
             resolution_target_type='thread',
         )
+        kato_reply = build_review_comment(
+            comment_id='100',
+            body='Kato addressed this review comment and pushed a follow-up update.',
+        )
 
         self.assertEqual(
             review_comment_resolution_key(default_comment),
@@ -147,6 +153,11 @@ class AgentServiceUtilsTests(unittest.TestCase):
             review_comment_resolution_key(targeted_comment),
             ('thread', 'thread-17'),
         )
+        self.assertEqual(
+            review_comment_processing_keys(targeted_comment),
+            {'99', 'thread:thread-17'},
+        )
+        self.assertTrue(is_kato_review_comment_reply(kato_reply))
         self.assertEqual(
             review_comment_fixed_comment(default_comment),
             'Kato addressed review comment 99 on pull request 17.',

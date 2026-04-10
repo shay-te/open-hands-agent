@@ -30,6 +30,7 @@ class AgentStateRegistry:
             session_id,
             task_id,
             task_summary,
+            normalized_text(pull_request.get(PullRequestFields.TITLE, '')),
         )
         existing_contexts = self.pull_request_context_map.setdefault(pull_request_id, [])
         if pull_request_context_key(context) not in {

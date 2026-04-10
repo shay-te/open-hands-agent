@@ -32,6 +32,7 @@ class AgentStateRegistryTests(unittest.TestCase):
         pull_request = {
             PullRequestFields.REPOSITORY_ID: 'client',
             PullRequestFields.ID: '17',
+            PullRequestFields.TITLE: 'PROJ-1 Fix bug',
         }
 
         self.registry.remember_pull_request_context(
@@ -46,6 +47,7 @@ class AgentStateRegistryTests(unittest.TestCase):
             self.registry.pull_request_context('17', 'client'),
             {
                 PullRequestFields.REPOSITORY_ID: 'client',
+                PullRequestFields.TITLE: 'PROJ-1 Fix bug',
                 'branch_name': 'feature/proj-1/client',
                 'session_id': 'conversation-1',
                 'task_id': 'PROJ-1',

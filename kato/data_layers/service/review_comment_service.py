@@ -4,6 +4,7 @@ import re
 from urllib.parse import urlparse
 
 from core_lib.data_layers.service.service import Service
+from requests import HTTPError
 
 from kato.client.ticket_client_base import TicketClientBase
 from kato.data_layers.data.fields import (
@@ -21,14 +22,24 @@ from kato.helpers.logging_utils import configure_logger
 from kato.helpers.review_comment_utils import (
     ReviewFixContext,
     comment_context_entry,
+    is_kato_review_comment_reply,
     review_comment_from_payload,
     review_comment_fixed_comment,
     review_comment_reply_body,
+    review_comment_processing_keys,
     review_comment_resolution_key,
     review_fix_context_from_mapping,
     review_fix_result,
 )
 from kato.helpers.text_utils import normalized_text, text_from_attr
+
+NON_FATAL_REVIEW_RESOLUTION_STATUS_CODES = {404, 409}
+NON_FATAL_REVIEW_RESOLUTION_MESSAGES = (
+    'already resolved',
+    'could not resolve to a node',
+    'not found',
+    'was not found',
+)
 
 
 class ReviewCommentService(Service):
@@ -57,12 +68,16 @@ class ReviewCommentService(Service):
         return self.process_review_comment(comment)
 
     def process_review_comment(self, comment: ReviewComment) -> dict[str, str]:
+        review_context = self._review_fix_context(comment)
+        self.logger.info(
+            'Working on pull request comments: %s',
+            self._review_pull_request_display_name(comment, review_context),
+        )
         self.logger.info(
             'processing review comment %s for pull request %s',
             comment.comment_id,
             comment.pull_request_id,
         )
-        review_context = self._review_fix_context(comment)
         repository = self._repository_service.get_repository(review_context.repository_id)
         try:
             self._prepare_review_fix_branch(repository, review_context)
@@ -311,18 +326,21 @@ class ReviewCommentService(Service):
     ) -> list[ReviewComment]:
         new_comments: list[ReviewComment] = []
         seen_resolution_targets: set[tuple[str, str]] = set()
+        already_handled_resolution_targets = {
+            review_comment_resolution_key(comment)
+            for comment in comments
+            if is_kato_review_comment_reply(comment)
+        }
         for comment in reversed(comments):
             setattr(comment, PullRequestFields.REPOSITORY_ID, repository_id)
             setattr(comment, ReviewCommentFields.ALL_COMMENTS, list(comment_context))
             resolution_key = review_comment_resolution_key(comment)
+            if resolution_key in already_handled_resolution_targets:
+                continue
             if resolution_key in seen_resolution_targets:
                 continue
             seen_resolution_targets.add(resolution_key)
-            if self._state_registry.is_review_comment_processed(
-                repository_id,
-                pull_request_id,
-                comment.comment_id,
-            ):
+            if self._is_review_comment_processed(repository_id, pull_request_id, comment):
                 continue
             new_comments.append(comment)
         return new_comments
@@ -338,6 +356,16 @@ class ReviewCommentService(Service):
         review_context = review_fix_context_from_mapping(context)
         setattr(comment, PullRequestFields.REPOSITORY_ID, review_context.repository_id)
         return review_context
+
+    @staticmethod
+    def _review_pull_request_display_name(
+        comment: ReviewComment,
+        review_context: ReviewFixContext,
+    ) -> str:
+        return (
+            normalized_text(review_context.pull_request_title)
+            or f'pull request {comment.pull_request_id}'
+        )
 
     def _prepare_review_fix_branch(
         self,
@@ -408,31 +436,93 @@ class ReviewCommentService(Service):
             comment.comment_id,
             comment.pull_request_id,
         )
-        self._repository_service.resolve_review_comment(repository, comment)
-        self.logger.info(
-            'resolved review comment %s on pull request %s',
-            comment.comment_id,
-            comment.pull_request_id,
-        )
+        if self._resolve_review_comment(repository, comment):
+            self.logger.info(
+                'resolved review comment %s on pull request %s',
+                comment.comment_id,
+                comment.pull_request_id,
+            )
+        else:
+            self.logger.info(
+                'skipped resolving review comment %s on pull request %s',
+                comment.comment_id,
+                comment.pull_request_id,
+            )
 
     def _complete_review_fix(
         self,
         comment: ReviewComment,
         review_context: ReviewFixContext,
     ) -> None:
-        self._state_registry.mark_review_comment_processed(
-            review_context.repository_id,
-            comment.pull_request_id,
-            comment.comment_id,
-        )
+        for processing_key in review_comment_processing_keys(comment):
+            self._state_registry.mark_review_comment_processed(
+                review_context.repository_id,
+                comment.pull_request_id,
+                processing_key,
+            )
         self._comment_review_fix_completed(
             comment,
             review_context.repository_id,
         )
 
+    def _is_review_comment_processed(
+        self,
+        repository_id: str,
+        pull_request_id: str,
+        comment: ReviewComment,
+    ) -> bool:
+        return any(
+            self._state_registry.is_review_comment_processed(
+                repository_id,
+                pull_request_id,
+                processing_key,
+            )
+            for processing_key in review_comment_processing_keys(comment)
+        )
+
     @staticmethod
     def _review_fix_commit_message() -> str:
         return 'Address review comments'
+
+    def _resolve_review_comment(self, repository, comment: ReviewComment) -> bool:
+        try:
+            self._repository_service.resolve_review_comment(repository, comment)
+        except HTTPError as exc:
+            if not self._is_non_fatal_review_resolution_http_error(exc):
+                raise
+            status_code = getattr(getattr(exc, 'response', None), 'status_code', '')
+            self.logger.warning(
+                'review comment %s on pull request %s could not be resolved because '
+                'the provider returned HTTP %s; continuing because the fix was already '
+                'published and replied',
+                comment.comment_id,
+                comment.pull_request_id,
+                status_code,
+            )
+            return False
+        except RuntimeError as exc:
+            if not self._is_non_fatal_review_resolution_runtime_error(exc):
+                raise
+            self.logger.warning(
+                'review comment %s on pull request %s could not be resolved because '
+                'the provider reported it is already resolved or unavailable; continuing '
+                'because the fix was already published and replied: %s',
+                comment.comment_id,
+                comment.pull_request_id,
+                exc,
+            )
+            return False
+        return True
+
+    @staticmethod
+    def _is_non_fatal_review_resolution_http_error(exc: HTTPError) -> bool:
+        response = getattr(exc, 'response', None)
+        return getattr(response, 'status_code', None) in NON_FATAL_REVIEW_RESOLUTION_STATUS_CODES
+
+    @staticmethod
+    def _is_non_fatal_review_resolution_runtime_error(exc: RuntimeError) -> bool:
+        message = normalized_text(str(exc)).lower()
+        return any(token in message for token in NON_FATAL_REVIEW_RESOLUTION_MESSAGES)
 
     def _restore_review_comment_repository(self, comment: ReviewComment, repository) -> None:
         try:

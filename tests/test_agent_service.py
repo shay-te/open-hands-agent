@@ -353,6 +353,7 @@ class AgentServiceTests(unittest.TestCase):
                 '17': [
                     {
                         PullRequestFields.REPOSITORY_ID: 'client',
+                        PullRequestFields.TITLE: 'PROJ-1: Fix bug',
                         'branch_name': 'feature/proj-1/client',
                         ImplementationFields.SESSION_ID: 'conversation-1',
                         TaskFields.ID: 'PROJ-1',
@@ -362,6 +363,7 @@ class AgentServiceTests(unittest.TestCase):
                 '18': [
                     {
                         PullRequestFields.REPOSITORY_ID: 'backend',
+                        PullRequestFields.TITLE: 'PROJ-1: Fix bug',
                         'branch_name': 'feature/proj-1/backend',
                         ImplementationFields.SESSION_ID: 'conversation-1',
                         TaskFields.ID: 'PROJ-1',

@@ -175,6 +175,155 @@ cp .env.example .env
 
 Use `KATO_ISSUE_PLATFORM` for all new setups.
 
+## Third-Party Setup
+
+Pick one issue platform with `KATO_ISSUE_PLATFORM`, then fill in the matching block below. Keep the other issue-platform blocks empty unless you are switching providers or using their repository API credentials for pull requests.
+
+After editing `.env`, run:
+
+```bash
+make doctor
+```
+
+### Setting Up YouTrack
+
+Use this when tasks are coming from YouTrack:
+
+```env
+KATO_ISSUE_PLATFORM=youtrack
+YOUTRACK_BASE_URL=https://your-company.youtrack.cloud
+YOUTRACK_TOKEN=...
+YOUTRACK_PROJECT=PROJ
+YOUTRACK_ASSIGNEE=your-youtrack-login
+YOUTRACK_ISSUE_STATES=Todo,Open
+YOUTRACK_PROGRESS_STATE_FIELD=State
+YOUTRACK_PROGRESS_STATE=In Progress
+YOUTRACK_REVIEW_STATE_FIELD=State
+YOUTRACK_REVIEW_STATE=To Verify
+```
+
+`YOUTRACK_ISSUE_STATES` is the queue Kato scans. The progress and review state settings tell Kato how to move the issue when work starts and when the pull request is ready.
+
+### Setting Up Jira
+
+Use this when tasks are coming from Jira:
+
+```env
+KATO_ISSUE_PLATFORM=jira
+JIRA_BASE_URL=https://your-company.atlassian.net
+JIRA_TOKEN=...
+JIRA_EMAIL=you@example.com
+JIRA_PROJECT=PROJ
+JIRA_ASSIGNEE=assignee-account-id-or-username
+JIRA_ISSUE_STATES=To Do,Open
+JIRA_PROGRESS_STATE_FIELD=status
+JIRA_PROGRESS_STATE=In Progress
+JIRA_REVIEW_STATE_FIELD=status
+JIRA_REVIEW_STATE=In Review
+```
+
+`JIRA_TOKEN` is the API token. Keep `JIRA_EMAIL` set for Atlassian authentication flows that need the account email.
+
+### Setting Up GitHub Issues
+
+Use this when tasks are coming from GitHub Issues:
+
+```env
+KATO_ISSUE_PLATFORM=github
+GITHUB_ISSUES_BASE_URL=https://api.github.com
+GITHUB_API_TOKEN=...
+GITHUB_ISSUES_OWNER=owner-or-org
+GITHUB_ISSUES_REPO=repo-name
+GITHUB_ISSUES_ASSIGNEE=assignee-login
+GITHUB_ISSUES_ISSUE_STATES=open
+GITHUB_ISSUES_PROGRESS_STATE_FIELD=labels
+GITHUB_ISSUES_PROGRESS_STATE=In Progress
+GITHUB_ISSUES_REVIEW_STATE_FIELD=labels
+GITHUB_ISSUES_REVIEW_STATE=In Review
+```
+
+`GITHUB_API_TOKEN` is also used for GitHub git push and pull request creation when discovered repositories live on GitHub.
+
+### Setting Up GitLab Issues
+
+Use this when tasks are coming from GitLab Issues:
+
+```env
+KATO_ISSUE_PLATFORM=gitlab
+GITLAB_ISSUES_BASE_URL=https://gitlab.com/api/v4
+GITLAB_API_TOKEN=...
+GITLAB_ISSUES_PROJECT=group/project
+GITLAB_ISSUES_ASSIGNEE=assignee-username
+GITLAB_ISSUES_ISSUE_STATES=opened
+GITLAB_ISSUES_PROGRESS_STATE_FIELD=labels
+GITLAB_ISSUES_PROGRESS_STATE=In Progress
+GITLAB_ISSUES_REVIEW_STATE_FIELD=labels
+GITLAB_ISSUES_REVIEW_STATE=In Review
+```
+
+`GITLAB_API_TOKEN` is also used for GitLab git push and merge request creation when discovered repositories live on GitLab.
+
+### Setting Up Bitbucket Issues
+
+Use this when tasks are coming from Bitbucket Issues:
+
+```env
+KATO_ISSUE_PLATFORM=bitbucket
+BITBUCKET_ISSUES_BASE_URL=https://api.bitbucket.org/2.0
+BITBUCKET_API_TOKEN=...
+BITBUCKET_USERNAME=bitbucket-username
+BITBUCKET_API_EMAIL=you@example.com
+BITBUCKET_ISSUES_WORKSPACE=workspace
+BITBUCKET_ISSUES_REPO_SLUG=repo-slug
+BITBUCKET_ISSUES_ASSIGNEE=assignee-username
+BITBUCKET_ISSUES_ISSUE_STATES=new,open
+BITBUCKET_ISSUES_PROGRESS_STATE_FIELD=state
+BITBUCKET_ISSUES_PROGRESS_STATE=open
+BITBUCKET_ISSUES_REVIEW_STATE_FIELD=state
+BITBUCKET_ISSUES_REVIEW_STATE=resolved
+```
+
+`BITBUCKET_API_TOKEN` is used for Bitbucket git auth and REST API calls. `BITBUCKET_API_EMAIL` is required for Bitbucket pull request API auth.
+
+### Setting Up OpenHands With Bedrock
+
+Use this when `OPENHANDS_LLM_MODEL` starts with `bedrock/`:
+
+```env
+OH_SECRET_KEY=stable-random-local-secret
+OPENHANDS_LLM_MODEL=bedrock/your-model-id
+OPENHANDS_LLM_API_KEY=
+OPENHANDS_LLM_BASE_URL=
+AWS_ACCESS_KEY_ID=...
+AWS_SECRET_ACCESS_KEY=...
+AWS_REGION_NAME=us-west-2
+AWS_SESSION_TOKEN=
+AWS_BEARER_TOKEN_BEDROCK=
+```
+
+For Bedrock auth, choose one path:
+
+- Standard AWS credentials: set `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `AWS_REGION_NAME`. Set `AWS_SESSION_TOKEN` too when the credentials are temporary. Leave `AWS_BEARER_TOKEN_BEDROCK` empty.
+- Bedrock bearer token: set `AWS_BEARER_TOKEN_BEDROCK`. Leave `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION_NAME`, and `AWS_SESSION_TOKEN` empty.
+
+### Setting Up OpenHands With OpenRouter
+
+Use this when `OPENHANDS_LLM_MODEL` starts with `openrouter/`:
+
+```env
+OH_SECRET_KEY=stable-random-local-secret
+OPENHANDS_LLM_MODEL=openrouter/openai/gpt-4o-mini
+OPENHANDS_LLM_API_KEY=...
+OPENHANDS_LLM_BASE_URL=https://openrouter.ai/api/v1
+AWS_ACCESS_KEY_ID=
+AWS_SECRET_ACCESS_KEY=
+AWS_REGION_NAME=
+AWS_SESSION_TOKEN=
+AWS_BEARER_TOKEN_BEDROCK=
+```
+
+OpenRouter requires both `OPENHANDS_LLM_API_KEY` and `OPENHANDS_LLM_BASE_URL`. Leave the AWS Bedrock variables empty for OpenRouter runs.
+
 ## Environment Reference
 
 The list below mirrors `.env.example`.
@@ -306,8 +455,6 @@ The `openhands` container reuses the same `OPENHANDS_LLM_*` and `AWS_*` values f
 | `AWS_REGION_NAME` | AWS region used for Bedrock-backed models or AWS auth in Docker. |
 | `AWS_SESSION_TOKEN` | Optional AWS session token for temporary Bedrock credentials. |
 | `AWS_BEARER_TOKEN_BEDROCK` | Bedrock bearer token alternative to AWS access keys. |
-
-For Bedrock specifically, you can use either standard AWS credentials or a Bedrock bearer token.
 
 The active issue provider comes from `kato.issue_platform`, which defaults to `youtrack`.
 Issue states can be configured directly in `.env` with `YOUTRACK_ISSUE_STATES`, `JIRA_ISSUE_STATES`, `GITHUB_ISSUES_ISSUE_STATES`, `GITLAB_ISSUES_ISSUE_STATES`, and `BITBUCKET_ISSUES_ISSUE_STATES`.
