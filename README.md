@@ -128,9 +128,9 @@ For each eligible assigned task, the service does these checks and steps:
 8. Before OpenHands starts, fetch `origin` and rebase any existing local task branch on top of `origin/<branch>` when that remote branch exists.
 9. Validate that task branches can be pushed.
 10. Move the issue to the in-progress state and add a started comment.
-11. Open the implementation conversation in the main OpenHands server. After the conversation finishes, delete it so the agent-server container is stopped and removed.
+11. Open the implementation conversation in the main OpenHands server.
 12. Validate that the task branches contain publishable changes.
-13. Open the testing conversation in the configured testing OpenHands server, or skip it when `OPENHANDS_SKIP_TESTING=true`. After the conversation finishes, delete it so the agent-server container is stopped and removed.
+13. Open the testing conversation in the configured testing OpenHands server, or skip it when `OPENHANDS_SKIP_TESTING=true`.
 14. Commit and push the branch updates, then create pull requests or merge requests through the repository provider API.
 15. Add the pull-request summary back to the task.
 16. If every repository published successfully, move the task to the configured review state, mark the task processed for this run, and send the completion notification.
@@ -142,6 +142,7 @@ If any repository cannot be published, the successful pull requests are kept, th
 
 After task processing, the agent checks tracked review pull requests for unseen comments:
 
+0. Before polling comments, compare the current review-state task list against all tasks with tracked pull-request contexts. For any task that is no longer in the review state (merged, moved to done, or closed by the reviewer), Kato deletes its OpenHands conversation so the agent-server container is stopped and removed. On normal process shutdown (SIGTERM / SIGINT), all remaining conversations are also deleted.
 1. Look only at pull requests that belong to tasks already moved into the review state.
 2. Load or reconstruct the saved pull-request context for the repository, branch, task, and OpenHands session.
 3. Fetch pull-request comments from the repository provider.
@@ -149,7 +150,7 @@ After task processing, the agent checks tracked review pull requests for unseen 
 5. Skip comment threads already replied to by Kato, already processed in memory, or already covered by another comment with the same resolution target.
 6. Log `Working on pull request comments: <pull request name>` before logging the concrete comment id.
 7. Prepare the same working branch again by fetching `origin` and rebasing the local branch on `origin/<branch>` before the review-fix conversation starts.
-8. Open the review-fix conversation in OpenHands with the pull request comment and the saved task context. After the conversation finishes, delete it so the agent-server container is stopped and removed.
+8. Open the review-fix conversation in OpenHands with the pull request comment and the saved task context. The saved session ID from the original implementation conversation is passed as the parent so the agent-server container is reused for context and cost efficiency.
 9. Publish the review fix back to the same branch. If git push is still rejected because the remote branch changed while OpenHands was working, Kato fetches `origin/<branch>`, rebases once, and retries the push.
 10. Reply to the original review comment with the OpenHands result.
 11. Resolve the review comment when the provider supports it.

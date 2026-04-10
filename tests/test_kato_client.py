@@ -1566,152 +1566,40 @@ class KatoClientTests(unittest.TestCase):
 
         self.assertEqual(mock_post.call_count, 1)
 
-    def test_conversation_deleted_after_successful_prompt(self) -> None:
-        """After a conversation finishes successfully, DELETE it to stop the container."""
+    def test_stop_all_conversations_deletes_every_listed_conversation(self) -> None:
+        """stop_all_conversations fetches the conversation list and deletes each one."""
         client = KatoClient('https://openhands.example', 'oh-token')
-
         delete_mock = Mock(return_value=mock_response())
 
         with patch.object(
             client,
-            '_post',
-            return_value=mock_response(json_data={'id': 'start-1', 'status': 'WORKING'}),
-        ), patch.object(
-            client,
             '_get',
-            side_effect=[
-                mock_response(
-                    json_data=[
-                        {
-                            'id': 'start-1',
-                            'status': 'READY',
-                            'app_conversation_id': 'conversation-abc',
-                        }
-                    ]
-                ),
-                mock_response(
-                    json_data=[
-                        {
-                            'id': 'conversation-abc',
-                            'execution_status': 'finished',
-                        }
-                    ]
-                ),
-                mock_response(
-                    json_data={
-                        'items': [
-                            {
-                                'kind': 'ActionEvent',
-                                'source': 'agent',
-                                'tool_name': 'finish',
-                                'action': {'summary': 'Done.', 'outputs': {'success': True}},
-                            }
-                        ]
-                    }
-                ),
-            ],
-        ), patch.object(
-            client, '_patch', return_value=mock_response()
+            return_value=mock_response(
+                json_data=[
+                    {'id': 'conv-1', 'execution_status': 'running'},
+                    {'id': 'conv-2', 'execution_status': 'paused'},
+                ]
+            ),
         ), patch.object(client, '_delete', delete_mock):
-            client.implement_task(build_task(), '')
+            client.stop_all_conversations()
 
-        delete_mock.assert_called_once_with('/api/conversations/conversation-abc')
+        self.assertEqual(delete_mock.call_count, 2)
+        delete_mock.assert_any_call('/api/conversations/conv-1')
+        delete_mock.assert_any_call('/api/conversations/conv-2')
 
-    def test_conversation_deleted_after_failed_prompt(self) -> None:
-        """DELETE is still called even when the conversation fails, to stop the container."""
-        client = KatoClient('https://openhands.example', 'oh-token')
-
-        delete_mock = Mock(return_value=mock_response())
-
-        with patch.object(
-            client,
-            '_post',
-            return_value=mock_response(json_data={'id': 'start-1', 'status': 'WORKING'}),
-        ), patch.object(
-            client,
-            '_get',
-            side_effect=[
-                mock_response(
-                    json_data=[
-                        {
-                            'id': 'start-1',
-                            'status': 'READY',
-                            'app_conversation_id': 'conversation-abc',
-                        }
-                    ]
-                ),
-                mock_response(
-                    json_data=[
-                        {
-                            'id': 'conversation-abc',
-                            'execution_status': 'failed',
-                        }
-                    ]
-                ),
-            ],
-        ), patch.object(
-            client, '_patch', return_value=mock_response()
-        ), patch.object(client, '_delete', delete_mock):
-            with self.assertRaises(RuntimeError):
-                client.implement_task(build_task(), '')
-
-        delete_mock.assert_called_once_with('/api/conversations/conversation-abc')
-
-    def test_conversation_delete_failure_does_not_raise(self) -> None:
-        """A failure to delete the conversation is logged as a warning, not raised."""
+    def test_stop_all_conversations_continues_on_list_failure(self) -> None:
+        """A failure to list conversations is logged as a warning, not raised."""
         client = KatoClient('https://openhands.example', 'oh-token')
         client.logger = Mock()
 
         with patch.object(
             client,
-            '_post',
-            return_value=mock_response(json_data={'id': 'start-1', 'status': 'WORKING'}),
-        ), patch.object(
-            client,
             '_get',
-            side_effect=[
-                mock_response(
-                    json_data=[
-                        {
-                            'id': 'start-1',
-                            'status': 'READY',
-                            'app_conversation_id': 'conversation-abc',
-                        }
-                    ]
-                ),
-                mock_response(
-                    json_data=[
-                        {
-                            'id': 'conversation-abc',
-                            'execution_status': 'finished',
-                        }
-                    ]
-                ),
-                mock_response(
-                    json_data={
-                        'items': [
-                            {
-                                'kind': 'ActionEvent',
-                                'source': 'agent',
-                                'tool_name': 'finish',
-                                'action': {'summary': 'Done.', 'outputs': {'success': True}},
-                            }
-                        ]
-                    }
-                ),
-            ],
-        ), patch.object(
-            client, '_patch', return_value=mock_response()
-        ), patch.object(
-            client,
-            '_delete',
-            side_effect=RuntimeError('server error'),
+            side_effect=RuntimeError('network error'),
         ):
-            client.implement_task(build_task(), '')
+            client.stop_all_conversations()
 
         client.logger.warning.assert_any_call(
-            'failed to delete conversation %s after completion; '
-            'agent-server container may need manual cleanup: %s',
-            'conversation-abc',
+            'failed to list conversations for shutdown cleanup: %s',
             ANY,
         )

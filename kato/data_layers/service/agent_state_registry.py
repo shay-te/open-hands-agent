@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from kato.data_layers.data.fields import PullRequestFields, StatusFields
+from kato.data_layers.data.fields import ImplementationFields, PullRequestFields, StatusFields, TaskFields
 from kato.helpers.pull_request_context_utils import (
     build_pull_request_context,
     pull_request_context_key,
@@ -126,6 +126,62 @@ class AgentStateRegistry:
     ) -> None:
         key = (str(repository_id), str(pull_request_id))
         self.processed_review_comment_map.setdefault(key, set()).add(str(comment_id))
+
+    def tracked_task_ids(self) -> set[str]:
+        """Return all task IDs that have tracked pull-request contexts."""
+        task_ids: set[str] = set()
+        for task_id in self.pull_request_task_map.values():
+            if task_id:
+                task_ids.add(str(task_id))
+        for contexts in self.pull_request_context_map.values():
+            for context in contexts:
+                task_id = str(context.get(TaskFields.ID, '') or '').strip()
+                if task_id:
+                    task_ids.add(task_id)
+        return task_ids
+
+    def session_ids_for_task(self, task_id: str) -> list[str]:
+        """Return all session IDs stored in PR contexts for the given task."""
+        normalized = str(task_id or '').strip()
+        session_ids: list[str] = []
+        seen: set[str] = set()
+        for contexts in self.pull_request_context_map.values():
+            for context in contexts:
+                if str(context.get(TaskFields.ID, '') or '').strip() != normalized:
+                    continue
+                session_id = str(context.get(ImplementationFields.SESSION_ID, '') or '').strip()
+                if session_id and session_id not in seen:
+                    seen.add(session_id)
+                    session_ids.append(session_id)
+        return session_ids
+
+    def forget_task(self, task_id: str) -> None:
+        """Remove all registry entries associated with the given task."""
+        normalized = str(task_id or '').strip()
+        if not normalized:
+            return
+
+        # Remove PR context entries that belong exclusively to this task.
+        pr_ids_to_remove: list[str] = []
+        for pr_id, contexts in self.pull_request_context_map.items():
+            remaining = [
+                ctx for ctx in contexts
+                if str(ctx.get(TaskFields.ID, '') or '').strip() != normalized
+            ]
+            if not remaining:
+                pr_ids_to_remove.append(pr_id)
+            else:
+                self.pull_request_context_map[pr_id] = remaining
+        for pr_id in pr_ids_to_remove:
+            del self.pull_request_context_map[pr_id]
+
+        # Remove PR task-map entries for this task.
+        stale_keys = [
+            key for key, tid in self.pull_request_task_map.items()
+            if str(tid or '').strip() == normalized
+        ]
+        for key in stale_keys:
+            del self.pull_request_task_map[key]
 
     def task_id_for_pull_request(
         self,

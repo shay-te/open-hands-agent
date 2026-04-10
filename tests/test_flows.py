@@ -945,6 +945,51 @@ class ReviewCommentFixFlowTests(unittest.TestCase):
     def test_review_comment_fix_flow_bitbucket_gitlab(self) -> None:
         self._run_and_assert_review_comment_fix_flow('bitbucket', 'gitlab')
 
+    def test_review_comment_fix_reuses_implementation_session_id(self) -> None:
+        """
+        The session ID from the original implementation conversation is passed to
+        fix_review_comment so the review fix runs in the same container, saving costs.
+        """
+        (
+            review_service,
+            ticket_client,
+            repository_service,
+            review_comment,
+            call_order,
+            ip,
+            repository,
+            state_registry,
+            ticket_cfg,
+        ) = self._build_review_comment_services('youtrack', 'github')
+
+        # Discover comments (also seeds the PR context with the task session)
+        new_comments = review_service.get_new_pull_request_comments()
+        self.assertEqual(len(new_comments), 1)
+
+        # Patch the PR context to carry the implementation session ID
+        pr_context = state_registry.pull_request_context('17', repository.id)
+        self.assertIsNotNone(pr_context)
+        pr_context[ImplementationFields.SESSION_ID] = 'impl-session-xyz'
+
+        # Process the comment
+        review_service.process_review_comment(new_comments[0])
+
+        # The session ID from the context must have been forwarded to fix_review_comment
+        fix_call_kwargs = repository_service.publish_review_fix.call_args  # confirms flow ran
+        self.assertIsNotNone(fix_call_kwargs)
+
+        # Verify via the mock on the underlying kato_client through ImplementationService.
+        # session_id is passed as the 3rd positional arg to fix_review_comment.
+        impl_mock = review_service._implementation_service._client
+        impl_mock.fix_review_comment.assert_called_once()
+        call_args, _ = impl_mock.fix_review_comment.call_args
+        # call_args: (comment, branch_name, session_id)
+        self.assertEqual(
+            call_args[2],
+            'impl-session-xyz',
+            'review-fix conversation must reuse the implementation session ID',
+        )
+
 
 # ---------------------------------------------------------------------------
 # ### Shutdown Flow
@@ -955,6 +1000,88 @@ class ShutdownFlowTests(unittest.TestCase):
     README shutdown behaviour: on process exit, all active OpenHands conversations
     are deleted so agent-server containers are stopped and removed.
     """
+
+    def test_done_task_conversation_deleted_when_no_longer_in_review(self) -> None:
+        """
+        When a task is no longer in the review-state list (merged/done), its
+        conversation container must be deleted before the next comment poll.
+        """
+        delete_calls: list[str] = []
+
+        cfg = build_test_cfg()
+        ip = ISSUE_PLATFORMS['youtrack']
+        ticket_cfg = cfg.kato.youtrack
+
+        ticket_client = types.SimpleNamespace(
+            provider_name='youtrack',
+            max_retries=3,
+            # Returns empty list — task PROJ-1 is no longer in review state
+            get_assigned_tasks=Mock(return_value=[]),
+            add_comment=Mock(),
+            move_issue_to_state=Mock(),
+            validate_connection=Mock(),
+        )
+
+        kato_client = types.SimpleNamespace(
+            max_retries=3,
+            validate_connection=Mock(),
+            validate_model_access=Mock(),
+            fix_review_comment=Mock(),
+            delete_conversation=Mock(side_effect=lambda sid: delete_calls.append(sid)),
+            stop_all_conversations=Mock(),
+        )
+
+        repository_service = types.SimpleNamespace(
+            _validate_inventory=Mock(), _validate_git_executable=Mock(),
+            _prepare_repository_access=Mock(), _validate_repository_git_access=Mock(),
+            resolve_task_repositories=Mock(return_value=[]),
+            build_branch_name=Mock(return_value='PROJ-1'),
+            find_pull_requests=Mock(return_value=[]),
+            list_pull_request_comments=Mock(return_value=[]),
+            get_repository=Mock(),
+            prepare_task_branches=Mock(), publish_review_fix=Mock(),
+            reply_to_review_comment=Mock(), resolve_review_comment=Mock(),
+            restore_task_repositories=Mock(),
+            prepare_task_repositories=Mock(side_effect=lambda r: r),
+            destination_branch=Mock(return_value='main'),
+            _ensure_branch_is_pushable=Mock(), _ensure_branch_has_task_changes=Mock(),
+            create_pull_request=Mock(),
+        )
+
+        task_data_access = TaskDataAccess(ticket_cfg, ticket_client)
+        task_service = TaskService(ticket_cfg, task_data_access)
+        task_state_service = TaskStateService(ticket_cfg, task_data_access)
+        notification_service = NotificationService(
+            app_name='kato',
+            email_core_lib=Mock(),
+            failure_email_cfg=cfg.kato.failure_email,
+            completion_email_cfg=cfg.kato.completion_email,
+        )
+
+        agent_service = AgentService(
+            task_service=task_service,
+            task_state_service=task_state_service,
+            implementation_service=ImplementationService(kato_client),
+            testing_service=TestingService(kato_client),
+            repository_service=repository_service,
+            notification_service=notification_service,
+        )
+
+        # Seed the registry with a tracked session for PROJ-1 as if a task was processed
+        agent_service._state_registry.remember_pull_request_context(
+            {
+                PullRequestFields.ID: '17',
+                PullRequestFields.REPOSITORY_ID: 'repo',
+            },
+            branch_name='PROJ-1',
+            session_id='conv-abc',
+            task_id='PROJ-1',
+        )
+
+        # Polling for comments triggers cleanup: PROJ-1 is not in review → delete conv-abc
+        agent_service.get_new_pull_request_comments()
+
+        self.assertIn('conv-abc', delete_calls, 'conversation for done task must be deleted')
 
     def test_shutdown_stops_all_conversations_on_impl_and_testing_services(self) -> None:
         """AgentService.shutdown() calls stop_all_conversations on both services."""

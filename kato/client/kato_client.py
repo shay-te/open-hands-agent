@@ -384,12 +384,12 @@ class KatoClient(RetryingClientBase):
         session_id: str = '',
     ) -> dict[str, str | bool]:
         conversation_id = self._start_conversation(prompt, title, session_id)
-        try:
-            payload = self._wait_for_conversation_result(conversation_id, title)
-            payload[ImplementationFields.SESSION_ID] = conversation_id
-            return payload
-        finally:
-            self._delete_conversation(conversation_id)
+        payload = self._wait_for_conversation_result(conversation_id, title)
+        payload[ImplementationFields.SESSION_ID] = conversation_id
+        return payload
+
+    def delete_conversation(self, conversation_id: str) -> None:
+        self._delete_conversation(conversation_id)
 
     def _delete_conversation(self, conversation_id: str) -> None:
         try:

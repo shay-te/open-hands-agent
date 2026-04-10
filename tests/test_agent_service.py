@@ -1437,7 +1437,9 @@ class AgentServiceTests(unittest.TestCase):
                 },
             ],
         )
-        self.task_client.get_assigned_tasks.assert_called_once_with(
+        # Called twice per cycle: once for done-task cleanup, once for comment discovery.
+        self.assertEqual(self.task_client.get_assigned_tasks.call_count, 2)
+        self.task_client.get_assigned_tasks.assert_called_with(
             project='PROJ',
             assignee='me',
             states=['To Verify'],

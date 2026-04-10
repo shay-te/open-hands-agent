@@ -144,7 +144,43 @@ class AgentService(Service):
         return self._task_service.get_assigned_tasks()
 
     def get_new_pull_request_comments(self) -> list:
+        self._cleanup_done_task_conversations()
         return self._review_comment_service.get_new_pull_request_comments()
+
+    def _cleanup_done_task_conversations(self) -> None:
+        """Delete conversation containers for tasks no longer in the review state.
+
+        When a reviewer merges a PR and moves the task to done, Kato detects
+        it is missing from the review-task list and removes the associated
+        agent-server container to avoid accumulation.
+        """
+        try:
+            current_review_task_ids = {
+                str(task.id) for task in self._task_service.get_review_tasks()
+            }
+        except Exception:
+            self.logger.warning(
+                'failed to fetch review tasks for conversation cleanup; skipping'
+            )
+            return
+
+        stale_task_ids = self._state_registry.tracked_task_ids() - current_review_task_ids
+        for task_id in stale_task_ids:
+            for session_id in self._state_registry.session_ids_for_task(task_id):
+                self.logger.info(
+                    'task %s is no longer in review; stopping conversation %s',
+                    task_id,
+                    session_id,
+                )
+                try:
+                    self._implementation_service.delete_conversation(session_id)
+                except Exception:
+                    self.logger.warning(
+                        'failed to stop conversation %s for done task %s',
+                        session_id,
+                        task_id,
+                    )
+            self._state_registry.forget_task(task_id)
 
     def handle_pull_request_comment(self, payload: dict) -> dict[str, str]:
         return self._review_comment_service.handle_pull_request_comment(payload)
