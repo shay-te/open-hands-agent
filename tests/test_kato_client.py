@@ -871,7 +871,7 @@ class KatoClientTests(unittest.TestCase):
 
         self.assertEqual(
             mock_run_prompt.call_args.kwargs['title'],
-            'PROJ-1 Fix bug [review]',
+            'PROJ-1 [review]',
         )
 
     def test_fix_review_comment_uses_parent_conversation_id_for_uuid_session(self) -> None:

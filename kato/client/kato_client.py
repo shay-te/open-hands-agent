@@ -184,9 +184,9 @@ class KatoClient(RetryingClientBase):
         task_id: str = '',
         task_summary: str = '',
     ) -> str:
-        title_parts = cls._conversation_title_parts(task_id, task_summary)
-        if title_parts:
-            return f'{" ".join(title_parts)} [review]'
+        normalized_task_id = normalized_text(task_id)
+        if normalized_task_id:
+            return f'{normalized_task_id} [review]'
         return f'Fix review comment {comment.comment_id}'
 
     @staticmethod
