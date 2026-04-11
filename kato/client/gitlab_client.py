@@ -6,7 +6,7 @@ from urllib.parse import quote
 from kato.client.pull_request_client_base import PullRequestClientBase
 from kato.data_layers.data.review_comment import ReviewComment
 from kato.data_layers.data.fields import PullRequestFields, ReviewCommentFields
-from kato.helpers.text_utils import normalized_text, text_from_attr, text_from_mapping
+from kato.helpers.text_utils import dict_from_mapping, list_from_mapping, normalized_text, text_from_attr, text_from_mapping
 
 
 class GitLabClient(PullRequestClientBase):
@@ -153,11 +153,11 @@ class GitLabClient(PullRequestClientBase):
             if not isinstance(discussion, dict) or discussion.get('resolved'):
                 continue
             discussion_id = text_from_mapping(discussion, 'id')
-            notes = discussion.get('notes', []) if isinstance(discussion.get('notes', []), list) else []
+            notes = list_from_mapping(discussion, 'notes')
             for item in notes:
                 if not isinstance(item, dict) or item.get('system'):
                     continue
-                author = item.get('author') if isinstance(item.get('author'), dict) else {}
+                author = dict_from_mapping(item, 'author')
                 comment = cls._review_comment_from_values(
                     pull_request_id=pull_request_id,
                     comment_id=item.get('id', ''),
@@ -194,7 +194,7 @@ class GitLabClient(PullRequestClientBase):
         for discussion in self._discussion_payload(repo_owner, repo_slug, pull_request_id):
             if not isinstance(discussion, dict):
                 continue
-            notes = discussion.get('notes', []) if isinstance(discussion.get('notes', []), list) else []
+            notes = list_from_mapping(discussion, 'notes')
             if any(
                 text_from_mapping(note, 'id') == target_comment_id
                 for note in notes

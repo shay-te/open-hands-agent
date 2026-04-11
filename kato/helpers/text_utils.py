@@ -33,5 +33,19 @@ def text_from_mapping(
     return normalized_text(mapping.get(key, default))
 
 
+def dict_from_mapping(mapping: object, key: object) -> dict:
+    if not isinstance(mapping, Mapping):
+        return {}
+    value = mapping.get(key)
+    return value if isinstance(value, dict) else {}
+
+
+def list_from_mapping(mapping: object, key: object) -> list:
+    if not isinstance(mapping, Mapping):
+        return []
+    value = mapping.get(key)
+    return value if isinstance(value, list) else []
+
+
 def text_from_attr(obj: object, attribute: str, default: object = '') -> str:
     return normalized_text(getattr(obj, attribute, default))

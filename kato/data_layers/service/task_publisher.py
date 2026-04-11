@@ -53,7 +53,7 @@ class TaskPublisher(Service):
         task: Task,
         prepared_task: PreparedTaskContext,
         execution: dict[str, str | bool],
-    ) -> dict | None:
+    ) -> dict[str, object] | None:
         self._log_task_step(task.id, 'publishing pull requests')
         pull_requests, failed_repositories = self._create_pull_requests(
             task,

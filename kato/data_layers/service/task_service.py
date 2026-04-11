@@ -6,6 +6,7 @@ from core_lib.data_layers.service.service import Service
 
 from kato.data_layers.data.task import Task
 from kato.data_layers.data_access.task_data_access import TaskDataAccess
+from kato.helpers.kato_config_utils import parse_issue_states
 from kato.helpers.text_utils import alphanumeric_lower_text
 
 
@@ -65,12 +66,7 @@ class TaskService(Service):
         return filtered_states
 
     def _raw_configured_issue_states(self) -> list[str]:
-        if hasattr(self._config, 'issue_states'):
-            issue_states = self._config.issue_states
-            if isinstance(issue_states, str):
-                return [state.strip() for state in issue_states.split(',') if state.strip()]
-            return [str(state).strip() for state in issue_states if str(state).strip()]
-        return [self._config.issue_state]
+        return parse_issue_states(self._config)
 
     def _exclude_non_queue_states(self, states: list[str]) -> list[str]:
         non_queue_tokens = {

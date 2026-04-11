@@ -6,7 +6,7 @@ from kato.client.bitbucket_auth import bitbucket_basic_auth_header
 from kato.client.pull_request_client_base import PullRequestClientBase
 from kato.data_layers.data.review_comment import ReviewComment
 from kato.data_layers.data.fields import PullRequestFields, ReviewCommentFields
-from kato.helpers.text_utils import normalized_text, text_from_attr
+from kato.helpers.text_utils import dict_from_mapping, list_from_mapping, normalized_text, text_from_attr
 
 # Bitbucket rejected pagelen values around 100 in live API checks ("Invalid pagelen"),
 # so keep PR and PR-comment pagination at a smaller safe value.
@@ -81,17 +81,15 @@ class BitbucketClient(PullRequestClientBase):
         )
         response.raise_for_status()
         payload = response.json() or {}
-        values = payload.get('values', []) if isinstance(payload, dict) else []
-        if not isinstance(values, list):
-            return []
+        values = list_from_mapping(payload, 'values')
         normalized_source_branch = normalized_text(source_branch)
         normalized_title_prefix = normalized_text(title_prefix)
         matches: list[dict[str, str]] = []
         for item in values:
             if not isinstance(item, dict):
                 continue
-            source = item.get('source') if isinstance(item.get('source'), dict) else {}
-            branch = source.get('branch') if isinstance(source.get('branch'), dict) else {}
+            source = dict_from_mapping(item, 'source')
+            branch = dict_from_mapping(source, 'branch')
             item_source_branch = normalized_text(branch.get('name', ''))
             if normalized_source_branch and item_source_branch != normalized_source_branch:
                 continue
@@ -164,12 +162,8 @@ class BitbucketClient(PullRequestClientBase):
 
     @classmethod
     def _normalize_pr(cls, payload: dict[str, Any]) -> dict[str, str]:
-        links = payload.get('links') if isinstance(payload, dict) else {}
-        if not isinstance(links, dict):
-            links = {}
-        html_link = links.get('html')
-        if not isinstance(html_link, dict):
-            html_link = {}
+        links = dict_from_mapping(payload, 'links')
+        html_link = dict_from_mapping(links, 'html')
         return cls._normalized_pull_request(
             payload,
             id_key=PullRequestFields.ID,
@@ -178,19 +172,16 @@ class BitbucketClient(PullRequestClientBase):
 
     @classmethod
     def _normalize_comments(cls, payload: dict[str, Any], pull_request_id: str) -> list[ReviewComment]:
-        values = payload.get('values', []) if isinstance(payload, dict) else []
-        if not isinstance(values, list):
-            return []
-
+        values = list_from_mapping(payload, 'values')
         comments: list[ReviewComment] = []
         for item in values:
             if not isinstance(item, dict) or item.get('deleted'):
                 continue
-            parent = item.get('parent') if isinstance(item.get('parent'), dict) else {}
+            parent = dict_from_mapping(item, 'parent')
             if item.get('resolution') or parent.get('resolution'):
                 continue
-            content = item.get('content') if isinstance(item.get('content'), dict) else {}
-            author = item.get('user') if isinstance(item.get('user'), dict) else {}
+            content = dict_from_mapping(item, 'content')
+            author = dict_from_mapping(item, 'user')
             display_name = author.get('display_name', '')
             nickname = author.get('nickname', '')
             resolution_target_id = normalized_text(

@@ -3,7 +3,8 @@ from omegaconf import DictConfig
 from core_lib.data_layers.service.service import Service
 
 from kato.data_layers.data_access.task_data_access import TaskDataAccess
-from kato.helpers.text_utils import alphanumeric_lower_text, normalized_text
+from kato.helpers.kato_config_utils import parse_issue_states
+from kato.helpers.text_utils import normalized_text
 
 
 class TaskStateService(Service):
@@ -43,10 +44,14 @@ class TaskStateService(Service):
         )
 
     def _configured_state_field(self, state_key: str) -> str:
+        return self._resolve_state_field(state_key, frozenset())
+
+    def _resolve_state_field(self, state_key: str, visited: frozenset[str]) -> str:
         config_key = f'{state_key}_state_field'
         default = self._STATE_FIELD_DEFAULTS[state_key]
-        if default in self._STATE_FIELD_DEFAULTS:
-            default = self._configured_state_field(default)
+        visited = visited | {state_key}
+        if default in self._STATE_FIELD_DEFAULTS and default not in visited:
+            default = self._resolve_state_field(default, visited)
         return getattr(self._config, config_key, default)
 
     def _configured_state_value(self, state_key: str) -> str:
@@ -66,13 +71,4 @@ class TaskStateService(Service):
         return 'Open'
 
     def _configured_issue_states(self) -> list[str]:
-        if hasattr(self._config, 'issue_states'):
-            issue_states = self._config.issue_states
-            if isinstance(issue_states, str):
-                return [state.strip() for state in issue_states.split(',') if state.strip()]
-            return [str(state).strip() for state in issue_states if str(state).strip()]
-        return [self._config.issue_state]
-
-    @staticmethod
-    def _normalized_state_token(value: str) -> str:
-        return alphanumeric_lower_text(value)
+        return parse_issue_states(self._config)

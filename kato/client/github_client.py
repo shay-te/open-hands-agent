@@ -7,7 +7,7 @@ from kato.client.pull_request_client_base import PullRequestClientBase
 from kato.helpers.retry_utils import run_with_retry
 from kato.data_layers.data.review_comment import ReviewComment
 from kato.data_layers.data.fields import PullRequestFields, ReviewCommentFields
-from kato.helpers.text_utils import normalized_text, text_from_attr, text_from_mapping
+from kato.helpers.text_utils import dict_from_mapping, list_from_mapping, normalized_text, text_from_attr, text_from_mapping
 
 
 class GitHubClient(PullRequestClientBase):
@@ -108,7 +108,7 @@ mutation($threadId: ID!) {
             if not isinstance(item, dict):
                 continue
             if normalized_source_branch:
-                head = item.get('head') if isinstance(item.get('head'), dict) else {}
+                head = dict_from_mapping(item, 'head')
                 if normalized_text(head.get('ref', '')) != normalized_source_branch:
                     continue
             item_title = normalized_text(item.get(PullRequestFields.TITLE, ''))
@@ -171,12 +171,12 @@ mutation($threadId: ID!) {
             if not isinstance(thread, dict) or thread.get('isResolved'):
                 continue
             thread_id = text_from_mapping(thread, 'id')
-            comments_payload = thread.get('comments') if isinstance(thread.get('comments'), dict) else {}
-            nodes = comments_payload.get('nodes', []) if isinstance(comments_payload.get('nodes', []), list) else []
+            comments_payload = dict_from_mapping(thread, 'comments')
+            nodes = list_from_mapping(comments_payload, 'nodes')
             for item in nodes:
                 if not isinstance(item, dict):
                     continue
-                author = item.get('author') if isinstance(item.get('author'), dict) else {}
+                author = dict_from_mapping(item, 'author')
                 comment = cls._review_comment_from_values(
                     pull_request_id=pull_request_id,
                     comment_id=item.get('databaseId', ''),
@@ -207,10 +207,9 @@ mutation($threadId: ID!) {
             },
         )
         repository = payload.get('data', {}).get('repository', {})
-        pull_request = repository.get('pullRequest') if isinstance(repository, dict) else {}
-        review_threads = pull_request.get('reviewThreads') if isinstance(pull_request, dict) else {}
-        nodes = review_threads.get('nodes', []) if isinstance(review_threads, dict) else []
-        return nodes if isinstance(nodes, list) else []
+        pull_request = dict_from_mapping(repository, 'pullRequest')
+        review_threads = dict_from_mapping(pull_request, 'reviewThreads')
+        return list_from_mapping(review_threads, 'nodes')
 
     def _thread_id_for_comment(
         self,
@@ -223,8 +222,8 @@ mutation($threadId: ID!) {
         for thread in self._review_thread_nodes(repo_owner, repo_slug, pull_request_id):
             if not isinstance(thread, dict):
                 continue
-            comments_payload = thread.get('comments') if isinstance(thread.get('comments'), dict) else {}
-            nodes = comments_payload.get('nodes', []) if isinstance(comments_payload.get('nodes', []), list) else []
+            comments_payload = dict_from_mapping(thread, 'comments')
+            nodes = list_from_mapping(comments_payload, 'nodes')
             if any(
                 text_from_mapping(item, 'databaseId') == target_comment_id
                 for item in nodes

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from core_lib.data_layers.service.service import Service
 
 from kato.data_layers.service.agent_state_registry import AgentStateRegistry
@@ -26,6 +28,7 @@ from kato.data_layers.service.task_preflight_service import (
 from kato.data_layers.service.task_service import TaskService
 from kato.data_layers.service.testing_service import TestingService
 from kato.data_layers.data.fields import ImplementationFields
+from kato.data_layers.data.review_comment import ReviewComment
 from kato.validation.branch_publishability import (
     TaskBranchPublishabilityValidator,
 )
@@ -60,12 +63,19 @@ class AgentService(Service):
         startup_validator: StartupDependencyValidator | None = None,
         task_preflight_service: TaskPreflightService | None = None,
         skip_testing: bool = False,
+        logger: logging.Logger | None = None,
     ) -> None:
-        self.logger = configure_logger(self.__class__.__name__)
-        if testing_service is None:
-            raise ValueError('testing_service is required')
+        self.logger = logger or configure_logger(self.__class__.__name__)
+        if task_service is None:
+            raise ValueError('task_service is required')
         if task_state_service is None:
             raise ValueError('task_state_service is required')
+        if implementation_service is None:
+            raise ValueError('implementation_service is required')
+        if testing_service is None:
+            raise ValueError('testing_service is required')
+        if repository_service is None:
+            raise ValueError('repository_service is required')
         if notification_service is None:
             raise ValueError('notification_service is required')
         if review_comment_service is not None:
@@ -143,7 +153,7 @@ class AgentService(Service):
     def get_assigned_tasks(self) -> list[Task]:
         return self._task_service.get_assigned_tasks()
 
-    def get_new_pull_request_comments(self) -> list:
+    def get_new_pull_request_comments(self) -> list[ReviewComment]:
         self._cleanup_done_task_conversations()
         return self._review_comment_service.get_new_pull_request_comments()
 
@@ -185,10 +195,10 @@ class AgentService(Service):
     def handle_pull_request_comment(self, payload: dict) -> dict[str, str]:
         return self._review_comment_service.handle_pull_request_comment(payload)
 
-    def process_review_comment(self, comment):
+    def process_review_comment(self, comment: ReviewComment) -> dict[str, str]:
         return self._review_comment_service.process_review_comment(comment)
 
-    def process_assigned_task(self, task: Task) -> dict | None:
+    def process_assigned_task(self, task: Task) -> dict[str, object] | None:
         processed_result = self._processed_task_result(task.id)
         if processed_result is not None:
             return processed_result
@@ -223,7 +233,7 @@ class AgentService(Service):
             return testing_result
         return self._task_publisher.publish_task_execution(task, prepared_task, execution)
 
-    def _processed_task_result(self, task_id: str) -> dict | None:
+    def _processed_task_result(self, task_id: str) -> dict[str, object] | None:
         if not self._state_registry.is_task_processed(task_id):
             return None
         self.logger.info('skipping already processed task %s', task_id)

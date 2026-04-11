@@ -5,6 +5,15 @@ from omegaconf import DictConfig
 from kato.helpers.text_utils import normalized_text
 
 
+def parse_issue_states(config: DictConfig) -> list[str]:
+    if hasattr(config, 'issue_states'):
+        issue_states = config.issue_states
+        if isinstance(issue_states, str):
+            return [s.strip() for s in issue_states.split(',') if s.strip()]
+        return [str(s).strip() for s in issue_states if str(s).strip()]
+    return [config.issue_state]
+
+
 def is_bedrock_model(model: str) -> bool:
     return normalized_text(model).startswith('bedrock/')
 
