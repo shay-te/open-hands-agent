@@ -73,7 +73,7 @@ class ReviewCommentService(Service):
         display_name = self._review_pull_request_display_name(comment, review_context)
         log_mission_start(
             self.logger,
-            comment.pull_request_id,
+            review_context.task_id,
             'starting mission: %s (comment %s)',
             display_name,
             comment.comment_id,
@@ -86,7 +86,7 @@ class ReviewCommentService(Service):
             self._complete_review_fix(comment, review_context)
             log_mission_end(
                 self.logger,
-                comment.pull_request_id,
+                review_context.task_id,
                 'done working on mission: %s',
                 display_name,
             )
