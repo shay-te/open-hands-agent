@@ -44,6 +44,27 @@ class ProcessAssignedTasksJobTests(unittest.TestCase):
             results,
         )
 
+    def test_run_logs_rotating_empty_scan_message_when_no_results_are_found(self) -> None:
+        self.openhands_core_lib.service = Mock()
+        self.openhands_core_lib.service.get_assigned_tasks.return_value = []
+        self.openhands_core_lib.service.get_new_pull_request_comments.return_value = []
+        self.openhands_core_lib.service.process_assigned_task = Mock()
+        self.openhands_core_lib.service.process_review_comment = Mock()
+        self.openhands_core_lib.service.notification_service = Mock()
+        self.job.logger = Mock()
+        self.job.initialized(self.openhands_core_lib)
+
+        self.job.run()
+        self.job.run()
+
+        self.assertEqual(
+            self.job.logger.info.call_args_list,
+            [
+                unittest.mock.call('Scanning for new tasks and comments %s', '/'),
+                unittest.mock.call('Scanning for new tasks and comments %s', '-'),
+            ],
+        )
+
     def test_run_sends_failure_notification_before_reraising(self) -> None:
         notification_service = Mock()
         self.openhands_core_lib.service = Mock()

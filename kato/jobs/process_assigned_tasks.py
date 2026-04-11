@@ -19,8 +19,11 @@ def collect_processing_results(service) -> list[dict]:
 
 
 class ProcessAssignedTasksJob(Job):
+    _EMPTY_SCAN_FRAMES = ('/', '-', '\\', '|')
+
     def __init__(self) -> None:
         self.logger = configure_logger(self.__class__.__name__)
+        self._empty_scan_frame_index = 0
 
     def initialized(self, data_handler: KatoCoreLib) -> None:
         assert isinstance(data_handler, KatoCoreLib)
@@ -29,7 +32,7 @@ class ProcessAssignedTasksJob(Job):
     def run(self) -> None:
         try:
             results = collect_processing_results(self._data_handler.service)
-            self.logger.info('completed processing results: %s', results)
+            self._log_scan_results(results)
         except Exception as exc:
             log_and_notify_failure(
                 logger=self.logger,
@@ -42,3 +45,14 @@ class ProcessAssignedTasksJob(Job):
                 ),
             )
             raise
+
+    def _log_scan_results(self, results: list[dict]) -> None:
+        if results:
+            self.logger.info('completed processing results: %s', results)
+            return
+
+        frame = self._EMPTY_SCAN_FRAMES[
+            self._empty_scan_frame_index % len(self._EMPTY_SCAN_FRAMES)
+        ]
+        self._empty_scan_frame_index += 1
+        self.logger.info('Scanning for new tasks and comments %s', frame)
