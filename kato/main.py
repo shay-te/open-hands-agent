@@ -61,7 +61,7 @@ def main(cfg: DictConfig) -> int:
         raise
     app = KatoInstance.get()
     app.logger = getattr(app, 'logger', None) or logger
-    app.logger.info('starting kato agent')
+    app.logger.info('Starting kato agent')
     _register_shutdown_hook(app)
     startup_delay_seconds, scan_interval_seconds = _task_scan_settings(cfg)
     _run_task_scan_loop(

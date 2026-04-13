@@ -84,6 +84,30 @@ class ShellStatusUtilsTests(unittest.TestCase):
         spinner.stop.assert_called_once_with()
         operation.assert_called_once_with()
 
+    def test_run_with_inline_status_spinner_accepts_non_persistent_final_line(self) -> None:
+        operation = Mock(return_value='ok')
+        spinner = Mock()
+
+        with patch(
+            'kato.helpers.shell_status_utils.InlineStatusSpinner',
+            return_value=spinner,
+        ) as mock_spinner_cls:
+            result = run_with_inline_status_spinner(
+                operation,
+                status_text='Validating connection 1/4: openhands',
+                persist_final_line=False,
+            )
+
+        self.assertEqual(result, 'ok')
+        mock_spinner_cls.assert_called_once_with(
+            'Validating connection 1/4: openhands',
+            stream=None,
+            persist_final_line=False,
+        )
+        spinner.start.assert_called_once_with()
+        spinner.stop.assert_called_once_with()
+        operation.assert_called_once_with()
+
     def test_inline_status_spinner_persists_final_line_without_spinner(self) -> None:
         class _Stream:
             def __init__(self) -> None:

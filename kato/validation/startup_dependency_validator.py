@@ -1,14 +1,10 @@
 from __future__ import annotations
-
-import sys
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from kato.helpers.shell_status_utils import (
     clear_active_inline_status,
-    run_with_inline_status_spinner,
-    supports_inline_status,
 )
 from kato.validation.base import ValidationBase
 from kato.helpers.retry_utils import is_retryable_exception
@@ -144,9 +140,6 @@ class StartupDependencyValidator(ValidationBase):
 
     @staticmethod
     def _run_validation_step(validate: Callable[[], None], *, status_text: str, logger) -> None:
-        if supports_inline_status(sys.stderr):
-            run_with_inline_status_spinner(validate, status_text=status_text)
-            return
         logger.info('%s', status_text)
         validate()
 

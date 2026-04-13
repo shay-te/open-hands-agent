@@ -1,6 +1,6 @@
 import unittest
 from types import SimpleNamespace
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 from kato.validation.startup_dependency_validator import (
     StartupDependencyValidator,
@@ -40,11 +40,7 @@ class StartupDependencyValidatorTests(unittest.TestCase):
         self.logger = Mock()
 
     def test_validate_checks_repository_and_all_dependencies(self) -> None:
-        with patch(
-            'kato.validation.startup_dependency_validator.supports_inline_status',
-            return_value=False,
-        ):
-            self.validator.validate(self.logger)
+        self.validator.validate(self.logger)
 
         self.repository_connections_validator.validate.assert_called_once_with()
         self.task_service.validate_connection.assert_called_once_with()
@@ -79,11 +75,7 @@ class StartupDependencyValidatorTests(unittest.TestCase):
             skip_testing=True,
         )
 
-        with patch(
-            'kato.validation.startup_dependency_validator.supports_inline_status',
-            return_value=False,
-        ):
-            validator.validate(self.logger)
+        validator.validate(self.logger)
 
         self.repository_connections_validator.validate.assert_called_once_with()
         self.task_service.validate_connection.assert_called_once_with()
@@ -135,3 +127,19 @@ class StartupDependencyValidatorTests(unittest.TestCase):
         self.assertEqual(str(self.logger.error.call_args.args[1]), 'repo down')
         self.assertIsInstance(exc_context.exception.__cause__, RuntimeError)
         self.assertEqual(str(exc_context.exception.__cause__), 'repo down')
+
+    def test_validate_logs_progress_without_inline_spinner(self) -> None:
+        self.validator.validate(self.logger)
+
+        self.assertEqual(
+            self.logger.info.call_args_list,
+            [
+                unittest.mock.call(
+                    '%s',
+                    'Validating connection (1/4): repositories (client, backend)',
+                ),
+                unittest.mock.call('%s', 'Validating connection (2/4): youtrack'),
+                unittest.mock.call('%s', 'Validating connection (3/4): openhands'),
+                unittest.mock.call('%s', 'Validating connection (4/4): openhands_testing'),
+            ],
+        )

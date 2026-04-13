@@ -30,7 +30,7 @@ class MainTests(unittest.TestCase):
             startup_delay_seconds=30.0,
             scan_interval_seconds=60.0,
         )
-        app.logger.info.assert_any_call('starting kato agent')
+        app.logger.info.assert_any_call('Starting kato agent')
 
     def test_main_configures_logger_when_app_logger_is_missing(self) -> None:
         configured_logger = Mock()

@@ -173,11 +173,12 @@ def run_with_inline_status_spinner(
     *,
     status_text: str,
     stream=None,
+    persist_final_line: bool = True,
 ):
     spinner = InlineStatusSpinner(
         status_text,
         stream=stream,
-        persist_final_line=True,
+        persist_final_line=persist_final_line,
     )
     spinner.start()
     try:
