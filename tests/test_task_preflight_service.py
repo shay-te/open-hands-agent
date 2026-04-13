@@ -133,7 +133,29 @@ class TaskPreflightServiceTests(unittest.TestCase):
         self.assertEqual(result[StatusFields.STATUS], StatusFields.SKIPPED)
         self.assertEqual(result['id'], self.task.id)
         mock_prepare_task_start.assert_not_called()
+        self.task_model_access_validator.validate.assert_not_called()
         self.repository_service.resolve_task_repositories.assert_not_called()
+
+    def test_prepare_task_execution_context_logs_active_blocking_comment_only_once(self) -> None:
+        self.service.logger = Mock()
+
+        with patch.object(
+            self.service,
+            '_active_execution_blocking_comment',
+            return_value='Kato agent stopped working on this task: sandbox failed',
+        ):
+            first_result = self.service.prepare_task_execution_context(self.task)
+            second_result = self.service.prepare_task_execution_context(self.task)
+
+        self.assertEqual(first_result[StatusFields.STATUS], StatusFields.SKIPPED)
+        self.assertEqual(second_result[StatusFields.STATUS], StatusFields.SKIPPED)
+        self.task_model_access_validator.validate.assert_not_called()
+        self.service.logger.info.assert_called_once_with(
+            'skipping task %s because a prior Kato %s comment is still active: %s',
+            self.task.id,
+            'unknown',
+            'Kato agent stopped working on this task: sandbox failed',
+        )
 
     def test_prepare_task_execution_context_retries_when_prior_blocking_comment_clears(self) -> None:
         with patch.object(
@@ -165,6 +187,7 @@ class TaskPreflightServiceTests(unittest.TestCase):
         self.assertEqual(result[StatusFields.STATUS], StatusFields.SKIPPED)
         self.assertEqual(result['id'], self.task.id)
         mock_prepare_task_start.assert_called_once_with(self.task)
+        self.task_model_access_validator.validate.assert_not_called()
 
     def test_validate_task_branch_push_access_returns_false_without_failure_handler(self) -> None:
         self.task_branch_push_validator.validate.side_effect = RuntimeError('missing push')

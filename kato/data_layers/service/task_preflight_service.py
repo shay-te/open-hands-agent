@@ -42,6 +42,7 @@ class TaskPreflightService(Service):
         self._repository_service = repository_service
         self._task_branch_push_validator = task_branch_push_validator
         self._task_branch_publishability_validator = task_branch_publishability_validator
+        self._active_blocking_comment_log_state: dict[str, str] = {}
         self.logger = logger or configure_logger(self.__class__.__name__)
 
     def prepare_task_execution_context(
@@ -55,41 +56,63 @@ class TaskPreflightService(Service):
         branch_preparation_failure_handler: Callable[[Task, Exception, PreparedTaskContext | None], None] | None = None,
         branch_push_failure_handler: Callable[[Task, Exception, PreparedTaskContext | None], None] | None = None,
     ) -> PreparedTaskContext | dict | None:
+        blocking_comment = self._active_execution_blocking_comment(task)
+        if blocking_comment and not self._can_retry_without_explicit_override(blocking_comment):
+            return self._skip_blocked_task_result(task, blocking_comment)
+
+        if blocking_comment:
+            prepared_task = self._check_retry_preconditions(task, blocking_comment)
+            if prepared_task is None or isinstance(prepared_task, dict):
+                return prepared_task
+            if not self._validate_task_model_access(
+                task,
+                task_failure_handler=task_failure_handler,
+            ):
+                return None
+            self._clear_blocked_task_log_state(task.id)
+            self._log_task_step(task.id, 'Kato model access validated')
+            self._log_task_step(
+                task.id,
+                'starting mission: %s',
+                str(task.summary or '').strip() or task.id,
+            )
+            return prepared_task
+
+        if not self._validate_task_model_access(
+            task,
+            task_failure_handler=task_failure_handler,
+        ):
+            return None
+        self._clear_blocked_task_log_state(task.id)
+        self._log_task_step(task.id, 'Kato model access validated')
+        self._log_task_step(
+            task.id,
+            'starting mission: %s',
+            str(task.summary or '').strip() or task.id,
+        )
+        return self._prepare_initial_task_start(
+            task,
+            repository_resolution_failure_handler=repository_resolution_failure_handler,
+            repository_preparation_failure_handler=repository_preparation_failure_handler,
+            task_definition_failure_handler=task_definition_failure_handler,
+            branch_preparation_failure_handler=branch_preparation_failure_handler,
+            branch_push_failure_handler=branch_push_failure_handler,
+        )
+
+    def _validate_task_model_access(
+        self,
+        task: Task,
+        *,
+        task_failure_handler: Callable[[Task, Exception, PreparedTaskContext | None], None] | None = None,
+    ) -> bool:
         try:
             self._task_model_access_validator.validate(task)
         except Exception as exc:
             self.logger.exception('failed to validate model access for task %s', task.id)
             if task_failure_handler is not None:
                 task_failure_handler(task, exc, None)
-            return None
-        self._log_task_step(task.id, 'Kato model access validated')
-
-        blocking_comment = self._active_execution_blocking_comment(task)
-        if not blocking_comment:
-            self._log_task_step(
-                task.id,
-                'starting mission: %s',
-                str(task.summary or '').strip() or task.id,
-            )
-            return self._prepare_initial_task_start(
-                task,
-                repository_resolution_failure_handler=repository_resolution_failure_handler,
-                repository_preparation_failure_handler=repository_preparation_failure_handler,
-                task_definition_failure_handler=task_definition_failure_handler,
-                branch_preparation_failure_handler=branch_preparation_failure_handler,
-                branch_push_failure_handler=branch_push_failure_handler,
-            )
-
-        prepared_task = self._check_retry_preconditions(task, blocking_comment)
-        if prepared_task is None or isinstance(prepared_task, dict):
-            return prepared_task
-
-        self._log_task_step(
-            task.id,
-            'starting mission: %s',
-            str(task.summary or '').strip() or task.id,
-        )
-        return prepared_task
+            return False
+        return True
 
     def _prepare_initial_task_start(
         self,
@@ -339,13 +362,22 @@ class TaskPreflightService(Service):
         task: Task,
         blocking_comment: str,
     ) -> dict[str, object]:
+        self._log_active_blocking_comment_once(task.id, blocking_comment)
+        return skip_task_result(task.id)
+
+    def _log_active_blocking_comment_once(self, task_id: str, blocking_comment: str) -> None:
+        if self._active_blocking_comment_log_state.get(task_id) == blocking_comment:
+            return
+        self._active_blocking_comment_log_state[task_id] = blocking_comment
         self.logger.info(
             'skipping task %s because a prior Kato %s comment is still active: %s',
-            task.id,
+            task_id,
             self._blocking_comment_kind(blocking_comment),
             blocking_comment,
         )
-        return skip_task_result(task.id)
+
+    def _clear_blocked_task_log_state(self, task_id: str) -> None:
+        self._active_blocking_comment_log_state.pop(task_id, None)
 
     def _run_pre_start_step(
         self,

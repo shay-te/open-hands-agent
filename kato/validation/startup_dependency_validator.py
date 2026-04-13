@@ -150,6 +150,8 @@ class StartupDependencyValidator(ValidationBase):
             None,
         )
         repositories = getattr(repository_service, 'repositories', []) or []
+        if not isinstance(repositories, (list, tuple)):
+            return 'repositories'
         repository_ids = [
             str(getattr(repository, 'id', '') or '').strip()
             for repository in repositories

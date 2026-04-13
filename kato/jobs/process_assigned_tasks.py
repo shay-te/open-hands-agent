@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from core_lib.jobs.job import Job
 
+from kato.data_layers.data.fields import StatusFields
 from kato.helpers.error_handling_utils import log_and_notify_failure
 from kato.helpers.logging_utils import configure_logger
 from kato.kato_core_lib import KatoCoreLib
@@ -53,10 +54,15 @@ class ProcessAssignedTasksJob(Job):
             raise
 
     def _log_scan_results(self, results: list[dict]) -> None:
-        if results:
+        results_to_log = [
+            result
+            for result in results
+            if result.get(StatusFields.STATUS) != StatusFields.SKIPPED
+        ]
+        if results_to_log:
             self.logger.info(
                 'completed processing results:\n%s',
-                format_processing_results(results),
+                format_processing_results(results_to_log),
             )
 
 

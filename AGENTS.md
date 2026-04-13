@@ -107,6 +107,7 @@ The goal is to keep the code:
 
 - If logic or values appear more than once, extract them.
 - Extract repeated paths, hosts, filenames, and project names into constants.
+- Extract repeated domain terms, status labels, and other shared string literals into constants when they are reused across multiple call sites or modules; do not create constants for one-off local prose.
 - Extract repeated workflow steps such as git, scp, and path building into helpers.
 - Prefer small reusable helpers over copy-pasted branches of similar code.
 - When service-layer orchestration repeats the same control-flow, error handling, or logging pattern, extract a small private helper in that service before introducing a broader shared abstraction.
