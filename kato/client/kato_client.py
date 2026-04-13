@@ -17,6 +17,7 @@ from kato.data_layers.data.fields import (
 from kato.helpers.kato_result_utils import build_openhands_result
 from kato.helpers.kato_config_utils import is_openrouter_model
 from kato.helpers.logging_utils import configure_logger
+from kato.helpers.retry_utils import run_with_retry
 from kato.helpers.task_context_utils import PreparedTaskContext
 from kato.helpers.text_utils import (
     condensed_text,
@@ -67,6 +68,10 @@ class KatoClient(RetryingClientBase):
     _MESSAGE_HIGHLIGHT_PREFIXES = (
         'Running ',
         'Ran ',
+    )
+    _RETRYABLE_START_TASK_ERROR_DETAILS = (
+        'sandbox entered error state',
+        'sandbox failed to boot',
     )
 
     def __init__(
@@ -538,15 +543,27 @@ class KatoClient(RetryingClientBase):
         if parent_conversation_id:
             request_body['parent_conversation_id'] = parent_conversation_id
 
+        try:
+            conversation_id = run_with_retry(
+                lambda: self._start_conversation_once(request_body),
+                self.max_retries,
+                operation_name=self._retry_operation_name('POST', self._APP_CONVERSATIONS_PATH),
+            )
+        except TimeoutError as exc:
+            if self._is_retryable_start_task_error(str(exc)):
+                raise RuntimeError(str(exc)) from exc
+            raise
+        self._update_conversation_title(conversation_id, title)
+        return conversation_id
+
+    def _start_conversation_once(self, request_body: dict[str, object]) -> str:
         response = self._post_with_retry(
             self._APP_CONVERSATIONS_PATH,
             json=request_body,
         )
         response.raise_for_status()
         start_task = self._normalized_payload(response)
-        conversation_id = self._wait_for_started_conversation_id(start_task)
-        self._update_conversation_title(conversation_id, title)
-        return conversation_id
+        return self._wait_for_started_conversation_id(start_task)
 
     def _update_conversation_title(self, conversation_id: str, title: str) -> None:
         normalized_title = condensed_text(title)
@@ -574,11 +591,23 @@ class KatoClient(RetryingClientBase):
                 raise ValueError('kato start task became ready without a conversation id')
             if status == self._START_TASK_ERROR:
                 detail = text_from_mapping(task_info, 'detail')
+                if self._is_retryable_start_task_error(detail):
+                    raise TimeoutError(detail or 'kato failed to start a conversation')
                 raise RuntimeError(detail or 'kato failed to start a conversation')
             self._sleep_before_next_poll(attempt)
 
         raise TimeoutError(
             f'kato did not start a conversation after {self._max_poll_attempts} polls'
+        )
+
+    @classmethod
+    def _is_retryable_start_task_error(cls, detail: str) -> bool:
+        normalized_detail = normalized_lower_text(detail)
+        if not normalized_detail:
+            return False
+        return any(
+            error_detail in normalized_detail
+            for error_detail in cls._RETRYABLE_START_TASK_ERROR_DETAILS
         )
 
     def _get_start_task(self, start_task_id: str) -> dict:

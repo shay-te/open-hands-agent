@@ -143,6 +143,28 @@ class ProcessAssignedTasksJobTests(unittest.TestCase):
             ['start:task-1', 'end:task-1', 'start:task-2', 'end:task-2'],
         )
 
+    def test_collect_processing_results_continues_after_review_comment_failure(self) -> None:
+        service = Mock()
+        service.get_assigned_tasks.return_value = []
+        service.get_new_pull_request_comments.return_value = ['comment-1', 'comment-2']
+        service.process_assigned_task = Mock()
+        service.process_review_comment.side_effect = [
+            RuntimeError('sandbox entered error state'),
+            {'status': 'updated', 'pull_request_id': '18'},
+        ]
+
+        results = collect_processing_results(service)
+
+        self.assertEqual(results, [{'status': 'updated', 'pull_request_id': '18'}])
+        self.assertEqual(
+            service.process_review_comment.call_args_list[0].args,
+            ('comment-1',),
+        )
+        self.assertEqual(
+            service.process_review_comment.call_args_list[1].args,
+            ('comment-2',),
+        )
+
     def test_run_loops_over_new_pull_request_comments_after_tasks(self) -> None:
         self.openhands_core_lib.service = Mock()
         self.openhands_core_lib.service.get_assigned_tasks.return_value = ['task-1']

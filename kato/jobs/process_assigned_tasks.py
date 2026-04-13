@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from core_lib.jobs.job import Job
 
 from kato.helpers.error_handling_utils import log_and_notify_failure
@@ -12,10 +14,17 @@ def collect_processing_results(service) -> list[dict]:
         if result is not None:
             results.append(result)
     for comment in service.get_new_pull_request_comments():
-        result = service.process_review_comment(comment)
+        result = _process_review_comment_best_effort(service, comment)
         if result is not None:
             results.append(result)
     return results
+
+
+def _process_review_comment_best_effort(service, comment) -> dict | None:
+    try:
+        return service.process_review_comment(comment)
+    except Exception:
+        return None
 
 
 class ProcessAssignedTasksJob(Job):

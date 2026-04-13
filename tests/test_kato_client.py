@@ -1443,6 +1443,70 @@ class KatoClientTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, 'sandbox failed to boot'):
                 implement_task_with_defaults(client)
 
+    def test_run_prompt_retries_retryable_start_task_error_and_succeeds(self) -> None:
+        client = KatoClient('https://openhands.example', 'oh-token', max_retries=2)
+
+        with patch.object(
+            client,
+            '_post',
+            side_effect=[
+                mock_response(json_data={'id': 'start-1', 'status': 'WORKING'}),
+                mock_response(json_data={'id': 'start-2', 'status': 'WORKING'}),
+            ],
+        ) as mock_post, patch.object(
+            client,
+            '_get',
+            side_effect=[
+                mock_response(
+                    json_data=[
+                        {
+                            'id': 'start-1',
+                            'status': 'ERROR',
+                            'detail': '500: Sandbox entered error state: oh-agent-server-1',
+                        }
+                    ]
+                ),
+                mock_response(
+                    json_data=[
+                        {
+                            'id': 'start-2',
+                            'status': 'READY',
+                            'app_conversation_id': 'conversation-2',
+                        }
+                    ]
+                ),
+                mock_response(
+                    json_data=[
+                        {
+                            'id': 'conversation-2',
+                            'execution_status': 'finished',
+                        }
+                    ]
+                ),
+                mock_response(
+                    json_data={
+                        'items': [
+                            {
+                                'kind': 'MessageEvent',
+                                'source': 'agent',
+                                'llm_message': {
+                                    'role': 'assistant',
+                                    'content': [
+                                        {'text': '{"success": true, "summary": "ok"}'}
+                                    ],
+                                },
+                            }
+                        ]
+                    }
+                ),
+            ],
+        ):
+            result = implement_task_with_defaults(client)
+
+        self.assertTrue(result[ImplementationFields.SUCCESS])
+        self.assertEqual(result[ImplementationFields.SESSION_ID], 'conversation-2')
+        self.assertEqual(mock_post.call_count, 2)
+
     def test_run_prompt_raises_when_start_task_ready_without_conversation_id(self) -> None:
         client = KatoClient('https://openhands.example', 'oh-token')
 
