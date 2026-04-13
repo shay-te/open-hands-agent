@@ -6,6 +6,7 @@ from unittest.mock import Mock
 from kato.jobs.process_assigned_tasks import (
     ProcessAssignedTasksJob,
     collect_processing_results,
+    format_processing_results,
 )
 from kato.kato_core_lib import KatoCoreLib
 from utils import sync_create_start_core_lib
@@ -27,7 +28,14 @@ class ProcessAssignedTasksJobTests(unittest.TestCase):
             self.job.initialized(types.SimpleNamespace())
 
     def test_run_logs_results(self) -> None:
-        results = [{'id': '17', 'url': 'https://bitbucket/pr/17'}]
+        results = [
+            {
+                'status': 'updated',
+                'pull_request_id': '17',
+                'branch_name': 'UNA-17',
+                'repository_id': 'ob-love-admin-client',
+            }
+        ]
         self.openhands_core_lib.service = Mock()
         self.openhands_core_lib.service.get_assigned_tasks.return_value = ['task-1']
         self.openhands_core_lib.service.process_assigned_task.return_value = results[0]
@@ -40,8 +48,8 @@ class ProcessAssignedTasksJobTests(unittest.TestCase):
 
         self.assertIsNone(returned_results)
         self.job.logger.info.assert_called_once_with(
-            'completed processing results: %s',
-            results,
+            'completed processing results:\n%s',
+            '- updated | PR #17 | branch UNA-17 | repository ob-love-admin-client',
         )
 
     def test_run_stays_quiet_when_no_results_are_found(self) -> None:
@@ -159,4 +167,31 @@ class ProcessAssignedTasksJobTests(unittest.TestCase):
         self.assertEqual(
             self.openhands_core_lib.service.process_review_comment.call_args_list[1].args,
             ('comment-2',),
+        )
+
+    def test_format_processing_results_uses_human_readable_summary(self) -> None:
+        formatted = format_processing_results(
+            [
+                {
+                    'status': 'updated',
+                    'pull_request_id': '993',
+                    'branch_name': 'UNA-2463',
+                    'repository_id': 'ob-love-admin-client',
+                },
+                {
+                    'status': 'created',
+                    'pull_request_id': '994',
+                    'repository_id': 'ob-love-admin-api',
+                },
+            ]
+        )
+
+        self.assertEqual(
+            formatted,
+            '\n'.join(
+                [
+                    '- updated | PR #993 | branch UNA-2463 | repository ob-love-admin-client',
+                    '- created | PR #994 | repository ob-love-admin-api',
+                ]
+            ),
         )

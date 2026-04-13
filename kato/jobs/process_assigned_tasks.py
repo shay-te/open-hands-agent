@@ -45,4 +45,31 @@ class ProcessAssignedTasksJob(Job):
 
     def _log_scan_results(self, results: list[dict]) -> None:
         if results:
-            self.logger.info('completed processing results: %s', results)
+            self.logger.info(
+                'completed processing results:\n%s',
+                format_processing_results(results),
+            )
+
+
+def format_processing_results(results: list[dict]) -> str:
+    return '\n'.join(
+        f'- {_format_processing_result(result)}'
+        for result in results
+    )
+
+
+def _format_processing_result(result: dict) -> str:
+    status = str(result.get('status', 'unknown'))
+    pull_request_id = result.get('pull_request_id')
+    branch_name = result.get('branch_name')
+    repository_id = result.get('repository_id')
+
+    details: list[str] = [status]
+    if pull_request_id:
+        details.append(f'PR #{pull_request_id}')
+    if branch_name:
+        details.append(f'branch {branch_name}')
+    if repository_id:
+        details.append(f'repository {repository_id}')
+
+    return ' | '.join(details)

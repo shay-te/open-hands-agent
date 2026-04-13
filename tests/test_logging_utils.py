@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import os
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from kato.helpers import logging_utils
 
@@ -41,6 +41,10 @@ class LoggingUtilsTests(unittest.TestCase):
         self.assertEqual(root_handler.level, logging.WARNING)
         self.assertEqual(workflow_handler.level, logging.INFO)
         self.assertEqual(workflow_handler.formatter._fmt, '%(message)s')
+        self.assertIsInstance(
+            workflow_handler,
+            logging_utils._InlineStatusAwareStreamHandler,
+        )
 
     def test_configure_logger_uses_configured_dependency_and_workflow_levels(self) -> None:
         with patch.dict(
@@ -79,6 +83,25 @@ class LoggingUtilsTests(unittest.TestCase):
         )
         self.assertEqual(root_handler.level, logging.WARNING)
         self.assertEqual(workflow_handler.level, logging.INFO)
+
+    def test_inline_status_aware_handler_clears_active_inline_status_before_emitting(self) -> None:
+        handler = logging_utils._InlineStatusAwareStreamHandler()
+        handler.setStream(Mock())
+        handler.setFormatter(logging.Formatter('%(message)s'))
+        record = logging.LogRecord(
+            name='kato.workflow.AgentService',
+            level=logging.INFO,
+            pathname=__file__,
+            lineno=1,
+            msg='hello',
+            args=(),
+            exc_info=None,
+        )
+
+        with patch('kato.helpers.logging_utils.clear_active_inline_status') as mock_clear_status:
+            handler.emit(record)
+
+        mock_clear_status.assert_called_once_with()
 
     @staticmethod
     def _named_handler(logger: logging.Logger, name: str) -> logging.Handler | None:
