@@ -9,6 +9,6 @@ COPY . .
 
 RUN sh /app/scripts/install-python-deps.sh python && \
     apt-get update && \
-    apt-get install -y --no-install-recommends git && \
+    apt-get install -y --no-install-recommends git openssh-client && \
     rm -rf /var/lib/apt/lists/* && \
     chmod +x /app/docker/entrypoint-run.sh

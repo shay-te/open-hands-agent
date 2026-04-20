@@ -458,7 +458,7 @@ class DeploymentFilesTests(unittest.TestCase):
         dockerfile_text = (REPO_ROOT / 'Dockerfile').read_text(encoding='utf-8')
         self.assertIn('COPY . .', dockerfile_text)
         self.assertNotIn('COPY pyproject.toml ./', dockerfile_text)
-        self.assertIn('apt-get install -y --no-install-recommends git', dockerfile_text)
+        self.assertIn('apt-get install -y --no-install-recommends git openssh-client', dockerfile_text)
         self.assertIn('chmod +x /app/docker/entrypoint-run.sh', dockerfile_text)
         self.assertNotIn('CMD ["/app/docker/entrypoint-run.sh"]', dockerfile_text)
         self.assertNotIn(
