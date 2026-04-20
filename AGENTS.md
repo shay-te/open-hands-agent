@@ -2,9 +2,13 @@
 
 This repository uses Kato to implement YouTrack tasks and fix review comments.
 
+# Git
+do not do any git commit or push. let me inspect the changes
+
 ## Architecture
 
 - Keep orchestration logic in services.
+- Keep components free of heavy logic; move overlapping, reusable, or similar behavior into helpers or shared services instead of scattering it inside a component.
 - Keep external API calls inside clients and data-access layers.
 - When `AgentService` starts accumulating a second coherent workflow cluster, split it into a dedicated service and inject that service through the constructor instead of adding more private helper methods there. Preflight/startup logic such as model-access checks, blocking-comment retries, repository resolution, branch preparation, and push validation should live in a dedicated service rather than in `AgentService`.
 - If a service starts collecting a grab-bag of pure helpers, formatting functions, or repeated logging wrappers, move them into `kato/helpers/*_utils.py` or split them into a smaller service instead of keeping one oversized file.
