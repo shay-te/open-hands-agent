@@ -3,105 +3,13 @@
 <head>
   <meta charset="utf-8" />
   <title>Kato — Planning UI</title>
-  <!-- Load the React bundle's CSS first so app.css can override its
-       defaults (react-diff-view ships a light theme; we want dark). -->
-  <link rel="stylesheet" href="{{ url_for('static', filename='react/right-pane.css') }}" />
+  <!-- Vite-built CSS comes first so the global app.css can override
+       library defaults (react-diff-view ships a light theme; we want dark). -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='build/app.css') }}" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}" />
 </head>
 <body>
-  <header>
-    <img src="/logo.png" alt="Kato" id="kato-logo" />
-    <h1>Kato</h1>
-    <span class="subtitle">Planning UI</span>
-    <button id="notifications-toggle" type="button"
-            title="Enable browser notifications">🔕</button>
-    <button id="refresh-tabs" type="button" title="Refresh sessions">↻</button>
-  </header>
-
-  <div id="status-bar" title="Live kato activity">
-    <span id="status-bar-pulse" aria-hidden="true"></span>
-    <span id="status-bar-text">Waiting for kato…</span>
-    <button id="status-bar-toggle" type="button"
-            title="Show recent activity">▾</button>
-  </div>
-  <div id="status-bar-history" hidden></div>
-
-  <div id="layout">
-    <aside id="tabs-pane">
-      <ul id="tab-list">
-        {% if sessions %}
-          {% for session in sessions %}
-            <li class="tab" data-task-id="{{ session.task_id }}">
-              <span class="status-dot status-{{ session.status }}"
-                    title="{{ session.status }}"></span>
-              <strong>{{ session.task_id }}</strong>
-              <p>{{ session.task_summary }}</p>
-            </li>
-          {% endfor %}
-        {% endif %}
-      </ul>
-      <p id="empty-state" class="empty"
-         {% if sessions %}style="display:none;"{% endif %}>
-        No active planning sessions yet. Tag a task with
-        <code>kato:wait-planning</code> and run kato — a tab will appear here.
-      </p>
-    </aside>
-
-    <main id="session-pane">
-      <section id="session-placeholder" class="placeholder">
-        Select a tab to chat with the bound Claude session.
-      </section>
-      <section id="session-detail" hidden>
-        <header id="session-header">
-          <span id="session-status-dot" class="status-dot"></span>
-          <strong id="session-task-id"></strong>
-          <span id="session-task-summary"></span>
-          <button id="session-stop" type="button"
-                  title="Stop the live Claude subprocess for this task">
-            Stop
-          </button>
-        </header>
-        <div id="event-log"></div>
-        <form id="message-form">
-          <textarea id="message-input"
-                    placeholder="Reply to Claude (Shift+Enter for newline)"
-                    rows="2"></textarea>
-          <button type="submit">Send</button>
-        </form>
-      </section>
-    </main>
-
-    <aside id="right-pane">
-      <div id="right-pane-resizer" title="Drag to resize"></div>
-      <div id="right-pane-root"></div>
-    </aside>
-  </div>
-
-  <div id="permission-modal" class="modal" hidden>
-    <div class="modal-card">
-      <header class="modal-head">
-        <h2>Approval requested</h2>
-        <span id="permission-tool-name"></span>
-      </header>
-      <div id="permission-fields"></div>
-      <details id="permission-raw" class="modal-raw">
-        <summary>raw envelope</summary>
-        <pre id="permission-detail"></pre>
-      </details>
-      <label class="modal-remember">
-        <input type="checkbox" id="permission-remember" />
-        Don't ask again this session for <code id="permission-remember-tool">this tool</code>
-      </label>
-      <textarea id="permission-rationale"
-                placeholder="Optional rationale (sent if you Deny)" rows="2"></textarea>
-      <div class="modal-actions">
-        <button id="permission-deny" type="button" class="danger">Deny</button>
-        <button id="permission-allow" type="button" class="primary">Allow</button>
-      </div>
-    </div>
-  </div>
-
-  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
-  <script src="{{ url_for('static', filename='react/right-pane.js') }}"></script>
+  <div id="root"></div>
+  <script src="{{ url_for('static', filename='build/app.js') }}"></script>
 </body>
 </html>

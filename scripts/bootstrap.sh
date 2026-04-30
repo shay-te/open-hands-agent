@@ -25,8 +25,8 @@ fi
 run_step sh ./scripts/install-python-deps.sh .venv/bin/python editable
 run_step .venv/bin/python -m pip install --no-cache-dir -e ./webserver
 
-# Build the React right-pane bundle when node is available. The pre-built
-# artifacts are checked into webserver/static/react/, so a missing node
+# Build the React planning-UI bundle when node is available. The pre-built
+# artifacts are checked into webserver/static/build/, so a missing node
 # isn't fatal — the existing bundle keeps working until someone with node
 # installed updates it.
 if command -v npm >/dev/null 2>&1; then

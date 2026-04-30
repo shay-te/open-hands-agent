@@ -1,72 +1,130 @@
-import { useEffect, useState } from 'react';
-import FilesTab from './FilesTab.jsx';
-import ChangesTab from './ChangesTab.jsx';
+import { useCallback, useState } from 'react';
+import Header from './components/Header.jsx';
+import Layout from './components/Layout.jsx';
+import RightPane from './components/RightPane.jsx';
+import SessionDetail from './components/SessionDetail.jsx';
+import StatusBar from './components/StatusBar.jsx';
+import TabList from './components/TabList.jsx';
+import { useNotifications } from './hooks/useNotifications.js';
+import { useResizable } from './hooks/useResizable.js';
+import { useSessions } from './hooks/useSessions.js';
+import { useStatusFeed } from './hooks/useStatusFeed.js';
+import { classifyStatusEntry } from './utils/classifyStatusEntry.js';
 
-const TAB_FILES = 'files';
-const TAB_CHANGES = 'changes';
+const RIGHT_PANE_DEFAULT_WIDTH = 380;
+const RIGHT_PANE_MIN_WIDTH = 220;
+const RIGHT_PANE_MAX_WIDTH = 900;
+const RIGHT_PANE_STORAGE_KEY = 'kato.rightPaneWidth';
 
-function readInitialTask() {
-  if (typeof window === 'undefined') { return ''; }
-  if (typeof window.katoGetActiveTaskId === 'function') {
-    return window.katoGetActiveTaskId() || '';
-  }
-  return window.__katoActiveTaskId || '';
-}
-
-// Top-level component for the right-side pane. Subscribes to the
-// `kato:active-task` CustomEvent so the vanilla-JS shell can tell us
-// which task to display without React having to know anything about
-// tabs, SSE, or chat state.
+// Top of the React tree. Owns global state (active task id) + the
+// notification + status feed wiring. Children are pure-ish — they
+// receive props/handlers and render. No globals, no side channels.
 export default function App() {
-  // Lazy initial: read whatever task vanilla-JS has already activated.
-  // The bundle is heavy (~665kb) and React mounts after the rest of the
-  // page loads — a fast tab-click before mount would otherwise lose the
-  // CustomEvent and leave the pane stuck on the empty state.
-  const [activeTaskId, setActiveTaskId] = useState(() => readInitialTask());
-  const [tab, setTab] = useState(TAB_FILES);
+  const [activeTaskId, setActiveTaskId] = useState('');
+  const { sessions, refresh } = useSessions();
 
-  useEffect(() => {
-    function handleTaskChange(event) {
-      const taskId = (event && event.detail && event.detail.taskId) || '';
-      setActiveTaskId(taskId);
-    }
-    window.addEventListener('kato:active-task', handleTaskChange);
-    // Resync once after subscribe — covers the race where vanilla-JS
-    // dispatched an event between `useState` initialization and now.
-    setActiveTaskId(readInitialTask());
-    return () => window.removeEventListener('kato:active-task', handleTaskChange);
+  const onTaskClickFromNotification = useCallback((taskId) => {
+    setActiveTaskId(taskId);
   }, []);
 
-  if (!activeTaskId) {
-    return (
-      <div className="right-pane-empty">
-        Select a tab on the left to inspect files and changes.
-      </div>
-    );
-  }
+  const notifications = useNotifications({
+    activeTaskId,
+    onTaskClick: onTaskClickFromNotification,
+  });
+
+  // Status feed → optional OS notification.
+  const handleStatusEntry = useCallback((entry) => {
+    const classification = classifyStatusEntry(entry);
+    if (classification) {
+      notifications.notify(classification);
+    }
+  }, [notifications]);
+  const status = useStatusFeed(handleStatusEntry);
+
+  // Per-session events → optional OS notification (modal-popping
+  // permission requests, error-result notifications when tabbed away).
+  const handleSessionEvent = useCallback((raw, taskId) => {
+    if (!raw?.type) { return; }
+    if (raw.type === 'permission_request' || raw.type === 'control_request') {
+      notifications.notify({
+        title: 'Approval needed',
+        body: extractToolName(raw),
+        taskId,
+        kind: 'attention',
+      });
+      return;
+    }
+    if (raw.type === 'result') {
+      const ok = !raw.is_error;
+      const summary = typeof raw.result === 'string'
+        ? raw.result.slice(0, 140)
+        : '';
+      notifications.notify({
+        title: ok ? 'Claude replied' : 'Turn failed',
+        body: summary,
+        taskId,
+        kind: ok ? 'reply' : 'error',
+      });
+    }
+  }, [notifications]);
+
+  const resizer = useResizable({
+    storageKey: RIGHT_PANE_STORAGE_KEY,
+    defaultWidth: RIGHT_PANE_DEFAULT_WIDTH,
+    minWidth: RIGHT_PANE_MIN_WIDTH,
+    maxWidth: RIGHT_PANE_MAX_WIDTH,
+    anchor: 'right',
+  });
+
+  const activeSession = sessions.find((s) => s.task_id === activeTaskId) || null;
 
   return (
-    <div className="right-pane">
-      <nav className="right-pane-tabs">
-        <button
-          type="button"
-          className={tab === TAB_FILES ? 'active' : ''}
-          onClick={() => setTab(TAB_FILES)}
-        >
-          Files
-        </button>
-        <button
-          type="button"
-          className={tab === TAB_CHANGES ? 'active' : ''}
-          onClick={() => setTab(TAB_CHANGES)}
-        >
-          Changes
-        </button>
-      </nav>
-      <div className="right-pane-body">
-        {tab === TAB_FILES && <FilesTab taskId={activeTaskId} />}
-        {tab === TAB_CHANGES && <ChangesTab taskId={activeTaskId} />}
-      </div>
-    </div>
+    <>
+      <Header
+        notificationsEnabled={notifications.enabled}
+        notificationsSupported={notifications.supported}
+        onToggleNotifications={notifications.toggle}
+        onRefresh={refresh}
+      />
+      <StatusBar
+        latest={status.latest}
+        history={status.history}
+        stale={status.stale}
+      />
+      <Layout
+        rightWidth={resizer.width}
+        left={
+          <TabList
+            sessions={sessions}
+            activeTaskId={activeTaskId}
+            onSelect={setActiveTaskId}
+          />
+        }
+        center={
+          <SessionDetail
+            // ``key`` forces a fresh component instance per task — the
+            // session-tool-decisions ref + transient bubbles get clean
+            // slates on tab change. Cheaper than wiring resets manually.
+            key={activeTaskId || '__none__'}
+            session={activeSession}
+            onActivity={handleSessionEvent}
+          />
+        }
+        right={
+          <RightPane
+            activeTaskId={activeTaskId}
+            width={resizer.width}
+            onResizePointerDown={resizer.onPointerDown}
+          />
+        }
+      />
+    </>
+  );
+}
+
+function extractToolName(raw) {
+  const nested = (raw && typeof raw.request === 'object' && raw.request) || {};
+  return String(
+    raw?.tool_name || raw?.tool || nested.tool_name || nested.tool || 'a tool',
   );
 }

@@ -1,19 +1,14 @@
-// Entry point for the right-side pane bundle.
-//
-// Mounts <App /> into #right-pane-root if present. The vanilla-JS app
-// (static/js/app.js) drives tab selection by dispatching a
-// `kato:active-task` CustomEvent on `window` whenever the user clicks a
-// session tab; <App /> subscribes to that to know what to fetch.
-
+// Single entry point for the planning UI. Mounts <App /> at #root.
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.jsx';
 
 function bootstrap() {
-  const mountPoint = document.getElementById('right-pane-root');
-  if (!mountPoint) { return; }
-  const root = createRoot(mountPoint);
-  root.render(
+  const mountPoint = document.getElementById('root');
+  if (!mountPoint) {
+    return;
+  }
+  createRoot(mountPoint).render(
     <StrictMode>
       <App />
     </StrictMode>,

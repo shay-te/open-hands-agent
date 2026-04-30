@@ -110,11 +110,10 @@ def _register_http_routes(app: Flask) -> None:
 
     @app.get('/')
     def index() -> str:
-        records = _records_as_dicts(
-            app.config['SESSION_MANAGER'],
-            app.config.get('WORKSPACE_MANAGER'),
-        )
-        return render_template('index.html', sessions=records)
+        # Minimal HTML shell — the React bundle fetches /api/sessions
+        # itself and re-renders on every poll, so server-side template
+        # rendering of the tab list is gone.
+        return render_template('index.html')
 
     @app.get('/api/sessions')
     def list_sessions():

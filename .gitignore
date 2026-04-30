@@ -8,6 +8,9 @@ __pycache__/
 .venv/
 outputs/
 build/
+# Exception: ship the planning UI bundle so users without Node still
+# get a working web UI on first run.
+!webserver/static/build/
 dist/
 out/
 coverage/
