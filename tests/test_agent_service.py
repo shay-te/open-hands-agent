@@ -189,7 +189,10 @@ class AgentServiceTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, 'startup dependency validation failed') as exc_context:
             self.service.validate_connections()
 
-        self.assertEqual(self.service.logger.exception.call_count, 3)
+        # The validator aggregates failures into the raised RuntimeError
+        # rather than logging stack traces per step (test_startup_validator
+        # locks that contract). The aggregated message must include each
+        # service's failure as both a one-line summary and a Details block.
         self.assertIn('- unable to validate youtrack: youtrack down', str(exc_context.exception))
         self.assertIn('- unable to validate openhands: openhands down', str(exc_context.exception))
         self.assertIn('- unable to validate openhands_testing: openhands down', str(exc_context.exception))
