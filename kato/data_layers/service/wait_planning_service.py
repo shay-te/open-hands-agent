@@ -28,6 +28,7 @@ from kato.data_layers.service.workspace_manager import (
 )
 from kato.helpers.logging_utils import configure_logger
 from kato.helpers.task_execution_utils import skip_task_result
+from kato.helpers.text_utils import text_from_attr
 
 
 # Fields the streaming runner exposes that ``start_session`` accepts.
@@ -186,7 +187,7 @@ class WaitPlanningService(object):
         if not repositories:
             return _PlanningContext(cwd='', expected_branch='')
         primary = repositories[0]
-        cwd = str(getattr(primary, 'local_path', '') or '').strip()
+        cwd = text_from_attr(primary, 'local_path')
         branch_name = self._build_branch_name(task, primary)
         if not branch_name:
             return _PlanningContext(cwd=cwd, expected_branch='')
@@ -195,53 +196,64 @@ class WaitPlanningService(object):
         return _PlanningContext(cwd=cwd, expected_branch=branch_name)
 
     def _resolve_repositories(self, task: Task) -> list:
-        try:
-            return list(
+        return self._safe_call(
+            task,
+            'resolve repositories for wait-planning task %s',
+            fallback=[],
+            action=lambda: list(
                 self._repository_service.resolve_task_repositories(task) or [],
-            )
-        except Exception:
-            self.logger.exception(
-                'failed to resolve repositories for wait-planning task %s', task.id,
-            )
-            return []
+            ),
+        )
 
     def _provision_workspace(self, task: Task, repositories: list) -> list:
-        try:
-            return provision_task_workspace_clones(
+        # Distinct fallback: if cloning fails we'd rather keep going with
+        # the inventory clones than open the chat with no repos at all.
+        return self._safe_call(
+            task,
+            'provision workspace clones for wait-planning task %s; '
+            'falling back to inventory clones',
+            fallback=repositories,
+            action=lambda: provision_task_workspace_clones(
                 self._workspace_manager,
                 self._repository_service,
                 task,
                 repositories,
-            )
-        except Exception:
-            self.logger.exception(
-                'failed to provision workspace clones for wait-planning task %s; '
-                'falling back to inventory clones',
-                task.id,
-            )
-            return repositories
+            ),
+        )
 
     def _prepare_repositories(self, task: Task, repositories: list) -> list:
-        try:
-            return list(
+        return self._safe_call(
+            task,
+            'prepare repositories for wait-planning task %s',
+            fallback=[],
+            action=lambda: list(
                 self._repository_service.prepare_task_repositories(repositories) or [],
-            )
-        except Exception:
-            self.logger.exception(
-                'failed to prepare repositories for wait-planning task %s', task.id,
-            )
-            return []
+            ),
+        )
 
     def _build_branch_name(self, task: Task, primary_repository) -> str:
-        try:
-            return str(
+        return self._safe_call(
+            task,
+            'derive branch name for wait-planning task %s',
+            fallback='',
+            action=lambda: str(
                 self._repository_service.build_branch_name(task, primary_repository) or '',
-            ).strip()
+            ).strip(),
+        )
+
+    def _safe_call(self, task: Task, action_label: str, *, fallback, action):
+        """Run ``action()``; log + return ``fallback`` on any exception.
+
+        Wait-planning is a best-effort flow: every git step has a
+        sensible degradation (empty cwd, empty branch name, etc) so the
+        chat tab still opens. Centralizing the boilerplate keeps each
+        step tiny and readable.
+        """
+        try:
+            return action()
         except Exception:
-            self.logger.exception(
-                'failed to derive branch name for wait-planning task %s', task.id,
-            )
-            return ''
+            self.logger.exception(action_label, task.id)
+            return fallback
 
     def _check_out_branches(
         self,
@@ -290,9 +302,9 @@ class WaitPlanningService(object):
           3. Avoid empty stdin (which makes ``claude -p`` exit with an
              error and the scan loop would respawn it forever).
         """
-        task_id = str(getattr(task, 'id', '') or '').strip()
-        summary = str(getattr(task, 'summary', '') or '').strip()
-        description = str(getattr(task, 'description', '') or '').strip()
+        task_id = text_from_attr(task, 'id')
+        summary = text_from_attr(task, 'summary')
+        description = text_from_attr(task, 'description')
         header = f'YouTrack ticket {task_id}' if task_id else 'this task'
 
         sections = [

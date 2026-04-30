@@ -282,20 +282,26 @@ class WorkspaceManager(object):
     # ----- internals -----
 
     @staticmethod
-    def _safe_task_id(task_id: str) -> str:
-        normalized = normalized_text(task_id)
+    def _safe_segment(value: str, *, label: str) -> str:
+        """Filename-safe slug for a single path segment.
+
+        YouTrack/Jira ids and repository ids are conventionally
+        filename-safe already (e.g. ``PROJ-123``, ``ob-love-admin-client``);
+        we strip path separators defensively so a malicious or quirky
+        source can't escape the workspace root via ``..``.
+        """
+        normalized = normalized_text(value)
         if not normalized:
-            raise ValueError('task_id is required')
-        # YouTrack/Jira ids are filename-safe (PROJ-123); strip path
-        # separators just in case the source ever drifts.
+            raise ValueError(f'{label} is required')
         return normalized.replace('/', '_').replace(os.sep, '_')
 
-    @staticmethod
-    def _safe_repository_id(repository_id: str) -> str:
-        normalized = normalized_text(repository_id)
-        if not normalized:
-            raise ValueError('repository_id is required')
-        return normalized.replace('/', '_').replace(os.sep, '_')
+    @classmethod
+    def _safe_task_id(cls, task_id: str) -> str:
+        return cls._safe_segment(task_id, label='task_id')
+
+    @classmethod
+    def _safe_repository_id(cls, repository_id: str) -> str:
+        return cls._safe_segment(repository_id, label='repository_id')
 
     @staticmethod
     def _metadata_path(workspace_dir: Path) -> Path:
