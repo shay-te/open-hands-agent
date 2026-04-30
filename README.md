@@ -105,41 +105,119 @@ The agent is designed to:
 
 ```text
 kato/
-  client/
-    bitbucket_issues_client.py
-    bitbucket_client.py
-    github_issues_client.py
-    gitlab_issues_client.py
-    jira_client.py
-    kato_client.py
-    ticket_client_base.py
-    ticket_client_factory.py
-    youtrack_client.py
+  client/                        # external services kato talks to
+    agent_client.py              # AgentClient Protocol — the contract
+    retrying_client_base.py      # shared retry / HTTP plumbing
+    pull_request_client_*.py     # cross-provider PR abstraction
+    ticket_client_*.py           # cross-provider issue abstraction
+    bitbucket/                   # Bitbucket auth + PR + issues
+    github/                      # GitHub PR + issues
+    gitlab/                      # GitLab PR + issues
+    jira/                        # Jira issues
+    youtrack/                    # YouTrack issues
+    claude/                      # Claude Code CLI backend
+      cli_client.py              #   one-shot autonomous client
+      streaming_session.py       #   long-lived planning subprocess
+      session_manager.py         #   per-task session registry + persistence
+    openhands/                   # OpenHands HTTP backend (kato_client.py)
+    openrouter/                  # OpenRouter helpers (used by openhands)
   config/
     kato_core_lib.yaml
-  templates/
-    email/
-      completion_email.j2
-      failure_email.j2
   data_layers/
-    data/
-    data_access/
-      pull_request_data_access.py
-      task_data_access.py
-    service/
-      agent_service.py
-      implementation_service.py
-  jobs/
-    process_assigned_tasks.py
-  main.py
-  kato_core_lib.py
-  kato_instance.py
+    data/                        # YouTrack / git / agent value types
+    data_access/                 # raw fetch + parse layer
+    service/                     # orchestration: scan → plan → execute
+      agent_service.py           #   top-level loop, tag handling
+      task_preflight_service.py  #   resolve repos, prep branches
+      task_publisher.py          #   commit, push, open PR
+      planning_session_runner.py #   route to streaming Claude
+      review_comment_service.py  #   handle PR review feedback
+  helpers/                       # cross-cutting *_utils.py modules
+  validation/                    # startup + per-task safety checks
+  jobs/process_assigned_tasks.py # the cron-scheduled scan loop
+  main.py                        # process entrypoint
+  kato_core_lib.py               # core-lib wiring: builds AgentService
+webserver/                       # planning UI (Flask + React)
+  kato_webserver/
+    app.py                       #   Flask routes (SSE + POST)
+    git_diff_utils.py            #   tree / diff for the right pane
+    session_registry.py          #   in-memory tab list (legacy)
+  templates/index.html           # HTML shell
+  static/css/app.css             # dark-theme styles
+  static/js/app.js               # vanilla-JS chat + SSE + status bar
+  ui/                            # Vite + React source for the right pane
+    src/{App,FilesTab,ChangesTab}.jsx
 scripts/
-  generate_env.py
+  bootstrap.sh                   # Mac/Linux first-time setup
+  bootstrap.ps1                  # Windows PowerShell equivalent
 tests/
-  config/
-    config.yaml
+  config/config.yaml             # test fixture config
 ```
+
+### Architecture at a glance
+
+```text
+                       ┌──────────────────────────────┐
+                       │  YouTrack / Jira / GitHub …  │
+                       │   (issues, comments, tags)   │
+                       └──────────────┬───────────────┘
+                                      │ poll
+                                      ▼
+                  ┌────────────────────────────────────┐
+                  │  kato.main  ─  ProcessAssignedTasks │
+                  │   30s scan loop, signal handling   │
+                  └──────────────┬─────────────────────┘
+                                 │
+                                 ▼
+              ┌──────────────────────────────────────────┐
+              │              AgentService                │
+              │  • wait-planning short-circuit (chat tab)│
+              │  • TaskPreflightService (resolve+prep)   │
+              │  • runner OR one-shot client (implement) │
+              │  • TestingService (validate)             │
+              │  • TaskPublisher (commit / push / PR)    │
+              └──────────────┬───────────────────────────┘
+                             │
+                ┌────────────┴────────────┐
+                ▼                         ▼
+   ┌─────────────────────┐   ┌────────────────────────────┐
+   │  ClaudeCliClient    │   │     KatoClient (OpenHands) │
+   │  (one-shot -p)      │   │     HTTP API client        │
+   └──────────┬──────────┘   └────────────────────────────┘
+              │ also used by:
+              ▼
+   ┌─────────────────────────────────────────────────────┐
+   │           PlanningSessionRunner                     │
+   │  uses ClaudeSessionManager + StreamingClaudeSession │
+   │  (long-lived `claude -p --input-format stream-json` │
+   │   subprocess, one per task id, persisted records)   │
+   └──────────┬──────────────────────────────────────────┘
+              │ shared in-memory ↕ persisted on disk
+              ▼
+   ┌─────────────────────────────────────────────────────┐
+   │      Planning UI webserver (daemon thread)          │
+   │  Flask + SSE  →  vanilla JS  +  React right-pane    │
+   │  • tab list, chat, permission modal                 │
+   │  • Files / Changes tabs (git tree + diff)           │
+   │  • status bar (kato logger → ring buffer → SSE)     │
+   │  • browser notifications on key events              │
+   └─────────────────────────────────────────────────────┘
+```
+
+Key invariants:
+
+* **One subprocess per task id.** `ClaudeSessionManager` keyed on the
+  YouTrack/Jira ticket id; `--resume` keeps context across kato restarts.
+* **The orchestrator and the webserver share the same `ClaudeSessionManager`.**
+  Both run in one Python process so the planning UI sees the live agent
+  in real time, no IPC.
+* **Branch lock.** Each session records its `expected_branch`; the
+  webserver refuses to forward chat messages when the repo's HEAD
+  drifted to a different task's branch.
+* **Sibling repos stay in lockstep.** When the configured workspace has
+  multiple repos under one parent, both wait-planning prep and the
+  autonomous preflight check out the task branch on every sibling, so
+  cross-repo edits land on the right branch.
 
 ## How It Works
 

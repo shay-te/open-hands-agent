@@ -1,0 +1,1 @@
+"""YouTrack issue client."""

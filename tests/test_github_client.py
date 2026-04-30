@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import patch
 
 
-from kato.client.github_client import GitHubClient
+from kato.client.github.client import GitHubClient
 from kato.data_layers.data.fields import PullRequestFields, ReviewCommentFields
 from utils import (
     ClientTimeout,

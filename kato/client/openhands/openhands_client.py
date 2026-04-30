@@ -5,7 +5,7 @@ import json
 import time
 from uuid import UUID
 
-from kato.client.openhands.openrouter_client import OpenRouterClient
+from kato.client.openrouter import OpenRouterClient
 from kato.client.retrying_client_base import RetryingClientBase
 from kato.data_layers.data.review_comment import ReviewComment
 from kato.data_layers.data.task import Task

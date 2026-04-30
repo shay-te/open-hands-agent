@@ -2,9 +2,9 @@ from urllib.parse import urlparse
 
 from omegaconf import DictConfig
 
-from kato.client.bitbucket_client import BitbucketClient
-from kato.client.github_client import GitHubClient
-from kato.client.gitlab_client import GitLabClient
+from kato.client.bitbucket.client import BitbucketClient
+from kato.client.github.client import GitHubClient
+from kato.client.gitlab.client import GitLabClient
 from kato.client.pull_request_client_base import PullRequestClientBase
 
 

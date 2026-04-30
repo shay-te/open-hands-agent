@@ -1,6 +1,6 @@
 from typing import Any
 
-from kato.client.bitbucket_auth import bitbucket_basic_auth_header
+from kato.client.bitbucket.auth import bitbucket_basic_auth_header
 from kato.client.ticket_client_base import TicketClientBase
 from kato.data_layers.data.task import Task
 from kato.data_layers.data.fields import (

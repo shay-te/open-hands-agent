@@ -268,6 +268,17 @@ def _register_streaming_routes(app: Flask) -> None:
             return jsonify({'error': str(exc)}), 500
         return jsonify({'status': 'delivered', 'text': text})
 
+    @app.post('/api/sessions/<task_id>/stop')
+    def stop_session(task_id: str):
+        manager = app.config['SESSION_MANAGER']
+        if manager.get_record(task_id) is None:
+            return jsonify({'error': 'session not found'}), 404
+        try:
+            manager.terminate_session(task_id)
+        except Exception as exc:
+            return jsonify({'error': str(exc)}), 500
+        return jsonify({'status': 'stopped'})
+
     @app.post('/api/sessions/<task_id>/permission')
     def post_permission(task_id: str):
         session, error = _resolve_writable_session(

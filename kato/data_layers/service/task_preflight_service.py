@@ -170,6 +170,7 @@ class TaskPreflightService(Service):
         )
         if repositories is None:
             return None
+        repositories = self._fold_in_sibling_repositories(task, repositories)
         repositories = self._prepare_task_repositories_for_start(
             task,
             repositories,
@@ -203,6 +204,66 @@ class TaskPreflightService(Service):
             return None
         self._log_task_step(task.id, 'task branches can be pushed')
         return prepared_task
+
+    def _fold_in_sibling_repositories(
+        self,
+        task: Task,
+        repositories: list[object],
+    ) -> list[object]:
+        """Append configured sibling repos (sharing a parent dir) to the prep list.
+
+        When the workspace puts multiple kato-managed repos under one
+        parent (e.g. ``~/Desktop/dev/{client,server}``), keeping the
+        siblings on the same task branch prevents accidental cross-branch
+        commits when the agent tabs between them. Best-effort: if the
+        lookup raises (or the service doesn't expose it), we just keep
+        the resolved set.
+        """
+        if not repositories:
+            return repositories
+        # ``sibling_repositories`` is a real method on the production
+        # service but not on the test fakes; bail out cleanly on
+        # anything we can't iterate (Mock, missing method, error).
+        sibling_lookup = getattr(
+            self._repository_service, 'sibling_repositories', None,
+        )
+        if not callable(sibling_lookup):
+            return repositories
+        seen_ids = {getattr(r, 'id', '') for r in repositories}
+        merged = list(repositories)
+        new_sibling_ids: list[str] = []
+        for anchor in repositories:
+            siblings = self._safe_sibling_lookup(sibling_lookup, anchor, task)
+            for sibling in siblings:
+                sibling_id = getattr(sibling, 'id', '')
+                if not sibling_id or sibling_id in seen_ids:
+                    continue
+                merged.append(sibling)
+                seen_ids.add(sibling_id)
+                new_sibling_ids.append(sibling_id)
+        if new_sibling_ids:
+            self._log_task_step(
+                task.id,
+                'including sibling repositories under shared parent: %s',
+                ', '.join(new_sibling_ids),
+            )
+        return merged
+
+    def _safe_sibling_lookup(self, sibling_lookup, anchor, task: Task) -> list:
+        try:
+            result = sibling_lookup(anchor)
+        except Exception:
+            self.logger.exception(
+                'failed to look up sibling repositories for task %s', task.id,
+            )
+            return []
+        if not result:
+            return []
+        try:
+            return list(result)
+        except TypeError:
+            # Mock fakes in tests return a non-iterable; treat as empty.
+            return []
 
     def _resolve_task_repositories(
         self,

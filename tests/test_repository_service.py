@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 import subprocess
 import tempfile
 import types
@@ -1897,7 +1898,11 @@ class RepositoryServiceTests(unittest.TestCase):
         ):
             with self.assertRaisesRegex(
                 ValueError,
-                'repository client uses an SSH git remote but the ssh executable is not available on PATH; rebuild the Kato image with openssh-client installed',
+                re.escape(
+                    'repository client uses an SSH git remote but the ssh executable '
+                    'is not available on PATH; install OpenSSH '
+                    '(or rebuild the Kato image with openssh-client)'
+                ),
             ):
                 service.validate_connections()
 

@@ -19,6 +19,8 @@
   const messageInput = document.getElementById('message-input');
   const sendButton = messageForm.querySelector('button[type="submit"]');
 
+  const stopButton = document.getElementById('session-stop');
+
   const permissionModal = document.getElementById('permission-modal');
   const permissionToolName = document.getElementById('permission-tool-name');
   const permissionFields = document.getElementById('permission-fields');
@@ -57,6 +59,7 @@
   });
   permissionAllow.addEventListener('click', () => respondToPermission(true));
   permissionDeny.addEventListener('click', () => respondToPermission(false));
+  if (stopButton) { stopButton.addEventListener('click', stopActiveSession); }
 
   // Bridge: the React right-pane bundle dispatches `kato:file-clicked`
   // when the user picks a file; we drop the relative path into the chat
@@ -623,6 +626,33 @@
     } catch (err) {
       appendBubble('error', `send failed: ${err}`);
       setTurnInFlight(false);
+    }
+  }
+
+  async function stopActiveSession() {
+    if (!activeTaskId) { return; }
+    if (stopButton) {
+      stopButton.disabled = true;
+      stopButton.textContent = 'Stopping…';
+    }
+    try {
+      const response = await fetch(
+        `/api/sessions/${encodeURIComponent(activeTaskId)}/stop`,
+        { method: 'POST' },
+      );
+      if (!response.ok) {
+        const detail = await safeReadError(response);
+        appendBubble('error', `stop failed: ${detail}`);
+      } else {
+        appendBubble('system', '✗ session stopped');
+      }
+    } catch (err) {
+      appendBubble('error', `stop failed: ${err}`);
+    } finally {
+      if (stopButton) {
+        stopButton.disabled = false;
+        stopButton.textContent = 'Stop';
+      }
     }
   }
 

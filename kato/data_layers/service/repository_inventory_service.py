@@ -317,7 +317,18 @@ class RepositoryInventoryService(Service):
         remote_url = text_from_attr(repository, 'remote_url')
         if not RepositoryInventoryService._uses_ssh_remote(remote_url):
             return
-
+        if shutil.which('ssh') is None:
+            raise ValueError(
+                f'repository {repository.id} uses an SSH git remote but the ssh executable is not available on PATH; '
+                'install OpenSSH (or rebuild the Kato image with openssh-client)'
+            )
+        # Windows uses a named pipe (``\\.\pipe\openssh-ssh-agent``) for
+        # ssh-agent rather than a Unix-domain socket; ``SSH_AUTH_SOCK``
+        # is typically unset and ``os.path.exists`` returns False on
+        # named pipes anyway. Trust ``ssh`` to find its agent on Windows
+        # and only enforce the socket check on POSIX.
+        if os.name == 'nt':
+            return
         ssh_auth_sock = normalized_text(os.getenv('SSH_AUTH_SOCK', ''))
         if not ssh_auth_sock:
             raise ValueError(
@@ -327,11 +338,6 @@ class RepositoryInventoryService(Service):
             raise ValueError(
                 f'repository {repository.id} uses an SSH git remote but SSH_AUTH_SOCK does not exist: '
                 f'{ssh_auth_sock}'
-            )
-        if shutil.which('ssh') is None:
-            raise ValueError(
-                f'repository {repository.id} uses an SSH git remote but the ssh executable is not available on PATH; '
-                'rebuild the Kato image with openssh-client installed'
             )
 
     @staticmethod

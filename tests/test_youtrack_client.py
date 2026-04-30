@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import patch
 
 
-from kato.client.youtrack_client import YouTrackClient
+from kato.client.youtrack.client import YouTrackClient
 from kato.data_layers.data.task import Task
 from kato.data_layers.data.fields import (
     TaskCommentFields,

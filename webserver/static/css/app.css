@@ -195,7 +195,20 @@ header button:hover { color: #e2e8f0; border-color: #6366f1; }
   border-bottom: 1px solid #1e293b;
 }
 
-#session-task-summary { color: #94a3b8; font-size: 13px; }
+#session-task-summary { color: #94a3b8; font-size: 13px; flex: 1; }
+
+#session-stop {
+  background: #7f1d1d;
+  color: #fee2e2;
+  border: 1px solid #b91c1c;
+  border-radius: 4px;
+  padding: 4px 12px;
+  font: 12px/1 inherit;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+#session-stop:hover { background: #b91c1c; color: #fff; }
+#session-stop:disabled { background: #334155; border-color: #334155; color: #64748b; cursor: not-allowed; }
 
 #event-log {
   flex: 1;
