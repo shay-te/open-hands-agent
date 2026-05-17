@@ -1,0 +1,99 @@
+// Pure markdown parser for comment bodies — no React, so node:test
+// can cover it. The .jsx sibling maps these tokens to elements.
+//
+// We deliberately keep this a SMALL subset (what the editor toolbar
+// emits): comment bodies double as the prompt kato feeds Claude, so
+// they stay plain markdown *text* in storage; this is render-only.
+
+// Inline tokenizer. Order matters: code spans win over emphasis so
+// `**x**` inside backticks stays literal.
+export function tokenizeInline(text) {
+  const tokens = [];
+  let rest = String(text || '');
+  const patterns = [
+    { type: 'code', re: /^`([^`]+)`/ },
+    { type: 'bold', re: /^\*\*([^*]+)\*\*/ },
+    { type: 'italic', re: /^(?:\*([^*]+)\*|_([^_]+)_)/ },
+    { type: 'link', re: /^\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/ },
+  ];
+  let buffer = '';
+  const flush = () => {
+    if (buffer) { tokens.push({ type: 'text', value: buffer }); buffer = ''; }
+  };
+  while (rest) {
+    let matched = false;
+    for (const { type, re } of patterns) {
+      const m = rest.match(re);
+      if (!m) { continue; }
+      flush();
+      if (type === 'link') {
+        tokens.push({ type, value: m[1], href: m[2] });
+      } else {
+        tokens.push({ type, value: m[1] || m[2] });
+      }
+      rest = rest.slice(m[0].length);
+      matched = true;
+      break;
+    }
+    if (!matched) {
+      buffer += rest[0];
+      rest = rest.slice(1);
+    }
+  }
+  flush();
+  return tokens;
+}
+
+// Block parser → [{ type: 'p'|'code'|'quote'|'ul'|'ol', ... }].
+export function parseBlocks(body) {
+  const text = String(body || '');
+  if (!text.trim()) { return [{ type: 'empty' }]; }
+  const lines = text.split('\n');
+  const blocks = [];
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    if (/^```/.test(line.trim())) {
+      const code = [];
+      i += 1;
+      while (i < lines.length && !/^```/.test(lines[i].trim())) {
+        code.push(lines[i]); i += 1;
+      }
+      i += 1;
+      blocks.push({ type: 'code', value: code.join('\n') });
+      continue;
+    }
+    if (/^\s*>\s?/.test(line)) {
+      const quote = [];
+      while (i < lines.length && /^\s*>\s?/.test(lines[i])) {
+        quote.push(lines[i].replace(/^\s*>\s?/, '')); i += 1;
+      }
+      blocks.push({ type: 'quote', value: quote.join(' ') });
+      continue;
+    }
+    const isUl = /^\s*[-*]\s+/.test(line);
+    const isOl = /^\s*\d+\.\s+/.test(line);
+    if (isUl || isOl) {
+      const re = isUl ? /^\s*[-*]\s+/ : /^\s*\d+\.\s+/;
+      const items = [];
+      while (i < lines.length && re.test(lines[i])) {
+        items.push(lines[i].replace(re, '')); i += 1;
+      }
+      blocks.push({ type: isUl ? 'ul' : 'ol', items });
+      continue;
+    }
+    if (!line.trim()) { i += 1; continue; }
+    const para = [];
+    while (
+      i < lines.length && lines[i].trim()
+      && !/^```/.test(lines[i].trim())
+      && !/^\s*>\s?/.test(lines[i])
+      && !/^\s*[-*]\s+/.test(lines[i])
+      && !/^\s*\d+\.\s+/.test(lines[i])
+    ) {
+      para.push(lines[i]); i += 1;
+    }
+    blocks.push({ type: 'p', value: para.join('\n') });
+  }
+  return blocks;
+}

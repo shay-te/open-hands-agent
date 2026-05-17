@@ -17,10 +17,12 @@ A-Z scenario:
            when ``.git`` exists.
     5. **NO auto-spawn of past sessions** (Bug 1 fix).
     6. ``_start_planning_webserver_if_enabled`` brings the UI up.
-    7. Shutdown hook registered.
-    8. ``_warm_up_repository_inventory`` kicks off the background disk
+    7. Queued local-comment work is dispatched only after the UI has
+       had first shot at loading.
+    8. Shutdown hook registered.
+    9. ``_warm_up_repository_inventory`` kicks off the background disk
        walk for repo discovery.
-    9. ``_run_task_scan_loop`` starts the 30s polling cycle.
+    10. ``_run_task_scan_loop`` starts the 30s polling cycle.
 
 The order matters: orphan recovery must happen BEFORE the webserver
 comes up (otherwise the UI flashes empty), but the no-auto-spawn

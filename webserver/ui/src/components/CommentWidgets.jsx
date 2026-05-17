@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { formatRelativeTime } from '../utils/relativeTime.js';
+import { avatarColor, avatarInitials } from '../utils/avatar.js';
+import { renderCommentMarkdown } from '../utils/commentMarkdown.jsx';
 import { commentSubmitLock } from '../stores/commentSubmitLock.js';
 import { toast } from '../stores/toastStore.js';
 
@@ -30,6 +32,36 @@ export function buildThreads(comments) {
 }
 
 
+// Bitbucket-style identity avatar (initials monogram — kato has no
+// uploaded photo). Deterministic colour so one author is always the
+// same colour across the diff.
+function CommentAvatar({ name }) {
+  return (
+    <span
+      className="diff-file-comment-avatar"
+      style={{ backgroundColor: avatarColor(name) }}
+      aria-hidden="true"
+    >
+      {avatarInitials(name)}
+    </span>
+  );
+}
+
+// Bitbucket's "PENDING"-style outlined status pill. Maps kato's
+// resolved / kato_status onto a single chip.
+function statusPill(comment) {
+  if (comment.status === 'resolved') {
+    return { label: 'RESOLVED', cls: 'is-resolved' };
+  }
+  switch (comment.kato_status) {
+    case 'queued': return { label: 'PENDING', cls: 'is-queued' };
+    case 'in_progress': return { label: 'WORKING', cls: 'is-in_progress' };
+    case 'addressed': return { label: 'ADDRESSED', cls: 'is-addressed' };
+    case 'failed': return { label: 'FAILED', cls: 'is-failed' };
+    default: return null;
+  }
+}
+
 export function CommentBubble({
   comment, isRoot,
   onResolve, onReopen, onDelete, onReply, onMarkAddressed,
@@ -49,6 +81,15 @@ export function CommentBubble({
     && typeof onMarkAddressed === 'function'
     && katoStatus !== 'addressed'
   );
+  const pill = isRoot ? statusPill(comment) : null;
+
+  // Bitbucket: every comment has a collapse chevron. A resolved root
+  // ("done") starts collapsed so it doesn't dominate the diff; the
+  // operator can still expand it, and it never disappears unless they
+  // Delete it. Re-sync when the status flips (resolve→collapse,
+  // reopen→expand) while still allowing a manual toggle in between.
+  const [collapsed, setCollapsed] = useState(isRoot && isResolved);
+  useEffect(() => { setCollapsed(isRoot && isResolved); }, [isRoot, isResolved]);
 
   return (
     <div
@@ -56,9 +97,11 @@ export function CommentBubble({
         'diff-file-comment',
         isRoot ? 'is-root' : 'is-reply',
         comment.source === 'remote' ? 'is-remote' : 'is-local',
+        collapsed ? 'is-collapsed' : '',
       ].filter(Boolean).join(' ')}
     >
       <header className="diff-file-comment-head">
+        <CommentAvatar name={author} />
         <span className="diff-file-comment-author">{author}</span>
         <span
           className={[
@@ -69,71 +112,177 @@ export function CommentBubble({
         >
           {sourceLabel}
         </span>
-        {ago && <span className="diff-file-comment-ago">{ago}</span>}
-        {isRoot && katoStatus && katoStatus !== 'idle' && (
+        {pill && (
           <span
-            className={`diff-file-comment-kato-status is-${katoStatus}`}
+            className={`diff-file-comment-pill ${pill.cls}`}
             title={describeKatoStatus(comment)}
           >
-            {katoStatusLabel(katoStatus)}
+            {pill.label}
           </span>
         )}
+        {ago && <span className="diff-file-comment-ago">{ago}</span>}
+        <button
+          type="button"
+          className="diff-file-comment-collapse"
+          onClick={() => setCollapsed((value) => !value)}
+          aria-expanded={!collapsed}
+          aria-label={collapsed ? 'Expand comment' : 'Collapse comment'}
+          title={collapsed ? 'Expand comment' : 'Collapse comment'}
+        >
+          {collapsed ? '▸' : '▾'}
+        </button>
       </header>
-      {isResolved && isRoot && (
-        <div className="diff-file-comment-resolved-banner inline">
-          ✓ {comment.resolved_by || 'operator'} resolved this thread
-          {comment.resolved_at_epoch ? (
-            <> · {formatRelativeTime((Date.now() / 1000) - comment.resolved_at_epoch)}</>
-          ) : null}
-        </div>
+      {!collapsed && (
+        <>
+          {isResolved && isRoot && (
+            <div className="diff-file-comment-resolved-banner inline">
+              ✓ {comment.resolved_by || 'operator'} resolved this thread
+              {comment.resolved_at_epoch ? (
+                <> · {formatRelativeTime((Date.now() / 1000) - comment.resolved_at_epoch)}</>
+              ) : null}
+            </div>
+          )}
+          <div className="diff-file-comment-body">
+            {renderCommentMarkdown(comment.body)}
+          </div>
+          <footer className="diff-file-comment-actions">
+            {typeof onReply === 'function' && (
+              <button type="button" onClick={onReply} className="diff-file-comment-action">
+                Reply
+              </button>
+            )}
+            {isRoot && !isResolved && typeof onResolve === 'function' && (
+              <button type="button" onClick={onResolve} className="diff-file-comment-action">
+                Resolve
+              </button>
+            )}
+            {isRoot && isResolved && typeof onReopen === 'function' && (
+              <button type="button" onClick={onReopen} className="diff-file-comment-action">
+                Reopen
+              </button>
+            )}
+            {showMarkAddressed && (
+              <button
+                type="button"
+                onClick={onMarkAddressed}
+                className="diff-file-comment-action"
+                title={
+                  comment.source === 'remote'
+                    ? 'Mark addressed locally + post the "Kato addressed" reply on the source git platform.'
+                    : 'Mark this comment as addressed by kato.'
+                }
+              >
+                Mark addressed
+              </button>
+            )}
+            {comment.source === 'local' && typeof onDelete === 'function' && (
+              <button
+                type="button"
+                onClick={onDelete}
+                className="diff-file-comment-action danger"
+              >
+                Delete
+              </button>
+            )}
+          </footer>
+        </>
       )}
-      <div className="diff-file-comment-body">
-        {comment.body || '(empty comment)'}
-      </div>
-      <footer className="diff-file-comment-actions">
-        {typeof onReply === 'function' && (
-          <button type="button" onClick={onReply} className="diff-file-comment-action">
-            Reply
-          </button>
-        )}
-        {isRoot && !isResolved && typeof onResolve === 'function' && (
-          <button type="button" onClick={onResolve} className="diff-file-comment-action">
-            Resolve
-          </button>
-        )}
-        {isRoot && isResolved && typeof onReopen === 'function' && (
-          <button type="button" onClick={onReopen} className="diff-file-comment-action">
-            Reopen
-          </button>
-        )}
-        {showMarkAddressed && (
-          <button
-            type="button"
-            onClick={onMarkAddressed}
-            className="diff-file-comment-action"
-            title={
-              comment.source === 'remote'
-                ? 'Mark addressed locally + post the "Kato addressed" reply on the source git platform.'
-                : 'Mark this comment as addressed by kato.'
-            }
-          >
-            Mark addressed
-          </button>
-        )}
-        {comment.source === 'local' && typeof onDelete === 'function' && (
-          <button
-            type="button"
-            onClick={onDelete}
-            className="diff-file-comment-action danger"
-          >
-            Delete
-          </button>
-        )}
-      </footer>
     </div>
   );
 }
 
+
+// One review thread (root + replies). Bitbucket-style: each comment
+// is its own card and carries its OWN collapse chevron (see
+// CommentBubble) — a resolved root starts collapsed. The thread is
+// just the container; it never hides a comment, so nothing
+// disappears unless the operator Deletes it. Shared by the per-line
+// gutter widgets AND the file-level panel.
+export function CommentThread({
+  thread,
+  onResolve,
+  onReopen,
+  onDelete,
+  onReply,
+  onMarkAddressed,
+}) {
+  const isResolved = thread.root.status === 'resolved';
+  return (
+    <article
+      className={[
+        'diff-file-comment-thread',
+        isResolved ? 'is-resolved' : '',
+      ].filter(Boolean).join(' ')}
+    >
+      <CommentBubble
+        comment={thread.root}
+        isRoot
+        onResolve={() => onResolve(thread.root.id)}
+        onReopen={() => onReopen(thread.root.id)}
+        onDelete={() => onDelete(thread.root.id)}
+        onReply={() => onReply(thread.root.id)}
+        onMarkAddressed={() => onMarkAddressed(thread.root.id)}
+      />
+      {thread.replies.map((reply) => (
+        <CommentBubble
+          key={reply.id}
+          comment={reply}
+          isRoot={false}
+          onDelete={() => onDelete(reply.id)}
+          onReply={() => onReply(thread.root.id)}
+        />
+      ))}
+    </article>
+  );
+}
+
+
+// Bitbucket-style formatting toolbar. We keep the underlying field a
+// plain <textarea> of markdown TEXT on purpose: a comment body is
+// also the prompt kato feeds Claude, so it must stay clean text —
+// these buttons just insert/wrap markdown syntax around the
+// selection. No rich-text/WYSIWYG dependency, no body-format change.
+const TOOLBAR = [
+  { kind: 'bold', label: 'B', aria: 'Bold', style: { fontWeight: 700 } },
+  { kind: 'italic', label: 'I', aria: 'Italic', style: { fontStyle: 'italic' } },
+  { kind: 'code', label: '</>', aria: 'Inline code' },
+  { kind: 'codeblock', label: '{ }', aria: 'Code block' },
+  { kind: 'quote', label: '❝', aria: 'Quote' },
+  { kind: 'ul', label: '•', aria: 'Bulleted list' },
+  { kind: 'ol', label: '1.', aria: 'Numbered list' },
+  { kind: 'link', label: '🔗', aria: 'Insert link' },
+];
+
+function applyMarkdown(textarea, draft, kind) {
+  const start = textarea ? textarea.selectionStart : draft.length;
+  const end = textarea ? textarea.selectionEnd : draft.length;
+  const sel = draft.slice(start, end);
+  const wrap = (before, after, ph) => {
+    const inner = sel || ph;
+    return {
+      text: draft.slice(0, start) + before + inner + after + draft.slice(end),
+      caret: start + before.length + inner.length + after.length,
+    };
+  };
+  const linePrefix = (prefix, ph) => {
+    const block = (sel || ph).split('\n').map((l) => prefix + l).join('\n');
+    return {
+      text: draft.slice(0, start) + block + draft.slice(end),
+      caret: start + block.length,
+    };
+  };
+  switch (kind) {
+    case 'bold': return wrap('**', '**', 'bold text');
+    case 'italic': return wrap('_', '_', 'italic text');
+    case 'code': return wrap('`', '`', 'code');
+    case 'codeblock': return wrap('```\n', '\n```', 'code');
+    case 'quote': return linePrefix('> ', 'quote');
+    case 'ul': return linePrefix('- ', 'item');
+    case 'ol': return linePrefix('1. ', 'item');
+    case 'link': return wrap('[', '](https://)', 'text');
+    default: return { text: draft, caret: end };
+  }
+}
 
 export function CommentForm({
   placeholder = 'Add a comment…',
@@ -184,8 +333,38 @@ export function CommentForm({
     }
   }
 
+  function onToolbar(kind) {
+    const ta = textareaRef.current;
+    const { text, caret } = applyMarkdown(ta, draft, kind);
+    setDraft(text);
+    const restore = () => {
+      if (ta) { ta.focus(); ta.setSelectionRange(caret, caret); }
+    };
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(restore);
+    } else {
+      restore();
+    }
+  }
+
   return (
     <div className="diff-file-comments-form">
+      <div className="diff-file-comments-toolbar" role="toolbar" aria-label="Formatting">
+        {TOOLBAR.map((tool) => (
+          <button
+            key={tool.kind}
+            type="button"
+            className="diff-file-comments-toolbar-btn"
+            onClick={() => onToolbar(tool.kind)}
+            aria-label={tool.aria}
+            title={tool.aria}
+            style={tool.style}
+            disabled={busy || globallyLocked}
+          >
+            {tool.label}
+          </button>
+        ))}
+      </div>
       <textarea
         ref={textareaRef}
         className="diff-file-comments-textarea"
@@ -225,17 +404,6 @@ export function CommentForm({
       </div>
     </div>
   );
-}
-
-
-function katoStatusLabel(status) {
-  switch (status) {
-    case 'queued': return '⏳ queued';
-    case 'in_progress': return '⟳ kato working';
-    case 'addressed': return '✓ kato addressed';
-    case 'failed': return '✗ kato failed';
-    default: return status;
-  }
 }
 
 

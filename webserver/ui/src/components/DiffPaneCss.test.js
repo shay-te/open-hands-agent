@@ -41,6 +41,13 @@ test('DiffPane file headers stick to the top of the scroll container', () => {
   assertDeclaration(body, 'background', '#1e1e1e');
 });
 
+test('DiffPane uses compact side spacing around file cards and headers', () => {
+  const paneBody = ruleBody('.diff-pane-body');
+  const headerBody = ruleBody('.diff-pane .diff-file-header');
+  assertDeclaration(paneBody, 'padding', '0 6px');
+  assertDeclaration(headerBody, 'padding', '6px');
+});
+
 test('DiffPane file headers draw a rounded face above scrolling diff rows', () => {
   const body = ruleBody('.diff-pane .diff-file-header::before');
   assertDeclaration(body, 'background', '#161616');
@@ -110,6 +117,30 @@ test('Diff syntax colors JSX and stylesheet tokens like Bitbucket', () => {
   assertDeclaration(variableBody, 'color', '#cce0ff');
   assertDeclaration(stringBody, 'color', '#f5cd47');
   assertDeclaration(keywordBody, 'color', '#ff9b91');
+});
+
+test('Bitbucket comment card: avatar, collapse chevron, dot actions', () => {
+  const avatar = ruleBody('.diff-file-comment-avatar');
+  assertDeclaration(avatar, 'border-radius', '50%');
+
+  const collapse = ruleBody('.diff-file-comment-collapse');
+  assertDeclaration(collapse, 'cursor', 'pointer');
+  assertDeclaration(collapse, 'margin-left', 'auto');
+
+  // Collapsed bubble state rule must exist.
+  ruleBody('.diff-file-comment.is-collapsed');
+
+  // Actions are middot-separated Bitbucket-style.
+  const sep = ruleBody(
+    '.diff-file-comment-action + .diff-file-comment-action::before',
+  );
+  assertDeclaration(sep, 'content', "'·'");
+});
+
+test('Comment editor has a formatting toolbar', () => {
+  const btn = ruleBody('.diff-file-comments-toolbar-btn');
+  assertDeclaration(btn, 'cursor', 'pointer');
+  ruleBody('.diff-file-comments-toolbar');
 });
 
 test('Diff context expander has Bitbucket-style controls', () => {

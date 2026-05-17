@@ -832,6 +832,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   gap: 10px;
   flex: 1;
   min-width: 0;
+  width: 100%;
 }
 
 #session-task-id {
@@ -2058,7 +2059,7 @@ code {
   /* No TOP padding: a ``position: sticky; top:0`` child pins to the
    * scrollport's CONTENT box, so top padding becomes a dead strip
    * the diff scrolls visibly through above the pinned bar. */
-  padding: 0 12px;
+  padding: 0 6px;
   scroll-behavior: smooth;
 }
 /* Every changed file is its own box, stacked here. The left list
@@ -2119,7 +2120,7 @@ code {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
+  padding: 6px;
   background: #1e1e1e;
 }
 .diff-pane .diff-file-header::before {
@@ -2834,7 +2835,7 @@ body.kato-resizing #left-pane-resizer::before {
 .diff-file-comments {
   border-top: 1px solid #262626;
   border-radius: 0 0 10px 10px;
-  padding: 12px;
+  padding: 4px;
   background: #0f0f0f;
 }
 .diff-file-comments-empty {
@@ -2847,10 +2848,10 @@ body.kato-resizing #left-pane-resizer::before {
 .diff-file-comment-thread {
   border: 1px solid #262626;
   border-radius: 4px;
-  margin-bottom: 12px;
+  margin-bottom: 4px;
   background: #161616;
 }
-.diff-file-comment-thread.is-resolved { opacity: 0.85; }
+.diff-file-comment-thread.is-resolved { opacity: 0.9; }
 .diff-file-comment-resolved-banner {
   padding: 6px 10px;
   background: #1e3a8a;
@@ -2858,14 +2859,16 @@ body.kato-resizing #left-pane-resizer::before {
   font: 11px/1.4 inherit;
 }
 
+/* ----- Bitbucket-style comment card ----- */
 .diff-file-comment {
-  padding: 10px 12px;
+  padding: 6px;
   border-bottom: 1px solid #262626;
 }
 .diff-file-comment:last-child { border-bottom: 0; }
+.diff-file-comment.is-collapsed { padding: 6px; }
 .diff-file-comment.is-reply {
-  margin-left: 24px;
-  border-left: 2px solid #404040;
+  margin-left: 28px;
+  border-left: 2px solid #2f6feb;
   background: #131313;
 }
 
@@ -2873,55 +2876,120 @@ body.kato-resizing #left-pane-resizer::before {
   display: flex;
   align-items: center;
   gap: 8px;
+  font-size: 12px;
+  padding: 0;
+}
+.diff-file-comment:not(.is-collapsed) .diff-file-comment-head {
   margin-bottom: 6px;
-  font-size: 11px;
+}
+.diff-file-comment-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+  user-select: none;
 }
 .diff-file-comment-author { font-weight: 600; color: #e5e5e5; }
-/* LOCAL/REMOTE + kato-status badges use the system chip language:
- * pill-shaped (border-radius: 999px) with a 1px border, like
- * ``.claude-status`` / ``.editor-pane-readonly-pill``. */
 .diff-file-comment-source {
-  padding: 2px 8px;
+  padding: 1px 6px;
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.14);
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 600;
   letter-spacing: 0.04em;
+  color: #a3a3a3;
 }
-.diff-file-comment-source.is-local {
-  background: #1d4ed8;
-  color: #eff6ff;
-}
-.diff-file-comment-source.is-remote {
-  background: #047857;
-  color: #ecfdf5;
-}
-.diff-file-comment-ago { color: #737373; }
-.diff-file-comment-kato-status {
-  margin-left: auto;
-  padding: 2px 8px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+.diff-file-comment-source.is-local { border-color: #1d4ed8; color: #93c5fd; }
+.diff-file-comment-source.is-remote { border-color: #047857; color: #6ee7b7; }
+/* PENDING-style outlined status pill (Bitbucket look). */
+.diff-file-comment-pill {
+  padding: 1px 7px;
+  border-radius: 4px;
+  border: 1px solid currentColor;
   font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
 }
-.diff-file-comment-kato-status.is-queued { background: #78350f; color: #fef3c7; }
-.diff-file-comment-kato-status.is-in_progress { background: #b45309; color: #fff7ed; }
-.diff-file-comment-kato-status.is-addressed { background: #166534; color: #ecfdf5; }
-.diff-file-comment-kato-status.is-failed { background: #7f1d1d; color: #fee2e2; }
+.diff-file-comment-pill.is-queued { color: #c4b5fd; }
+.diff-file-comment-pill.is-in_progress { color: #fbbf24; }
+.diff-file-comment-pill.is-addressed { color: #6ee7b7; }
+.diff-file-comment-pill.is-failed { color: #fca5a5; }
+.diff-file-comment-pill.is-resolved { color: #93c5fd; }
+.diff-file-comment-ago { color: #737373; font-size: 11px; }
+/* Collapse chevron, pushed to the far right Bitbucket-style. */
+.diff-file-comment-collapse {
+  margin-left: auto;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(245, 245, 247, 0.85);
+  font: 600 11px/1 inherit;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease, transform 90ms ease;
+}
+.diff-file-comment-collapse:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.18);
+  color: #f5f5f7;
+}
+.diff-file-comment-collapse:active { transform: scale(0.96); }
 
 .diff-file-comment-body {
   color: #d4d4d4;
   font-size: 13px;
   line-height: 1.5;
-  white-space: pre-wrap;
   word-break: break-word;
 }
+.diff-file-comment-body .cmt-md-p { margin: 0 0 8px; }
+.diff-file-comment-body .cmt-md-p:last-child { margin-bottom: 0; }
+.diff-file-comment-body .cmt-md-empty { margin: 0; color: #737373; font-style: italic; }
+.diff-file-comment-body .cmt-md-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  background: #0a0a0a;
+  border: 1px solid #262626;
+  border-radius: 3px;
+  padding: 0 4px;
+}
+.diff-file-comment-body .cmt-md-pre {
+  margin: 0 0 8px;
+  padding: 8px 10px;
+  background: #0a0a0a;
+  border: 1px solid #262626;
+  border-radius: 4px;
+  overflow-x: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  white-space: pre;
+}
+.diff-file-comment-body .cmt-md-quote {
+  margin: 0 0 8px;
+  padding: 2px 0 2px 10px;
+  border-left: 3px solid #404040;
+  color: #a3a3a3;
+}
+.diff-file-comment-body .cmt-md-list { margin: 0 0 8px; padding-left: 20px; }
+.diff-file-comment-body a { color: #93c5fd; }
 
 .diff-file-comment-actions {
-  margin-top: 8px;
+  margin: 4px 0 0 0;
   display: flex;
-  gap: 12px;
-  font-size: 11px;
+  align-items: center;
+  font-size: 12px;
 }
 .diff-file-comment-action {
   background: transparent;
@@ -2931,8 +2999,45 @@ body.kato-resizing #left-pane-resizer::before {
   padding: 0;
   font: inherit;
 }
+/* Bitbucket-style middot separators between actions. */
+.diff-file-comment-action + .diff-file-comment-action::before {
+  content: '·';
+  color: #525252;
+  margin: 0 8px;
+}
 .diff-file-comment-action:hover { text-decoration: underline; }
 .diff-file-comment-action.danger { color: #fca5a5; }
+
+/* ----- formatting toolbar (markdown-source, no WYSIWYG) ----- */
+.diff-file-comments-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid #262626;
+  border-bottom: 0;
+  border-radius: 4px 4px 0 0;
+  background: #0f0f0f;
+}
+.diff-file-comments-toolbar-btn {
+  min-width: 26px;
+  height: 26px;
+  padding: 0 6px;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  color: #a3a3a3;
+  cursor: pointer;
+  font: 12px/1 ui-monospace, monospace;
+}
+.diff-file-comments-toolbar-btn:hover:not(:disabled) {
+  background: #1f1f1f;
+  color: #e5e5e5;
+}
+.diff-file-comments-toolbar-btn:disabled { opacity: 0.4; cursor: default; }
+.diff-file-comments-toolbar + .diff-file-comments-textarea {
+  border-radius: 0 0 4px 4px;
+}
 
 .diff-file-comments-form {
   border: 1px solid #262626;
@@ -2993,21 +3098,23 @@ body.kato-resizing #left-pane-resizer::before {
   cursor: not-allowed;
 }
 
-/* Inline per-line comment widget host — react-diff-view renders
- * widgets in a full-width row beneath the keyed line. We pad and
- * tint so the thread reads as "attached to that line" rather than
- * floating in the diff. */
+/* Inline per-line comment widget host — stretches full width, no
+ * horizontal padding so threads fill edge-to-edge like Bitbucket. */
 .diff-line-comments-host {
   background: #0a0a0a;
   border-top: 1px solid #262626;
   border-bottom: 1px solid #262626;
-  padding: 8px 16px;
+  padding: 0;
 }
 .diff-line-comments-host .diff-file-comment-thread {
-  margin-bottom: 8px;
-}
-.diff-line-comments-host .diff-file-comment-thread:last-child {
+  border-radius: 0;
+  border-left: 0;
+  border-right: 0;
   margin-bottom: 0;
+  border-top: 0;
+}
+.diff-line-comments-host .diff-file-comment-thread + .diff-file-comment-thread {
+  border-top: 1px solid #1f1f1f;
 }
 
 /* Hovering a diff line shows ONE blue "+" to add a comment — the
@@ -3054,7 +3161,7 @@ body.kato-resizing #left-pane-resizer::before {
 /* Inline-resolved banner inside a CommentBubble (smaller than the
  * top-of-thread version since it sits inside the bubble). */
 .diff-file-comment-resolved-banner.inline {
-  margin: -4px 0 6px;
+  margin: -2px 0 5px 34px;
   padding: 3px 6px;
   border-radius: 3px;
   font-size: 10px;
@@ -3491,7 +3598,7 @@ body.kato-resizing #left-pane-resizer::before {
   display: flex;
   gap: 8px;
   align-items: center;
-  padding: 8px 12px;
+  padding: 6px;
   background: rgba(255, 255, 255, 0.05);
   font-size: 12px;
   font-family: ui-monospace, monospace;
@@ -3936,6 +4043,19 @@ body.kato-resizing #left-pane-resizer::before {
 .claude-status-sleeping,
 .claude-status-closed { color: #737373; }
 .claude-status-missing { color: #fca5a5; border-color: #7f1d1d; }
+
+/* Always-visible Claude session id, next to the status chip — so the
+ * operator can eyeball it across a restart (resume keeps the same
+ * id; a changed id means the conversation restarted fresh). Short
+ * form shown; full id is in the title and the text is selectable
+ * for copy. */
+.claude-session-id {
+  font: 11px/1 ui-monospace, monospace;
+  color: #737373;
+  flex-shrink: 0;
+  user-select: text;
+  cursor: text;
+}
 
 /* ----- toasts -----
  * Anchored top-center, slide in from above, auto-dismiss after 5s

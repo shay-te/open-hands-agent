@@ -531,11 +531,30 @@ describe('SessionDetail — permission dialog auto-reconnect', () => {
     expect(stream.reconnect).toHaveBeenCalledTimes(1);
   });
 
-  test('does NOT reconnect when the stream is live (STREAMING)', () => {
+  test('waits for idle when attention arrives before the stream sleeps', () => {
+    const stream = _stream({ lifecycle: SESSION_LIFECYCLE.STREAMING });
+    const { rerender } = _render(stream, { needsAttention: false });
+    rerender(
+      <SessionDetail session={{ task_id: 'T1' }} needsAttention />,
+    );
+    expect(stream.reconnect).not.toHaveBeenCalled();
+
+    const idleStream = { ...stream, lifecycle: SESSION_LIFECYCLE.IDLE };
+    useSessionStream.mockReturnValue(idleStream);
+    rerender(
+      <SessionDetail session={{ task_id: 'T1' }} needsAttention />,
+    );
+    expect(stream.reconnect).toHaveBeenCalledTimes(1);
+  });
+
+  test('does NOT reconnect when the stream stays live (STREAMING)', () => {
     // A live SSE already delivers the request; reconnecting would be
     // a needless reset.
     const stream = _stream({ lifecycle: SESSION_LIFECYCLE.STREAMING });
     const { rerender } = _render(stream, { needsAttention: false });
+    rerender(
+      <SessionDetail session={{ task_id: 'T1' }} needsAttention />,
+    );
     rerender(
       <SessionDetail session={{ task_id: 'T1' }} needsAttention />,
     );

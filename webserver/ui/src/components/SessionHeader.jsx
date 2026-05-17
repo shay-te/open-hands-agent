@@ -375,6 +375,20 @@ export default function SessionHeader({
           >
             Claude: {claudeStatus.label}
           </span>
+          {session.claude_session_id ? (
+            <span
+              id="session-claude-id"
+              className="claude-session-id"
+              title={
+                `Claude session id: ${session.claude_session_id}\n`
+                + 'kato resumes this id across restarts — compare it '
+                + 'before/after a restart to confirm the conversation '
+                + 'was continued, not started fresh.'
+              }
+            >
+              sid:{session.claude_session_id.slice(0, 8)}…
+            </span>
+          ) : null}
           {searchSlot}
           {approvePushButton}
           <button

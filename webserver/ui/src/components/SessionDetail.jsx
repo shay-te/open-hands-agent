@@ -105,23 +105,28 @@ export default function SessionDetail({
   // dialog never appears — the operator had to click the tab again
   // to force a remount/reconnect even though they were already here.
   //
-  // Re-open the stream on the rising edge of ``needsAttention`` when
-  // the session is sleeping and nothing is pending yet. The server
-  // replays the outstanding request on reconnect, so the dialog pops
-  // immediately. Rising-edge + the sleeping guard keep this from
-  // looping (a live STREAMING stream already delivers the request;
-  // once pendingPermission is set we bail).
-  const prevNeedsAttentionRef = useRef(false);
+  // Re-open the stream once per attention period when the session is
+  // sleeping and nothing is pending yet. ``needsAttention`` can turn
+  // true while the cached lifecycle still says STREAMING; if it flips
+  // to IDLE a moment later, the dialog still needs to pop immediately.
+  const permissionReconnectAttemptedRef = useRef(false);
   useEffect(() => {
-    const rose = needsAttention && !prevNeedsAttentionRef.current;
-    prevNeedsAttentionRef.current = needsAttention;
-    if (!rose || stream.pendingPermission) { return; }
+    permissionReconnectAttemptedRef.current = false;
+  }, [taskId]);
+  useEffect(() => {
+    if (!needsAttention || stream.pendingPermission) {
+      permissionReconnectAttemptedRef.current = false;
+      return;
+    }
     const sleeping = (
       stream.lifecycle === SESSION_LIFECYCLE.IDLE
       || stream.lifecycle === SESSION_LIFECYCLE.CLOSED
       || stream.lifecycle === SESSION_LIFECYCLE.MISSING
     );
-    if (sleeping) { stream.reconnect(); }
+    if (sleeping && !permissionReconnectAttemptedRef.current) {
+      permissionReconnectAttemptedRef.current = true;
+      stream.reconnect();
+    }
     // stream.reconnect is a fresh closure each render; intentionally
     // excluded so this fires on the attention/lifecycle change only.
     // eslint-disable-next-line react-hooks/exhaustive-deps

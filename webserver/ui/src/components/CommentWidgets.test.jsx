@@ -10,7 +10,12 @@ vi.mock('../stores/toastStore.js', () => ({
   toast: { show: vi.fn() },
 }));
 
-import { CommentBubble, CommentForm, buildThreads } from './CommentWidgets.jsx';
+import {
+  CommentBubble,
+  CommentForm,
+  CommentThread,
+  buildThreads,
+} from './CommentWidgets.jsx';
 
 
 function _comment(overrides = {}) {
@@ -252,5 +257,103 @@ describe('CommentForm — submit + cancel', () => {
       fireEvent.click(cancelBtn);
       expect(onCancel).toHaveBeenCalled();
     }
+  });
+
+  test('the markdown toolbar inserts syntax into the textarea', () => {
+    render(
+      <CommentForm placeholder="…" onSubmit={vi.fn()} onCancel={vi.fn()} />,
+    );
+    const textarea = screen.getByRole('textbox');
+    fireEvent.change(textarea, { target: { value: 'hello' } });
+    textarea.setSelectionRange(0, 5);
+    fireEvent.click(screen.getByRole('button', { name: 'Bold' }));
+    expect(textarea).toHaveValue('**hello**');
+    // Select the whole line, then Quote prefixes it.
+    textarea.setSelectionRange(0, textarea.value.length);
+    fireEvent.click(screen.getByRole('button', { name: 'Quote' }));
+    expect(textarea.value).toBe('> **hello**');
+  });
+
+  test('toolbar buttons do not collide with submit/cancel lookups', () => {
+    render(
+      <CommentForm placeholder="…" onSubmit={vi.fn()} onCancel={vi.fn()} />,
+    );
+    // Exactly one submit-ish button despite the toolbar row.
+    expect(
+      screen.getByRole('button', { name: /post|add|send|submit/i }),
+    ).toBeInTheDocument();
+  });
+});
+
+
+describe('CommentThread / CommentBubble — Bitbucket collapse', () => {
+  function _thread(rootOverrides = {}, replies = []) {
+    return { root: _comment(rootOverrides), replies };
+  }
+
+  const handlers = {
+    onResolve: vi.fn(),
+    onReopen: vi.fn(),
+    onDelete: vi.fn(),
+    onReply: vi.fn(),
+    onMarkAddressed: vi.fn(),
+  };
+
+  test('open root renders expanded; chevron present (aria-expanded true)', () => {
+    const { container } = render(
+      <CommentThread
+        thread={_thread({ status: 'open', body: 'open body here' })}
+        {...handlers}
+      />,
+    );
+    expect(container.querySelector('.diff-file-comment-body'))
+      .toHaveTextContent('open body here');
+    const chevron = screen.getByRole('button', { name: /collapse comment/i });
+    expect(chevron).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  test('resolved root starts collapsed — body hidden, header still shown', () => {
+    const { container } = render(
+      <CommentThread
+        thread={_thread({
+          status: 'resolved', author: 'reviewer', body: 'resolved body text',
+        })}
+        {...handlers}
+      />,
+    );
+    expect(container.querySelector('.diff-file-comment-body')).toBeNull();
+    // The card never disappears — the identity header stays visible.
+    expect(screen.getByText('reviewer')).toBeInTheDocument();
+    const chevron = screen.getByRole('button', { name: /expand comment/i });
+    expect(chevron).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  test('clicking the chevron expands a collapsed resolved comment', () => {
+    const { container } = render(
+      <CommentThread
+        thread={_thread({ status: 'resolved', body: 'resolved body text' })}
+        {...handlers}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /expand comment/i }));
+    expect(container.querySelector('.diff-file-comment-body'))
+      .toHaveTextContent('resolved body text');
+    expect(
+      screen.getByRole('button', { name: /collapse comment/i }),
+    ).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  test('renders an initials avatar and a status pill', () => {
+    const { container } = render(
+      <CommentThread
+        thread={_thread({
+          status: 'open', author: 'Shay Tessler', kato_status: 'queued',
+        })}
+        {...handlers}
+      />,
+    );
+    const avatar = container.querySelector('.diff-file-comment-avatar');
+    expect(avatar).toHaveTextContent('ST');
+    expect(screen.getByText('PENDING')).toBeInTheDocument();
   });
 });

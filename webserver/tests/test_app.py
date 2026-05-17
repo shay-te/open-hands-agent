@@ -1,8 +1,11 @@
 import re
 import unittest
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 from kato_webserver.app import (
+    _advance_task_comments_after_result,
+    _complete_in_progress_task_comments,
     _drain_queued_task_comment,
     _event_stream_generator,
     _follow_live_session,
@@ -459,6 +462,26 @@ class WebserverAppTests(unittest.TestCase):
         self.assertIn('"type": "permission_request"', joined)
         self.assertEqual(replayed_count, 3)
 
+    def test_backlog_replays_pending_control_request_for_a_reconnecting_client(self):
+        class _SessionWithPendingControlRequest:
+            def recent_events(self):
+                return [
+                    _FakeSessionEvent('system'),
+                    _FakeSessionEvent('control_request'),
+                ]
+
+        frames = []
+        gen = _replay_session_backlog(_SessionWithPendingControlRequest())
+        try:
+            while True:
+                frames.append(next(gen))
+        except StopIteration as exc:
+            replayed_count = exc.value
+
+        joined = ''.join(frames)
+        self.assertIn('"type": "control_request"', joined)
+        self.assertEqual(replayed_count, 2)
+
     def test_live_stream_does_not_skip_event_created_between_backlog_and_follow(self):
         session = _RaceyLiveSession()
         backlog = _replay_session_backlog(session)
@@ -541,6 +564,7 @@ class WebserverAppTests(unittest.TestCase):
         live_session = MagicMock()
         live_session.is_alive = True
         live_session.is_working = False
+        live_session.pending_control_request_tool.return_value = 'Bash'
         live_session.recent_events.return_value = [_FakeSessionEvent('control_request')]
         manager = _FakeManager(records=[
             _FakeRecord(
@@ -557,6 +581,7 @@ class WebserverAppTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         payload = response.get_json()
         self.assertTrue(payload[0]['has_pending_permission'])
+        self.assertEqual(payload[0]['pending_permission_tool_name'], 'Bash')
 
     def test_drain_queued_task_comment_uses_agent_service(self):
         service = MagicMock()
@@ -603,6 +628,41 @@ class WebserverAppTests(unittest.TestCase):
 
         self.assertTrue(any('session_closed' in frame for frame in frames))
         service.drain_next_queued_task_comment.assert_called_once_with('PROJ-1')
+
+    def test_result_event_completes_then_drains(self):
+        event = SimpleNamespace(
+            event_type='result', raw={'type': 'result', 'is_error': False},
+        )
+        service = MagicMock()
+        _advance_task_comments_after_result(event, service, 'PROJ-1')
+        service.complete_in_progress_task_comments.assert_called_once_with(
+            'PROJ-1', success=True,
+        )
+        service.drain_next_queued_task_comment.assert_called_once_with('PROJ-1')
+
+    def test_errored_result_completes_with_success_false(self):
+        event = SimpleNamespace(
+            event_type='result', raw={'type': 'result', 'is_error': True},
+        )
+        service = MagicMock()
+        _advance_task_comments_after_result(event, service, 'PROJ-1')
+        service.complete_in_progress_task_comments.assert_called_once_with(
+            'PROJ-1', success=False,
+        )
+
+    def test_non_result_event_is_ignored(self):
+        event = SimpleNamespace(event_type='assistant', raw={'type': 'assistant'})
+        service = MagicMock()
+        _advance_task_comments_after_result(event, service, 'PROJ-1')
+        service.complete_in_progress_task_comments.assert_not_called()
+        service.drain_next_queued_task_comment.assert_not_called()
+
+    def test_complete_helper_tolerates_missing_method_and_errors(self):
+        # Service without the method (older stub) → no raise.
+        _complete_in_progress_task_comments(object(), 'PROJ-1', True)
+        boom = MagicMock()
+        boom.complete_in_progress_task_comments.side_effect = RuntimeError('x')
+        _complete_in_progress_task_comments(boom, 'PROJ-1', True)  # swallowed
 
 
 class _FakeWorkspaceRecord:

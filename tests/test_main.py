@@ -11,6 +11,9 @@ from kato_core_lib.main import (
     _RESUME_WAIT_PROMPT,
     _cleanup_done_tasks_at_boot,
     _requeue_stuck_comments,
+    _start_pending_comment_work_after_ui,
+    _start_pending_comment_work,
+    _start_pending_comment_work_when_ui_ready,
     _reset_stuck_workspace_statuses,
     _resume_prompt_for_workspace,
     _resume_streaming_sessions,
@@ -869,7 +872,7 @@ class RequeueStuckCommentsBootTests(unittest.TestCase):
         service.requeue_stuck_in_progress_comments.assert_called_once_with()
         app.logger.info.assert_called_once_with(
             'requeued %d comment(s) stuck in-progress from the previous '
-            'run; the next scan tick will pick them up and wake the session',
+            'run; _start_pending_comment_work will dispatch them next',
             2,
         )
 
@@ -912,6 +915,110 @@ class RequeueStuckCommentsBootTests(unittest.TestCase):
         # ACTIVE) and before the scan loop that drains the queue.
         self.assertLess(reset_idx, requeue_idx)
         self.assertLess(requeue_idx, scan_idx)
+
+
+class StartPendingCommentWorkBootTests(unittest.TestCase):
+    """_start_pending_comment_work dispatches queued comments at boot
+    so the agent starts immediately, not on the first scan tick."""
+
+    def test_delegates_and_logs_started_count(self) -> None:
+        service = types.SimpleNamespace(
+            drain_all_queued_task_comments=Mock(return_value=[
+                {'task_id': 'UNA-1', 'started': True, 'comment_id': 'c1'},
+                {'task_id': 'UNA-2', 'started': True, 'comment_id': 'c2'},
+            ]),
+        )
+        app = types.SimpleNamespace(logger=Mock(), service=service)
+
+        _start_pending_comment_work(app)
+
+        service.drain_all_queued_task_comments.assert_called_once_with()
+        app.logger.info.assert_called_once_with(
+            'started agent work on %d task(s) with queued comments at boot',
+            2,
+        )
+
+    def test_silent_when_nothing_queued(self) -> None:
+        service = types.SimpleNamespace(
+            drain_all_queued_task_comments=Mock(return_value=[]),
+        )
+        app = types.SimpleNamespace(logger=Mock(), service=service)
+
+        _start_pending_comment_work(app)
+
+        app.logger.info.assert_not_called()
+
+    def test_service_error_does_not_abort_boot(self) -> None:
+        service = types.SimpleNamespace(
+            drain_all_queued_task_comments=Mock(
+                side_effect=RuntimeError('boom'),
+            ),
+        )
+        app = types.SimpleNamespace(logger=Mock(), service=service)
+
+        _start_pending_comment_work(app)  # must not raise
+
+        app.logger.exception.assert_called_once()
+
+    def test_noop_when_service_missing_or_method_absent(self) -> None:
+        _start_pending_comment_work(types.SimpleNamespace(logger=Mock()))
+        app = types.SimpleNamespace(logger=Mock(), service=object())
+        _start_pending_comment_work(app)
+        app.logger.info.assert_not_called()
+
+    def test_boot_order_dispatch_is_deferred_until_after_webserver_start(self) -> None:
+        import inspect
+        from kato_core_lib import main as main_module
+        src = inspect.getsource(main_module.main)
+        requeue_idx = src.index('_requeue_stuck_comments(app)')
+        webserver_idx = src.index('_start_planning_webserver_if_enabled(app)')
+        start_idx = src.index('_start_pending_comment_work_after_ui(app)')
+        scan_idx = src.index('_run_task_scan_loop(')
+        # Stale IN_PROGRESS → QUEUED must happen before the deferred
+        # dispatch, but the UI is started first so comment resume work
+        # cannot delay the planning page.
+        self.assertLess(requeue_idx, start_idx)
+        self.assertLess(webserver_idx, start_idx)
+        self.assertLess(start_idx, scan_idx)
+
+    def test_deferred_dispatch_runs_in_background_thread(self) -> None:
+        app = types.SimpleNamespace(logger=Mock())
+        with patch('kato_core_lib.main.threading.Thread') as thread_cls:
+            _start_pending_comment_work_after_ui(app)
+        thread_cls.assert_called_once()
+        self.assertEqual(
+            thread_cls.call_args.kwargs['name'],
+            'kato-start-pending-comments',
+        )
+        self.assertTrue(thread_cls.call_args.kwargs['daemon'])
+        thread_cls.return_value.start.assert_called_once_with()
+
+    def test_deferred_worker_waits_for_ui_healthz_before_dispatch(self) -> None:
+        app = types.SimpleNamespace(
+            logger=Mock(),
+            planning_webserver_url='http://127.0.0.1:5050',
+        )
+        with patch(
+            'kato_core_lib.main._wait_for_planning_ui_healthz',
+        ) as wait, patch(
+            'kato_core_lib.main._start_pending_comment_work',
+        ) as start:
+            _start_pending_comment_work_when_ui_ready(app)
+        wait.assert_called_once_with(
+            'http://127.0.0.1:5050', app.logger,
+        )
+        start.assert_called_once_with(app)
+
+    def test_deferred_worker_dispatches_immediately_without_ui_url(self) -> None:
+        app = types.SimpleNamespace(logger=Mock())
+        with patch(
+            'kato_core_lib.main._wait_for_planning_ui_healthz',
+        ) as wait, patch(
+            'kato_core_lib.main._start_pending_comment_work',
+        ) as start:
+            _start_pending_comment_work_when_ui_ready(app)
+        wait.assert_not_called()
+        start.assert_called_once_with(app)
 
 
 if __name__ == '__main__':

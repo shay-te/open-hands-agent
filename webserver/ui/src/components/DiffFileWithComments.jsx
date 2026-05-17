@@ -20,8 +20,8 @@ import { toast } from '../stores/toastStore.js';
 import { diffDisplayPath } from '../diffModel.js';
 import { tokenizeHunks } from '../utils/diffSyntax.js';
 import {
-  CommentBubble,
   CommentForm,
+  CommentThread,
   buildThreads,
 } from './CommentWidgets.jsx';
 import {
@@ -331,38 +331,18 @@ export default function DiffFileWithComments({
         out[key] = (
           <div className="diff-line-comments-host">
             {threads.map((thread) => (
-              <article
+              <CommentThread
                 key={thread.root.id}
-                className={[
-                  'diff-file-comment-thread',
-                  thread.root.status === 'resolved' ? 'is-resolved' : '',
-                ].filter(Boolean).join(' ')}
-              >
-                <CommentBubble
-                  comment={thread.root}
-                  isRoot
-                  onResolve={() => onResolve(thread.root.id)}
-                  onReopen={() => onReopen(thread.root.id)}
-                  onDelete={() => onDelete(thread.root.id)}
-                  onReply={() => {
-                    setActiveLine(lineNumber);
-                    setReplyTo(thread.root.id);
-                  }}
-                  onMarkAddressed={() => onMarkAddressed(thread.root.id)}
-                />
-                {thread.replies.map((reply) => (
-                  <CommentBubble
-                    key={reply.id}
-                    comment={reply}
-                    isRoot={false}
-                    onDelete={() => onDelete(reply.id)}
-                    onReply={() => {
-                      setActiveLine(lineNumber);
-                      setReplyTo(thread.root.id);
-                    }}
-                  />
-                ))}
-              </article>
+                thread={thread}
+                onResolve={onResolve}
+                onReopen={onReopen}
+                onDelete={onDelete}
+                onMarkAddressed={onMarkAddressed}
+                onReply={(rootId) => {
+                  setActiveLine(lineNumber);
+                  setReplyTo(rootId);
+                }}
+              />
             ))}
             {isActive && (
               <CommentForm
@@ -616,38 +596,18 @@ export default function DiffFileWithComments({
     <p className="diff-file-comments-empty error">{commentsError}</p>
   ) : null;
   const commentThreads = !commentsError && fileThreads.length > 0 ? fileThreads.map((thread) => (
-    <article
+    <CommentThread
       key={thread.root.id}
-      className={[
-        'diff-file-comment-thread',
-        thread.root.status === 'resolved' ? 'is-resolved' : '',
-      ].filter(Boolean).join(' ')}
-    >
-      <CommentBubble
-        comment={thread.root}
-        isRoot
-        onResolve={() => onResolve(thread.root.id)}
-        onReopen={() => onReopen(thread.root.id)}
-        onDelete={() => onDelete(thread.root.id)}
-        onReply={() => {
-          setActiveLine(-1);
-          setReplyTo(thread.root.id);
-        }}
-        onMarkAddressed={() => onMarkAddressed(thread.root.id)}
-      />
-      {thread.replies.map((reply) => (
-        <CommentBubble
-          key={reply.id}
-          comment={reply}
-          isRoot={false}
-          onDelete={() => onDelete(reply.id)}
-          onReply={() => {
-            setActiveLine(-1);
-            setReplyTo(thread.root.id);
-          }}
-        />
-      ))}
-    </article>
+      thread={thread}
+      onResolve={onResolve}
+      onReopen={onReopen}
+      onDelete={onDelete}
+      onMarkAddressed={onMarkAddressed}
+      onReply={(rootId) => {
+        setActiveLine(-1);
+        setReplyTo(rootId);
+      }}
+    />
   )) : null;
   const commentsPanel = (
     commentsLoadingMessage

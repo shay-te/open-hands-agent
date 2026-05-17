@@ -180,6 +180,7 @@ def main(cfg: DictConfig) -> int:
     # workspace at boot, which burned tokens and made the chat look like
     # Claude was starting over.
     _start_planning_webserver_if_enabled(app)
+    _start_pending_comment_work_after_ui(app)
     _register_shutdown_hook(app)
     startup_delay_seconds, scan_interval_seconds = _task_scan_settings(cfg)
     _warm_up_repository_inventory(app)
@@ -639,6 +640,7 @@ def _start_planning_webserver_if_enabled(app) -> None:
     )
     thread.start()
     url = f'http://{host}:{port}'
+    app.planning_webserver_url = url
     app.logger.info('planning webserver listening on %s', url)
     _open_browser_when_ready(url, app.logger)
 
@@ -732,9 +734,79 @@ def _requeue_stuck_comments(app) -> None:
     if requeued:
         app.logger.info(
             'requeued %d comment(s) stuck in-progress from the previous '
-            'run; the next scan tick will pick them up and wake the session',
+            'run; _start_pending_comment_work will dispatch them next',
             len(requeued),
         )
+
+
+def _start_pending_comment_work(app) -> None:
+    """At boot, immediately start the agent on every task that has a
+    queued comment — don't make the operator wait for the first scan
+    tick (startup delay + scan interval).
+
+    Runs straight after ``_requeue_stuck_comments`` so a comment
+    orphaned IN_PROGRESS by the previous run (now flipped back to
+    QUEUED) is dispatched in the same boot pass: kato spawns/resumes
+    the session and works on the comment right away instead of the
+    tab sitting on "kato working" until a scan tick happens to come
+    round. Best-effort: a failure here must never abort boot — the
+    scan loop's own drain remains the backstop.
+    """
+    service = getattr(app, 'service', None)
+    drain = getattr(service, 'drain_all_queued_task_comments', None)
+    if not callable(drain):
+        return
+    try:
+        started = drain()
+    except Exception:
+        app.logger.exception(
+            'failed to dispatch queued comments at boot',
+        )
+        return
+    if started:
+        app.logger.info(
+            'started agent work on %d task(s) with queued comments at boot',
+            len(started),
+        )
+
+
+def _start_pending_comment_work_after_ui(app) -> None:
+    """Dispatch queued comments after the planning UI has had first shot.
+
+    The actual drain can spawn Claude sessions. Keep it off the boot
+    path so a restart serves the UI first, then resumes queued local
+    comment work in the background.
+    """
+    thread = threading.Thread(
+        target=lambda: _start_pending_comment_work_when_ui_ready(app),
+        name='kato-start-pending-comments',
+        daemon=True,
+    )
+    thread.start()
+
+
+def _start_pending_comment_work_when_ui_ready(app) -> None:
+    url = str(getattr(app, 'planning_webserver_url', '') or '')
+    if url:
+        _wait_for_planning_ui_healthz(url, app.logger)
+    _start_pending_comment_work(app)
+
+
+def _wait_for_planning_ui_healthz(url: str, logger) -> None:
+    import urllib.error
+    import urllib.request
+
+    deadline = time.monotonic() + 15.0
+    while time.monotonic() < deadline:
+        try:
+            with urllib.request.urlopen(f'{url}/healthz', timeout=1):
+                return
+        except (urllib.error.URLError, OSError):
+            time.sleep(0.25)
+    logger.warning(
+        'planning UI did not answer /healthz before queued-comment '
+        'startup drain; dispatching queued comments anyway',
+    )
 
 
 def _warm_up_repository_inventory(app) -> None:

@@ -916,6 +916,76 @@ class AgentService(Service):
                 )
         return requeued
 
+    def complete_in_progress_task_comments(
+        self, task_id: str, *, success: bool,
+    ) -> list[dict[str, object]]:
+        """Move a task's IN_PROGRESS comments out when its turn ends.
+
+        ``_maybe_trigger_comment_run`` flips a comment to
+        ``IN_PROGRESS`` before handing it to the streaming session,
+        but nothing moved it OUT when the turn finished — so a comment
+        kato actually completed sat on the "kato working" badge
+        forever (and a restart's ``requeue_stuck_in_progress_comments``
+        would redo the already-done work). Called from the
+        RESULT-event handler: the turn that just ended is the one the
+        in-progress comment was dispatched into, so ``success`` →
+        ``ADDRESSED``, an errored turn → ``FAILED``.
+
+        Reuses :meth:`mark_comment_addressed` with
+        ``post_remote_reply=False`` — the auto-flip must not spam the
+        source platform on every turn; the operator's explicit
+        "Mark addressed" / Resolve still drives any remote reply.
+        """
+        from kato_core_lib.comment_core_lib import KatoCommentStatus
+
+        store = self._comment_store_for(task_id)
+        if store is None:
+            return []
+        try:
+            comments = store.list()
+        except Exception:
+            self.logger.exception(
+                'failed to list comments completing task %s', task_id,
+            )
+            return []
+        completed: list[dict[str, object]] = []
+        for comment in comments:
+            if comment.kato_status != KatoCommentStatus.IN_PROGRESS.value:
+                continue
+            try:
+                if success:
+                    self.mark_comment_addressed(
+                        task_id, comment.id, post_remote_reply=False,
+                    )
+                    new_status = KatoCommentStatus.ADDRESSED.value
+                    self.logger.info(
+                        'comment %s on task %s marked addressed '
+                        '(agent turn finished)', comment.id, task_id,
+                    )
+                else:
+                    store.update_kato_status(
+                        comment.id,
+                        kato_status=KatoCommentStatus.FAILED.value,
+                        failure_reason='agent turn ended with an error',
+                    )
+                    new_status = KatoCommentStatus.FAILED.value
+                    self.logger.warning(
+                        'comment %s on task %s marked failed '
+                        '(agent turn errored)', comment.id, task_id,
+                    )
+            except Exception:
+                self.logger.exception(
+                    'failed to complete comment %s on task %s',
+                    comment.id, task_id,
+                )
+                continue
+            completed.append({
+                'task_id': task_id,
+                'comment_id': comment.id,
+                'kato_status': new_status,
+            })
+        return completed
+
     def resolve_task_comment(
         self,
         task_id: str,

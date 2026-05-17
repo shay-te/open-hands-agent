@@ -2643,7 +2643,7 @@ def _follow_live_session(
         new_events, last_index = session.events_after(last_index)
         for event in new_events:
             yield _sse_message(SSE_EVENT_SESSION_EVENT, {'event': event.to_dict()})
-            _drain_queued_comment_after_result(event, agent_service, task_id)
+            _advance_task_comments_after_result(event, agent_service, task_id)
 
         if not session.is_alive:
             # Drain any final events that landed between the slice
@@ -2651,7 +2651,7 @@ def _follow_live_session(
             tail, last_index = session.events_after(last_index)
             for event in tail:
                 yield _sse_message(SSE_EVENT_SESSION_EVENT, {'event': event.to_dict()})
-                _drain_queued_comment_after_result(event, agent_service, task_id)
+                _advance_task_comments_after_result(event, agent_service, task_id)
             yield _sse_message(SSE_EVENT_SESSION_CLOSED, {})
             return
 
@@ -2662,12 +2662,39 @@ def _follow_live_session(
         time.sleep(_SSE_POLL_INTERVAL_SECONDS)
 
 
-def _drain_queued_comment_after_result(event, agent_service, task_id: str) -> None:
+def _advance_task_comments_after_result(event, agent_service, task_id: str) -> None:
+    """On a turn-end RESULT: finish the in-progress comment, then
+    release the next queued one.
+
+    The turn that just ended is the one kato handed the in-progress
+    comment to. Without the completion step a comment kato actually
+    finished stayed on the "kato working" badge forever (and a
+    restart would redo it). Completion runs BEFORE the drain so the
+    next queued comment enters a clean state.
+    """
     event_type = getattr(event, 'event_type', '')
     raw = getattr(event, 'raw', {}) or {}
     if event_type != CLAUDE_EVENT_RESULT and raw.get('type') != CLAUDE_EVENT_RESULT:
         return
+    success = not bool(raw.get('is_error', False))
+    _complete_in_progress_task_comments(agent_service, task_id, success)
     _drain_queued_task_comment(agent_service, task_id)
+
+
+def _complete_in_progress_task_comments(
+    agent_service, task_id: str, success: bool,
+) -> None:
+    complete = getattr(
+        agent_service, 'complete_in_progress_task_comments', None,
+    )
+    if not callable(complete):
+        return
+    try:
+        complete(task_id, success=success)
+    except Exception:
+        logging.getLogger(__name__).exception(
+            'completing in-progress comments failed for task %s', task_id,
+        )
 
 
 def _drain_queued_task_comment(agent_service, task_id: str) -> bool:

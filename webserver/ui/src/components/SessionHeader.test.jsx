@@ -125,6 +125,35 @@ describe('SessionHeader — task summary + status dot', () => {
 });
 
 
+describe('SessionHeader — always prints the Claude session id', () => {
+
+  test('shows the short session id with the full id in the title', () => {
+    const { container } = render(
+      <SessionHeader
+        session={_session({ claude_session_id: 'abcdef12-3456-7890-abcd-ef1234567890' })}
+        streamLifecycle={SESSION_LIFECYCLE.STREAMING}
+      />,
+    );
+    const el = container.querySelector('#session-claude-id');
+    expect(el).toBeInTheDocument();
+    expect(el).toHaveTextContent('sid:abcdef12…');
+    expect(el.getAttribute('title')).toContain(
+      'abcdef12-3456-7890-abcd-ef1234567890',
+    );
+  });
+
+  test('omitted when the record has no session id yet', () => {
+    const { container } = render(
+      <SessionHeader
+        session={_session({ claude_session_id: '' })}
+        streamLifecycle={SESSION_LIFECYCLE.CONNECTING}
+      />,
+    );
+    expect(container.querySelector('#session-claude-id')).not.toBeInTheDocument();
+  });
+});
+
+
 describe('SessionHeader — Stop vs Resume button', () => {
 
   test('STREAMING lifecycle shows the Stop button', () => {

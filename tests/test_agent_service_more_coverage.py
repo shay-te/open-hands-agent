@@ -108,7 +108,10 @@ class _FakeCommentStore(object):
             raise RuntimeError('store unreadable')
         return self._comments
 
-    def update_kato_status(self, comment_id, *, kato_status):
+    def update_kato_status(
+        self, comment_id, *, kato_status, addressed_sha='', failure_reason='',
+    ):
+        # Mirrors LocalCommentStore.update_kato_status' real signature.
         self.updated.append((comment_id, kato_status))
 
 
@@ -197,6 +200,83 @@ class RequeueStuckInProgressCommentsTests(unittest.TestCase):
                          return_value=None) as store_for:
             self.assertEqual(service.requeue_stuck_in_progress_comments(), [])
             store_for.assert_called_once_with('UNA-9')
+
+
+class CompleteInProgressTaskCommentsTests(unittest.TestCase):
+    """A finished agent turn must move the comment off "kato working"
+    — ADDRESSED on success, FAILED on an errored turn — instead of
+    leaving it IN_PROGRESS forever."""
+
+    def _comment(self, comment_id, status):
+        from kato_core_lib.comment_core_lib import KatoCommentStatus
+        return SimpleNamespace(
+            id=comment_id, kato_status=KatoCommentStatus(status).value,
+        )
+
+    def test_success_marks_in_progress_addressed_no_remote_reply(self) -> None:
+        service = AgentService(**_kwargs())
+        store = _FakeCommentStore([
+            self._comment('c1', 'in_progress'),
+            self._comment('c2', 'queued'),      # untouched
+            self._comment('c3', 'addressed'),   # untouched
+        ])
+        with patch.object(service, '_comment_store_for', return_value=store), \
+             patch.object(service, 'mark_comment_addressed') as mark:
+            out = service.complete_in_progress_task_comments(
+                'T1', success=True,
+            )
+        mark.assert_called_once_with('T1', 'c1', post_remote_reply=False)
+        self.assertEqual(
+            out, [{'task_id': 'T1', 'comment_id': 'c1',
+                   'kato_status': 'addressed'}],
+        )
+
+    def test_errored_turn_marks_in_progress_failed(self) -> None:
+        from kato_core_lib.comment_core_lib import KatoCommentStatus
+
+        service = AgentService(**_kwargs())
+        store = _FakeCommentStore([self._comment('c1', 'in_progress')])
+        with patch.object(service, '_comment_store_for', return_value=store), \
+             patch.object(service, 'mark_comment_addressed') as mark:
+            out = service.complete_in_progress_task_comments(
+                'T1', success=False,
+            )
+        mark.assert_not_called()
+        self.assertEqual(store.updated, [('c1', KatoCommentStatus.FAILED.value)])
+        self.assertEqual(out[0]['kato_status'], KatoCommentStatus.FAILED.value)
+
+    def test_no_in_progress_is_a_noop(self) -> None:
+        service = AgentService(**_kwargs())
+        store = _FakeCommentStore([self._comment('c1', 'queued')])
+        with patch.object(service, '_comment_store_for', return_value=store), \
+             patch.object(service, 'mark_comment_addressed') as mark:
+            self.assertEqual(
+                service.complete_in_progress_task_comments('T1', success=True),
+                [],
+            )
+        mark.assert_not_called()
+
+    def test_missing_store_and_per_comment_error_are_isolated(self) -> None:
+        service = AgentService(**_kwargs())
+        with patch.object(service, '_comment_store_for', return_value=None):
+            self.assertEqual(
+                service.complete_in_progress_task_comments('T1', success=True),
+                [],
+            )
+        store = _FakeCommentStore([
+            self._comment('bad', 'in_progress'),
+            self._comment('ok', 'in_progress'),
+        ])
+        with patch.object(service, '_comment_store_for', return_value=store), \
+             patch.object(service, 'mark_comment_addressed',
+                          side_effect=[RuntimeError('boom'), None]):
+            out = service.complete_in_progress_task_comments(
+                'T1', success=True,
+            )
+        self.assertEqual(
+            out, [{'task_id': 'T1', 'comment_id': 'ok',
+                   'kato_status': 'addressed'}],
+        )
 
 
 class ResolveTaskCommentRemoteSyncTests(unittest.TestCase):
