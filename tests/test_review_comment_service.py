@@ -194,8 +194,8 @@ class ReviewCommentServiceTests(unittest.TestCase):
             task_summary='Fix bug',
         )
 
-        with self.assertRaisesRegex(RuntimeError, 'produced no commits'):
-            self.service.process_review_comment(comment)
+        # No-changes is now a graceful terminal path — no exception.
+        self.service.process_review_comment(comment)
 
         # The "kato addressed this and pushed" path must NOT run.
         self.repository_service.publish_review_fix.assert_not_called()
@@ -208,6 +208,13 @@ class ReviewCommentServiceTests(unittest.TestCase):
         reply_body = self.repository_service.reply_to_review_comment.call_args.args[2]
         self.assertIn('produced no commits', reply_body)
         self.assertIn('not been resolved', reply_body)
+        # Comment must be marked processed so it is not retried.
+        self.assertTrue(
+            self.state_registry.is_review_comment_processed(
+                'client', comment.pull_request_id, comment.comment_id,
+            ),
+            'comment should be marked processed so the scan loop stops retrying',
+        )
 
     def test_process_review_comment_publishes_when_head_moves(self) -> None:
         # The mirror of the regression: when the agent DID commit

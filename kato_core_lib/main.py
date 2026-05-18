@@ -171,6 +171,7 @@ def main(cfg: DictConfig) -> int:
     _reconcile_workspace_branches(app)
     _reset_stuck_workspace_statuses(app)
     _requeue_stuck_comments(app)
+    _log_known_session_ids(app)
     _cleanup_done_tasks_at_boot(app)
     # Sessions are lazy after restart: opening a tab replays the disk
     # JSONL via SSE so the conversation history is visible immediately.
@@ -737,6 +738,39 @@ def _requeue_stuck_comments(app) -> None:
             'run; _start_pending_comment_work will dispatch them next',
             len(requeued),
         )
+
+
+def _log_known_session_ids(app) -> None:
+    """Log every known Claude session id at kato startup.
+
+    Operators use these IDs to cross-reference ``claude /status``
+    output, find JSONL histories on disk, and diagnose stale state.
+    Best-effort: any failure here must never abort boot.
+    """
+    service = getattr(app, 'service', None)
+    session_manager = getattr(service, '_session_manager', None)
+    if session_manager is None:
+        return
+    try:
+        records = session_manager.list_records()
+    except Exception:
+        app.logger.exception('failed to list session records at boot')
+        return
+    if not records:
+        app.logger.info('no known Claude session ids at startup')
+        return
+    lines = []
+    for record in records:
+        task_id = str(getattr(record, 'task_id', '') or '').strip()
+        sid = str(getattr(record, 'claude_session_id', '') or '').strip()
+        if task_id and sid:
+            lines.append(f'  task {task_id}: session id {sid}')
+    if lines:
+        app.logger.info(
+            'known Claude session ids at startup:\n%s', '\n'.join(lines),
+        )
+    else:
+        app.logger.info('no Claude session ids recorded at startup')
 
 
 def _start_pending_comment_work(app) -> None:

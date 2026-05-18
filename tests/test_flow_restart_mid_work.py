@@ -355,11 +355,9 @@ class FlowRestartMidWorkTests(unittest.TestCase):
                 'would render turn 2 before turn 1',
             )
 
-    def test_flow_restart_history_filters_orchestration_user_prompts(self) -> None:
-        # kato's autonomous-flow user prompts (Security guardrails, etc)
-        # MUST NOT show up in the chat scroll-back on restart. Otherwise
-        # opening a tab would expose the internal guardrail text to the
-        # operator's interactive view.
+    def test_flow_restart_history_replays_orchestration_user_prompts(self) -> None:
+        # Kato's autonomous-flow user prompts (Security guardrails, etc)
+        # must show up after restart so the chat keeps the full prompt.
         from claude_core_lib.claude_core_lib.session.history import (
             load_history_events,
         )
@@ -393,9 +391,9 @@ class FlowRestartMidWorkTests(unittest.TestCase):
                 for block in (ev.get('message', {}).get('content') or [])
                 if isinstance(block, dict)
             )
-            self.assertNotIn(
+            self.assertIn(
                 'Security guardrails', joined,
-                'orchestration guardrail text leaked into chat scroll-back',
+                'orchestration prompt missing from chat scroll-back',
             )
             self.assertIn('operator real message', joined)
 

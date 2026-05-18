@@ -55,14 +55,15 @@ def _comment(comment_id='c1', pull_request_id='pr-1', body='please fix',
 
 
 class ProcessReviewCommentTests(unittest.TestCase):
-    def test_raises_when_batch_returns_no_results(self) -> None:
-        # Line 94: ``raise RuntimeError(f'review comment ... no result')``.
+    def test_returns_empty_dict_when_batch_returns_no_results(self) -> None:
+        # Empty batch result = graceful terminal (no changes made).
+        # The singular wrapper returns {} instead of raising.
         service = _make_service()
         with patch.object(
             service, 'process_review_comment_batch', return_value=[],
         ):
-            with self.assertRaisesRegex(RuntimeError, 'produced no result'):
-                service.process_review_comment(_comment('c1'))
+            result = service.process_review_comment(_comment('c1'))
+            self.assertEqual(result, {})
 
     def test_empty_batch_returns_empty(self) -> None:
         # Line 120: ``if not comments: return []``.

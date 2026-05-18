@@ -48,6 +48,28 @@ test('DiffPane uses compact side spacing around file cards and headers', () => {
   assertDeclaration(headerBody, 'padding', '6px');
 });
 
+test('Badge, chip, and pill classes share the global pill radius', () => {
+  const rootBody = ruleBody(':root');
+  const safetyBody = ruleBody(':where([class*="badge"], [class*="chip"], [class*="pill"])');
+  assertDeclaration(rootBody, '--radius-pill', '999px');
+  assertDeclaration(safetyBody, 'border-radius', 'var\\(--radius-pill\\)');
+
+  const cssWithoutComments = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  const rulePattern = /([^{}]+)\{([^{}]*)\}/g;
+  const failures = [];
+  for (const match of cssWithoutComments.matchAll(rulePattern)) {
+    const selector = match[1].trim();
+    const body = match[2];
+    const isPillish = /(?:badge|chip|pill)/.test(selector);
+    const radius = body.match(/border-radius\s*:\s*([^;]+)\s*;/);
+    if (!isPillish || !radius) { continue; }
+    if (!/^(var\(--radius-pill\)|999px)$/.test(radius[1].trim())) {
+      failures.push(`${selector} -> ${radius[1].trim()}`);
+    }
+  }
+  assert.deepEqual(failures, []);
+});
+
 test('DiffPane file headers draw a rounded face above scrolling diff rows', () => {
   const body = ruleBody('.diff-pane .diff-file-header::before');
   assertDeclaration(body, 'background', '#161616');
@@ -122,6 +144,12 @@ test('Diff syntax colors JSX and stylesheet tokens like Bitbucket', () => {
 test('Bitbucket comment card: avatar, collapse chevron, dot actions', () => {
   const avatar = ruleBody('.diff-file-comment-avatar');
   assertDeclaration(avatar, 'border-radius', '50%');
+
+  const sourceBadge = ruleBody('.diff-file-comment-source');
+  assertDeclaration(sourceBadge, 'border-radius', 'var\\(--radius-pill\\)');
+
+  const statusPill = ruleBody('.diff-file-comment-pill');
+  assertDeclaration(statusPill, 'border-radius', 'var\\(--radius-pill\\)');
 
   const collapse = ruleBody('.diff-file-comment-collapse');
   assertDeclaration(collapse, 'cursor', 'pointer');

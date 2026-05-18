@@ -161,11 +161,9 @@ class Bug1HistoryReplayFromDiskTests(unittest.TestCase):
         )
         self.assertEqual(result, [])
 
-    def test_filters_out_orchestration_user_prompts(self) -> None:
-        # kato's autonomous-flow user prompts are filtered out so the
-        # chat doesn't show "Security guardrails: ..." mixed in with
-        # the human conversation. Locks that filter — without it the
-        # UI scroll-back would carry orchestrator chatter on restart.
+    def test_replays_orchestration_user_prompts(self) -> None:
+        # Kato's autonomous-flow user prompts must still be visible
+        # after restart so the operator can see what Claude was asked.
         from claude_core_lib.claude_core_lib.session.history import (
             load_history_events,
         )
@@ -206,8 +204,7 @@ class Bug1HistoryReplayFromDiskTests(unittest.TestCase):
         result = load_history_events(
             session_id, projects_root=self.projects_root,
         )
-        # The orchestration prompt was filtered out; the real exchange
-        # survives.
+        # Both the orchestration prompt and the real exchange survive.
         texts = [
             ' '.join(
                 block.get('text', '')
@@ -216,9 +213,9 @@ class Bug1HistoryReplayFromDiskTests(unittest.TestCase):
             )
             for e in result
         ]
-        self.assertFalse(
+        self.assertTrue(
             any('Security guardrails' in t for t in texts),
-            f'orchestration prompt leaked into history: {texts!r}',
+            f'orchestration prompt missing from history: {texts!r}',
         )
         self.assertTrue(any('real operator message' in t for t in texts))
         self.assertTrue(any('on it' in t for t in texts))

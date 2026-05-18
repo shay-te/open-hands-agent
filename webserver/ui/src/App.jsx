@@ -103,6 +103,17 @@ export default function App() {
     }
   }, []);
 
+  // Reconnect the active task's SSE stream when a diff comment
+  // immediately triggers a Claude spawn (so the operator sees
+  // Claude working without having to click into the chat pane).
+  const sessionReconnectRef = useRef(null);
+  const handleRegisterReconnect = useCallback((fn) => {
+    sessionReconnectRef.current = fn;
+  }, []);
+  const handleCommentSpawned = useCallback(() => {
+    sessionReconnectRef.current?.();
+  }, []);
+
   const setActiveTaskId = useCallback((taskId) => {
     userPickedTabRef.current = true;
     setActiveTaskIdState(taskId);
@@ -348,7 +359,7 @@ export default function App() {
         orchestratorOpen
           ? <OrchestratorActivityFeed history={status.history} onClose={toggleOrchestrator} />
           : openFile?.view === 'diff'
-            ? <DiffPane openFile={openFile} />
+            ? <DiffPane openFile={openFile} onCommentSpawned={handleCommentSpawned} />
             : <EditorPane openFile={openFile} />
       }
       right={
@@ -362,6 +373,7 @@ export default function App() {
           toolMemory={toolMemory}
           onResizePointerDown={resizer.onPointerDown}
           onOpenFile={handleOpenFile}
+          onRegisterReconnect={handleRegisterReconnect}
         />
       }
     />

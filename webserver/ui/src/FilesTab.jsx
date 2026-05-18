@@ -44,6 +44,8 @@ export function buildFilesCommentMeta(comments) {
   const byRepo = new Map();
   for (const comment of comments || []) {
     if (String(comment?.parent_id || '')) { continue; }
+    if (comment?.status === 'resolved') { continue; }
+    if (comment?.kato_status === 'addressed') { continue; }
     const filePath = String(comment?.file_path || '').trim();
     if (!filePath) { continue; }
     const repoId = String(comment?.repo_id || '').trim();

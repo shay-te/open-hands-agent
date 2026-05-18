@@ -180,22 +180,36 @@ SETTINGS_SCHEMA: list[dict] = [
              {'warning': 'Disabling removes the committed-secret / '
                          'vulnerable-dep gate entirely.'}),
             ('KATO_SECURITY_RUNNER_ENV_FILE', 'bool',
-             'Runner: .env / secret scan', '', {}),
+             'Runner: .env / secret scan',
+             'Scan for committed .env files and hardcoded secrets '
+             '(API keys, tokens, passwords) in the workspace.', {}),
             ('KATO_SECURITY_RUNNER_DETECT_SECRETS', 'bool',
-             'Runner: detect-secrets', '', {}),
+             'Runner: detect-secrets',
+             'Run Yelp detect-secrets to find high-entropy strings '
+             'and known secret patterns across all committed files.', {}),
             ('KATO_SECURITY_RUNNER_BANDIT', 'bool',
-             'Runner: bandit (Python)', '', {}),
+             'Runner: bandit (Python)',
+             'Run bandit static analysis on Python files to catch '
+             'common security issues (SQL injection, shell injection, '
+             'insecure deserialization, etc.).', {}),
             ('KATO_SECURITY_RUNNER_SAFETY', 'bool',
-             'Runner: safety (deps)', '', {}),
+             'Runner: safety (deps)',
+             'Check Python dependencies against the Safety DB for '
+             'known CVEs. Blocks on CRITICAL vulnerabilities.', {}),
             ('KATO_SECURITY_RUNNER_NPM_AUDIT', 'bool',
              'Runner: npm-audit',
-             'Off by default — noisy transitive-dep CVEs.', {}),
+             'Run npm audit on Node.js projects. Off by default — '
+             'noisy transitive-dep CVEs.', {}),
             ('KATO_SECURITY_TIMEOUT_SECRETS', 'number',
-             'Timeout: secrets (s)', '', {}),
+             'Timeout: secrets (s)',
+             'Max seconds for the secret-scan runner before it is '
+             'killed. Increase for very large repos.', {}),
             ('KATO_SECURITY_TIMEOUT_DEPENDENCIES', 'number',
-             'Timeout: dependencies (s)', '', {}),
+             'Timeout: dependencies (s)',
+             'Max seconds for the dependency-vulnerability runner.', {}),
             ('KATO_SECURITY_TIMEOUT_CODE_PATTERNS', 'number',
-             'Timeout: code patterns (s)', '', {}),
+             'Timeout: code patterns (s)',
+             'Max seconds for the bandit / code-pattern runner.', {}),
         ],
     },
     {
@@ -207,28 +221,43 @@ SETTINGS_SCHEMA: list[dict] = [
                        'are the separate Notifications tab.)',
         'fields': [
             ('KATO_FAILURE_EMAIL_ENABLED', 'bool',
-             'Failure email enabled', '', {}),
+             'Failure email enabled',
+             'Send an email when a task fails. Requires Brevo API key '
+             'and sender/recipient fields below.', {}),
             ('KATO_FAILURE_EMAIL_TEMPLATE_ID', 'number',
-             'Failure template id', '', {}),
-            ('KATO_FAILURE_EMAIL_TO', 'text', 'Failure email to', '', {}),
+             'Failure template id',
+             'Brevo transactional template ID used for failure emails.', {}),
+            ('KATO_FAILURE_EMAIL_TO', 'text', 'Failure email to',
+             'Recipient email address for failure notifications.', {}),
             ('KATO_FAILURE_EMAIL_SENDER_NAME', 'text',
-             'Failure sender name', '', {}),
+             'Failure sender name',
+             'Display name shown in the From field of failure emails.', {}),
             ('KATO_FAILURE_EMAIL_SENDER_EMAIL', 'text',
-             'Failure sender email', '', {}),
+             'Failure sender email',
+             'From address for failure notification emails.', {}),
             ('KATO_COMPLETION_EMAIL_ENABLED', 'bool',
-             'Completion email enabled', '', {}),
+             'Completion email enabled',
+             'Send an email when a task completes successfully.', {}),
             ('KATO_COMPLETION_EMAIL_TEMPLATE_ID', 'number',
-             'Completion template id', '', {}),
+             'Completion template id',
+             'Brevo transactional template ID for completion emails.', {}),
             ('KATO_COMPLETION_EMAIL_TO', 'text',
-             'Completion email to', '', {}),
+             'Completion email to',
+             'Recipient email address for completion notifications.', {}),
             ('KATO_COMPLETION_EMAIL_SENDER_NAME', 'text',
-             'Completion sender name', '', {}),
+             'Completion sender name',
+             'Display name in the From field of completion emails.', {}),
             ('KATO_COMPLETION_EMAIL_SENDER_EMAIL', 'text',
-             'Completion sender email', '', {}),
+             'Completion sender email',
+             'From address for completion notification emails.', {}),
             ('EMAIL_CORE_LIB_SEND_IN_BLUE_API_KEY', 'secret',
-             'Brevo/SendinBlue API key', '', {}),
+             'Brevo/SendinBlue API key',
+             'API key for Brevo (formerly SendinBlue) transactional '
+             'email. Required for any email notification to work.', {}),
             ('SLACK_WEBHOOK_URL_ERRORS_EMAIL', 'secret',
-             'Slack error webhook URL', '', {}),
+             'Slack error webhook URL',
+             'Incoming webhook URL for a Slack channel. Kato posts '
+             'task failure summaries here.', {}),
         ],
     },
     {
@@ -238,58 +267,107 @@ SETTINGS_SCHEMA: list[dict] = [
         'description': 'Used when Agent backend = openhands. Container, '
                        'LLM, scan-loop, and runtime config.',
         'fields': [
-            ('OPENHANDS_BASE_URL', 'text', 'Base URL', '', {}),
-            ('OPENHANDS_API_KEY', 'secret', 'API key', '', {}),
-            ('OPENHANDS_SKIP_TESTING', 'bool', 'Skip testing', '', {}),
+            ('OPENHANDS_BASE_URL', 'text', 'Base URL',
+             'URL of the running OpenHands server, e.g. '
+             'http://localhost:3000.', {}),
+            ('OPENHANDS_API_KEY', 'secret', 'API key',
+             'API key for authenticating with the OpenHands server.', {}),
+            ('OPENHANDS_SKIP_TESTING', 'bool', 'Skip testing',
+             'Skip the post-implementation test run. Useful when the '
+             'repo has no automated tests or they are flaky.', {}),
             ('OPENHANDS_TESTING_CONTAINER_ENABLED', 'bool',
-             'Testing container enabled', '', {}),
-            ('OPENHANDS_TESTING_BASE_URL', 'text',
-             'Testing base URL', '', {}),
-            ('OPENHANDS_TESTING_PORT', 'number', 'Testing port', '', {}),
+             'Testing container enabled',
+             'Spin up a separate OpenHands container dedicated to '
+             'running tests (isolated from the implementation run).', {}),
+            ('OPENHANDS_TESTING_BASE_URL', 'text', 'Testing base URL',
+             'URL of the testing-only OpenHands container, if separate '
+             'from the implementation container.', {}),
+            ('OPENHANDS_TESTING_PORT', 'number', 'Testing port',
+             'Host port for the testing OpenHands container.', {}),
             ('OPENHANDS_CONTAINER_LOG_ALL_EVENTS', 'bool',
-             'Log all container events', '', {}),
-            ('OPENHANDS_PORT', 'number', 'Container port', '', {}),
-            ('OPENHANDS_PULL_POLICY', 'select', 'Pull policy', '',
+             'Log all container events',
+             'Stream every OpenHands event (tool calls, observations) '
+             'to kato logs. Verbose — use for debugging only.', {}),
+            ('OPENHANDS_PORT', 'number', 'Container port',
+             'Host port exposed by the OpenHands Docker container.', {}),
+            ('OPENHANDS_PULL_POLICY', 'select', 'Pull policy',
+             'When to pull the OpenHands Docker image: missing = only '
+             'if not cached, always = on every start, never = never.',
              {'options': ['missing', 'always', 'never']}),
-            ('OPENHANDS_LOG_LEVEL', 'select', 'Log level', '',
+            ('OPENHANDS_LOG_LEVEL', 'select', 'Log level',
+             'Log verbosity inside the OpenHands container.',
              {'options': LOG_LEVELS}),
             ('OH_SECRET_KEY', 'secret', 'OH secret key',
              'Stable random secret for OpenHands secret persistence.',
              {}),
-            ('OPENHANDS_STATE_DIR', 'text', 'State dir', '', {}),
-            ('OPENHANDS_WEB_URL', 'text', 'Web URL', '', {}),
-            ('OPENHANDS_RUNTIME', 'text', 'Runtime', '', {}),
+            ('OPENHANDS_STATE_DIR', 'text', 'State dir',
+             'Directory on the host where OpenHands persists agent '
+             'state between runs.', {}),
+            ('OPENHANDS_WEB_URL', 'text', 'Web URL',
+             'Public URL of the OpenHands UI, used when generating '
+             'links in PR comments.', {}),
+            ('OPENHANDS_RUNTIME', 'text', 'Runtime',
+             'OpenHands runtime backend, e.g. docker or e2b.', {}),
             ('OPENHANDS_SSH_AUTH_SOCK_HOST_PATH', 'text',
-             'SSH auth sock host path', '', {}),
-            ('OPENHANDS_LLM_MODEL', 'text', 'LLM model', '', {}),
-            ('OPENHANDS_LLM_API_KEY', 'secret', 'LLM API key', '', {}),
-            ('OPENHANDS_LLM_BASE_URL', 'text', 'LLM base URL', '', {}),
+             'SSH auth sock host path',
+             'Host path of the SSH agent socket, bind-mounted into '
+             'the container so the agent can push to git.', {}),
+            ('OPENHANDS_LLM_MODEL', 'text', 'LLM model',
+             'Model identifier passed to OpenHands, e.g. '
+             'anthropic/claude-sonnet-4-5 or openrouter/openai/gpt-4o.', {}),
+            ('OPENHANDS_LLM_API_KEY', 'secret', 'LLM API key',
+             'API key for the LLM provider (Anthropic, OpenRouter, '
+             'Azure, etc.).', {}),
+            ('OPENHANDS_LLM_BASE_URL', 'text', 'LLM base URL',
+             'Override the default LLM API endpoint, e.g. for '
+             'OpenRouter (https://openrouter.ai/api/v1) or Azure.', {}),
             ('OPENHANDS_MODEL_SMOKE_TEST_ENABLED', 'bool',
-             'LLM smoke test', '', {}),
-            ('OPENHANDS_TESTING_LLM_MODEL', 'text',
-             'Testing LLM model', '', {}),
+             'LLM smoke test',
+             'Run a cheap test call at boot to verify LLM connectivity '
+             'before the first task. Costs one API call per restart.', {}),
+            ('OPENHANDS_TESTING_LLM_MODEL', 'text', 'Testing LLM model',
+             'Model used by the testing container. Defaults to the '
+             'primary LLM model if unset.', {}),
             ('OPENHANDS_TESTING_LLM_API_KEY', 'secret',
-             'Testing LLM API key', '', {}),
+             'Testing LLM API key',
+             'API key for the testing container LLM. Defaults to the '
+             'primary LLM API key if unset.', {}),
             ('OPENHANDS_TESTING_LLM_BASE_URL', 'text',
-             'Testing LLM base URL', '', {}),
-            ('OPENHANDS_LLM_API_VERSION', 'text',
-             'LLM API version', '', {}),
-            ('OPENHANDS_LLM_NUM_RETRIES', 'number',
-             'LLM num retries', '', {}),
-            ('OPENHANDS_LLM_TIMEOUT', 'number', 'LLM timeout', '', {}),
+             'Testing LLM base URL',
+             'Base URL for the testing container LLM. Defaults to the '
+             'primary LLM base URL if unset.', {}),
+            ('OPENHANDS_LLM_API_VERSION', 'text', 'LLM API version',
+             'API version string required by some providers '
+             '(e.g. Azure OpenAI: 2024-02-01).', {}),
+            ('OPENHANDS_LLM_NUM_RETRIES', 'number', 'LLM num retries',
+             'How many times OpenHands retries a failed LLM call '
+             'before giving up.', {}),
+            ('OPENHANDS_LLM_TIMEOUT', 'number', 'LLM timeout',
+             'Per-request timeout in seconds for LLM API calls.', {}),
             ('OPENHANDS_POLL_INTERVAL_SECONDS', 'number',
-             'Poll interval (s)', '', {}),
-            ('OPENHANDS_MAX_POLL_ATTEMPTS', 'number',
-             'Max poll attempts', '', {}),
+             'Poll interval (s)',
+             'How often kato polls the OpenHands server for task '
+             'status updates.', {}),
+            ('OPENHANDS_MAX_POLL_ATTEMPTS', 'number', 'Max poll attempts',
+             'Maximum number of status polls before kato declares '
+             'the task timed out.', {}),
             ('OPENHANDS_TASK_SCAN_STARTUP_DELAY_SECONDS', 'number',
-             'Scan startup delay (s)', '', {}),
+             'Scan startup delay (s)',
+             'Seconds kato waits after boot before the first task '
+             'scan, giving services time to initialise.', {}),
             ('OPENHANDS_TASK_SCAN_INTERVAL_SECONDS', 'number',
-             'Scan interval (s)', '', {}),
-            ('OPENHANDS_LLM_DISABLE_VISION', 'text',
-             'Disable vision', '', {}),
-            ('OPENHANDS_LLM_DROP_PARAMS', 'text', 'Drop params', '', {}),
-            ('OPENHANDS_LLM_CACHING_PROMPT', 'text',
-             'Caching prompt', '', {}),
+             'Scan interval (s)',
+             'How often the OpenHands task-scan loop checks for new '
+             'assigned tasks.', {}),
+            ('OPENHANDS_LLM_DISABLE_VISION', 'text', 'Disable vision',
+             'Set to true to disable image/screenshot inputs to the '
+             'LLM (for models that do not support vision).', {}),
+            ('OPENHANDS_LLM_DROP_PARAMS', 'text', 'Drop params',
+             'Comma-separated LLM parameters to strip from every '
+             'request (e.g. top_p for providers that reject it).', {}),
+            ('OPENHANDS_LLM_CACHING_PROMPT', 'text', 'Caching prompt',
+             'Set to true to enable Anthropic prompt-caching on the '
+             'system prompt, reducing cost on repeated tasks.', {}),
         ],
     },
     {
@@ -298,12 +376,18 @@ SETTINGS_SCHEMA: list[dict] = [
         'title': 'Docker & infrastructure',
         'description': 'Compose / image config for containerised runs.',
         'fields': [
-            ('MOUNT_DOCKER_DATA_ROOT', 'text', 'Docker data root', '',
-             {}),
+            ('MOUNT_DOCKER_DATA_ROOT', 'text', 'Docker data root',
+             'Override Docker\'s data root directory on the host. '
+             'Useful when the default /var/lib/docker is on a small '
+             'partition.', {}),
             ('KATO_AGENT_SERVER_IMAGE_REPOSITORY', 'text',
-             'Agent server image repo', '', {}),
+             'Agent server image repo',
+             'Docker image repository for the kato agent server '
+             'container, e.g. ghcr.io/myorg/kato-agent.', {}),
             ('KATO_AGENT_SERVER_IMAGE_TAG', 'text',
-             'Agent server image tag', '', {}),
+             'Agent server image tag',
+             'Docker image tag to pull for the agent server, '
+             'e.g. latest or a specific SHA.', {}),
         ],
     },
     {
@@ -312,13 +396,50 @@ SETTINGS_SCHEMA: list[dict] = [
         'title': 'AWS / Bedrock',
         'description': 'Optional — only for Bedrock-backed LLM setups.',
         'fields': [
-            ('AWS_ACCESS_KEY_ID', 'text', 'Access key id', '', {}),
+            ('AWS_ACCESS_KEY_ID', 'text', 'Access key id',
+             'AWS IAM access key ID for authenticating with Bedrock.', {}),
             ('AWS_SECRET_ACCESS_KEY', 'secret', 'Secret access key',
-             '', {}),
-            ('AWS_REGION_NAME', 'text', 'Region', '', {}),
-            ('AWS_SESSION_TOKEN', 'secret', 'Session token', '', {}),
-            ('AWS_BEARER_TOKEN_BEDROCK', 'secret',
-             'Bedrock bearer token', '', {}),
+             'AWS IAM secret access key paired with the access key ID.', {}),
+            ('AWS_REGION_NAME', 'text', 'Region',
+             'AWS region where your Bedrock models are available, '
+             'e.g. us-east-1.', {}),
+            ('AWS_SESSION_TOKEN', 'secret', 'Session token',
+             'Temporary session token for short-lived IAM credentials '
+             '(STS AssumeRole). Leave blank for long-lived keys.', {}),
+            ('AWS_BEARER_TOKEN_BEDROCK', 'secret', 'Bedrock bearer token',
+             'Bearer token for direct Bedrock API authentication '
+             '(alternative to IAM key/secret).', {}),
+        ],
+    },
+    {
+        'id': 'openrouter',
+        'label': 'OpenRouter',
+        'title': 'OpenRouter LLM gateway',
+        'description': 'Used when the LLM model starts with openrouter/. '
+                       'Routes requests through openrouter.ai so you can '
+                       'pick any hosted model (GPT-4o, Gemini, Mistral, '
+                       'etc.) with a single API key.',
+        'fields': [
+            ('OPENHANDS_LLM_BASE_URL', 'text', 'Base URL',
+             'OpenRouter API endpoint. '
+             'Default: https://openrouter.ai/api/v1 — set automatically '
+             'when the LLM model starts with openrouter/.',
+             {'placeholder': 'https://openrouter.ai/api/v1'}),
+            ('OPENHANDS_LLM_API_KEY', 'secret', 'API key',
+             'Your OpenRouter API key (sk-or-…). '
+             'Required to authenticate requests to openrouter.ai.',
+             {}),
+            ('OPENHANDS_LLM_MODEL', 'text', 'Model',
+             'Model identifier with openrouter/ prefix, e.g. '
+             'openrouter/openai/gpt-4o or '
+             'openrouter/anthropic/claude-3.5-haiku.',
+             {'placeholder': 'openrouter/openai/gpt-4o'}),
+            ('OPENHANDS_LLM_NUM_RETRIES', 'number', 'Retries',
+             'Number of times to retry a failed LLM call before giving up.',
+             {}),
+            ('OPENHANDS_LLM_TIMEOUT', 'number', 'Timeout (s)',
+             'Per-request timeout in seconds for OpenRouter API calls.',
+             {}),
         ],
     },
 ]

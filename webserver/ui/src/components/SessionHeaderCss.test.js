@@ -22,7 +22,7 @@ function assertDeclaration(body, property, value) {
 test('SessionHeader can shrink inside the task pane', () => {
   const body = ruleBody('#session-header');
   assertDeclaration(body, 'min-width', '0');
-  assertDeclaration(body, 'overflow', 'hidden');
+  assertDeclaration(body, 'overflow', 'visible');
 });
 
 test('SessionHeader title row clips long summaries to one line', () => {

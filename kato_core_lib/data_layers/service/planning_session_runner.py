@@ -238,6 +238,13 @@ class PlanningSessionRunner(object):
             docker_mode_on=self._defaults.docker_mode_on,
             additional_dirs=additional_dirs,
         )
+        sid = str(getattr(session, 'claude_session_id', '') or '')
+        self.logger.info(
+            'task %s: chat session started — %s session id %s',
+            normalized_task_id,
+            'resuming' if resume_session_id else 'fresh',
+            sid or '(unknown)',
+        )
         # Fire session_start when a NEW subprocess was spawned (not
         # when reusing a still-alive session). ``resumed`` lets the
         # hook tell "fresh kato spawn" apart from "Claude --resume".
@@ -245,9 +252,7 @@ class PlanningSessionRunner(object):
             'task_id': normalized_task_id,
             'cwd': normalized_text(cwd),
             'resumed': bool(resume_session_id),
-            'claude_session_id': str(
-                getattr(session, 'claude_session_id', '') or '',
-            ),
+            'claude_session_id': sid,
         })
         return session
 
@@ -389,6 +394,11 @@ class PlanningSessionRunner(object):
             cwd=cwd,
             branch_name=branch_name,
         )
+        sid = str(getattr(session, 'claude_session_id', '') or '')
+        self.logger.info(
+            'task %s: %s started — fresh session id %s',
+            task_id, log_label, sid or '(unknown)',
+        )
         # Hook fires here too — autonomous (non-chat) entrypoints
         # don't go through ``resume_session_for_chat`` so this is
         # the only spot where ``session_start`` sees them.
@@ -397,9 +407,7 @@ class PlanningSessionRunner(object):
             'cwd': cwd,
             'resumed': False,
             'log_label': log_label,
-            'claude_session_id': str(
-                getattr(session, 'claude_session_id', '') or '',
-            ),
+            'claude_session_id': sid,
         })
         terminal = self._wait_for_terminal_event(session, task_id=task_id)
         if terminal is None:

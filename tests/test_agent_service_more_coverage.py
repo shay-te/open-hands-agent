@@ -1554,5 +1554,112 @@ class FinalEdgeCaseTests(unittest.TestCase):
         lessons.extract_and_save.assert_called()
 
 
+class AdvanceFinishedCommentRunsTests(unittest.TestCase):
+    """advance_finished_comment_runs: scan-loop fallback that advances
+    IN_PROGRESS comments when the SSE subscriber missed the RESULT event."""
+
+    def _comment(self, comment_id, status):
+        from kato_core_lib.comment_core_lib import KatoCommentStatus
+        return SimpleNamespace(
+            id=comment_id, kato_status=KatoCommentStatus(status).value,
+        )
+
+    def _fake_event(self, event_type, is_error=False):
+        return SimpleNamespace(
+            event_type=event_type,
+            raw={'type': event_type, 'is_error': is_error},
+        )
+
+    def test_advances_when_alive_session_has_result_event(self) -> None:
+        """Alive session with a RESULT → advance even though subprocess is up."""
+        from kato_core_lib.comment_core_lib import KatoCommentStatus
+        service = AgentService(**_kwargs())
+        store = _FakeCommentStore([self._comment('c1', 'in_progress')])
+        session = SimpleNamespace(
+            is_alive=True,
+            recent_events=lambda: [
+                self._fake_event('system'),
+                self._fake_event('assistant'),
+                self._fake_event('result', is_error=False),
+            ],
+        )
+        mgr = MagicMock()
+        mgr.get_session.return_value = session
+        service._session_manager = mgr
+
+        with patch.object(service, '_safe_list_workspaces',
+                          return_value=[SimpleNamespace(task_id='T1')]), \
+             patch.object(service, '_comment_store_for', return_value=store), \
+             patch.object(service, '_task_has_busy_turn', return_value=False), \
+             patch.object(service, 'complete_in_progress_task_comments',
+                          return_value=[{'task_id': 'T1', 'comment_id': 'c1',
+                                         'kato_status': 'addressed'}]) as complete:
+            results = service.advance_finished_comment_runs()
+
+        complete.assert_called_once_with('T1', success=True)
+        self.assertEqual(len(results), 1)
+
+    def test_skips_alive_session_with_no_result_yet(self) -> None:
+        """Alive session with only system events → not done yet; do nothing."""
+        service = AgentService(**_kwargs())
+        store = _FakeCommentStore([self._comment('c1', 'in_progress')])
+        session = SimpleNamespace(
+            is_alive=True,
+            recent_events=lambda: [self._fake_event('system')],
+        )
+        mgr = MagicMock()
+        mgr.get_session.return_value = session
+        service._session_manager = mgr
+
+        with patch.object(service, '_safe_list_workspaces',
+                          return_value=[SimpleNamespace(task_id='T1')]), \
+             patch.object(service, '_comment_store_for', return_value=store), \
+             patch.object(service, '_task_has_busy_turn', return_value=False), \
+             patch.object(service, 'complete_in_progress_task_comments') as complete:
+            results = service.advance_finished_comment_runs()
+
+        complete.assert_not_called()
+        self.assertEqual(results, [])
+
+    def test_advances_with_is_error_true_from_alive_session(self) -> None:
+        """Alive session RESULT is_error=True → advance with success=False."""
+        service = AgentService(**_kwargs())
+        store = _FakeCommentStore([self._comment('c1', 'in_progress')])
+        session = SimpleNamespace(
+            is_alive=True,
+            recent_events=lambda: [
+                self._fake_event('result', is_error=True),
+            ],
+        )
+        mgr = MagicMock()
+        mgr.get_session.return_value = session
+        service._session_manager = mgr
+
+        with patch.object(service, '_safe_list_workspaces',
+                          return_value=[SimpleNamespace(task_id='T1')]), \
+             patch.object(service, '_comment_store_for', return_value=store), \
+             patch.object(service, '_task_has_busy_turn', return_value=False), \
+             patch.object(service, 'complete_in_progress_task_comments',
+                          return_value=[]) as complete:
+            service.advance_finished_comment_runs()
+
+        complete.assert_called_once_with('T1', success=False)
+
+    def test_skips_mid_turn_sessions(self) -> None:
+        """_task_has_busy_turn=True → never advance."""
+        service = AgentService(**_kwargs())
+        store = _FakeCommentStore([self._comment('c1', 'in_progress')])
+
+        with patch.object(service, '_safe_list_workspaces',
+                          return_value=[SimpleNamespace(task_id='T1')]), \
+             patch.object(service, '_comment_store_for', return_value=store), \
+             patch.object(service, '_task_has_busy_turn', return_value=True), \
+             patch.object(service, 'complete_in_progress_task_comments') as complete:
+            results = service.advance_finished_comment_runs()
+
+        complete.assert_not_called()
+        self.assertEqual(results, [])
+
+
 if __name__ == '__main__':
     unittest.main()

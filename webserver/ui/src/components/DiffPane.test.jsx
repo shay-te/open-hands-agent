@@ -19,6 +19,11 @@ vi.mock('../diffModel.js', () => ({
     if (f.type === 'delete') { return real(f.oldPath) || real(f.newPath) || '(unknown)'; }
     return real(f.newPath) || real(f.oldPath) || '(unknown)';
   },
+  // Pass files through in their original order — ordering is tested separately.
+  buildDiffFileTree: (files) => ({
+    nodes: (files || []).map((f) => ({ kind: 'file', file: f })),
+    stats: { added: 0, deleted: 0 },
+  }),
 }));
 vi.mock('./DiffFileWithComments.jsx', () => ({
   default: (props) => (

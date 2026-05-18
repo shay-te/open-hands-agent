@@ -5,9 +5,19 @@ import {
   Diff,
   Hunk,
   computeNewLineNumber,
+  computeOldLineNumber,
   expandFromRawCode,
   getChangeKey,
 } from 'react-diff-view';
+
+// Encode/decode old-side (deleted) line numbers so they are stored
+// alongside new-side line numbers without collision. Any value
+// <= -(OLD_LINE_OFFSET + 1) is an old-side encoded number;
+// -1 through -(OLD_LINE_OFFSET) are file-level comment sentinels.
+const OLD_LINE_OFFSET = 2000;
+function encodeOldLine(n) { return -(n + OLD_LINE_OFFSET); }
+function decodeOldLine(encoded) { return (-encoded) - OLD_LINE_OFFSET; }
+function isOldSideEncoded(n) { return n < -(OLD_LINE_OFFSET); }
 import {
   createTaskComment,
   deleteTaskComment,
@@ -94,6 +104,7 @@ export default function DiffFileWithComments({
   commentsLoading = false,
   commentsError = '',
   onMutated,
+  onCommentSpawned,
 }) {
   // Use the shared resolver, NOT ``file.newPath || file.oldPath``:
   // react-diff-view sets the missing side to ``/dev/null`` for pure
@@ -155,7 +166,7 @@ export default function DiffFileWithComments({
     const fileLevel = [];
     for (const comment of comments) {
       const ln = Number(comment.line);
-      if (Number.isFinite(ln) && ln >= 0) {
+      if (Number.isFinite(ln) && (ln >= 0 || isOldSideEncoded(ln))) {
         if (!byLine.has(ln)) { byLine.set(ln, []); }
         byLine.get(ln).push(comment);
       } else {
@@ -174,6 +185,8 @@ export default function DiffFileWithComments({
   const openCommentLines = useMemo(() => {
     const out = [];
     for (const [line, lineComments] of commentsByLine) {
+      // Auto-reveal only works for new-side lines (react-diff-view expand logic).
+      if (line < 0) { continue; }
       if (lineComments.some((c) => c.status !== 'resolved')) {
         out.push(line);
       }
@@ -214,6 +227,9 @@ export default function DiffFileWithComments({
     setActiveLine(null);
     setReplyTo('');
     notifyMutated();
+    if (triggered && typeof onCommentSpawned === 'function') {
+      onCommentSpawned();
+    }
     return true;
   }
 
@@ -319,57 +335,78 @@ export default function DiffFileWithComments({
   const widgets = useMemo(() => {
     if (!expanded) { return {}; }
     const out = {};
+    function buildWidget(changeKey, lineKey, isOldSide) {
+      const lineComments = commentsByLine.get(lineKey);
+      const isActive = activeLine === lineKey;
+      if (!lineComments && !isActive) { return; }
+      const threads = buildThreads(lineComments || []);
+      const displayLine = isOldSide ? decodeOldLine(lineKey) : lineKey;
+      out[changeKey] = (
+        <div className="diff-line-comments-host">
+          {threads.map((thread) => (
+            <CommentThread
+              key={thread.root.id}
+              thread={thread}
+              onResolve={onResolve}
+              onReopen={onReopen}
+              onDelete={onDelete}
+              onMarkAddressed={onMarkAddressed}
+              onReply={(rootId) => {
+                setActiveLine(lineKey);
+                setReplyTo(rootId);
+              }}
+            />
+          ))}
+          {isActive && (
+            <CommentForm
+              placeholder={
+                replyTo
+                  ? 'Add a reply…'
+                  : isOldSide
+                    ? `Comment on deleted line ${displayLine}…`
+                    : `Comment on line ${displayLine}…`
+              }
+              onSubmit={(body) => onSubmit(lineKey, body, replyTo)}
+              onCancel={() => { setActiveLine(null); setReplyTo(''); }}
+              replyMode={!!replyTo}
+            />
+          )}
+        </div>
+      );
+    }
     for (const hunk of renderedHunks) {
       for (const change of hunk.changes || []) {
-        const lineNumber = computeNewLineNumber(change);
-        if (lineNumber == null || lineNumber < 0) { continue; }
-        const lineComments = commentsByLine.get(lineNumber);
-        const isActive = activeLine === lineNumber;
-        if (!lineComments && !isActive) { continue; }
-        const key = getChangeKey(change);
-        const threads = buildThreads(lineComments || []);
-        out[key] = (
-          <div className="diff-line-comments-host">
-            {threads.map((thread) => (
-              <CommentThread
-                key={thread.root.id}
-                thread={thread}
-                onResolve={onResolve}
-                onReopen={onReopen}
-                onDelete={onDelete}
-                onMarkAddressed={onMarkAddressed}
-                onReply={(rootId) => {
-                  setActiveLine(lineNumber);
-                  setReplyTo(rootId);
-                }}
-              />
-            ))}
-            {isActive && (
-              <CommentForm
-                placeholder={
-                  replyTo
-                    ? 'Add a reply…'
-                    : `Comment on line ${lineNumber}…`
-                }
-                onSubmit={(body) => onSubmit(lineNumber, body, replyTo)}
-                onCancel={() => { setActiveLine(null); setReplyTo(''); }}
-                replyMode={!!replyTo}
-              />
-            )}
-          </div>
-        );
+        const newLn = computeNewLineNumber(change);
+        if (newLn != null && newLn >= 0) {
+          buildWidget(getChangeKey(change), newLn, false);
+        } else if (change.type === 'delete') {
+          const oldLn = computeOldLineNumber(change);
+          if (oldLn != null && oldLn >= 0) {
+            buildWidget(getChangeKey(change), encodeOldLine(oldLn), true);
+          }
+        }
       }
     }
     return out;
   }, [renderedHunks, commentsByLine, activeLine, replyTo, expanded]);
 
-  // Gutter click → open the inline form at that line.
+  // Gutter click → open the inline form at that line (new-side or old-side).
   const gutterEvents = useMemo(() => ({
     onClick: ({ change }) => {
-      const ln = computeNewLineNumber(change);
-      if (ln == null || ln < 0) { return; }
-      setActiveLine((current) => (current === ln ? null : ln));
-      setReplyTo('');
+      const newLn = computeNewLineNumber(change);
+      if (newLn != null && newLn >= 0) {
+        setActiveLine((current) => (current === newLn ? null : newLn));
+        setReplyTo('');
+        return;
+      }
+      if (change.type === 'delete') {
+        const oldLn = computeOldLineNumber(change);
+        if (oldLn != null && oldLn >= 0) {
+          const encoded = encodeOldLine(oldLn);
+          setActiveLine((current) => (current === encoded ? null : encoded));
+          setReplyTo('');
+        }
+      }
     },
   }), []);
 

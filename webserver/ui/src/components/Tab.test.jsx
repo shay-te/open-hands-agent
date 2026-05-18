@@ -67,15 +67,13 @@ describe('Tab', () => {
     expect(container.querySelector('.status-dot')).toHaveClass(`status-${TAB_STATUS.ATTENTION}`);
   });
 
-  test('working session adds is-working (gold heartbeat) to the dot', () => {
+  test('working session keeps the clean resolved status dot', () => {
     const { container } = render(
-      <Tab session={_session({ working: true })} onSelect={() => {}} />,
+      <Tab session={_session({ status: TAB_STATUS.REVIEW, working: true })} onSelect={() => {}} />,
     );
     const dot = container.querySelector('.status-dot');
-    expect(dot).toHaveClass('is-working');
-    // Still the live green dot — the heartbeat rings AROUND it, it
-    // doesn't replace the active status.
-    expect(dot).toHaveClass(`status-${TAB_STATUS.ACTIVE}`);
+    expect(dot).not.toHaveClass('is-working');
+    expect(dot).toHaveClass(`status-${TAB_STATUS.WORKING}`);
     expect(dot).not.toHaveClass('is-idle-alive');
   });
 

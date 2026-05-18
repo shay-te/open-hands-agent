@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { fetchAllSettings, updateAllSettings } from '../api.js';
 import { toast } from '../stores/toastStore.js';
 
@@ -209,8 +210,18 @@ function SchemaField({ field, value, onChange }) {
   const isSecret = field.type === 'secret';
   const isNumber = field.type === 'number';
   const boolChecked = String(value).toLowerCase() === 'true';
+  const [tipPos, setTipPos] = useState(null);
+
+  const tipText = [field.help, field.warning && `⚠ ${field.warning}`, field.danger && `⛔ ${field.danger}`].filter(Boolean).join('\n\n');
+
+  const showTip = useCallback((e) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    setTipPos({ x: r.left + r.width / 2, y: r.top });
+  }, []);
+  const hideTip = useCallback(() => setTipPos(null), []);
 
   return (
+    <>
     <label
       className={[
         'settings-drawer-field',
@@ -224,6 +235,20 @@ function SchemaField({ field, value, onChange }) {
         {field.source && (
           <span className={`settings-drawer-source source-${field.source}`}>
             {sourceLabel(field.source)}
+          </span>
+        )}
+        {tipText && (
+          <span
+            className="settings-drawer-field-info"
+            tabIndex={0}
+            role="img"
+            aria-label="Field info"
+            onMouseEnter={showTip}
+            onMouseLeave={hideTip}
+            onFocus={showTip}
+            onBlur={hideTip}
+          >
+            ⓘ
           </span>
         )}
       </span>
@@ -271,5 +296,15 @@ function SchemaField({ field, value, onChange }) {
         <span className="settings-drawer-field-danger">⛔ {field.danger}</span>
       )}
     </label>
+    {tipPos && tipText && createPortal(
+      <div
+        className="settings-field-tooltip"
+        style={{ left: tipPos.x, top: tipPos.y }}
+      >
+        {tipText}
+      </div>,
+      document.body
+    )}
+    </>
   );
 }

@@ -90,11 +90,9 @@ class ReviewCommentService(Service):
 
     def process_review_comment(self, comment: ReviewComment) -> dict[str, str]:
         results = self.process_review_comment_batch([comment])
-        if not results:
-            raise RuntimeError(
-                f'review comment {comment.comment_id} produced no result'
-            )
-        return results[0]
+        # Empty list = graceful terminal (no changes made, comment already
+        # marked processed and replied to). Not an error.
+        return results[0] if results else {}
 
     def process_review_comment_batch(
         self, comments: list[ReviewComment],
@@ -194,11 +192,19 @@ class ReviewCommentService(Service):
                     self._publish_review_no_changes(
                         comments, repository, review_context,
                     )
-                    raise RuntimeError(
-                        'review-fix agent produced no commits and left a '
-                        'clean working tree; refusing to claim the comment '
-                        'was addressed'
+                    # Mark each comment processed so the scan loop does
+                    # not retry it — the "no changes" reply IS the
+                    # terminal outcome; the thread stays open for a human.
+                    for comment in comments:
+                        self._complete_review_fix(comment, review_context)
+                    self.logger.warning(
+                        'review-fix agent produced no commits for %d '
+                        'comment(s) on PR %s — replied with no-changes '
+                        'notice; thread left open for human review',
+                        len(comments),
+                        comments[0].pull_request_id if comments else '?',
                     )
+                    return []
                 self._publish_review_comments_batch_fix(
                     comments, repository, review_context, execution,
                 )

@@ -11,6 +11,9 @@ import { TAB_STATUS } from '../constants/tabStatus.js';
 //     `useTaskAttention()`, which lives once at the App.jsx top level.
 export function deriveTabStatus(session) {
   const status = session?.status || TAB_STATUS.ACTIVE;
+  if (session?.working === true) {
+    return TAB_STATUS.WORKING;
+  }
   if (status === TAB_STATUS.ACTIVE
       && session?.live === false
       && !session?.claude_session_id) {
@@ -33,6 +36,9 @@ export function tabStatusTitle(baseStatus, needsAttention = false) {
   }
   if (baseStatus === TAB_STATUS.PROVISIONING) {
     return 'provisioning workspace…';
+  }
+  if (baseStatus === TAB_STATUS.WORKING) {
+    return 'Claude is working';
   }
   return baseStatus;
 }

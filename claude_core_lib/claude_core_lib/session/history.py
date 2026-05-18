@@ -214,8 +214,6 @@ def _coerce_event(raw_line: str) -> dict | None:
             return payload
         if not _has_displayable_text(message):
             return None
-        if _is_orchestration_prompt(message):
-            return None
     return payload
 
 

@@ -19,17 +19,11 @@ export default function Tab({ session, active, needsAttention, onSelect, onForge
     needsAttention ? 'needs-attention' : '',
   ].filter(Boolean).join(' ');
   const idleAlive = status === TAB_STATUS.ACTIVE && session?.working === false;
-  // Claude is mid-turn on this task — same signal the hover card uses
-  // for "Claude: working". Drives a gold heartbeat ring around the
-  // (still green) live dot so the operator can spot which tabs are
-  // actively churning without opening them.
-  const isWorking = session?.working === true;
   const dotClass = [
     'status-dot',
     `status-${status}`,
     isLoading ? 'is-loading' : '',
     idleAlive ? 'is-idle-alive' : '',
-    isWorking ? 'is-working' : '',
   ].filter(Boolean).join(' ');
 
   // Hover-card state. ``anchorRect`` is a frozen snapshot of the

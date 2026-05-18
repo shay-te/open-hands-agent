@@ -269,9 +269,14 @@ function serverBubblesFor(raw, index, isHistory = false, onOpenFile) {
   switch (raw.type) {
     case CLAUDE_EVENT.SYSTEM:
       if (raw.subtype === CLAUDE_SYSTEM_SUBTYPE.INIT) {
+        const sid = raw.session_id || '';
+        const sidShort = sid ? sid.slice(0, 8) : '(none yet)';
+        const sidFull = sid || '(unknown)';
         return [
           <Bubble key={keyOf(raw, index, 'sys')} kind={BUBBLE_KIND.SYSTEM}>
-            {`session_id: ${raw.session_id || '(none yet)'}`}
+            <span title={`Full session id: ${sidFull}`}>
+              {`Claude session started · ${sidShort}${sid ? '…' : ''}`}
+            </span>
           </Bubble>,
         ];
       }
@@ -394,10 +399,14 @@ function assistantBubbles(raw, index, onOpenFile) {
 
 function userBubbles(raw, index) {
   const message = raw.message || {};
-  const content = Array.isArray(message.content) ? message.content : [];
+  const rawContent = message.content;
+  const content = Array.isArray(rawContent) ? rawContent : [];
   const textPieces = content
     .filter((b) => b && b.type === 'text' && b.text)
     .map((b) => b.text);
+  if (typeof rawContent === 'string' && rawContent.trim()) {
+    textPieces.push(rawContent);
+  }
   // Show image-bearing user envelopes too — surface the image count
   // inline so the operator can confirm their attachment landed.
   const imageCount = content.filter((b) => b && b.type === 'image').length;

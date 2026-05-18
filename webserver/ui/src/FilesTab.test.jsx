@@ -235,6 +235,30 @@ describe('buildFilesCommentMeta', () => {
     expect(buildFilesCommentMeta(null).size).toBe(0);
     expect(buildFilesCommentMeta(undefined).size).toBe(0);
   });
+
+  test('resolved threads are not counted', () => {
+    const meta = buildFilesCommentMeta([
+      { id: 'c1', repo_id: 'r', file_path: 'src/a.js', parent_id: '', status: 'open' },
+      { id: 'c2', repo_id: 'r', file_path: 'src/a.js', parent_id: '', status: 'resolved' },
+    ]);
+    expect(meta.get('r').get('src/a.js')).toBe(1);
+  });
+
+  test('kato_status=addressed threads are not counted', () => {
+    const meta = buildFilesCommentMeta([
+      { id: 'c1', repo_id: 'r', file_path: 'src/b.js', parent_id: '', kato_status: 'queued' },
+      { id: 'c2', repo_id: 'r', file_path: 'src/b.js', parent_id: '', kato_status: 'addressed' },
+    ]);
+    expect(meta.get('r').get('src/b.js')).toBe(1);
+  });
+
+  test('file with only resolved/addressed threads shows no badge', () => {
+    const meta = buildFilesCommentMeta([
+      { id: 'c1', repo_id: 'r', file_path: 'src/c.js', parent_id: '', status: 'resolved' },
+      { id: 'c2', repo_id: 'r', file_path: 'src/c.js', parent_id: '', kato_status: 'addressed' },
+    ]);
+    expect(meta.get('r')?.has('src/c.js')).toBeFalsy();
+  });
 });
 
 

@@ -126,12 +126,10 @@ test('NOTIFICATION_KIND is frozen', () => {
 // ---------------------------------------------------------------------------
 
 test('TAB_STATUS includes every state the workspace state machine produces', () => {
-  // PROVISIONING / ACTIVE / IDLE / REVIEW / DONE / TERMINATED /
-  // ERRORED — mirror of the server-side WORKSPACE_STATUS_* enum.
-  // ATTENTION is UI-only (overlaid by resolveTabStatus).
+  // WORKING and ATTENTION are UI-only overlays from live session state.
   assert.deepEqual(Object.keys(TAB_STATUS).sort(), [
     'ACTIVE', 'ATTENTION', 'DONE', 'ERRORED', 'IDLE',
-    'PROVISIONING', 'REVIEW', 'TERMINATED',
+    'PROVISIONING', 'REVIEW', 'TERMINATED', 'WORKING',
   ]);
 });
 
@@ -143,6 +141,7 @@ test('TAB_STATUS values are the wire strings', () => {
   assert.equal(TAB_STATUS.DONE, 'done');
   assert.equal(TAB_STATUS.TERMINATED, 'terminated');
   assert.equal(TAB_STATUS.ERRORED, 'errored');
+  assert.equal(TAB_STATUS.WORKING, 'working');
   assert.equal(TAB_STATUS.ATTENTION, 'attention');
 });
 

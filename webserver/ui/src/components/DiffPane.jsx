@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { fetchDiff, fetchTaskComments } from '../api.js';
 import {
+  buildDiffFileTree,
   diffDisplayPath,
   diffFileKey,
   parseRepoDiffs,
@@ -44,7 +45,7 @@ export function findDiffFile(repoDiffs, repoId, relativePath) {
  * ``openFile`` shape: ``{ taskId, relativePath, repoId, view:'diff' }``
  * — ``relativePath``/``repoId`` are the scroll target, not a filter.
  */
-export default function DiffPane({ openFile }) {
+export default function DiffPane({ openFile, onCommentSpawned }) {
   const taskId = openFile?.taskId || '';
   const repoId = openFile?.repoId || '';
   const relativePath = openFile?.relativePath || openFile?.absolutePath || '';
@@ -187,8 +188,13 @@ export default function DiffPane({ openFile }) {
             off by the next file's header as you scroll — exactly the
             GitHub/Bitbucket per-file-card behaviour. */}
         {state.repoDiffs.map((repo) => {
-          const files = repo.files || [];
-          if (files.length === 0) { return null; }
+          const rawFiles = repo.files || [];
+          if (rawFiles.length === 0) { return null; }
+          // Same order as the file tree (folders-first, alphabetical).
+          const { nodes } = buildDiffFileTree(rawFiles);
+          const files = nodes.flatMap(function flatten(n) {
+            return n.kind === 'folder' ? n.children.flatMap(flatten) : [n.file];
+          });
           const repoComments = commentsByRepo.get(repo.repo_id);
           return (
             <section className="diff-pane-repo" key={repo.repo_id || repo.cwd}>
@@ -230,6 +236,7 @@ export default function DiffPane({ openFile }) {
                       commentsLoading={!!repoComments?.loading}
                       commentsError={repoComments?.error || ''}
                       onMutated={bumpComments}
+                      onCommentSpawned={onCommentSpawned}
                     />
                   </div>
                 );

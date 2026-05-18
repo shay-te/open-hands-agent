@@ -23,9 +23,17 @@ export default function SessionDetail({
   toolMemory: providedToolMemory = null,
   onResizePointerDown,
   onOpenFile,
+  onRegisterReconnect,
 }) {
   const taskId = session?.task_id;
   const stream = useSessionStream(taskId, onActivity);
+
+  useEffect(() => {
+    if (typeof onRegisterReconnect === 'function') {
+      onRegisterReconnect(stream.reconnect);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stream.reconnect]);
 
   // The task header (title + action buttons + Claude status + chat
   // search) is hoisted into a full-width bar UNDER the tab strip and

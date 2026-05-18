@@ -986,6 +986,98 @@ class AgentService(Service):
             })
         return completed
 
+    def advance_finished_comment_runs(self) -> list[dict[str, object]]:
+        """Scan-loop fallback: advance IN_PROGRESS comments whose session has ended.
+
+        Normal path: SSE RESULT event → ``_advance_task_comments_after_result``
+        → ``complete_in_progress_task_comments``. Fallback (no SSE subscriber
+        at the moment the turn finished): called each scan tick so the badge
+        doesn't stay "⟳ kato working" after Claude has already finished.
+
+        Safe to call at any time — skips tasks whose session is still alive
+        and working so running comments are never interrupted.
+        """
+        from kato_core_lib.comment_core_lib import KatoCommentStatus
+
+        advanced: list[dict[str, object]] = []
+        for record in self._safe_list_workspaces():
+            task_id = str(getattr(record, 'task_id', '') or '').strip()
+            if not task_id:
+                continue
+            store = self._comment_store_for(task_id)
+            if store is None:
+                continue
+            try:
+                comments = store.list()
+            except Exception:
+                continue
+            in_progress = [
+                c for c in comments
+                if c.kato_status == KatoCommentStatus.IN_PROGRESS.value
+            ]
+            if not in_progress:
+                continue
+            # Leave comments alone while the session is mid-turn.
+            if self._task_has_busy_turn(task_id):
+                continue
+            session = None
+            if self._session_manager is not None:
+                try:
+                    session = self._session_manager.get_session(task_id)
+                except Exception:
+                    pass
+            if session is not None and getattr(session, 'is_alive', False):
+                # Session alive and idle: check if a RESULT turn already fired.
+                # If so, advance now (SSE subscriber may have missed the event).
+                last_result = None
+                try:
+                    for e in reversed(session.recent_events()):
+                        if getattr(e, 'event_type', None) == 'result':
+                            last_result = e
+                            break
+                except Exception:
+                    pass
+                if last_result is None:
+                    # Session just spawned — no completed turn yet; wait.
+                    continue
+                is_error = bool((getattr(last_result, 'raw', None) or {}).get('is_error', False))
+                results = self.complete_in_progress_task_comments(
+                    task_id, success=not is_error,
+                )
+                advanced.extend(results)
+                continue
+            terminal = getattr(session, 'terminal_event', None) if session else None
+            if terminal is not None:
+                is_error = bool(getattr(terminal, 'raw', {}).get('is_error', False))
+                results = self.complete_in_progress_task_comments(
+                    task_id, success=not is_error,
+                )
+                advanced.extend(results)
+            else:
+                # Session gone with no terminal event (crash / restart) — requeue.
+                for comment in in_progress:
+                    try:
+                        store.update_kato_status(
+                            comment.id,
+                            kato_status=KatoCommentStatus.QUEUED.value,
+                        )
+                        self.logger.info(
+                            'comment %s on task %s requeued '
+                            '(session gone without terminal event)',
+                            comment.id, task_id,
+                        )
+                        advanced.append({
+                            'task_id': task_id,
+                            'comment_id': comment.id,
+                            'action': 'requeued',
+                        })
+                    except Exception:
+                        self.logger.exception(
+                            'failed to requeue stuck comment %s on task %s',
+                            comment.id, task_id,
+                        )
+        return advanced
+
     def resolve_task_comment(
         self,
         task_id: str,

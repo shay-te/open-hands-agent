@@ -2509,7 +2509,9 @@ def _event_stream_generator(
         if _drain_queued_task_comment(agent_service, task_id):
             session = manager.get_session(task_id) if manager is not None else None
             if session is not None:
-                replayed_count = yield from _replay_session_backlog(session)
+                replayed_count = yield from _replay_session_backlog(
+                    session, agent_service=agent_service, task_id=task_id,
+                )
                 yield from _follow_live_session(
                     session, start_index=replayed_count,
                     agent_service=agent_service, task_id=task_id,
@@ -2520,7 +2522,9 @@ def _event_stream_generator(
         return
     yield from _replay_preflight_log(workspace_manager, task_id)
     yield from _replay_history_from_disk(claude_session_id)
-    replayed_count = yield from _replay_session_backlog(session)
+    replayed_count = yield from _replay_session_backlog(
+        session, agent_service=agent_service, task_id=task_id,
+    )
     yield from _follow_live_session(
         session, start_index=replayed_count,
         agent_service=agent_service, task_id=task_id,
@@ -2617,11 +2621,17 @@ def _replay_history_from_disk(claude_session_id: str):
         )
 
 
-def _replay_session_backlog(session):
-    """Catch a freshly-connecting browser up on everything seen so far."""
+def _replay_session_backlog(session, agent_service=None, task_id=''):
+    """Catch a freshly-connecting browser up on everything seen so far.
+
+    Also calls ``_advance_task_comments_after_result`` for any RESULT events
+    in the backlog so that a reconnecting browser doesn't leave comment badges
+    stuck on WORKING when Claude finished while no SSE subscriber was watching.
+    """
     backlog = session.recent_events()
     for event in backlog:
         yield _sse_message(SSE_EVENT_SESSION_EVENT, {'event': event.to_dict()})
+        _advance_task_comments_after_result(event, agent_service, task_id)
     return len(backlog)
 
 

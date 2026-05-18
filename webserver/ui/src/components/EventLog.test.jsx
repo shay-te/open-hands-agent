@@ -95,7 +95,7 @@ describe('EventLog — server event rendering', () => {
       subtype: CLAUDE_SYSTEM_SUBTYPE.INIT,
       session_id: 'sess-abc-123',
     })]} />);
-    expect(screen.getByText(/sess-abc-123/)).toBeInTheDocument();
+    expect(screen.getByText(/Claude session started.*sess-abc/)).toBeInTheDocument();
   });
 
   test('SYSTEM init with missing session_id falls back to "(none yet)"', () => {
@@ -203,6 +203,16 @@ describe('EventLog — server event rendering', () => {
     expect(
       container.querySelector('.chat-sticky-prompt-text'),
     ).toHaveTextContent('fix this');
+  });
+
+  test('USER string content renders as a sticky prompt', () => {
+    const { container } = render(<EventLog entries={[_server({
+      type: CLAUDE_EVENT.USER,
+      message: { content: 'restart prompt' },
+    })]} />);
+    expect(
+      container.querySelector('.chat-sticky-prompt-text'),
+    ).toHaveTextContent('restart prompt');
   });
 
   test('USER with images appends image count', () => {
@@ -405,7 +415,7 @@ describe('EventLog — per-turn sticky grouping', () => {
     ]} />);
     const preamble = container.querySelector('.chat-turn--preamble');
     expect(preamble).toBeInTheDocument();
-    expect(preamble).toHaveTextContent('session_id: sess-1');
+    expect(preamble).toHaveTextContent('Claude session started · sess-1…');
     expect(preamble.querySelector('.chat-sticky-prompt')).toBeNull();
     // The operator prompt still gets its own sticky turn.
     expect(

@@ -85,6 +85,18 @@ test('deriveTabStatus: ACTIVE with live=true stays ACTIVE regardless of session 
   );
 });
 
+test('deriveTabStatus: working=true overrides stale persisted status', function () {
+  assert.equal(
+    deriveTabStatus({
+      status: TAB_STATUS.REVIEW,
+      live: true,
+      working: true,
+      claude_session_id: 'sess-1',
+    }),
+    TAB_STATUS.WORKING,
+  );
+});
+
 
 // ---------------------------------------------------------------------------
 // resolveTabStatus
@@ -95,7 +107,7 @@ test('resolveTabStatus: attention overrides any base status', function () {
   // Beats any other state because operator action is required.
   for (const status of [
     TAB_STATUS.ACTIVE, TAB_STATUS.IDLE, TAB_STATUS.DONE,
-    TAB_STATUS.PROVISIONING, TAB_STATUS.ERRORED,
+    TAB_STATUS.PROVISIONING, TAB_STATUS.ERRORED, TAB_STATUS.WORKING,
   ]) {
     assert.equal(
       resolveTabStatus({ status }, true),
@@ -149,6 +161,11 @@ test('tabStatusTitle: IDLE has its own explanation', function () {
 test('tabStatusTitle: PROVISIONING has its own text', function () {
   const title = tabStatusTitle(TAB_STATUS.PROVISIONING, false);
   assert.ok(title.toLowerCase().includes('provisioning'));
+});
+
+test('tabStatusTitle: WORKING has its own text', function () {
+  const title = tabStatusTitle(TAB_STATUS.WORKING, false);
+  assert.ok(title.toLowerCase().includes('working'));
 });
 
 test('tabStatusTitle: unknown / generic status echoes the raw value', function () {

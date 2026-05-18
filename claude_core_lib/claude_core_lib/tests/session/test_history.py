@@ -212,11 +212,9 @@ class LoadHistoryEventsTests(unittest.TestCase):
         types = [event['type'] for event in events]
         self.assertEqual(types, ['user', 'assistant'])
 
-    def test_drops_orchestration_prompts(self) -> None:
-        # User messages whose text contains an orchestration marker are
-        # filtered out — those are kato-injected boilerplate, not actual
-        # operator messages, so showing them in the chat history would
-        # confuse the human.
+    def test_keeps_orchestration_prompts(self) -> None:
+        # Restart replay must keep every prompt that was sent to Claude,
+        # including Kato's initial orchestration prompt.
         path = self.projects_root / 'enc-x' / 'sess-orch.jsonl'
         path.parent.mkdir(parents=True)
         _write_jsonl(path, [
@@ -238,8 +236,10 @@ class LoadHistoryEventsTests(unittest.TestCase):
             },
         ])
         events = load_history_events('sess-orch', projects_root=self.projects_root)
-        self.assertEqual(len(events), 1)
-        self.assertIn('real user message', json.dumps(events[0]))
+        self.assertEqual(len(events), 2)
+        joined = json.dumps(events)
+        self.assertIn('Security guardrails', joined)
+        self.assertIn('real user message', joined)
 
     def test_passes_tool_result_user_messages_through(self) -> None:
         # Tool-result-only ``user`` messages are NOT filtered out — they're

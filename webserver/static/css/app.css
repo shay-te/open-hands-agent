@@ -4,6 +4,10 @@
  * (e.g. `.modal { display: flex }` would otherwise leak through). */
 [hidden] { display: none !important; }
 
+:root {
+  --radius-pill: 999px;
+}
+
 html, body { height: 100%; }
 /* Safety net: the app is a fixed-viewport 3-column layout — nothing
  * should ever scroll the PAGE horizontally. Without this, a wide
@@ -107,7 +111,7 @@ header .header-status {
   align-items: center;
   gap: 8px;
   padding: 4px 12px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.06);
   color: #d4d4d4;
@@ -410,7 +414,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   /* Tighter right padding so the forget-X sits snug against the
    * text instead of floating in the rounded-cap dead zone. */
   padding: 6px 8px 6px 12px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.06);
   color: rgba(245, 245, 247, 0.78);
@@ -434,6 +438,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
     inset 0 1px 0 rgba(255, 255, 255, 0.10);
 }
 .tabs-pane-top .tab:active { transform: scale(0.97); }
+.tabs-pane-top .tab:focus { outline: none; }
 .tabs-pane-top .tab strong {
   font-weight: 600;
   font-size: 12px;
@@ -653,6 +658,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   align-items: start;
 }
 #tabs-pane:not(.tabs-pane-top) .tab:hover { background: #171717; }
+#tabs-pane:not(.tabs-pane-top) .tab:focus { outline: none; }
 #tabs-pane:not(.tabs-pane-top) .tab.active {
   background: #171717;
   border-left-color: #e5e5e5;
@@ -696,7 +702,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   border: 2px solid #171717;
 }
 
-.status-active       { background: #047857; }   /* green: live working */
+.status-active       { background: #047857; }   /* green: live session */
 .status-active.is-idle-alive {
   /* alive subprocess but the current turn has closed (Claude said
    * "Done") — dim the green so the sidebar visually distinguishes
@@ -706,6 +712,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 .status-idle         { background: #404040; }   /* slate: tab present, no subprocess */
 .status-review       { background: #2563eb; }   /* blue:  awaiting review */
+.status-working      { background: #f59e0b; border-color: #92400e; } /* orange: Claude working */
 .status-done         { background: #171717; border-color: #262626; } /* dim */
 .status-terminated   { background: #6b7280; }   /* gray: stopped */
 .status-provisioning { background: #e5e5e5; }   /* white: cloning */
@@ -751,23 +758,6 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 @keyframes kato-attention-pulse {
   0%, 100% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.72); }
   50%      { box-shadow: 0 0 0 7px rgba(249, 115, 22, 0); }
-}
-
-/* Claude is working on this task: a gold "lub-dub" heartbeat around
- * the live dot. The dot stays green (still alive); the gold ring +
- * tiny scale beat twice then rests, so a working tab reads as a
- * pulse, distinct from the steady needs-attention halo. The
- * needs-attention rule has higher specificity, so an awaiting-
- * approval tab keeps its orange halo even while ``is-working``. */
-.status-dot.is-working {
-  animation: kato-working-heartbeat 1.4s ease-in-out infinite;
-}
-@keyframes kato-working-heartbeat {
-  0%        { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.75); transform: scale(1); }
-  12%       { box-shadow: 0 0 0 5px rgba(245, 158, 11, 0);   transform: scale(1.22); }
-  24%       { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.55);  transform: scale(1); }
-  36%       { box-shadow: 0 0 0 5px rgba(245, 158, 11, 0);   transform: scale(1.14); }
-  50%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);     transform: scale(1); }
 }
 
 .empty {
@@ -820,9 +810,11 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   align-items: center;
   gap: 16px;
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
   padding: 10px 24px;
   border-bottom: 1px solid #171717;
+  position: relative;
+  z-index: 20;
 }
 
 /* Left: status dot + task id + summary, one line, ellipsized. */
@@ -987,8 +979,8 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 
 /* ───── sticky "you asked" prompt (Claude VS Code plugin style) ──
  * Pinned at the top of its turn so the operator never loses the
- * request the agent is working on. Collapsed = one line; click to
- * expand to the full prompt (capped + scrollable). */
+ * request the agent is working on. Prompts wrap by default; very
+ * large prompts stay scrollable inside the bar. */
 .chat-sticky-prompt {
   position: sticky;
   top: 0;
@@ -1005,7 +997,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 .chat-sticky-prompt-toggle {
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
   gap: 10px;
   width: 100%;
   padding: 9px 24px;
@@ -1024,6 +1016,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: #6b7280;
+  padding-top: 2px;
 }
 .chat-sticky-prompt-text {
   flex: 1;
@@ -1031,20 +1024,19 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   font-size: 12.5px;
   line-height: 1.5;
   color: #e5e5e7;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.chat-sticky-prompt.is-expanded .chat-sticky-prompt-text {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   overflow-y: auto;
-  max-height: 38vh;
+  max-height: 30vh;
+}
+.chat-sticky-prompt.is-expanded .chat-sticky-prompt-text {
+  max-height: none;
 }
 .chat-sticky-prompt-chevron {
   flex-shrink: 0;
   color: #6b7280;
   font-size: 11px;
+  padding-top: 2px;
 }
 
 /* Chat stream — vertical, dot-prefixed, Claude Code CLI style. Each
@@ -1992,7 +1984,7 @@ code {
   text-transform: uppercase;
   color: rgba(245, 245, 247, 0.65);
   padding: 3px 9px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
@@ -2227,7 +2219,7 @@ code {
   align-items: center;
   gap: 8px;
   padding: 4px 10px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: 1px solid #404040;
   background: #1f1f1f;
   color: #d4d4d4;
@@ -2246,7 +2238,7 @@ code {
   flex-shrink: 0;
   font-size: 10px;
   padding: 2px 6px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: rgba(255, 255, 255, 0.08);
 }
 .editor-pane-chip-body {
@@ -2899,7 +2891,7 @@ body.kato-resizing #left-pane-resizer::before {
 .diff-file-comment-author { font-weight: 600; color: #e5e5e5; }
 .diff-file-comment-source {
   padding: 1px 6px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: 1px solid rgba(255, 255, 255, 0.14);
   font-size: 9px;
   font-weight: 600;
@@ -2911,7 +2903,7 @@ body.kato-resizing #left-pane-resizer::before {
 /* PENDING-style outlined status pill (Bitbucket look). */
 .diff-file-comment-pill {
   padding: 1px 7px;
-  border-radius: 4px;
+  border-radius: var(--radius-pill);
   border: 1px solid currentColor;
   font-size: 10px;
   font-weight: 700;
@@ -2947,6 +2939,7 @@ body.kato-resizing #left-pane-resizer::before {
   color: #f5f5f7;
 }
 .diff-file-comment-collapse:active { transform: scale(0.96); }
+.diff-file-comment-collapse:focus { outline: none; }
 
 .diff-file-comment-body {
   color: #d4d4d4;
@@ -3129,33 +3122,55 @@ body.kato-resizing #left-pane-resizer::before {
   cursor: pointer;
   position: relative;
 }
-/* Bitbucket-style add-comment affordance: ONLY a small filled blue
- * circle with a white "+", centred in the new-line gutter on the
- * hovered line. No gutter-cell background tint, no glow ring — the
- * operator asked for a clean badge with no background box. Vertically
- * centred (top/bottom:0 + flex) so it sits ON the line regardless of
- * the row's height. */
+/* Bitbucket-style add-comment affordance.
+ *
+ * react-diff-view unified mode: each row has TWO gutter <td>s, both
+ * with the same type class (diff-gutter-delete / -insert / -normal).
+ * Strategy:
+ *   insert/normal → show "+" on the 2nd gutter (new-side, has the number)
+ *   delete        → show "+" on the 1st gutter (old-side, has the number)
+ *                   and suppress the 2nd (it's blank for deleted lines)
+ *
+ * The badge is centred INSIDE the gutter cell so clicks reliably hit
+ * the gutterEvents.onClick handler — previously right:-9px placed it
+ * outside the cell, making it look clickable but fire nothing. */
 .diff-line:hover .diff-gutter + .diff-gutter::after {
   content: '+';
   position: absolute;
-  /* Line numbers are right-aligned at the gutter's RIGHT edge, so
-   * anchor the badge there and nudge it just past that edge
-   * (right: -9px) — it lands right after the number, in the gap
-   * before the code, vertically centred ON the hovered line.
-   * Bitbucket-style. */
   top: 50%;
-  right: -9px;
-  transform: translateY(-50%);
-  width: 16px;
-  height: 16px;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 20px;
+  height: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: #0c66e4;
   color: #fff;
-  font: 700 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  font: 700 13px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
   border-radius: 50%;
   pointer-events: none;
+  z-index: 2;
+}
+/* For delete lines: suppress the new-side (2nd) gutter badge, show on old-side (1st). */
+.diff-line:hover .diff-gutter-delete + .diff-gutter-delete::after { content: none; }
+.diff-line:hover .diff-gutter-delete:first-child::after {
+  content: '+';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0c66e4;
+  color: #fff;
+  font: 700 13px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 2;
 }
 
 /* Inline-resolved banner inside a CommentBubble (smaller than the
@@ -4578,7 +4593,7 @@ body.kato-resizing #left-pane-resizer::before {
 .adopt-session-badge {
   font-size: 10px;
   padding: 1px 6px;
-  border-radius: 3px;
+  border-radius: var(--radius-pill);
   font-weight: 500;
 }
 .adopt-session-badge.in-use {
@@ -5008,6 +5023,47 @@ body.kato-resizing #left-pane-resizer::before {
   border-radius: 3px;
   font-size: 11px;
 }
+.settings-drawer-field-info {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: rgba(245, 245, 247, 0.55);
+  font-size: 10px;
+  font-style: normal;
+  cursor: default;
+  flex-shrink: 0;
+  user-select: none;
+}
+.settings-drawer-field-info:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: #f5f5f7;
+}
+/* Portal tooltip for ⓘ icons — rendered at document.body to escape
+ * the .settings-drawer-body overflow:auto clipping boundary. */
+.settings-field-tooltip {
+  position: fixed;
+  transform: translate(-50%, calc(-100% - 10px));
+  background: #1f2937;
+  color: #f9fafb;
+  font: 13px/1.5 -apple-system, system-ui, sans-serif;
+  font-style: normal;
+  font-weight: 400;
+  padding: 7px 11px;
+  border-radius: 5px;
+  white-space: pre-wrap;
+  max-width: 280px;
+  width: max-content;
+  text-align: left;
+  border: 1px solid #374151;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
+  z-index: 9999;
+  pointer-events: none;
+}
 
 
 /* ===== Schema-driven settings panels (General / Claude agent /
@@ -5146,6 +5202,7 @@ body.kato-resizing #left-pane-resizer::before {
   background: #6b7280;
 }
 .tab-tooltip-dot.status-active { background: #34d399; }
+.tab-tooltip-dot.status-working { background: #f59e0b; }
 .tab-tooltip-dot.status-attention { background: #f59e0b; }
 .tab-tooltip-dot.status-provisioning { background: #60a5fa; }
 .tab-tooltip-dot.status-review { background: #60a5fa; }
@@ -5163,7 +5220,7 @@ body.kato-resizing #left-pane-resizer::before {
   font-size: 10px;
   font-weight: 600;
   padding: 2px 7px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   white-space: nowrap;
   background: rgba(255, 255, 255, 0.06);
   color: #9ca3af;
@@ -5216,3 +5273,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 .tab-tooltip-row dd.tone-warn { color: #fcd34d; }
 .tab-tooltip-row dd.tone-error { color: #fca5a5; }
+
+:where([class*="badge"], [class*="chip"], [class*="pill"]) {
+  border-radius: var(--radius-pill);
+}

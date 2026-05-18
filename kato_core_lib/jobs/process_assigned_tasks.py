@@ -25,8 +25,28 @@ def collect_processing_results(service) -> list[dict]:
     """
     results = _dispatch_assigned_tasks(service)
     results.extend(_dispatch_review_comments(service))
+    results.extend(_advance_finished_local_comment_runs(service))
     results.extend(_drain_queued_local_comments(service))
     return results
+
+
+def _advance_finished_local_comment_runs(service) -> list[dict]:
+    """Scan-loop fallback: complete/requeue IN_PROGRESS comments whose session ended.
+
+    Without this, a comment stays "⟳ kato working" if no SSE subscriber
+    was watching when the turn's RESULT event fired.
+    """
+    advance = getattr(service, 'advance_finished_comment_runs', None)
+    if not callable(advance):
+        return []
+    try:
+        advanced = advance()
+    except Exception:
+        configure_logger(__name__).exception(
+            'advance_finished_comment_runs failed; retrying next scan tick',
+        )
+        return []
+    return list(advanced) if isinstance(advanced, (list, tuple)) else []
 
 
 def _drain_queued_local_comments(service) -> list[dict]:
