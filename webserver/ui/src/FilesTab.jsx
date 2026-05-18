@@ -26,6 +26,7 @@ import {
   matchTreeNode,
   normalizeTrees,
 } from './FilesTabHelpers.js';
+import { cssEscapeAttr } from './utils/dom.js';
 
 
 // Same auto-poll cadence as ChangesTab. Keeps the file tree in sync
@@ -45,7 +46,6 @@ export function buildFilesCommentMeta(comments) {
   for (const comment of comments || []) {
     if (String(comment?.parent_id || '')) { continue; }
     if (comment?.status === 'resolved') { continue; }
-    if (comment?.kato_status === 'addressed') { continue; }
     const filePath = String(comment?.file_path || '').trim();
     if (!filePath) { continue; }
     const repoId = String(comment?.repo_id || '').trim();
@@ -68,6 +68,7 @@ export default function FilesTab({
   taskId,
   workspaceVersion = 0,
   focusFilterSignal = 0,
+  focusFileTarget = null,
   onOpenFile,
 }) {
   const { appendToInput } = useChatComposer();
@@ -94,6 +95,7 @@ export default function FilesTab({
   const [syncing, setSyncing] = useState(false);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [showAllFiles, setShowAllFiles] = useState(false);
+  const [pathMenu, setPathMenu] = useState(null);
   const inFlightRef = useRef(false);
   const containerRef = useRef(null);
   const filterInputRef = useRef(null);
@@ -119,6 +121,29 @@ export default function FilesTab({
   useEffect(() => {
     setQuery('');
   }, [taskId]);
+
+  useEffect(() => {
+    if (!focusFileTarget || state.status !== 'ready') { return; }
+    const targetPath = String(focusFileTarget.relativePath || '').trim();
+    if (!targetPath) { return; }
+    for (const repoTree of state.trees) {
+      const repoKey = repoTree.repo_id || repoTree.cwd;
+      const diffMeta = state.diffMetaByRepo.get(repoKey) || EMPTY_DIFF_META;
+      if (!focusTargetMatchesRepo(focusFileTarget, repoTree, state.trees.length)) {
+        continue;
+      }
+      if (!diffMeta.has(targetPath)) { continue; }
+      setQuery('');
+      setShowAllFiles(false);
+      setCollapsed((prev) => {
+        if (!prev.has(repoKey)) { return prev; }
+        const next = new Set(prev);
+        next.delete(repoKey);
+        return next;
+      });
+      break;
+    }
+  }, [focusFileTarget, state.status, state.trees, state.diffMetaByRepo]);
 
   useEffect(() => {
     if (!taskId) { return; }
@@ -238,6 +263,57 @@ export default function FilesTab({
   }
   function collapseAll() { setCollapsed(new Set(repoIds)); }
   function expandAll() { setCollapsed(new Set()); }
+  function openPathMenu(event, relativePath, repoId = '') {
+    event.preventDefault();
+    event.stopPropagation();
+    const path = String(relativePath || '').trim();
+    if (!path) { return; }
+    setPathMenu({
+      x: event.clientX,
+      y: event.clientY,
+      relativePath: path,
+      repoId: String(repoId || '').trim(),
+    });
+  }
+  function closePathMenu() {
+    setPathMenu(null);
+  }
+  async function copyPathMenuRelativePath() {
+    const path = String(pathMenu?.relativePath || '').trim();
+    const repoPath = formatRepoRelativePath(pathMenu?.repoId, path);
+    closePathMenu();
+    if (!path) { return; }
+    try {
+      await copyTextToClipboard(repoPath);
+      toast.show({
+        kind: 'success',
+        title: 'Copied relative path',
+        message: repoPath,
+        durationMs: 2500,
+      });
+    } catch (err) {
+      toast.show({
+        kind: 'error',
+        title: 'Copy failed',
+        message: String(err?.message || err || 'clipboard unavailable'),
+        durationMs: 5000,
+      });
+    }
+  }
+
+  useEffect(() => {
+    if (!pathMenu) { return undefined; }
+    function onPointerDown() { closePathMenu(); }
+    function onKeyDown(event) {
+      if (event.key === 'Escape') { closePathMenu(); }
+    }
+    window.addEventListener('pointerdown', onPointerDown);
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('pointerdown', onPointerDown);
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [pathMenu]);
 
   // Sync icon: re-resolve the task's repositories from YouTrack /
   // Jira / etc. tags + description, and clone any that aren't yet on
@@ -378,6 +454,7 @@ export default function FilesTab({
           onToggle={() => toggleRepo(repoKey)}
           onPickFile={appendToInput}
           onOpenFile={onOpenFile}
+          onOpenPathMenu={openPathMenu}
           searchTerm={deferredQuery}
           conflictedFiles={repoTree.conflictedFiles}
           changedFiles={repoTree.changedFiles}
@@ -385,6 +462,7 @@ export default function FilesTab({
           commentMeta={commentMeta}
           showAllFiles={showAllFiles}
           taskId={taskId}
+          focusFileTarget={focusFileTarget}
         />
       );
     });
@@ -433,6 +511,23 @@ export default function FilesTab({
       <div className="files-tab-body" ref={containerRef}>
         {body}
       </div>
+      {pathMenu && (
+        <div
+          className="files-tab-context-menu"
+          style={{ left: pathMenu.x, top: pathMenu.y }}
+          onPointerDown={(event) => event.stopPropagation()}
+          role="menu"
+        >
+          <button
+            type="button"
+            className="files-tab-context-menu-item"
+            onClick={copyPathMenuRelativePath}
+            role="menuitem"
+          >
+            Copy relative path
+          </button>
+        </div>
+      )}
       {addModalOpen && (
         <AddRepositoryModal
           taskId={taskId}
@@ -495,6 +590,30 @@ export function formatSyncResult(result) {
   };
 }
 
+export async function copyTextToClipboard(text) {
+  const value = String(text || '');
+  if (!value) { return; }
+  if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+    await navigator.clipboard.writeText(value);
+    return;
+  }
+  if (typeof document === 'undefined') {
+    throw new Error('clipboard unavailable');
+  }
+  const textarea = document.createElement('textarea');
+  textarea.value = value;
+  textarea.setAttribute('readonly', '');
+  textarea.style.position = 'fixed';
+  textarea.style.left = '-9999px';
+  document.body.appendChild(textarea);
+  textarea.select();
+  const copied = document.execCommand('copy');
+  textarea.remove();
+  if (!copied) {
+    throw new Error('clipboard unavailable');
+  }
+}
+
 export function buildFilesDiffMeta(repoDiffs) {
   const byRepo = new Map();
   for (const repoDiff of repoDiffs || []) {
@@ -518,11 +637,12 @@ export function buildFilesDiffMeta(repoDiffs) {
 
 function RepoTree({
   repoTree, width, collapsed, onToggle, onPickFile,
-  onOpenFile,
+  onOpenFile, onOpenPathMenu,
   searchTerm = '', conflictedFiles, changedFiles, diffMeta = EMPTY_DIFF_META,
   commentMeta = EMPTY_COMMENT_META,
-  showAllFiles = false, taskId = '',
+  showAllFiles = false, taskId = '', focusFileTarget = null,
 }) {
+  const repoRef = useRef(null);
   const treeData = useMemo(() => {
     return attachIds(repoTree.tree, repoTree.cwd);
   }, [repoTree.tree, repoTree.cwd]);
@@ -556,6 +676,39 @@ function RepoTree({
   });
   const [commitMenuOpen, setCommitMenuOpen] = useState(false);
   const [activeCommit, setActiveCommit] = useState(null);
+
+  useEffect(() => {
+    if (!focusTargetMatchesRepo(focusFileTarget, repoTree, 1)) { return undefined; }
+    const targetPath = String(focusFileTarget?.relativePath || '').trim();
+    if (!targetPath) { return undefined; }
+    const focusInfo = findChangedFileFocusInfo(changedTree.nodes, targetPath);
+    if (!focusInfo) { return undefined; }
+    setSelectedChangedKey(changedFileSelectionKey(focusInfo.file));
+    setClosedChangedFolders((prev) => {
+      let changed = false;
+      const next = new Set(prev);
+      for (const key of focusInfo.ancestorKeys) {
+        if (next.delete(key)) { changed = true; }
+      }
+      return changed ? next : prev;
+    });
+    const timer = window.requestAnimationFrame(() => {
+      const root = repoRef.current;
+      if (!root) { return; }
+      const selector = `[data-changed-file-path="${cssEscapeAttr(targetPath)}"]`;
+      const row = root.querySelector(selector);
+      if (row && typeof row.scrollIntoView === 'function') {
+        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    });
+    return () => window.cancelAnimationFrame(timer);
+  }, [
+    focusFileTarget,
+    focusFileTarget?.requestId,
+    searchTerm,
+    changedTree.nodes,
+    repoTree,
+  ]);
 
   async function ensureCommitsLoaded() {
     if (!taskId || !repoId) { return; }
@@ -617,6 +770,8 @@ function RepoTree({
       selectedKey={selectedChangedKey}
       onToggleFolder={toggleChangedFolder}
       onSelectFile={selectChangedFile}
+      onOpenPathMenu={onOpenPathMenu}
+      repoId={repoId}
     />
   ) : null;
   const emptyChangedSearch = hasChangedFiles && filteredChangedNodes.length === 0 ? (
@@ -651,6 +806,7 @@ function RepoTree({
             {...props}
             onPickFile={onPickFile}
             onOpenFile={onOpenFile}
+            onOpenPathMenu={onOpenPathMenu}
             conflictedFiles={conflictedFiles}
             changedFiles={changedFiles}
             diffMeta={diffMeta}
@@ -662,7 +818,7 @@ function RepoTree({
     );
   }
   return (
-    <section className="files-tab-repo">
+    <section className="files-tab-repo" ref={repoRef}>
       <header
         className="files-tab-repo-header"
         title={repoTree.cwd}
@@ -756,19 +912,23 @@ function CommitDropdown({ state, onPick, onClose }) {
 
 function ChangedFilesTree({
   nodes, stats, conflictedFiles, commentMeta = EMPTY_COMMENT_META,
-  closedFolders, selectedKey, onToggleFolder, onSelectFile,
+  closedFolders, selectedKey, onToggleFolder, onSelectFile, onOpenPathMenu,
+  repoId = '',
 }) {
   const rows = nodes.map((node) => (
     <ChangedFilesTreeNode
       key={node.key}
       node={node}
       depth={0}
+      relativePath=""
       conflictedFiles={conflictedFiles}
       commentMeta={commentMeta}
       closedFolders={closedFolders}
       selectedKey={selectedKey}
       onToggleFolder={onToggleFolder}
       onSelectFile={onSelectFile}
+      onOpenPathMenu={onOpenPathMenu}
+      repoId={repoId}
     />
   ));
   return (
@@ -785,22 +945,27 @@ function ChangedFilesTree({
 }
 
 function ChangedFilesTreeNode({
-  node, depth, conflictedFiles, commentMeta = EMPTY_COMMENT_META,
-  closedFolders, selectedKey, onToggleFolder, onSelectFile,
+  node, depth, relativePath, conflictedFiles, commentMeta = EMPTY_COMMENT_META,
+  closedFolders, selectedKey, onToggleFolder, onSelectFile, onOpenPathMenu,
+  repoId = '',
 }) {
   if (node.kind === 'folder') {
     const isClosed = closedFolders.has(node.key);
+    const folderPath = joinRelativePath(relativePath, node.name);
     const childRows = isClosed ? null : node.children.map((child) => (
       <ChangedFilesTreeNode
         key={child.key}
         node={child}
         depth={depth + 1}
+        relativePath={folderPath}
         conflictedFiles={conflictedFiles}
         commentMeta={commentMeta}
         closedFolders={closedFolders}
         selectedKey={selectedKey}
         onToggleFolder={onToggleFolder}
         onSelectFile={onSelectFile}
+        onOpenPathMenu={onOpenPathMenu}
+        repoId={repoId}
       />
     ));
     const chevron = isClosed ? 'chevron-right' : 'chevron-down';
@@ -811,6 +976,7 @@ function ChangedFilesTreeNode({
           className="diff-file-tree-row files-changed-tree-row is-folder"
           style={{ '--depth': depth }}
           onClick={() => onToggleFolder(node.key)}
+          onContextMenu={(event) => onOpenPathMenu(event, folderPath, repoId)}
         >
           <span className="diff-file-tree-guide" />
           <span className="diff-file-tree-chevron"><Icon name={chevron} /></span>
@@ -845,8 +1011,10 @@ function ChangedFilesTreeNode({
       type="button"
       className={className}
       style={{ '--depth': depth }}
+      data-changed-file-path={path}
       title={`Open ${path} in the centre diff`}
       onClick={() => onSelectFile(file)}
+      onContextMenu={(event) => onOpenPathMenu(event, path, repoId)}
     >
       <span className="diff-file-tree-guide" />
       <FilesDiffKindIcon kind={kind} />
@@ -863,7 +1031,7 @@ function ChangedFilesTreeNode({
 function Node({
   node, style, onPickFile, onOpenFile, conflictedFiles,
   changedFiles, diffMeta = EMPTY_DIFF_META,
-  commentMeta = EMPTY_COMMENT_META, repoId = '',
+  commentMeta = EMPTY_COMMENT_META, repoId = '', onOpenPathMenu,
 }) {
   const isFolder = node.isInternal;
   const relativePath = String(node.data?.relativePath || '');
@@ -886,20 +1054,9 @@ function Node({
     // Folder: expand / collapse.
     activateTreeNode(node);
   }
-  // Right-click pastes the FULL absolute path of whatever was
-  // clicked — file OR folder — into the chat composer. Folders
-  // can't be left-click-pasted (left-click toggles them open),
-  // and even for files the absolute form is what the operator
-  // usually wants when they're going to ask Claude to operate on
-  // a directory tree from elsewhere on disk. ``preventDefault``
-  // suppresses the browser's native context menu so the operator
-  // doesn't have to dismiss it after the paste lands.
   function onContextMenu(event) {
-    event.preventDefault();
-    if (typeof onPickFile !== 'function') { return; }
-    const absolutePath = String(node.data?.path || '').trim();
-    if (!absolutePath) { return; }
-    onPickFile(absolutePath);
+    if (typeof onOpenPathMenu !== 'function') { return; }
+    onOpenPathMenu(event, relativePath, repoId);
   }
   const isConflicted = !isFolder
     && conflictedFiles
@@ -974,13 +1131,13 @@ function Node({
   if (isConflicted) {
     tooltip = 'Merge conflict — needs resolution';
   } else if (isChanged) {
-    tooltip = 'Modified on this task branch — see the Changes tab for the diff';
+    tooltip = 'Modified on this task branch — right-click for path options';
   } else if (folderChanged) {
-    tooltip = 'Contains files modified on this task branch';
+    tooltip = 'Contains files modified on this task branch — right-click for path options';
   } else if (isFolder) {
-    tooltip = 'Click to expand · right-click to paste this folder’s path into the chat';
+    tooltip = 'Click to expand · right-click for path options';
   } else {
-    tooltip = 'Click to paste the relative path · right-click to paste the absolute path';
+    tooltip = 'Click to open · right-click for path options';
   }
   return (
     <div
@@ -1031,6 +1188,47 @@ function changedFileNodeMatches(node, raw) {
 
 function changedFileSelectionKey(file) {
   return `${file.type || 'modify'}:${diffDisplayPath(file)}`;
+}
+
+function joinRelativePath(parent, child) {
+  const left = String(parent || '').replace(/\/+$/, '');
+  const right = String(child || '').replace(/^\/+/, '');
+  if (!left) { return right; }
+  if (!right) { return left; }
+  return `${left}/${right}`;
+}
+
+function formatRepoRelativePath(repoId, relativePath) {
+  const repo = String(repoId || '').trim();
+  const path = String(relativePath || '').trim();
+  if (!repo) { return path; }
+  if (!path) { return repo; }
+  return `${repo}:${path}`;
+}
+
+function focusTargetMatchesRepo(target, repoTree, repoCount) {
+  if (!target) { return false; }
+  const targetRepo = String(target.repoId || '').trim();
+  if (!targetRepo) { return repoCount === 1; }
+  return targetRepo === String(repoTree.repo_id || '').trim()
+    || targetRepo === String(repoTree.cwd || '').trim();
+}
+
+function findChangedFileFocusInfo(nodes, targetPath, ancestors = []) {
+  for (const node of nodes || []) {
+    if (node.kind === 'file' && diffDisplayPath(node.file) === targetPath) {
+      return { file: node.file, ancestorKeys: ancestors };
+    }
+    if (node.kind === 'folder') {
+      const found = findChangedFileFocusInfo(
+        node.children,
+        targetPath,
+        [...ancestors, node.key],
+      );
+      if (found) { return found; }
+    }
+  }
+  return null;
 }
 
 function fileIsConflictedForFilesTree(file, conflictedSet) {

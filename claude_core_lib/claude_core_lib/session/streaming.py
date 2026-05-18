@@ -200,6 +200,11 @@ class StreamingClaudeSession(object):
         # looks like from the operator's side).
         self._session_id_confirmed = False
         self._session_id_mismatch_logged = False
+        # Optional callback: ``fn(actual_session_id)`` fired when Claude
+        # announces its actual session id via the init event and it differs
+        # from what kato expected. The manager registers this to keep its
+        # persisted record in sync so the next ``--resume`` uses the right id.
+        self._session_id_correction_callback = None
         self._architecture_doc_path = normalized_text(architecture_doc_path)
         self._lessons_path = normalized_text(lessons_path)
         # Extra directories Claude is allowed to read/edit beyond
@@ -1101,14 +1106,26 @@ class StreamingClaudeSession(object):
         elif not self._session_id_mismatch_logged:
             self.logger.warning(
                 'task %s: claude reported session id %s but kato '
-                'expected %s (%s) — the prior conversation was NOT '
-                'resumed; history/continuity is lost for this turn',
+                'expected %s (%s) — adopting claude\'s actual id so '
+                'the next spawn can resume from the correct JSONL',
                 self._task_id,
                 candidate,
                 self._claude_session_id,
                 'resume' if self._resume_session_id else 'fresh',
             )
             self._session_id_mismatch_logged = True
+            self._session_id_confirmed = True  # suppress duplicate "confirmed" on next call
+            # Adopt Claude's actual session id so future --resume calls
+            # target the JSONL file that Claude actually wrote to.
+            self._claude_session_id = candidate
+            if callable(self._session_id_correction_callback):
+                try:
+                    self._session_id_correction_callback(candidate)
+                except Exception:
+                    self.logger.exception(
+                        'task %s: session_id_correction_callback raised',
+                        self._task_id,
+                    )
 
     def _write_stdin_line(self, envelope: dict[str, Any]) -> None:
         line = (json.dumps(envelope) + '\n').encode('utf-8')

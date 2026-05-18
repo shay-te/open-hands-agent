@@ -425,29 +425,44 @@ function userBubbles(raw, index) {
 }
 
 
-// One operator prompt, rendered as a sticky section header. Collapsed
-// to a single line by default (chevron expands the full text). Every
-// prompt in the stream gets one; ``position: sticky; top: 0`` (see
-// ``.chat-sticky-prompt`` CSS) makes the active turn's prompt pin at
-// the top while you read its replies, and the previous turn's prompt
-// push it off as you scroll up — the Claude VS Code plugin feel.
+// One operator prompt, rendered as a sticky section header. Long
+// prompts collapse to three lines with the same expand button style
+// used by tool-output snippets.
 function StickyPrompt({ text }) {
   const [expanded, setExpanded] = useState(false);
+  const promptText = String(text || '');
+  const lineCount = promptText.split('\n').length;
+  const isCollapsible = lineCount > 3 || promptText.length > 180;
+  const promptClass = [
+    'chat-sticky-prompt',
+    expanded ? 'is-expanded' : '',
+    isCollapsible ? 'is-collapsible' : '',
+  ].filter(Boolean).join(' ');
+  const textWrapClass = [
+    'chat-sticky-prompt-text-wrap',
+    isCollapsible && !expanded ? 'is-collapsed' : '',
+  ].filter(Boolean).join(' ');
+  const expandLabel = expanded ? 'Click to collapse' : 'Click to expand';
+  const expandButton = isCollapsible ? (
+    <button
+      type="button"
+      className="bubble-tool-details-expand chat-sticky-prompt-expand"
+      onClick={() => setExpanded((current) => !current)}
+      aria-expanded={expanded}
+    >
+      {expandLabel}
+    </button>
+  ) : null;
+
   return (
-    <div className={`chat-sticky-prompt ${expanded ? 'is-expanded' : ''}`.trim()}>
-      <button
-        type="button"
-        className="chat-sticky-prompt-toggle"
-        onClick={() => setExpanded((v) => !v)}
-        aria-expanded={expanded}
-        title={expanded ? 'Collapse this prompt' : 'Expand this prompt'}
-      >
+    <div className={promptClass}>
+      <div className="chat-sticky-prompt-toggle">
         <span className="chat-sticky-prompt-label">You asked</span>
-        <span className="chat-sticky-prompt-text">{text}</span>
-        <span className="chat-sticky-prompt-chevron" aria-hidden="true">
-          {expanded ? '▴' : '▾'}
+        <span className={textWrapClass}>
+          <span className="chat-sticky-prompt-text">{promptText}</span>
+          {expandButton}
         </span>
-      </button>
+      </div>
     </div>
   );
 }

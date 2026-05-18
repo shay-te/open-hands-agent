@@ -45,7 +45,13 @@ export function findDiffFile(repoDiffs, repoId, relativePath) {
  * ``openFile`` shape: ``{ taskId, relativePath, repoId, view:'diff' }``
  * — ``relativePath``/``repoId`` are the scroll target, not a filter.
  */
-export default function DiffPane({ openFile, onCommentSpawned }) {
+export default function DiffPane({
+  openFile,
+  workspaceVersion = 0,
+  onCommentSpawned,
+  onFocusFileInTree,
+  onCommentsChanged,
+}) {
   const taskId = openFile?.taskId || '';
   const repoId = openFile?.repoId || '';
   const relativePath = openFile?.relativePath || openFile?.absolutePath || '';
@@ -86,7 +92,7 @@ export default function DiffPane({ openFile, onCommentSpawned }) {
         setState({ status: 'error', repoDiffs: [], error: String(err) });
       });
     return () => { cancelled = true; };
-  }, [taskId]);
+  }, [taskId, workspaceVersion]);
 
   // One comments fetch per repo present in the diff (grouped by file
   // path). Re-runs when a comment mutation bumps ``commentsTick``.
@@ -127,7 +133,10 @@ export default function DiffPane({ openFile, onCommentSpawned }) {
 
   const bumpComments = useCallback(() => {
     setCommentsTick((n) => n + 1);
-  }, []);
+    if (typeof onCommentsChanged === 'function') {
+      onCommentsChanged();
+    }
+  }, [onCommentsChanged]);
 
   // Each file box owns its OWN header (``.diff-file-header``, rendered
   // by DiffFileWithComments). That header is ``position: sticky`` — it
@@ -232,6 +241,7 @@ export default function DiffPane({ openFile, onCommentSpawned }) {
                       repoCwd={repo.cwd}
                       taskId={taskId}
                       onAddToChat={appendToInput}
+                      onFocusInTree={onFocusFileInTree}
                       comments={repoComments?.byFile.get(path) || EMPTY_COMMENTS}
                       commentsLoading={!!repoComments?.loading}
                       commentsError={repoComments?.error || ''}

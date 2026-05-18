@@ -346,6 +346,32 @@ describe('SessionHeader — Push / Pull / PR buttons', () => {
       .toBeDisabled();
   });
 
+  test('Update source button disabled when no workspace', () => {
+    useTaskPublish.mockReturnValue(_defaultTaskPublish({
+      hasWorkspace: false,
+    }));
+    render(
+      <SessionHeader
+        session={_session()}
+        streamLifecycle={SESSION_LIFECYCLE.STREAMING}
+      />,
+    );
+    expect(screen.getByRole('button', { name: /^update source$/i })).toBeDisabled();
+  });
+
+  test('Update source button enabled when workspace exists', () => {
+    useTaskPublish.mockReturnValue(_defaultTaskPublish({
+      hasWorkspace: true,
+    }));
+    render(
+      <SessionHeader
+        session={_session()}
+        streamLifecycle={SESSION_LIFECYCLE.STREAMING}
+      />,
+    );
+    expect(screen.getByRole('button', { name: /^update source$/i })).not.toBeDisabled();
+  });
+
   test('Push action calls taskPublish.push and refreshes', async () => {
     const push = vi.fn().mockResolvedValue({ ok: true });
     const refresh = vi.fn();

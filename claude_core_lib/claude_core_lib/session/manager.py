@@ -274,6 +274,19 @@ class ClaudeSessionManager(object):
                 resume_session_id = self._resume_id_for_spawn(
                     normalized_task_id, previous_record, existing,
                 )
+            # Session JSONL size gate: if the transcript has grown past the
+            # threshold (~1 MB), skip --resume and start fresh.  A large JSONL
+            # means Claude has to load hundreds-of-thousands of tokens of
+            # context before responding — in practice this causes 10–15 minute
+            # startup delays because the full history must be sent to the API
+            # and fit within the 200 K-token context window.  A fresh spawn
+            # responds in seconds; the user loses older conversation history
+            # but gains a responsive session.  The persisted session-id stays
+            # on disk so a future manual /compact or session-adoption can still
+            # reach the old transcript.
+            resume_session_id = self._gate_resume_by_jsonl_size(
+                normalized_task_id, resume_session_id,
+            )
             # One-session-per-task invariant: if the task already has a
             # session id on file, ensure the JSONL transcript is present
             # at the spawn cwd's project dir before passing ``--resume``.
@@ -297,6 +310,18 @@ class ClaudeSessionManager(object):
                 factory_kwargs=factory_kwargs,
                 initial_prompt=initial_prompt,
                 resume_session_id=resume_session_id,
+            )
+            # Register a correction callback so that if Claude reports a
+            # different session_id in its init event (e.g. --session-id is
+            # ignored by the CLI version, or --resume silently switched ids),
+            # we immediately update our persisted record to match.  Without
+            # this the next spawn would --resume the wrong id, fail to find
+            # the JSONL, self-heal into yet another fresh session, and the
+            # session id would drift on every respawn.
+            session._session_id_correction_callback = (
+                lambda sid, k=lookup_key, t=normalized_task_id: (
+                    self._correct_session_id_in_record(k, t, sid)
+                )
             )
             with self._lock:
                 self._sessions[lookup_key] = session
@@ -375,6 +400,52 @@ class ClaudeSessionManager(object):
                 target_cwd,
             )
 
+    # Sessions whose JSONL transcript exceeds this byte count are NOT
+    # resumed — the full history would exceed (or strain) the model's
+    # context window, causing 10–15 minute startup delays before the
+    # first token appears.  1 MB of JSONL ≈ 50–100 K tokens of real
+    # content; well within Claude Opus's 200 K limit and loads in
+    # under 30 s.  Above 1 MB the latency climbs sharply.
+    _RESUME_JSONL_SIZE_LIMIT_BYTES: int = 1_000_000  # 1 MB
+
+    def _gate_resume_by_jsonl_size(
+        self,
+        normalized_task_id: str,
+        resume_session_id: str,
+    ) -> str:
+        """Return '' when the JSONL transcript is too large to resume quickly.
+
+        A no-op when there is no session id, the file doesn't exist, or
+        the file is small enough.  When the file is large, logs a warning
+        and returns '' so the caller spawns a fresh session instead.  The
+        persisted record is NOT updated here — the old transcript stays on
+        disk for forensics and a future manual /compact can still reach it.
+        """
+        if not resume_session_id:
+            return resume_session_id
+        try:
+            from claude_core_lib.claude_core_lib.session.history import find_session_file
+            path = find_session_file(resume_session_id)
+        except Exception:
+            return resume_session_id
+        if path is None:
+            return resume_session_id
+        try:
+            size = path.stat().st_size
+        except OSError:
+            return resume_session_id
+        if size <= self._RESUME_JSONL_SIZE_LIMIT_BYTES:
+            return resume_session_id
+        self.logger.warning(
+            'task %s: session JSONL is %.0f KB (limit %d KB); '
+            'skipping --resume to avoid context-window startup delay — '
+            'starting a fresh session',
+            normalized_task_id,
+            size / 1024,
+            self._RESUME_JSONL_SIZE_LIMIT_BYTES // 1024,
+        )
+        return ''
+
     def _resume_id_for_spawn(
         self,
         normalized_task_id: str,
@@ -443,6 +514,32 @@ class ClaudeSessionManager(object):
         )
         session.start(initial_prompt=initial_prompt)
         return session
+
+    def _correct_session_id_in_record(
+        self, lookup_key: str, task_id: str, actual_id: str,
+    ) -> None:
+        """Update the persisted record when Claude reports a different session id.
+
+        Called from the session's ``_session_id_correction_callback`` (fired
+        from the session reader thread when the init event arrives).  Thread-safe
+        via ``_lock``.  Updates both the in-memory record and its on-disk
+        counterpart so the next ``start_session`` for this task resumes from
+        Claude's actual JSONL rather than kato's expected UUID.
+        """
+        actual_id = str(actual_id or '').strip()
+        if not actual_id:
+            return
+        with self._lock:
+            record = self._records.get(lookup_key)
+            if record is None or record.claude_session_id == actual_id:
+                return
+            self.logger.info(
+                'task %s: correcting stored claude_session_id %s → %s',
+                task_id, record.claude_session_id, actual_id,
+            )
+            record.claude_session_id = actual_id
+            record.updated_at_epoch = time.time()
+            self._persist_record(record)
 
     def _record_session_metadata(
         self,

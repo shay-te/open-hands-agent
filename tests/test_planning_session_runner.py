@@ -12,6 +12,7 @@ from claude_core_lib.claude_core_lib.session.streaming import SessionEvent
 from kato_core_lib.data_layers.data.fields import ImplementationFields
 from kato_core_lib.data_layers.service.planning_session_runner import (
     PlanningSessionRunner,
+    SessionStoppedByUserError,
     StreamingSessionDefaults,
 )
 from tests.utils import build_task
@@ -51,10 +52,16 @@ class _FakeSession:
 
 
 class _FakeManager:
-    def __init__(self, terminal_event: SessionEvent | None) -> None:
+    def __init__(
+        self,
+        terminal_event: SessionEvent | None,
+        *,
+        record_status: str | None = None,
+    ) -> None:
         self.start_kwargs: dict | None = None
         self.statuses: list[str] = []
         self._session = _FakeSession(terminal_event)
+        self._record_status = record_status
 
     def start_session(self, **kwargs):
         self.start_kwargs = kwargs
@@ -70,13 +77,16 @@ class _FakeManager:
         return None
 
     def get_record(self, task_id: str):  # noqa: ARG002
-        # No persisted record → first-spawn path through
-        # resume_session_for_chat, which wraps the message with the
-        # forbidden / inventory / continuity preamble. (When a record
-        # IS persisted the message goes through raw — covered by
-        # test_resume_session_for_chat_sends_raw_message_when_session_id_persisted
-        # in test_services_medium_coverage.py.)
-        return None
+        if self._record_status is None:
+            # No persisted record → first-spawn path through
+            # resume_session_for_chat, which wraps the message with the
+            # forbidden / inventory / continuity preamble. (When a record
+            # IS persisted the message goes through raw — covered by
+            # test_resume_session_for_chat_sends_raw_message_when_session_id_persisted
+            # in test_services_medium_coverage.py.)
+            return None
+        from types import SimpleNamespace
+        return SimpleNamespace(status=self._record_status)
 
 
 def _terminal(*, is_error: bool = False, result: str = 'all done') -> SessionEvent:
@@ -180,6 +190,30 @@ class PlanningSessionRunnerTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, 'ended without a result event'):
             runner.implement_task(build_task(), prepared_task=prepared)
         self.assertEqual(manager.statuses, [SESSION_STATUS_TERMINATED])
+
+    def test_implement_task_raises_session_stopped_when_record_is_terminated(self) -> None:
+        # When the user clicks Stop, terminate_session() already sets the
+        # record status to TERMINATED before the planning thread wakes up.
+        # _run_to_terminal should raise SessionStoppedByUserError (not RuntimeError)
+        # so the caller can skip the failure handler (which would re-queue the task).
+        manager = _FakeManager(
+            terminal_event=None,
+            record_status=SESSION_STATUS_TERMINATED,
+        )
+        manager._session._is_alive = False
+        runner = PlanningSessionRunner(
+            session_manager=manager,
+            defaults=self.defaults,
+            max_wait_seconds=0.1,
+            clock=lambda: time.monotonic(),
+        )
+        prepared = _FakePrepared([_FakeRepo('client', '/tmp/client')])
+
+        with self.assertRaises(SessionStoppedByUserError):
+            runner.implement_task(build_task(), prepared_task=prepared)
+        # Status is already TERMINATED on the record; update_status must NOT
+        # be called again (that would overwrite a more-recent status update).
+        self.assertEqual(manager.statuses, [])
 
 
 class PlanningSessionRunnerDockerModeTests(unittest.TestCase):

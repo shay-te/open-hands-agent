@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import logging
 from dataclasses import dataclass
+from types import SimpleNamespace
 
 from core_lib.data_layers.service.service import Service
 
@@ -26,6 +27,9 @@ from kato_core_lib.data_layers.service.notification_service import NotificationS
 from kato_core_lib.data_layers.service.repository_service import (
     RepositoryHasNoChangesError,
     RepositoryService,
+)
+from kato_core_lib.data_layers.service.planning_session_runner import (
+    SessionStoppedByUserError,
 )
 from kato_core_lib.data_layers.service.task_preflight_service import (
     TaskPreflightService,
@@ -917,7 +921,7 @@ class AgentService(Service):
         return requeued
 
     def complete_in_progress_task_comments(
-        self, task_id: str, *, success: bool,
+        self, task_id: str, *, success: bool, result_text: str = '',
     ) -> list[dict[str, object]]:
         """Move a task's IN_PROGRESS comments out when its turn ends.
 
@@ -954,6 +958,7 @@ class AgentService(Service):
                 continue
             try:
                 if success:
+                    self._add_comment_agent_reply(store, comment, result_text)
                     self.mark_comment_addressed(
                         task_id, comment.id, post_remote_reply=False,
                     )
@@ -985,6 +990,32 @@ class AgentService(Service):
                 'kato_status': new_status,
             })
         return completed
+
+    def _add_comment_agent_reply(self, store, comment, result_text: str) -> None:
+        """Mirror Claude's final answer back into the comment thread."""
+        body = str(result_text or '').strip()
+        if not body:
+            return
+        from kato_core_lib.comment_core_lib import (
+            CommentRecord,
+            CommentSource,
+        )
+
+        try:
+            store.add(CommentRecord(
+                repo_id=str(getattr(comment, 'repo_id', '') or '').strip(),
+                file_path=str(getattr(comment, 'file_path', '') or '').strip(),
+                line=int(getattr(comment, 'line', -1) or -1),
+                parent_id=str(getattr(comment, 'id', '') or '').strip(),
+                author='claude',
+                body=body,
+                source=CommentSource.LOCAL.value,
+            ))
+        except Exception:
+            self.logger.exception(
+                'failed to add Claude reply for comment %s',
+                getattr(comment, 'id', '<unknown>'),
+            )
 
     def advance_finished_comment_runs(self) -> list[dict[str, object]]:
         """Scan-loop fallback: advance IN_PROGRESS comments whose session has ended.
@@ -1041,16 +1072,19 @@ class AgentService(Service):
                     # Session just spawned — no completed turn yet; wait.
                     continue
                 is_error = bool((getattr(last_result, 'raw', None) or {}).get('is_error', False))
+                result_text = str((getattr(last_result, 'raw', None) or {}).get('result') or '')
                 results = self.complete_in_progress_task_comments(
-                    task_id, success=not is_error,
+                    task_id, success=not is_error, result_text=result_text,
                 )
                 advanced.extend(results)
                 continue
             terminal = getattr(session, 'terminal_event', None) if session else None
             if terminal is not None:
-                is_error = bool(getattr(terminal, 'raw', {}).get('is_error', False))
+                raw = getattr(terminal, 'raw', {}) or {}
+                is_error = bool(raw.get('is_error', False))
                 results = self.complete_in_progress_task_comments(
                     task_id, success=not is_error,
+                    result_text=str(raw.get('result') or ''),
                 )
                 advanced.extend(results)
             else:
@@ -1183,7 +1217,10 @@ class AgentService(Service):
     def reopen_task_comment(
         self, task_id: str, comment_id: str,
     ) -> dict[str, object]:
-        from kato_core_lib.comment_core_lib import CommentStatus
+        from kato_core_lib.comment_core_lib import (
+            CommentStatus,
+            KatoCommentStatus,
+        )
 
         store = self._comment_store_for(task_id)
         if store is None:
@@ -1193,7 +1230,18 @@ class AgentService(Service):
         )
         if updated is None:
             return {'ok': False, 'error': f'comment {comment_id!r} not found'}
-        return {'ok': True, 'comment': updated.to_dict()}
+        if updated.parent_id:
+            return {'ok': True, 'comment': updated.to_dict()}
+        store.update_kato_status(
+            comment_id, kato_status=KatoCommentStatus.QUEUED.value,
+        )
+        triggered = self._maybe_trigger_comment_run(str(task_id), comment_id)
+        updated = store.get(comment_id) or updated
+        return {
+            'ok': True,
+            'comment': updated.to_dict(),
+            'triggered_immediately': triggered,
+        }
 
     def delete_task_comment(
         self, task_id: str, comment_id: str,
@@ -1608,9 +1656,11 @@ class AgentService(Service):
             f'File: {location_hint}\n'
             f'Comment: {body}\n\n'
             'Address this comment, commit the fix on the current task '
-            'branch, and reply with a one-line summary of what '
-            'changed. If the comment is a question rather than a fix '
-            'request, answer it in prose without committing.'
+            'branch when a code change is needed. Your final response '
+            'is copied into this comment thread as Claude\'s reply, so '
+            'write it directly to the reviewer. If the comment is a '
+            'question rather than a fix request, answer the question '
+            'without committing.'
         )
 
     def _task_pull_request_id(self, task_id: str, repo_id: str) -> str:
@@ -2832,10 +2882,25 @@ class AgentService(Service):
             try:
                 inventory_repo = self._repository_service.get_repository(repository_id)
             except ValueError:
-                self.logger.warning(
-                    'workspace for task %s references unknown repository %s; skipping',
+                # Inventory lookup failed (e.g. REPOSITORY_ROOT_PATH points to a
+                # missing directory). Build a minimal stub so git-only operations
+                # (push, branch-check) still work. PR API calls need full credentials
+                # and will fail gracefully in their own try/except blocks.
+                clone_path = self._workspace_manager.repository_path(task_id, repository_id)
+                clone_path_str = str(clone_path) if clone_path else ''
+                if not clone_path_str:
+                    self.logger.debug(
+                        'workspace for task %s references unknown repository %s '
+                        'and has no clone path; skipping',
+                        task_id, repository_id,
+                    )
+                    continue
+                self.logger.debug(
+                    'workspace for task %s references unknown repository %s; '
+                    'using workspace clone stub (inventory unavailable)',
                     task_id, repository_id,
                 )
+                rewritten.append(SimpleNamespace(id=repository_id, local_path=clone_path_str))
                 continue
             clone_path = self._workspace_manager.repository_path(task_id, repository_id)
             rewritten_repo = copy.copy(inventory_repo)
@@ -2886,6 +2951,16 @@ class AgentService(Service):
                     task,
                     prepared_task=prepared_task,
                 ) or {}
+        except SessionStoppedByUserError:
+            # User clicked Stop — do NOT call handle_started_task_failure.
+            # Moving the task back to "Open" would trigger an immediate
+            # re-spawn; instead leave the task in its current state and
+            # let the user decide (Resume button, manual ticket update, etc.).
+            self.logger.info(
+                'task %s: session stopped by user — skipping failure handler',
+                task.id,
+            )
+            return None
         except Exception as exc:
             self.logger.exception('implementation request failed for task %s', task.id)
             self._task_failure_handler.handle_started_task_failure(

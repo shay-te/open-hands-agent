@@ -238,6 +238,28 @@ describe('EventLog — server event rendering', () => {
     expect(container).not.toHaveTextContent('task-notification');
   });
 
+  test('long USER prompt collapses behind the snippet-style expand button', () => {
+    const longPrompt = [
+      'line one',
+      'line two',
+      'line three',
+      'line four',
+    ].join('\n');
+    const { container } = render(<EventLog entries={[_server({
+      type: CLAUDE_EVENT.USER,
+      message: { content: [{ type: 'text', text: longPrompt }] },
+    })]} />);
+    const wrap = container.querySelector('.chat-sticky-prompt-text-wrap');
+    const button = screen.getByRole('button', { name: 'Click to expand' });
+
+    expect(wrap).toHaveClass('is-collapsed');
+    expect(button).toHaveClass('bubble-tool-details-expand');
+    fireEvent.click(button);
+    expect(wrap).not.toHaveClass('is-collapsed');
+    expect(screen.getByRole('button', { name: 'Click to collapse' }))
+      .toBeInTheDocument();
+  });
+
   test('USER with images appends image count', () => {
     const { container } = render(<EventLog entries={[_server({
       type: CLAUDE_EVENT.USER,

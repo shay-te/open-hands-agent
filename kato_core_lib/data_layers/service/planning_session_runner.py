@@ -44,6 +44,14 @@ def _coerce_optional_int(value) -> int | None:
     return parsed if parsed > 0 else None
 
 
+class SessionStoppedByUserError(RuntimeError):
+    """Raised by ``_run_to_terminal`` when the user explicitly stopped the session.
+
+    Distinguished from a crash/failure so the caller can skip moving the
+    task back to "Open" (which would cause an immediate re-spawn).
+    """
+
+
 @dataclass
 class StreamingSessionDefaults(object):
     """The Claude-config settings the manager needs to spawn a session.
@@ -411,15 +419,25 @@ class PlanningSessionRunner(object):
         })
         terminal = self._wait_for_terminal_event(session, task_id=task_id)
         if terminal is None:
-            self._session_manager.update_status(task_id, SESSION_STATUS_TERMINATED)
-            # The agent died without emitting a result. Fire
-            # ``session_end`` with ``reason='no_terminal_event'`` so
-            # observers can distinguish a crash from a normal close.
+            # Check whether the session ended because the user explicitly
+            # clicked Stop (record status already TERMINATED by
+            # terminate_session) vs. an unexpected crash.
+            record = self._session_manager.get_record(task_id)
+            user_stopped = (
+                record is not None
+                and record.status == SESSION_STATUS_TERMINATED
+            )
+            if not user_stopped:
+                self._session_manager.update_status(task_id, SESSION_STATUS_TERMINATED)
             self._fire_hook('session_end', {
                 'task_id': task_id,
-                'reason': 'no_terminal_event',
+                'reason': 'stopped' if user_stopped else 'no_terminal_event',
                 'log_label': log_label,
             })
+            if user_stopped:
+                raise SessionStoppedByUserError(
+                    f'{log_label} for task {task_id} stopped by user'
+                )
             raise RuntimeError(
                 f'{log_label} for task {task_id} ended without a result event'
             )

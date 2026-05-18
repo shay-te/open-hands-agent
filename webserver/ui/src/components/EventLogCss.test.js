@@ -21,12 +21,20 @@ function assertDeclaration(body, property, value) {
 
 test('EventLog sticky prompts wrap instead of truncating to one line', () => {
   const textBody = ruleBody('.chat-sticky-prompt-text');
-  const toggleBody = ruleBody('.chat-sticky-prompt-toggle');
 
   assertDeclaration(textBody, 'white-space', 'pre-wrap');
   assertDeclaration(textBody, 'overflow-wrap', 'anywhere');
-  assertDeclaration(textBody, 'overflow-y', 'auto');
-  assertDeclaration(toggleBody, 'align-items', 'flex-start');
   assert.doesNotMatch(textBody, /text-overflow\s*:\s*ellipsis\s*;/);
   assert.doesNotMatch(textBody, /white-space\s*:\s*nowrap\s*;/);
+});
+
+test('EventLog sticky prompts collapse to three lines with snippet expand button', () => {
+  const wrapBody = ruleBody('.chat-sticky-prompt-text-wrap.is-collapsed');
+  const expandBody = ruleBody('.chat-sticky-prompt-expand');
+  const fadeBody = ruleBody('.chat-sticky-prompt-text-wrap.is-collapsed::after');
+
+  assertDeclaration(wrapBody, 'max-height', 'calc\\(12\\.5px \\* 1\\.5 \\* 3\\)');
+  assertDeclaration(wrapBody, 'overflow', 'hidden');
+  assertDeclaration(expandBody, 'bottom', '0');
+  assert.match(fadeBody, /background\s*:\s*linear-gradient\(/);
 });

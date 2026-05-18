@@ -1,4 +1,12 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 import {
   collectImageParts,
   IMAGE_REJECT_REASON,
@@ -53,6 +61,34 @@ const MessageForm = forwardRef(function MessageForm({
   const [attachments, setAttachments] = useState([]);
   const [dragging, setDragging] = useState(false);
   const fileInputRef = useRef(null);
+  const textareaRef = useRef(null);
+  const pendingCaretRef = useRef(null);
+
+  const autoResize = useCallback(() => {
+    const el = textareaRef.current;
+    if (!el) { return; }
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, []);
+
+  // Resize on every value change (typing, draft hydration, fragment paste).
+  useEffect(() => { autoResize(); }, [value, autoResize]);
+
+  useLayoutEffect(() => {
+    const caret = pendingCaretRef.current;
+    if (caret == null) { return; }
+    pendingCaretRef.current = null;
+    const el = textareaRef.current;
+    if (!el) { return; }
+    autoResize();
+    try {
+      el.focus({ preventScroll: true });
+    } catch (_err) {
+      el.focus();
+    }
+    el.setSelectionRange(caret, caret);
+    el.scrollTop = el.scrollHeight;
+  }, [value, autoResize]);
 
   // Mirror every text change into localStorage so the next mount
   // (on tab return) hydrates with the same in-progress draft.
@@ -66,7 +102,11 @@ const MessageForm = forwardRef(function MessageForm({
   // ``appendToInput`` callback never changes.
   useImperativeHandle(ref, () => ({
     appendFragment(fragment) {
-      setValue((current) => appendComposerFragment(current, fragment));
+      setValue((current) => {
+        const next = appendComposerFragment(current, fragment);
+        pendingCaretRef.current = next.length;
+        return next;
+      });
     },
     clear() {
       setValue('');
@@ -247,9 +287,9 @@ const MessageForm = forwardRef(function MessageForm({
           onChange={handleFilePickerChange}
         />
         <textarea
+          ref={textareaRef}
           id="message-input"
           placeholder={placeholder}
-          rows={1}
           value={value || ''}
           disabled={disabled}
           onChange={handleChange}

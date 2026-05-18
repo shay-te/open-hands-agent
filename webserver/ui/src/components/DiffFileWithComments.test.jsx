@@ -203,6 +203,20 @@ describe('DiffFileWithComments — header rendering', () => {
     expect(container.querySelectorAll('.diff-file-path-separator')).toHaveLength(2);
   });
 
+  test('clicking the header path asks the file tree to reveal that file', () => {
+    const onFocusInTree = vi.fn();
+    renderDiff({
+      file: _file(10, { path: 'src/auth/login.py' }),
+      onFocusInTree,
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /src.*auth.*login.py/i }));
+    expect(onFocusInTree).toHaveBeenCalledWith({
+      repoId: 'repo-1',
+      relativePath: 'src/auth/login.py',
+    });
+  });
+
   test('shows the diff type icon (modify / add / delete)', () => {
     const { container } = renderDiff({ file: _file(10, { type: 'add' }) });
     expect(container.querySelector('.diff-file-row-kind.kind-add'))
@@ -254,6 +268,46 @@ describe('DiffFileWithComments — header rendering', () => {
   test('merge conflict mark is absent by default', () => {
     renderDiff({ file: _file(10) });
     expect(screen.queryByLabelText(/merge conflict/i)).not.toBeInTheDocument();
+  });
+});
+
+
+describe('DiffFileWithComments — comment reopen', () => {
+  test('reopening a resolved root comment wakes the chat stream when kato starts', async () => {
+    apiMocks.reopenTaskComment.mockResolvedValue({
+      ok: true,
+      body: {
+        triggered_immediately: true,
+        comment: { id: 'c1', status: 'open', kato_status: 'in_progress' },
+      },
+    });
+    const onCommentSpawned = vi.fn();
+    const onMutated = vi.fn();
+
+    renderDiff({
+      initiallyExpanded: true,
+      onCommentSpawned,
+      onMutated,
+      comments: [{
+        id: 'c1',
+        body: 'please revisit',
+        line: -1,
+        status: 'resolved',
+        kato_status: 'addressed',
+        source: 'local',
+        author: 'operator',
+        created_at_epoch: 1,
+      }],
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /expand comment/i }));
+    fireEvent.click(screen.getByRole('button', { name: /reopen/i }));
+
+    await waitFor(() => {
+      expect(apiMocks.reopenTaskComment).toHaveBeenCalledWith('T1', 'c1');
+    });
+    expect(onMutated).toHaveBeenCalled();
+    expect(onCommentSpawned).toHaveBeenCalled();
   });
 });
 

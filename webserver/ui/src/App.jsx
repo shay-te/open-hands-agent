@@ -113,6 +113,9 @@ export default function App() {
   const handleCommentSpawned = useCallback(() => {
     sessionReconnectRef.current?.();
   }, []);
+  const handleDiffCommentsChanged = useCallback(() => {
+    bumpWorkspaceVersion(activeTaskId);
+  }, [activeTaskId, bumpWorkspaceVersion]);
 
   const setActiveTaskId = useCallback((taskId) => {
     userPickedTabRef.current = true;
@@ -284,8 +287,13 @@ export default function App() {
   // tasks so the editor doesn't render a file from the previous
   // task's workspace.
   const [openFile, setOpenFile] = useState(null);
+  const [fileTreeFocusTarget, setFileTreeFocusTarget] = useState(null);
   const openFileRequestRef = useRef(0);
-  useEffect(() => { setOpenFile(null); }, [activeTaskId]);
+  const fileTreeFocusRequestRef = useRef(0);
+  useEffect(() => {
+    setOpenFile(null);
+    setFileTreeFocusTarget(null);
+  }, [activeTaskId]);
   const handleOpenFile = useCallback((info) => {
     // ``info`` shape from FilesTab: { absolutePath, relativePath, repoId }.
     // ``repoId`` is required for the comments POST (the backend keys
@@ -313,6 +321,16 @@ export default function App() {
       view: info.view === 'diff' ? 'diff' : 'file',
     });
   }, [activeTaskId]);
+  const handleFocusFileInTree = useCallback((target) => {
+    const relativePath = String(target?.relativePath || target?.absolutePath || '').trim();
+    if (!relativePath) { return; }
+    fileTreeFocusRequestRef.current += 1;
+    setFileTreeFocusTarget({
+      repoId: String(target?.repoId || '').trim(),
+      relativePath,
+      requestId: fileTreeFocusRequestRef.current,
+    });
+  }, []);
   // Memoize so the context value is reference-stable across App
   // renders. Without this, EVERY ``useChatComposer()`` consumer
   // (FilesTab, ChangesTab via DiffFileWithComments, etc.)
@@ -351,6 +369,7 @@ export default function App() {
         <RightPane
           activeTaskId={activeTaskId}
           workspaceVersion={activeWorkspaceVersion}
+          focusFileTarget={fileTreeFocusTarget}
           onOpenFile={handleOpenFile}
           onResizePointerDown={leftResizer.onPointerDown}
         />
@@ -359,8 +378,16 @@ export default function App() {
         orchestratorOpen
           ? <OrchestratorActivityFeed history={status.history} onClose={toggleOrchestrator} />
           : openFile?.view === 'diff'
-            ? <DiffPane openFile={openFile} onCommentSpawned={handleCommentSpawned} />
-            : <EditorPane openFile={openFile} />
+            ? (
+                <DiffPane
+                  openFile={openFile}
+                  workspaceVersion={activeWorkspaceVersion}
+                  onCommentSpawned={handleCommentSpawned}
+                  onFocusFileInTree={handleFocusFileInTree}
+                  onCommentsChanged={handleDiffCommentsChanged}
+                />
+              )
+            : <EditorPane openFile={openFile} onCommentSpawned={handleCommentSpawned} />
       }
       right={
         <SessionDetail

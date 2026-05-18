@@ -1271,5 +1271,75 @@ class PersistedRecordHelperTests(unittest.TestCase):
             mock_logger.exception.assert_called_once()
 
 
+class GateResumeByJsonlSizeTests(unittest.TestCase):
+    """_gate_resume_by_jsonl_size returns '' when JSONL exceeds the limit."""
+
+    def _make_manager(self):
+        with tempfile.TemporaryDirectory() as state_dir:
+            return ClaudeSessionManager(state_dir=state_dir)
+
+    def test_returns_id_unchanged_when_no_session_id(self) -> None:
+        mgr = self._make_manager()
+        self.assertEqual(mgr._gate_resume_by_jsonl_size('TASK-1', ''), '')
+
+    def test_returns_id_unchanged_when_file_not_found(self) -> None:
+        mgr = self._make_manager()
+        with patch(
+            'claude_core_lib.claude_core_lib.session.manager.'
+            'ClaudeSessionManager._gate_resume_by_jsonl_size',
+            wraps=mgr._gate_resume_by_jsonl_size,
+        ):
+            with patch(
+                'claude_core_lib.claude_core_lib.session.history.find_session_file',
+                return_value=None,
+            ):
+                result = mgr._gate_resume_by_jsonl_size('TASK-1', 'abc-123')
+        self.assertEqual(result, 'abc-123')
+
+    def test_returns_id_when_file_small(self) -> None:
+        mgr = self._make_manager()
+        mock_path = MagicMock()
+        mock_path.stat.return_value.st_size = 500_000  # under 1 MB limit
+        with patch(
+            'claude_core_lib.claude_core_lib.session.history.find_session_file',
+            return_value=mock_path,
+        ):
+            result = mgr._gate_resume_by_jsonl_size('TASK-1', 'abc-123')
+        self.assertEqual(result, 'abc-123')
+
+    def test_returns_empty_when_file_exceeds_limit(self) -> None:
+        mgr = self._make_manager()
+        mock_path = MagicMock()
+        mock_path.stat.return_value.st_size = 2_000_000  # 2 MB, over limit
+        with patch(
+            'claude_core_lib.claude_core_lib.session.history.find_session_file',
+            return_value=mock_path,
+        ):
+            with patch.object(mgr, 'logger', MagicMock()) as mock_logger:
+                result = mgr._gate_resume_by_jsonl_size('TASK-1', 'abc-123')
+                mock_logger.warning.assert_called_once()
+        self.assertEqual(result, '')
+
+    def test_returns_id_when_find_raises(self) -> None:
+        mgr = self._make_manager()
+        with patch(
+            'claude_core_lib.claude_core_lib.session.history.find_session_file',
+            side_effect=Exception('unexpected'),
+        ):
+            result = mgr._gate_resume_by_jsonl_size('TASK-1', 'abc-123')
+        self.assertEqual(result, 'abc-123')
+
+    def test_returns_id_when_stat_raises(self) -> None:
+        mgr = self._make_manager()
+        mock_path = MagicMock()
+        mock_path.stat.side_effect = OSError('disk error')
+        with patch(
+            'claude_core_lib.claude_core_lib.session.history.find_session_file',
+            return_value=mock_path,
+        ):
+            result = mgr._gate_resume_by_jsonl_size('TASK-1', 'abc-123')
+        self.assertEqual(result, 'abc-123')
+
+
 if __name__ == '__main__':
     unittest.main()

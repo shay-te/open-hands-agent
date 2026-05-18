@@ -36,7 +36,7 @@ import { toast } from '../stores/toastStore.js';
  * ``openFile`` shape:
  *   ``{ taskId, absolutePath, relativePath, repoId }``.
  */
-export default function EditorPane({ openFile }) {
+export default function EditorPane({ openFile, onCommentSpawned }) {
   const [state, setState] = useState({
     loading: false,
     error: '',
@@ -161,6 +161,9 @@ export default function EditorPane({ openFile }) {
     setActiveLine(null);
     setReplyTo('');
     refreshComments();
+    if (triggered && typeof onCommentSpawned === 'function') {
+      onCommentSpawned();
+    }
     return true;
   }
 
@@ -184,7 +187,19 @@ export default function EditorPane({ openFile }) {
       });
       return;
     }
+    const triggered = result.body?.triggered_immediately;
+    toast.show({
+      kind: 'success',
+      title: 'Comment reopened',
+      message: triggered
+        ? '✓ kato is working on this comment now'
+        : '✓ queued — kato will pick it up when the live agent goes idle',
+      durationMs: 5000,
+    });
     refreshComments();
+    if (triggered && typeof onCommentSpawned === 'function') {
+      onCommentSpawned();
+    }
   }
   async function onDelete(comment) {
     const result = await deleteTaskComment(taskId, comment.id);
@@ -233,14 +248,15 @@ export default function EditorPane({ openFile }) {
         const selection = ed.getSelection();
         const path = file.relativePath || file.absolutePath || '';
         if (!path) { return; }
+        const repoPrefix = file.repoId ? `${file.repoId}:` : '';
         let reference;
         if (!selection || selection.isEmpty()) {
           const pos = ed.getPosition();
-          reference = pos ? `${path}:${pos.lineNumber}` : path;
+          reference = pos ? `${repoPrefix}${path}:${pos.lineNumber}` : `${repoPrefix}${path}`;
         } else if (selection.startLineNumber === selection.endLineNumber) {
-          reference = `${path}:${selection.startLineNumber}`;
+          reference = `${repoPrefix}${path}:${selection.startLineNumber}`;
         } else {
-          reference = `${path}:${selection.startLineNumber}-${selection.endLineNumber}`;
+          reference = `${repoPrefix}${path}:${selection.startLineNumber}-${selection.endLineNumber}`;
         }
         append(`${reference}\n`);
       },

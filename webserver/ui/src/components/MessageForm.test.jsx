@@ -179,6 +179,32 @@ describe('MessageForm — draft persistence (operator scenario)', () => {
     expect(window.localStorage.getItem(`${DRAFT_STORAGE_PREFIX}T1`))
       .toBe('please review src/auth.py');
   });
+
+  test('imperative appendFragment keeps the appended caret visible', () => {
+    const ref = createRef();
+    render(
+      <MessageForm
+        ref={ref}
+        taskId="T1"
+        turnInFlight={false}
+        onSubmit={vi.fn()}
+      />,
+    );
+    const textarea = screen.getByRole('textbox');
+    Object.defineProperty(textarea, 'scrollHeight', {
+      value: 1234,
+      configurable: true,
+    });
+    textarea.focus = vi.fn();
+    textarea.setSelectionRange = vi.fn();
+
+    act(() => { ref.current.appendFragment('client:src/auth.py'); });
+
+    const caret = 'client:src/auth.py'.length;
+    expect(textarea.focus).toHaveBeenCalled();
+    expect(textarea.setSelectionRange).toHaveBeenCalledWith(caret, caret);
+    expect(textarea.scrollTop).toBe(1234);
+  });
 });
 
 

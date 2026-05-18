@@ -2687,12 +2687,15 @@ def _advance_task_comments_after_result(event, agent_service, task_id: str) -> N
     if event_type != CLAUDE_EVENT_RESULT and raw.get('type') != CLAUDE_EVENT_RESULT:
         return
     success = not bool(raw.get('is_error', False))
-    _complete_in_progress_task_comments(agent_service, task_id, success)
+    result_text = str(raw.get('result') or '')
+    _complete_in_progress_task_comments(
+        agent_service, task_id, success, result_text=result_text,
+    )
     _drain_queued_task_comment(agent_service, task_id)
 
 
 def _complete_in_progress_task_comments(
-    agent_service, task_id: str, success: bool,
+    agent_service, task_id: str, success: bool, result_text: str = '',
 ) -> None:
     complete = getattr(
         agent_service, 'complete_in_progress_task_comments', None,
@@ -2700,7 +2703,7 @@ def _complete_in_progress_task_comments(
     if not callable(complete):
         return
     try:
-        complete(task_id, success=success)
+        complete(task_id, success=success, result_text=result_text)
     except Exception:
         logging.getLogger(__name__).exception(
             'completing in-progress comments failed for task %s', task_id,

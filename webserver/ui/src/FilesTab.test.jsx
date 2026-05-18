@@ -70,6 +70,10 @@ const DIFF_PAYLOAD = {
 beforeEach(() => {
   fetchDiff.mockResolvedValue({ diffs: [] });
   fetchFileTree.mockResolvedValue({ trees: [] });
+  Object.defineProperty(navigator, 'clipboard', {
+    value: { writeText: vi.fn().mockResolvedValue(undefined) },
+    configurable: true,
+  });
 });
 
 
@@ -244,18 +248,25 @@ describe('buildFilesCommentMeta', () => {
     expect(meta.get('r').get('src/a.js')).toBe(1);
   });
 
-  test('kato_status=addressed threads are not counted', () => {
+  test('kato_status=addressed threads still show a tree badge until user-resolved', () => {
     const meta = buildFilesCommentMeta([
       { id: 'c1', repo_id: 'r', file_path: 'src/b.js', parent_id: '', kato_status: 'queued' },
       { id: 'c2', repo_id: 'r', file_path: 'src/b.js', parent_id: '', kato_status: 'addressed' },
     ]);
-    expect(meta.get('r').get('src/b.js')).toBe(1);
+    expect(meta.get('r').get('src/b.js')).toBe(2);
   });
 
-  test('file with only resolved/addressed threads shows no badge', () => {
+  test('queued and working kato comments are counted in the tree badge', () => {
+    const meta = buildFilesCommentMeta([
+      { id: 'c1', repo_id: 'r', file_path: 'src/b.js', parent_id: '', kato_status: 'queued' },
+      { id: 'c2', repo_id: 'r', file_path: 'src/b.js', parent_id: '', kato_status: 'working' },
+    ]);
+    expect(meta.get('r').get('src/b.js')).toBe(2);
+  });
+
+  test('file with only user-resolved threads shows no badge', () => {
     const meta = buildFilesCommentMeta([
       { id: 'c1', repo_id: 'r', file_path: 'src/c.js', parent_id: '', status: 'resolved' },
-      { id: 'c2', repo_id: 'r', file_path: 'src/c.js', parent_id: '', kato_status: 'addressed' },
     ]);
     expect(meta.get('r')?.has('src/c.js')).toBeFalsy();
   });
@@ -310,6 +321,35 @@ describe('FilesTab — render shell', () => {
     });
   });
 
+  test('file-title focus signal selects and scrolls the changed file row', async () => {
+    const originalScrollIntoView = window.HTMLElement.prototype.scrollIntoView;
+    window.HTMLElement.prototype.scrollIntoView = vi.fn();
+    fetchFileTree.mockResolvedValue(FILE_TREE_PAYLOAD);
+    fetchDiff.mockResolvedValue(DIFF_PAYLOAD);
+    render(
+      <FilesTab
+        taskId="T1"
+        onOpenFile={vi.fn()}
+        focusFileTarget={{
+          repoId: 'client',
+          relativePath: 'src/Changed.js',
+          requestId: 1,
+        }}
+      />,
+    );
+
+    const label = await screen.findByText('Changed.js');
+    const row = label.closest('button');
+    await waitFor(() => {
+      expect(row).toHaveClass('selected');
+      expect(row.scrollIntoView).toHaveBeenCalledWith({
+        behavior: 'smooth',
+        block: 'center',
+      });
+    });
+    window.HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
+  });
+
   test('marks conflicted files in the changed tree and full tree', async () => {
     const fileTreePayload = {
       trees: [{
@@ -357,6 +397,34 @@ describe('FilesTab — render shell', () => {
     // 2 root threads on src/Changed.js (reply excluded).
     await waitFor(() => {
       expect(screen.getByLabelText('2 comments')).toBeInTheDocument();
+    });
+  });
+
+  test('right-clicking a changed file copies repo-prefixed path', async () => {
+    fetchFileTree.mockResolvedValue(FILE_TREE_PAYLOAD);
+    fetchDiff.mockResolvedValue(DIFF_PAYLOAD);
+    render(<FilesTab taskId="T1" onOpenFile={vi.fn()} />);
+    const label = await screen.findByText('Changed.js');
+
+    fireEvent.contextMenu(label.closest('button'));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Copy relative path' }));
+
+    await waitFor(() => {
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith('client:src/Changed.js');
+    });
+  });
+
+  test('right-clicking a changed folder copies repo-prefixed path', async () => {
+    fetchFileTree.mockResolvedValue(FILE_TREE_PAYLOAD);
+    fetchDiff.mockResolvedValue(DIFF_PAYLOAD);
+    render(<FilesTab taskId="T1" onOpenFile={vi.fn()} />);
+    const folder = await screen.findByText('src');
+
+    fireEvent.contextMenu(folder.closest('button'));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Copy relative path' }));
+
+    await waitFor(() => {
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith('client:src');
     });
   });
 

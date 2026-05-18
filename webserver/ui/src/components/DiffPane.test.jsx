@@ -5,7 +5,7 @@
 // chat-composer context, the API) are stubbed.
 
 import { describe, test, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 vi.mock('../api.js', () => ({
   fetchDiff: vi.fn(),
@@ -35,7 +35,20 @@ vi.mock('./DiffFileWithComments.jsx', () => ({
       data-force-expand-token={String(props.forceExpandToken || 0)}
       data-conflicted={String(!!props.conflicted)}
       data-comments={String((props.comments || []).length)}
-    />
+    >
+      <button
+        type="button"
+        onClick={() => props.onFocusInTree({
+          repoId: props.repoId,
+          relativePath: props.file?.newPath || props.file?.oldPath,
+        })}
+      >
+        focus tree
+      </button>
+      <button type="button" onClick={() => props.onMutated()}>
+        mutate comments
+      </button>
+    </div>
   ),
 }));
 vi.mock('../contexts/ChatComposerContext.jsx', () => ({
@@ -134,6 +147,21 @@ describe('DiffPane — renders ALL files, scrolls to the target', () => {
     expect(fetchDiff).toHaveBeenCalledWith('T1');  // no repoId filter
   });
 
+  test('refetches the diff when the workspace version changes', async () => {
+    fetchDiff.mockResolvedValue({ diffs: [] });
+    parseRepoDiffs.mockReturnValue(_repoDiffs());
+    const { rerender } = render(
+      <DiffPane openFile={_open()} workspaceVersion={1} />,
+    );
+    await screen.findAllByTestId('diff-file');
+    expect(fetchDiff).toHaveBeenCalledTimes(1);
+
+    rerender(<DiffPane openFile={_open()} workspaceVersion={2} />);
+    await waitFor(() => {
+      expect(fetchDiff).toHaveBeenCalledTimes(2);
+    });
+  });
+
   test('opens every diff file by default', async () => {
     fetchDiff.mockResolvedValue({ diffs: [] });
     parseRepoDiffs.mockReturnValue(_repoDiffs());
@@ -185,6 +213,33 @@ describe('DiffPane — renders ALL files, scrolls to the target', () => {
       '[data-diff-key="backend::api/auth.py"] [data-testid="diff-file"]',
     );
     expect(conflicted.getAttribute('data-conflicted')).toBe('true');
+  });
+
+  test('passes file-tree focus requests from file headers to the parent', async () => {
+    fetchDiff.mockResolvedValue({ diffs: [] });
+    parseRepoDiffs.mockReturnValue(_repoDiffs());
+    const onFocusFileInTree = vi.fn();
+    render(
+      <DiffPane openFile={_open()} onFocusFileInTree={onFocusFileInTree} />,
+    );
+    const buttons = await screen.findAllByRole('button', { name: /focus tree/i });
+    fireEvent.click(buttons[2]);
+    expect(onFocusFileInTree).toHaveBeenCalledWith({
+      repoId: 'backend',
+      relativePath: 'api/auth.py',
+    });
+  });
+
+  test('comment mutations ask the parent to refresh tree comment badges', async () => {
+    fetchDiff.mockResolvedValue({ diffs: [] });
+    parseRepoDiffs.mockReturnValue(_repoDiffs());
+    const onCommentsChanged = vi.fn();
+    render(
+      <DiffPane openFile={_open()} onCommentsChanged={onCommentsChanged} />,
+    );
+    const buttons = await screen.findAllByRole('button', { name: /mutate comments/i });
+    fireEvent.click(buttons[0]);
+    expect(onCommentsChanged).toHaveBeenCalledTimes(1);
   });
 
   test('empty changeset → "No changes on this task branch."', async () => {

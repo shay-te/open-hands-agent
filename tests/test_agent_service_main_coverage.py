@@ -886,16 +886,45 @@ class ReopenTaskCommentTests(unittest.TestCase):
         self.assertFalse(result['ok'])
 
     def test_reopen_succeeds_when_comment_present(self) -> None:
-        from kato_core_lib.comment_core_lib import CommentRecord
+        from kato_core_lib.comment_core_lib import (
+            CommentRecord,
+            KatoCommentStatus,
+        )
         service = AgentService(**_kwargs())
         record = CommentRecord(
             id='c1', body='b', repo_id='r1', author='a', source='local',
         )
         store = MagicMock()
         store.update_status.return_value = record
-        with patch.object(service, '_comment_store_for', return_value=store):
+        store.get.return_value = record
+        with patch.object(service, '_comment_store_for', return_value=store), \
+             patch.object(service, '_maybe_trigger_comment_run',
+                          return_value=True) as trigger:
             result = service.reopen_task_comment('T1', 'c1')
         self.assertTrue(result['ok'])
+        self.assertTrue(result['triggered_immediately'])
+        store.update_kato_status.assert_called_once_with(
+            'c1', kato_status=KatoCommentStatus.QUEUED.value,
+        )
+        trigger.assert_called_once_with('T1', 'c1')
+
+    def test_reopen_reply_does_not_trigger_kato_run(self) -> None:
+        from kato_core_lib.comment_core_lib import CommentRecord
+
+        service = AgentService(**_kwargs())
+        record = CommentRecord(
+            id='c1', body='b', repo_id='r1', author='a', source='local',
+            parent_id='c0',
+        )
+        store = MagicMock()
+        store.update_status.return_value = record
+        with patch.object(service, '_comment_store_for', return_value=store), \
+             patch.object(service, '_maybe_trigger_comment_run') as trigger:
+            result = service.reopen_task_comment('T1', 'c1')
+        self.assertTrue(result['ok'])
+        self.assertNotIn('triggered_immediately', result)
+        store.update_kato_status.assert_not_called()
+        trigger.assert_not_called()
 
 
 class DeleteTaskCommentTests(unittest.TestCase):

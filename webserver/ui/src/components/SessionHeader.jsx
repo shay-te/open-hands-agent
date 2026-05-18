@@ -315,6 +315,10 @@ export default function SessionHeader({
   const pushButtonLabel = taskPublish.pushBusy ? 'Pushing…' : 'Push';
   const pullButtonLabel = taskPublish.pullBusy ? 'Pulling…' : 'Pull';
   const prButtonLabel = taskPublish.prBusy ? 'Opening PR…' : 'Pull request';
+  const updateSourceDisabled = updatingSource || !taskPublish.hasWorkspace;
+  const updateSourceTitle = !taskPublish.hasWorkspace
+    ? 'No workspace for this task — workspace must be provisioned before source can be updated.'
+    : 'Update source — push the task branch, then for each repo under REPOSITORY_ROOT_PATH: fetch, checkout the task branch, and pull. Lets you test the task on your live running system. Refuses if a source repo has uncommitted changes.';
   const updateSourceLabel = updatingSource ? 'Updating source…' : 'Update source';
   const finishLabel = finishing ? 'Finishing…' : 'Done';
   const stopOrResumeButton = isResumable ? (
@@ -450,9 +454,9 @@ export default function SessionHeader({
             id="session-update-source"
             type="button"
             className="session-action tooltip-below"
-            data-tooltip="Update source — push the task branch, then for each repo under REPOSITORY_ROOT_PATH: fetch, checkout the task branch, and pull. Lets you test the task on your live running system. Refuses if a source repo has uncommitted changes."
+            data-tooltip={updateSourceTitle}
             onClick={onUpdateSource}
-            disabled={updatingSource}
+            disabled={updateSourceDisabled}
             aria-label={updateSourceLabel}
           >
             <Icon name={updatingSource ? 'spinner' : 'refresh'} spin={updatingSource} />

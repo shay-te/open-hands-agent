@@ -102,6 +102,7 @@ class _FakeCommentStore(object):
         self._comments = comments
         self._raise_on_list = raise_on_list
         self.updated: list[tuple[str, str]] = []
+        self.added = []
 
     def list(self):
         if self._raise_on_list:
@@ -113,6 +114,10 @@ class _FakeCommentStore(object):
     ):
         # Mirrors LocalCommentStore.update_kato_status' real signature.
         self.updated.append((comment_id, kato_status))
+
+    def add(self, record):
+        self.added.append(record)
+        return record
 
 
 class RequeueStuckInProgressCommentsTests(unittest.TestCase):
@@ -210,10 +215,14 @@ class CompleteInProgressTaskCommentsTests(unittest.TestCase):
     def _comment(self, comment_id, status):
         from kato_core_lib.comment_core_lib import KatoCommentStatus
         return SimpleNamespace(
-            id=comment_id, kato_status=KatoCommentStatus(status).value,
+            id=comment_id,
+            repo_id='repo-1',
+            file_path='src/file.py',
+            line=12,
+            kato_status=KatoCommentStatus(status).value,
         )
 
-    def test_success_marks_in_progress_addressed_no_remote_reply(self) -> None:
+    def test_success_replies_then_marks_in_progress_addressed(self) -> None:
         service = AgentService(**_kwargs())
         store = _FakeCommentStore([
             self._comment('c1', 'in_progress'),
@@ -223,9 +232,12 @@ class CompleteInProgressTaskCommentsTests(unittest.TestCase):
         with patch.object(service, '_comment_store_for', return_value=store), \
              patch.object(service, 'mark_comment_addressed') as mark:
             out = service.complete_in_progress_task_comments(
-                'T1', success=True,
+                'T1', success=True, result_text='Fixed the issue.',
             )
         mark.assert_called_once_with('T1', 'c1', post_remote_reply=False)
+        self.assertEqual(len(store.added), 1)
+        self.assertEqual(store.added[0].parent_id, 'c1')
+        self.assertEqual(store.added[0].body, 'Fixed the issue.')
         self.assertEqual(
             out, [{'task_id': 'T1', 'comment_id': 'c1',
                    'kato_status': 'addressed'}],
@@ -1071,7 +1083,10 @@ class ResolvePublishContextTests(unittest.TestCase):
             ([], '', None),
         )
 
-    def test_skips_unknown_repository_ids(self) -> None:
+    def test_unknown_repository_gets_stub_from_clone_path(self) -> None:
+        # Unknown inventory repos with a valid clone path become stubs so
+        # git-only operations (push, branch-check) still work when
+        # REPOSITORY_ROOT_PATH is misconfigured.
         workspace = MagicMock()
         workspace.get.return_value = SimpleNamespace(
             repository_ids=['known', 'unknown'],
@@ -1092,19 +1107,41 @@ class ResolvePublishContextTests(unittest.TestCase):
         ))
         service.logger = MagicMock()
         repos, branch, _ = service._resolve_publish_context('T1')
-        self.assertEqual(len(repos), 1)
-        self.assertEqual(repos[0].id, 'known')
-        # local_path is rewritten to the workspace clone path.
-        self.assertEqual(repos[0].local_path, '/clone')
-        service.logger.warning.assert_called()
+        # Both repos appear — the known one is a full copy, the unknown
+        # one is a stub built from the workspace clone path.
+        self.assertEqual(len(repos), 2)
+        ids = {r.id for r in repos}
+        self.assertEqual(ids, {'known', 'unknown'})
+        for r in repos:
+            self.assertEqual(r.local_path, '/clone')
+        service.logger.warning.assert_not_called()
+        service.logger.debug.assert_called()
 
-    def test_returns_empty_when_all_repos_unknown(self) -> None:
-        # Line 2310-2311: rewritten is empty → return empty tuple.
+    def test_unknown_repository_skipped_when_no_clone_path(self) -> None:
+        # Unknown repo with no clone path on disk → skip entirely.
+        workspace = MagicMock()
+        workspace.get.return_value = SimpleNamespace(
+            repository_ids=['noclone'],
+            task_summary='x',
+        )
+        workspace.repository_path.return_value = None
+        repo = MagicMock()
+        repo.get_repository.side_effect = ValueError('not in inventory')
+        service = AgentService(**_kwargs(
+            workspace_manager=workspace, repository_service=repo,
+        ))
+        service.logger = MagicMock()
+        result = service._resolve_publish_context('T1')
+        self.assertEqual(result, ([], '', None))
+
+    def test_returns_empty_when_all_repos_unknown_and_no_clone_paths(self) -> None:
+        # All unknown + no clone paths → empty result.
         workspace = MagicMock()
         workspace.get.return_value = SimpleNamespace(
             repository_ids=['unknown1', 'unknown2'],
             task_summary='x',
         )
+        workspace.repository_path.return_value = None
         repo = MagicMock()
         repo.get_repository.side_effect = ValueError('unknown')
         service = AgentService(**_kwargs(
@@ -1178,6 +1215,29 @@ class RunTaskImplementationTests(unittest.TestCase):
         execution = service._run_task_implementation(Task(id='T1'), prepared)
         self.assertIsNone(execution)
         handler.handle_started_task_failure.assert_called_once()
+
+    def test_returns_none_without_calling_failure_handler_when_user_stopped(self) -> None:
+        # SessionStoppedByUserError means the user clicked Stop — the task
+        # must NOT be moved back to Open (which would cause an immediate
+        # re-spawn). Failure handler must not be called.
+        from kato_core_lib.helpers.task_context_utils import PreparedTaskContext
+        from kato_core_lib.data_layers.data.task import Task
+        from kato_core_lib.data_layers.service.planning_session_runner import SessionStoppedByUserError
+
+        runner = MagicMock()
+        runner.implement_task.side_effect = SessionStoppedByUserError('stopped by user')
+        handler = MagicMock()
+        service = AgentService(**_kwargs(
+            planning_session_runner=runner,
+            task_failure_handler=handler,
+        ))
+        service.logger = MagicMock()
+        prepared = PreparedTaskContext(
+            repositories=[], repository_branches={}, branch_name='b',
+        )
+        execution = service._run_task_implementation(Task(id='T1'), prepared)
+        self.assertIsNone(execution)
+        handler.handle_started_task_failure.assert_not_called()
 
     def test_returns_none_when_implementation_failed(self) -> None:
         from kato_core_lib.helpers.task_context_utils import PreparedTaskContext
@@ -1564,10 +1624,10 @@ class AdvanceFinishedCommentRunsTests(unittest.TestCase):
             id=comment_id, kato_status=KatoCommentStatus(status).value,
         )
 
-    def _fake_event(self, event_type, is_error=False):
+    def _fake_event(self, event_type, is_error=False, result=''):
         return SimpleNamespace(
             event_type=event_type,
-            raw={'type': event_type, 'is_error': is_error},
+            raw={'type': event_type, 'is_error': is_error, 'result': result},
         )
 
     def test_advances_when_alive_session_has_result_event(self) -> None:
@@ -1580,7 +1640,7 @@ class AdvanceFinishedCommentRunsTests(unittest.TestCase):
             recent_events=lambda: [
                 self._fake_event('system'),
                 self._fake_event('assistant'),
-                self._fake_event('result', is_error=False),
+                self._fake_event('result', is_error=False, result='Done.'),
             ],
         )
         mgr = MagicMock()
@@ -1596,7 +1656,9 @@ class AdvanceFinishedCommentRunsTests(unittest.TestCase):
                                          'kato_status': 'addressed'}]) as complete:
             results = service.advance_finished_comment_runs()
 
-        complete.assert_called_once_with('T1', success=True)
+        complete.assert_called_once_with(
+            'T1', success=True, result_text='Done.',
+        )
         self.assertEqual(len(results), 1)
 
     def test_skips_alive_session_with_no_result_yet(self) -> None:
@@ -1643,7 +1705,9 @@ class AdvanceFinishedCommentRunsTests(unittest.TestCase):
                           return_value=[]) as complete:
             service.advance_finished_comment_runs()
 
-        complete.assert_called_once_with('T1', success=False)
+        complete.assert_called_once_with(
+            'T1', success=False, result_text='',
+        )
 
     def test_skips_mid_turn_sessions(self) -> None:
         """_task_has_busy_turn=True → never advance."""

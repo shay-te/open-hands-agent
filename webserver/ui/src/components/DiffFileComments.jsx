@@ -25,6 +25,7 @@ export default function DiffFileComments({
   repoId,
   filePath,
   refreshTick = 0,
+  onCommentSpawned,
 }) {
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -100,6 +101,9 @@ export default function DiffFileComments({
     setDraft('');
     setReplyTo('');
     setLocalTick((n) => n + 1);
+    if (triggered && typeof onCommentSpawned === 'function') {
+      onCommentSpawned();
+    }
   }
 
   async function onResolve(commentId) {
@@ -123,7 +127,19 @@ export default function DiffFileComments({
       });
       return;
     }
+    const triggered = result.body?.triggered_immediately;
+    toast.show({
+      kind: 'success',
+      title: 'Comment reopened',
+      message: triggered
+        ? '✓ kato is working on this comment now'
+        : '✓ queued — kato will pick it up when the live agent goes idle',
+      durationMs: 5000,
+    });
     setLocalTick((n) => n + 1);
+    if (triggered && typeof onCommentSpawned === 'function') {
+      onCommentSpawned();
+    }
   }
 
   async function onDelete(commentId) {

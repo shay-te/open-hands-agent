@@ -100,6 +100,7 @@ export default function DiffFileWithComments({
   initiallyExpanded,
   forceExpandToken = 0,
   onAddToChat,
+  onFocusInTree,
   comments = [],
   commentsLoading = false,
   commentsError = '',
@@ -278,7 +279,19 @@ export default function DiffFileWithComments({
       });
       return;
     }
+    const triggered = result.body?.triggered_immediately;
+    toast.show({
+      kind: 'success',
+      title: 'Comment reopened',
+      message: triggered
+        ? '✓ kato is working on this comment now'
+        : '✓ queued — kato will pick it up when the live agent goes idle',
+      durationMs: 5000,
+    });
     notifyMutated();
+    if (triggered && typeof onCommentSpawned === 'function') {
+      onCommentSpawned();
+    }
   }
 
   async function onDelete(commentId) {
@@ -660,6 +673,18 @@ export default function DiffFileWithComments({
     </div>
   ) : null;
   const pathSegments = renderPathSegments(path);
+  const focusPathButton = typeof onFocusInTree === 'function' ? (
+    <button
+      type="button"
+      className="diff-file-path diff-file-path-button"
+      onClick={() => onFocusInTree({ repoId, relativePath: path })}
+      title="Show this file in the file tree"
+    >
+      {pathSegments}
+    </button>
+  ) : (
+    <span className="diff-file-path">{pathSegments}</span>
+  );
 
   return (
     <section
@@ -671,7 +696,7 @@ export default function DiffFileWithComments({
         {collapseToggle}
         <DiffHeaderKindIcon kind={file.type} />
         {conflictedBadge}
-        <span className="diff-file-path">{pathSegments}</span>
+        {focusPathButton}
       </header>
       {/* Stable wrapper for everything below the sticky header. The
           ``.diff-file`` card uses ``overflow: visible`` so its sticky

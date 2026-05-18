@@ -5,6 +5,7 @@ import LeftPaneResizer from './LeftPaneResizer.jsx';
 export default function RightPane({
   activeTaskId,
   workspaceVersion = 0,
+  focusFileTarget = null,
   width,
   onResizePointerDown,
   onOpenFile,
@@ -44,6 +45,7 @@ export default function RightPane({
           taskId={activeTaskId}
           workspaceVersion={workspaceVersion}
           focusFilterSignal={focusFilterSignal}
+          focusFileTarget={focusFileTarget}
           onOpenFile={onOpenFile}
         />
       </div>

@@ -631,12 +631,13 @@ class WebserverAppTests(unittest.TestCase):
 
     def test_result_event_completes_then_drains(self):
         event = SimpleNamespace(
-            event_type='result', raw={'type': 'result', 'is_error': False},
+            event_type='result',
+            raw={'type': 'result', 'is_error': False, 'result': 'Done.'},
         )
         service = MagicMock()
         _advance_task_comments_after_result(event, service, 'PROJ-1')
         service.complete_in_progress_task_comments.assert_called_once_with(
-            'PROJ-1', success=True,
+            'PROJ-1', success=True, result_text='Done.',
         )
         service.drain_next_queued_task_comment.assert_called_once_with('PROJ-1')
 
@@ -647,7 +648,7 @@ class WebserverAppTests(unittest.TestCase):
         service = MagicMock()
         _advance_task_comments_after_result(event, service, 'PROJ-1')
         service.complete_in_progress_task_comments.assert_called_once_with(
-            'PROJ-1', success=False,
+            'PROJ-1', success=False, result_text='',
         )
 
     def test_non_result_event_is_ignored(self):

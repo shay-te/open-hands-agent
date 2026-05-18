@@ -83,9 +83,12 @@ class StreamingClaudeSessionTests(unittest.TestCase):
         self.assertIn('--input-format', cmd)
         # A session-id is pinned up front so a restart can resume it.
         self.assertIn('--session-id', cmd)
-        # That pinned id should match what's exposed by the session.
-        pinned = cmd[cmd.index('--session-id') + 1]
-        self.assertEqual(session.claude_session_id, pinned)
+        # After the init event arrives, claude_session_id adopts the id
+        # Claude actually confirmed in its init event (not necessarily the
+        # pinned UUID kato passed via --session-id; if Claude reports a
+        # different id the session corrects to that actual id so the next
+        # --resume targets the right JSONL).
+        self.assertEqual(session.claude_session_id, 'live-123')
 
     def test_start_with_additional_dirs_emits_add_dir_per_path(self) -> None:
         # Multi-repo tasks need every repo accessible to Claude, not
@@ -574,17 +577,20 @@ class StreamingClaudeSessionPureMethodTests(unittest.TestCase):
         session = self._build_session(resume_session_id='sess-abc')
         session._claude_session_id = 'sess-abc'
         session.logger = MagicMock()
+        corrections: list[str] = []
+        session._session_id_correction_callback = corrections.append
         ev = SessionEvent(raw={
             'type': 'system', 'subtype': 'init', 'session_id': 'sess-zzz',
         })
         session._maybe_capture_session_id(ev)
-        session._maybe_capture_session_id(ev)  # only one warning
-        # Assignment behaviour is unchanged: the pinned id is kept so
-        # the stale-resume self-heal path still sees the original.
-        self.assertEqual(session.claude_session_id, 'sess-abc')
+        session._maybe_capture_session_id(ev)  # only one warning, one correction
+        # On mismatch claude_session_id is updated to Claude's actual id so
+        # the next --resume targets the right JSONL file.
+        self.assertEqual(session.claude_session_id, 'sess-zzz')
+        self.assertEqual(corrections, ['sess-zzz'])  # callback fired exactly once
         session.logger.warning.assert_called_once()
         self.assertIn(
-            'was NOT', session.logger.warning.call_args.args[0],
+            'adopting', session.logger.warning.call_args.args[0],
         )
         session.logger.info.assert_not_called()
 
