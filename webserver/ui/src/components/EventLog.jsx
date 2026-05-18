@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Bubble from './Bubble.jsx';
 import Icon from './Icon.jsx';
+import StickyHeader from './StickyHeader.jsx';
 import { BUBBLE_KIND } from '../constants/bubbleKind.js';
 import { CLAUDE_EVENT, CLAUDE_SYSTEM_SUBTYPE } from '../constants/claudeEvent.js';
 import { ENTRY_SOURCE } from '../constants/entrySource.js';
@@ -455,7 +456,7 @@ function StickyPrompt({ text }) {
   ) : null;
 
   return (
-    <div className={promptClass}>
+    <StickyHeader className={promptClass}>
       <div className="chat-sticky-prompt-toggle">
         <span className="chat-sticky-prompt-label">You asked</span>
         <span className={textWrapClass}>
@@ -463,7 +464,7 @@ function StickyPrompt({ text }) {
           {expandButton}
         </span>
       </div>
-    </div>
+    </StickyHeader>
   );
 }
 

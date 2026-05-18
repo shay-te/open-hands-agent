@@ -10,6 +10,7 @@ import {
 import AddRepositoryModal from './components/AddRepositoryModal.jsx';
 import CommitDiffModal from './components/CommitDiffModal.jsx';
 import Icon from './components/Icon.jsx';
+import StickyHeader from './components/StickyHeader.jsx';
 import { useChatComposer } from './contexts/ChatComposerContext.jsx';
 import {
   buildDiffFileTree,
@@ -19,6 +20,7 @@ import {
   parseRepoDiffs,
 } from './diffModel.js';
 import { toast } from './stores/toastStore.js';
+import { copyTextToClipboard } from './utils/clipboard.js';
 import {
   activateTreeNode,
   attachIds,
@@ -590,30 +592,6 @@ export function formatSyncResult(result) {
   };
 }
 
-export async function copyTextToClipboard(text) {
-  const value = String(text || '');
-  if (!value) { return; }
-  if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
-    await navigator.clipboard.writeText(value);
-    return;
-  }
-  if (typeof document === 'undefined') {
-    throw new Error('clipboard unavailable');
-  }
-  const textarea = document.createElement('textarea');
-  textarea.value = value;
-  textarea.setAttribute('readonly', '');
-  textarea.style.position = 'fixed';
-  textarea.style.left = '-9999px';
-  document.body.appendChild(textarea);
-  textarea.select();
-  const copied = document.execCommand('copy');
-  textarea.remove();
-  if (!copied) {
-    throw new Error('clipboard unavailable');
-  }
-}
-
 export function buildFilesDiffMeta(repoDiffs) {
   const byRepo = new Map();
   for (const repoDiff of repoDiffs || []) {
@@ -819,7 +797,8 @@ function RepoTree({
   }
   return (
     <section className="files-tab-repo" ref={repoRef}>
-      <header
+      <StickyHeader
+        as="header"
         className="files-tab-repo-header"
         title={repoTree.cwd}
         onClick={onToggle}
@@ -841,7 +820,7 @@ function RepoTree({
             <Icon name="history" />
           </button>
         )}
-      </header>
+      </StickyHeader>
       {commitMenuOpen && (
         <CommitDropdown
           state={commitsState}

@@ -8,6 +8,12 @@
   --radius-pill: 999px;
 }
 
+.sticky-section-header {
+  position: sticky;
+  top: var(--sticky-header-top, 0);
+  z-index: var(--sticky-header-z, 4);
+}
+
 html, body { height: 100%; }
 /* Safety net: the app is a fixed-viewport 3-column layout — nothing
  * should ever scroll the PAGE horizontally. Without this, a wide
@@ -982,9 +988,6 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
  * request the agent is working on. Long prompts collapse to three
  * lines and use the same expand affordance as tool-output snippets. */
 .chat-sticky-prompt {
-  position: sticky;
-  top: 0;
-  z-index: 4;
   /* Bleed over #event-log's 24px side padding so the bar spans the
    * full width and reads as a pinned header, not an inset card. No
    * negative top margin: prompts are now nested one per turn, so a
@@ -2124,9 +2127,7 @@ code {
  * earlier per-file-sticky failure was that container not existing.
  * Opaque so diff rows scroll cleanly underneath. */
 .diff-pane .diff-file-header {
-  position: sticky;
-  top: 0;
-  z-index: 3;
+  --sticky-header-z: 3;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -2728,7 +2729,7 @@ body.kato-resizing #left-pane-resizer::before {
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 12px;
   margin-bottom: 10px;
-  overflow: hidden;
+  overflow: visible;
   background: rgba(255, 255, 255, 0.03);
 }
 .files-tab-repo-header {
@@ -2736,10 +2737,12 @@ body.kato-resizing #left-pane-resizer::before {
   gap: 8px;
   align-items: center;
   padding: 10px 12px;
-  background: rgba(255, 255, 255, 0.04);
+  border-radius: 12px 12px 0 0;
+  background: #1b1b1d;
   cursor: pointer;
   font-size: 12px;
   font-weight: 600;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06);
   transition: background 120ms ease;
 }
 .files-tab-repo-header:hover { background: rgba(255, 255, 255, 0.08); }
@@ -3383,11 +3386,14 @@ body.kato-resizing #left-pane-resizer::before {
   cursor: pointer;
 }
 .diff-file-tree-row.is-file:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: #1f1f21;
 }
 .diff-file-tree-row.selected {
-  background: rgba(34, 95, 171, 0.38);
+  background: #183252;
   color: #66a6ff;
+}
+.diff-file-tree-row.is-file.selected:hover {
+  background: #183252;
 }
 .diff-file-tree-row.conflicted .diff-file-tree-label { color: #fbbf24; }
 .diff-file-tree-guide {
@@ -3538,7 +3544,8 @@ body.kato-resizing #left-pane-resizer::before {
   /* react-arborist sets row paddingLeft inline; pad the body instead. */
   padding-left: 14px;
 }
-.files-tab-context-menu {
+.files-tab-context-menu,
+.diff-file-context-menu {
   position: fixed;
   z-index: 1000;
   min-width: 180px;
@@ -3548,7 +3555,8 @@ body.kato-resizing #left-pane-resizer::before {
   background: #171719;
   box-shadow: 0 18px 45px rgba(0, 0, 0, 0.45);
 }
-.files-tab-context-menu-item {
+.files-tab-context-menu-item,
+.diff-file-context-menu-item {
   width: 100%;
   display: flex;
   align-items: center;
@@ -3562,10 +3570,20 @@ body.kato-resizing #left-pane-resizer::before {
   cursor: pointer;
 }
 .files-tab-context-menu-item:hover,
-.files-tab-context-menu-item:focus-visible {
+.files-tab-context-menu-item:focus-visible,
+.diff-file-context-menu-item:hover,
+.diff-file-context-menu-item:focus-visible {
   outline: none;
   background: rgba(96, 165, 250, 0.18);
   color: #f5f5f7;
+}
+.diff-file-context-menu-item:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+.diff-file-context-menu-item:disabled:hover {
+  background: transparent;
+  color: #e5e5e7;
 }
 
 .files-tab-message,
@@ -3773,19 +3791,37 @@ body.kato-resizing #left-pane-resizer::before {
   flex: 1;
   border: 0;
   padding: 0;
+  border-radius: 0;
   background: transparent;
   font: inherit;
   text-align: left;
   cursor: pointer;
+  appearance: none;
+}
+.diff-file-header .diff-file-path-button {
+  width: auto;
+  height: auto;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  justify-content: flex-start;
+  color: inherit;
+  -webkit-appearance: none;
+}
+.diff-file-header .diff-file-path-button:hover {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
 }
 .diff-file-path-button:hover .diff-file-path-segment,
 .diff-file-path-button:focus-visible .diff-file-path-segment {
   color: #8ab4ff;
 }
+.diff-file-header .diff-file-path-button:focus,
 .diff-file-path-button:focus-visible {
-  outline: 2px solid rgba(96, 165, 250, 0.6);
-  outline-offset: 3px;
-  border-radius: 6px;
+  outline: none;
+  box-shadow: none;
 }
 .diff-file-path-part {
   display: inline-flex;

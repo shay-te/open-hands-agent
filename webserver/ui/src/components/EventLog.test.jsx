@@ -441,6 +441,8 @@ describe('EventLog — per-turn sticky grouping', () => {
     // turn is on screen and is pushed off as the next turn scrolls in.
     expect(turns[0].firstElementChild)
       .toHaveClass('chat-sticky-prompt');
+    expect(turns[0].firstElementChild)
+      .toHaveClass('sticky-section-header');
     expect(turns[0]).toHaveTextContent('first ask');
     expect(turns[0]).toHaveTextContent('reply one');
     // A turn owns every bubble until the NEXT prompt, no further.

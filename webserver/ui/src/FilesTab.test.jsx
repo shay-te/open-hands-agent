@@ -311,6 +311,8 @@ describe('FilesTab — render shell', () => {
     fetchDiff.mockResolvedValue(DIFF_PAYLOAD);
     render(<FilesTab taskId="T1" onOpenFile={vi.fn()} />);
     expect(await screen.findByText('Lines updated')).toBeInTheDocument();
+    expect(screen.getByText('client').closest('header'))
+      .toHaveClass('sticky-section-header');
     expect(screen.getByText('Changed.js')).toBeInTheDocument();
     expect(screen.queryByText('Unchanged.js')).not.toBeInTheDocument();
 

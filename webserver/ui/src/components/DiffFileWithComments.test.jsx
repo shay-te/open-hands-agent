@@ -33,6 +33,10 @@ beforeEach(() => {
   Object.values(apiMocks).forEach((mock) => {
     mock.mockReset();
   });
+  Object.defineProperty(navigator, 'clipboard', {
+    value: { writeText: vi.fn().mockResolvedValue(undefined) },
+    configurable: true,
+  });
 });
 
 function _file(lineCount, { type = 'modify', path = 'src/file.py' } = {}) {
@@ -217,6 +221,66 @@ describe('DiffFileWithComments — header rendering', () => {
     });
   });
 
+  test('right-clicking the file header opens file actions', () => {
+    const onFocusInTree = vi.fn();
+    const { container } = renderDiff({
+      file: _file(10, { path: 'src/auth/login.py' }),
+      onFocusInTree,
+    });
+
+    fireEvent.contextMenu(container.querySelector('.diff-file-header'));
+
+    expect(screen.getByRole('menuitem', { name: /show in tree/i }))
+      .toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: /place in chat/i }))
+      .toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: /copy relative path/i }))
+      .toBeInTheDocument();
+  });
+
+  test('header context menu can reveal the file in the tree', () => {
+    const onFocusInTree = vi.fn();
+    const { container } = renderDiff({
+      file: _file(10, { path: 'src/auth/login.py' }),
+      onFocusInTree,
+    });
+
+    fireEvent.contextMenu(container.querySelector('.diff-file-header'));
+    fireEvent.click(screen.getByRole('menuitem', { name: /show in tree/i }));
+
+    expect(onFocusInTree).toHaveBeenCalledWith({
+      repoId: 'repo-1',
+      relativePath: 'src/auth/login.py',
+    });
+  });
+
+  test('header context menu places the repo-prefixed path in chat', () => {
+    const onAddToChat = vi.fn();
+    const { container } = renderDiff({
+      file: _file(10, { path: 'src/auth/login.py' }),
+      onAddToChat,
+    });
+
+    fireEvent.contextMenu(container.querySelector('.diff-file-header'));
+    fireEvent.click(screen.getByRole('menuitem', { name: /place in chat/i }));
+
+    expect(onAddToChat).toHaveBeenCalledWith('`repo-1:src/auth/login.py`');
+  });
+
+  test('header context menu copies the repo-prefixed relative path', async () => {
+    const { container } = renderDiff({
+      file: _file(10, { path: 'src/auth/login.py' }),
+    });
+
+    fireEvent.contextMenu(container.querySelector('.diff-file-header'));
+    fireEvent.click(screen.getByRole('menuitem', { name: /copy relative path/i }));
+
+    await waitFor(() => {
+      expect(navigator.clipboard.writeText)
+        .toHaveBeenCalledWith('repo-1:src/auth/login.py');
+    });
+  });
+
   test('shows the diff type icon (modify / add / delete)', () => {
     const { container } = renderDiff({ file: _file(10, { type: 'add' }) });
     expect(container.querySelector('.diff-file-row-kind.kind-add'))
@@ -244,6 +308,7 @@ describe('DiffFileWithComments — header rendering', () => {
     const header = section.querySelector('.diff-file-header');
     const body = section.querySelector('.diff-file-body');
     expect(body).toBeInTheDocument();
+    expect(header).toHaveClass('sticky-section-header');
     expect(header.contains(body)).toBe(false);
     expect(section.children[section.children.length - 1]).toBe(body);
     // The actual diff table renders inside the wrapper.

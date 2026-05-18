@@ -34,10 +34,16 @@ test('DiffPane file cards clip diff rows inside rounded corners', () => {
   assertDeclaration(body, 'overflow', 'clip');
 });
 
-test('DiffPane file headers stick to the top of the scroll container', () => {
-  const body = ruleBody('.diff-pane .diff-file-header');
+test('Shared sticky section header utility owns sticky mechanics', () => {
+  const body = ruleBody('.sticky-section-header');
   assertDeclaration(body, 'position', 'sticky');
-  assertDeclaration(body, 'top', '0');
+  assertDeclaration(body, 'top', 'var\\(--sticky-header-top, 0\\)');
+  assertDeclaration(body, 'z-index', 'var\\(--sticky-header-z, 4\\)');
+});
+
+test('DiffPane file headers keep their visual styling on the shared sticky header', () => {
+  const body = ruleBody('.diff-pane .diff-file-header');
+  assertDeclaration(body, '--sticky-header-z', '3');
   assertDeclaration(body, 'background', '#1e1e1e');
 });
 
@@ -101,10 +107,30 @@ test('Diff file header keeps the expand/collapse chevron on the left', () => {
   assertDeclaration(body, 'flex-shrink', '0');
 });
 
+test('Diff file path button does not inherit the global round header button skin', () => {
+  const body = ruleBody('.diff-file-header .diff-file-path-button');
+  const hoverBody = ruleBody('.diff-file-header .diff-file-path-button:hover');
+  assertDeclaration(body, 'width', 'auto');
+  assertDeclaration(body, 'height', 'auto');
+  assertDeclaration(body, 'border', '0');
+  assertDeclaration(body, 'border-radius', '0');
+  assertDeclaration(body, 'background', 'transparent');
+  assertDeclaration(body, 'box-shadow', 'none');
+  assertDeclaration(hoverBody, 'border', '0');
+  assertDeclaration(hoverBody, 'background', 'transparent');
+  assertDeclaration(hoverBody, 'box-shadow', 'none');
+});
+
 test('Files tab body scrolls changed-file trees vertically', () => {
   const body = ruleBody('.files-tab-body');
   assertDeclaration(body, 'overflow-y', 'auto');
   assertDeclaration(body, 'overflow-x', 'hidden');
+});
+
+test('Files tab repo headers stick while scrolling a repository', () => {
+  const repoBody = ruleBody('.files-tab-repo');
+
+  assertDeclaration(repoBody, 'overflow', 'visible');
 });
 
 test('Changed-file tree guide line stays out of the chevron lane', () => {
@@ -119,6 +145,16 @@ test('Changed-file tree gives folders lighter weight than files', () => {
   const fileBody = ruleBody('.files-changed-tree-label');
   assertDeclaration(folderBody, 'font-weight', '600');
   assertDeclaration(fileBody, 'font-weight', '750');
+});
+
+test('Changed-file tree hover and selected states use opaque backgrounds', () => {
+  const hoverBody = ruleBody('.diff-file-tree-row.is-file:hover');
+  const selectedBody = ruleBody('.diff-file-tree-row.selected');
+  const selectedHoverBody = ruleBody('.diff-file-tree-row.is-file.selected:hover');
+
+  assertDeclaration(hoverBody, 'background', '#1f1f21');
+  assertDeclaration(selectedBody, 'background', '#183252');
+  assertDeclaration(selectedHoverBody, 'background', '#183252');
 });
 
 test('Diff syntax colors JSX and stylesheet tokens like Bitbucket', () => {

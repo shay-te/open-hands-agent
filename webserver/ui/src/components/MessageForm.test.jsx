@@ -205,6 +205,14 @@ describe('MessageForm — draft persistence (operator scenario)', () => {
     expect(textarea.setSelectionRange).toHaveBeenCalledWith(caret, caret);
     expect(textarea.scrollTop).toBe(1234);
   });
+
+  test('empty composer starts as a single-line field', () => {
+    renderForm({ taskId: 'T1' });
+
+    const textarea = screen.getByRole('textbox');
+    expect(textarea).toHaveAttribute('rows', '1');
+    expect(textarea).toHaveAttribute('placeholder', 'Reply to Claude');
+  });
 });
 
 

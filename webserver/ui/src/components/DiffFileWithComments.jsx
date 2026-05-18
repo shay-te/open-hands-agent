@@ -28,12 +28,14 @@ import {
 } from '../api.js';
 import { toast } from '../stores/toastStore.js';
 import { diffDisplayPath } from '../diffModel.js';
+import { copyTextToClipboard } from '../utils/clipboard.js';
 import { tokenizeHunks } from '../utils/diffSyntax.js';
 import {
   CommentForm,
   CommentThread,
   buildThreads,
 } from './CommentWidgets.jsx';
+import StickyHeader from './StickyHeader.jsx';
 import {
   basePathForDiffFile,
   buildDiffRenderItems,
@@ -138,6 +140,7 @@ export default function DiffFileWithComments({
     lines: null,
     error: '',
   });
+  const [pathMenu, setPathMenu] = useState(null);
 
   useEffect(() => {
     setRenderedHunks(file.hunks || []);
@@ -423,14 +426,65 @@ export default function DiffFileWithComments({
     },
   }), []);
 
-  // Right-click → paste path + selection into chat composer (the
-  // existing affordance the operator already has).
-  function onContextMenu(event) {
-    if (typeof onAddToChat !== 'function') { return; }
+  function openPathMenu(event) {
     event.preventDefault();
+    event.stopPropagation();
+    setPathMenu({ x: event.clientX, y: event.clientY });
+  }
+
+  function closePathMenu() {
+    setPathMenu(null);
+  }
+
+  function showPathInTree() {
+    closePathMenu();
+    if (typeof onFocusInTree === 'function') {
+      onFocusInTree({ repoId, relativePath: path });
+    }
+  }
+
+  function placePathInChat() {
+    closePathMenu();
+    if (typeof onAddToChat !== 'function') { return; }
     const fragment = buildChatFragmentFromSelection(path, repoId);
     if (fragment) { onAddToChat(fragment); }
   }
+
+  async function copyHeaderRelativePath() {
+    const repoPath = formatRepoRelativePath(repoId, path);
+    closePathMenu();
+    if (!path) { return; }
+    try {
+      await copyTextToClipboard(repoPath);
+      toast.show({
+        kind: 'success',
+        title: 'Copied relative path',
+        message: repoPath,
+        durationMs: 2500,
+      });
+    } catch (err) {
+      toast.show({
+        kind: 'error',
+        title: 'Copy failed',
+        message: String(err?.message || err || 'clipboard unavailable'),
+        durationMs: 5000,
+      });
+    }
+  }
+
+  useEffect(() => {
+    if (!pathMenu) { return undefined; }
+    function onPointerDown() { closePathMenu(); }
+    function onKeyDown(event) {
+      if (event.key === 'Escape') { closePathMenu(); }
+    }
+    window.addEventListener('pointerdown', onPointerDown);
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('pointerdown', onPointerDown);
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [pathMenu]);
 
   const fileThreads = useMemo(
     () => buildThreads(fileLevelComments),
@@ -685,19 +739,58 @@ export default function DiffFileWithComments({
   ) : (
     <span className="diff-file-path">{pathSegments}</span>
   );
+  const showInTreeDisabled = typeof onFocusInTree !== 'function';
+  const placeInChatDisabled = typeof onAddToChat !== 'function';
+  const pathContextMenu = pathMenu ? (
+    <div
+      className="diff-file-context-menu"
+      style={{ left: pathMenu.x, top: pathMenu.y }}
+      onPointerDown={(event) => event.stopPropagation()}
+      onContextMenu={(event) => event.preventDefault()}
+      role="menu"
+    >
+      <button
+        type="button"
+        className="diff-file-context-menu-item"
+        onClick={showPathInTree}
+        disabled={showInTreeDisabled}
+        role="menuitem"
+      >
+        Show in tree
+      </button>
+      <button
+        type="button"
+        className="diff-file-context-menu-item"
+        onClick={placePathInChat}
+        disabled={placeInChatDisabled}
+        role="menuitem"
+      >
+        Place in chat
+      </button>
+      <button
+        type="button"
+        className="diff-file-context-menu-item"
+        onClick={copyHeaderRelativePath}
+        role="menuitem"
+      >
+        Copy relative path
+      </button>
+    </div>
+  ) : null;
 
   return (
     <section
       className={`diff-file ${expanded ? 'is-expanded' : 'is-collapsed'}`}
-      onContextMenu={onContextMenu}
-      title="Click a line gutter to add an inline comment · right-click to paste path + selection into chat"
+      onContextMenu={openPathMenu}
+      title="Click a line gutter to add an inline comment · right-click for file actions"
     >
-      <header className="diff-file-header">
+      <StickyHeader as="header" className="diff-file-header">
         {collapseToggle}
         <DiffHeaderKindIcon kind={file.type} />
         {conflictedBadge}
         {focusPathButton}
-      </header>
+      </StickyHeader>
+      {pathContextMenu}
       {/* Stable wrapper for everything below the sticky header. The
           ``.diff-file`` card uses ``overflow: visible`` so its sticky
           header keeps working, which means the card's rounded bottom
@@ -731,4 +824,12 @@ function buildChatFragmentFromSelection(path, repoId) {
     + truncated
     + '\n```'
   );
+}
+
+function formatRepoRelativePath(repoId, relativePath) {
+  const repo = String(repoId || '').trim();
+  const path = String(relativePath || '').trim();
+  if (!repo) { return path; }
+  if (!path) { return repo; }
+  return `${repo}:${path}`;
 }

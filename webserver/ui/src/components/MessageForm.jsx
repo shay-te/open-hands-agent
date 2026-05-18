@@ -37,6 +37,7 @@ import { readDraft, writeDraft } from '../utils/composerDraft.js';
 // keystroke lets the next mount (on tab return) read the in-progress
 // draft back out — matches VS Code's per-tab draft behaviour.
 // Submit / clear / mount-on-empty all wipe the key.
+const SINGLE_LINE_TEXTAREA_HEIGHT = 'calc(1.4em + 16px)';
 
 const MessageForm = forwardRef(function MessageForm({
   taskId,
@@ -67,6 +68,10 @@ const MessageForm = forwardRef(function MessageForm({
   const autoResize = useCallback(() => {
     const el = textareaRef.current;
     if (!el) { return; }
+    if (!String(el.value || '').trim()) {
+      el.style.height = SINGLE_LINE_TEXTAREA_HEIGHT;
+      return;
+    }
     el.style.height = 'auto';
     el.style.height = `${el.scrollHeight}px`;
   }, []);
@@ -151,7 +156,7 @@ const MessageForm = forwardRef(function MessageForm({
     ? disabledReason || 'Session is not live — chat resumes when kato re-spawns it.'
     : isQueueing
       ? 'Queue another message… (sends when Claude is free)'
-      : 'Reply to Claude (Shift+Enter for newline, paste or drop images)';
+      : 'Reply to Claude';
   const submitClass = isQueueing ? 'is-queued' : '';
   const hasContent = (value || '').trim() || attachments.length > 0;
   const submitLabel = isQueueing ? 'Queue' : 'Send';
@@ -290,6 +295,8 @@ const MessageForm = forwardRef(function MessageForm({
           ref={textareaRef}
           id="message-input"
           placeholder={placeholder}
+          rows={1}
+          title="Shift+Enter for newline. Paste or drop images to attach."
           value={value || ''}
           disabled={disabled}
           onChange={handleChange}
