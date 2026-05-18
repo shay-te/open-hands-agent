@@ -215,6 +215,29 @@ describe('EventLog — server event rendering', () => {
     ).toHaveTextContent('restart prompt');
   });
 
+  test('USER task-notification content is hidden from prompts', () => {
+    const { container } = render(<EventLog entries={[
+      _server({
+        type: CLAUDE_EVENT.USER,
+        message: {
+          content: [{
+            type: 'text',
+            text: '<task-notification><status>completed</status></task-notification>',
+          }],
+        },
+      }),
+      _server({
+        type: CLAUDE_EVENT.USER,
+        message: { content: [{ type: 'text', text: 'real prompt' }] },
+      }),
+    ]} />);
+    const prompts = container.querySelectorAll('.chat-sticky-prompt-text');
+
+    expect(prompts.length).toBe(1);
+    expect(prompts[0]).toHaveTextContent('real prompt');
+    expect(container).not.toHaveTextContent('task-notification');
+  });
+
   test('USER with images appends image count', () => {
     const { container } = render(<EventLog entries={[_server({
       type: CLAUDE_EVENT.USER,

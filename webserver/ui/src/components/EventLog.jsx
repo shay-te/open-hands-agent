@@ -37,7 +37,11 @@ export default function EventLog({
   // unchanged. Memoizing on ``entries`` identity collapses that to
   // once-per-stream-update.
   const visibleEntries = useMemo(
-    () => MessageFilter.dedupeUserEchoes(MessageFilter.dedupeRateLimitCycles(entries)),
+    () => MessageFilter.dedupeUserEchoes(
+      MessageFilter.hideInternalTaskNotifications(
+        MessageFilter.dedupeRateLimitCycles(entries),
+      ),
+    ),
     [entries],
   );
   const window = useMemo(

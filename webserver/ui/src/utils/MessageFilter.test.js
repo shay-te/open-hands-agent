@@ -131,3 +131,28 @@ test('dedupeUserEchoes ignores whitespace differences between local and server',
   const result = MessageFilter.dedupeUserEchoes(entries);
   assert.equal(result.length, 1);
 });
+
+test('hideInternalTaskNotifications drops task-notification user envelopes', function () {
+  const entries = [
+    _serverUser('<task-notification>\n<status>completed</status>\n</task-notification>'),
+    _serverUser('real prompt'),
+    _serverAssistant('reply'),
+  ];
+  const result = MessageFilter.hideInternalTaskNotifications(entries);
+
+  assert.equal(result.length, 2);
+  assert.equal(result[0].raw.message.content[0].text, 'real prompt');
+  assert.equal(result[1].raw.type, CLAUDE_EVENT.ASSISTANT);
+});
+
+test('hideInternalTaskNotifications drops string-content task notifications', function () {
+  const entries = [{
+    source: ENTRY_SOURCE.HISTORY,
+    raw: {
+      type: CLAUDE_EVENT.USER,
+      message: { content: '<task-notification>done</task-notification>' },
+    },
+  }];
+
+  assert.deepEqual(MessageFilter.hideInternalTaskNotifications(entries), []);
+});

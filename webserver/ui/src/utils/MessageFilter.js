@@ -10,6 +10,7 @@ import { NOTIFICATION_KIND } from '../constants/notificationKind.js';
 
 const HEARTBEAT_MESSAGE_PREFIX = 'Idle · next scan in';
 const RATE_LIMIT_TEXT_PREFIX = "You've hit your limit";
+const TASK_NOTIFICATION_PREFIX = '<task-notification>';
 
 // Wire-protocol events kato never wants to render as chat bubbles.
 // `stream_event` is incremental token streaming — pre-render noise.
@@ -52,6 +53,13 @@ export class MessageFilter {
   // from the visible transcript.
   static isChatEventHidden(eventType) {
     return HIDDEN_CHAT_EVENT_TYPES.has(eventType);
+  }
+
+  static hideInternalTaskNotifications(entries) {
+    return (entries || []).filter((entry) => {
+      if (!_isServerUserEntry(entry)) { return true; }
+      return !_isInternalTaskNotificationText(_userEventText(entry));
+    });
   }
 
   // Collapse SDK rate-limit retry loops to a single visible cycle.
@@ -220,11 +228,18 @@ function _isServerUserEntry(entry) {
 
 function _userEventText(entry) {
   const message = entry?.raw?.message || {};
+  if (typeof message.content === 'string') {
+    return message.content.trim();
+  }
   const content = Array.isArray(message.content) ? message.content : [];
   const pieces = content
     .filter((b) => b && b.type === 'text' && b.text)
     .map((b) => String(b.text));
   return pieces.join('\n').trim();
+}
+
+function _isInternalTaskNotificationText(text) {
+  return String(text || '').trim().startsWith(TASK_NOTIFICATION_PREFIX);
 }
 
 function _hasMatchingLocalUser(recentEntries, serverText, lookback) {
@@ -247,4 +262,5 @@ export const _internals = {
   RATE_LIMITED_NOTIFICATION_KINDS,
   NOTIFICATION_RATE_LIMIT_MS,
   RATE_LIMIT_TEXT_PREFIX,
+  TASK_NOTIFICATION_PREFIX,
 };
