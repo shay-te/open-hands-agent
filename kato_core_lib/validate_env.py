@@ -135,10 +135,22 @@ def validate_agent_env(env: dict[str, str]) -> list[str]:
     errors.extend(_validate_agent_backend(backend))
     errors.extend(_validate_issue_platform(issue_platform))
     errors.extend(_validate_required_agent_keys(env, issue_platform, backend))
+    errors.extend(_validate_repository_root_path(env))
     errors.extend(_validate_agent_email_env(env))
     errors.extend(_validate_repository_provider_env(env))
     errors.extend(_validate_issue_state_queue_env(env, issue_platform))
     return errors
+
+
+def _validate_repository_root_path(env: dict[str, str]) -> list[str]:
+    path = normalized_text(env.get('REPOSITORY_ROOT_PATH', ''))
+    if not path:
+        return []
+    if not Path(path).expanduser().is_dir():
+        return [
+            f'REPOSITORY_ROOT_PATH does not exist or is not a directory: {path}'
+        ]
+    return []
 
 
 def _configured_agent_backend(env: dict[str, str]) -> str:

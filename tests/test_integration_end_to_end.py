@@ -530,7 +530,7 @@ class TestAgentEndToEndIntegration(unittest.TestCase):
             'OPENHANDS_LLM_API_KEY': 'test-llm-key',
             'OPENHANDS_BASE_URL': 'http://openhands:3000',
             'OPENHANDS_API_KEY': 'test-api-key',
-            'REPOSITORY_ROOT_PATH': '/tmp/repos',
+            'REPOSITORY_ROOT_PATH': tempfile.gettempdir(),
             'YOUTRACK_API_BASE_URL': 'https://example.youtrack.cloud',
             'YOUTRACK_API_TOKEN': 'test-youtrack-token',
             'YOUTRACK_PROJECT': 'TEST',

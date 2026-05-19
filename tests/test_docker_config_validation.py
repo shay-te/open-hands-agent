@@ -42,7 +42,9 @@ class TestDockerConfigValidation(unittest.TestCase):
         os.environ['KATO_ISSUE_PLATFORM'] = 'youtrack'
         os.environ['OPENHANDS_API_KEY'] = 'test-key'
         os.environ['OPENHANDS_BASE_URL'] = 'http://openhands:3000'
-        os.environ['REPOSITORY_ROOT_PATH'] = '/test/path'
+        import tempfile
+        self._tmp_repo_dir = tempfile.mkdtemp()
+        os.environ['REPOSITORY_ROOT_PATH'] = self._tmp_repo_dir
         
         # This should not raise any exceptions
         try:

@@ -259,6 +259,13 @@ def _resolve_setting(key: str) -> dict:
     }
 
 
+def _validate_settings(updates: dict[str, str]) -> list[str]:
+    from kato_core_lib.helpers.kato_settings_schema_utils import (
+        validate_settings_values,
+    )
+    return validate_settings_values(updates)
+
+
 def _persist_settings(updates: dict) -> None:
     """Write UI-edited settings to ``~/.kato/settings.json`` (atomic).
 
@@ -953,6 +960,9 @@ def _register_http_routes(app: Flask) -> None:
                     updates[key] = str(value or '')
         if not updates:
             return jsonify({'error': 'no recognised updates'}), 400
+        validation_errors = _validate_settings(updates)
+        if validation_errors:
+            return jsonify({'error': '; '.join(validation_errors)}), 400
         try:
             _persist_settings(updates)
         except OSError as exc:
@@ -1010,6 +1020,9 @@ def _register_http_routes(app: Flask) -> None:
         }
         if not updates:
             return jsonify({'error': 'no recognised fields'}), 400
+        validation_errors = _validate_settings(updates)
+        if validation_errors:
+            return jsonify({'error': '; '.join(validation_errors)}), 400
         try:
             _persist_settings(updates)
         except OSError as exc:
@@ -1077,6 +1090,9 @@ def _register_http_routes(app: Flask) -> None:
                 updates[key] = str(value if value is not None else '')
         if not updates:
             return jsonify({'error': 'no recognised settings in payload'}), 400
+        validation_errors = _validate_settings(updates)
+        if validation_errors:
+            return jsonify({'error': '; '.join(validation_errors)}), 400
         try:
             _persist_settings(updates)
         except OSError as exc:

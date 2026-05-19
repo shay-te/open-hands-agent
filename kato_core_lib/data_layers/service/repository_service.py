@@ -169,6 +169,13 @@ class RepositoryService(GitClientMixin, RepositoryInventoryService):
         for repository in self._ensure_repositories():
             if repository.id == repository_id:
                 return repository
+        # Direct folder lookup fallback — same fast path used by
+        # _resolve_repository_for_tag, so a repo resolved by tag during
+        # task setup is always findable here even if the warm-up walk
+        # missed it (e.g. timing, walk error, or Windows path edge case).
+        direct = self._discover_repository_at_named_folder(repository_id)
+        if direct is not None:
+            return direct
         raise ValueError(f'unknown repository id: {repository_id}')
 
     def build_branch_name(self, task: Task, repository) -> str:

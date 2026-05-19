@@ -23,7 +23,33 @@ else in ``.env.example`` is covered below.
 
 from __future__ import annotations
 
+import math
+
 LOG_LEVELS = ['debug', 'info', 'warning', 'error', 'critical']
+
+# Keys whose value must be a valid http/https URL when non-empty.
+# Covers both schema fields and provider/git-host fields that live
+# outside the schema (task-providers, git-providers tabs).
+_URL_KEYS: frozenset[str] = frozenset({
+    'OPENHANDS_BASE_URL',
+    'OPENHANDS_TESTING_BASE_URL',
+    'OPENHANDS_WEB_URL',
+    'OPENHANDS_LLM_BASE_URL',
+    'YOUTRACK_API_BASE_URL',
+    'JIRA_API_BASE_URL',
+    'GITHUB_API_BASE_URL',
+    'GITLAB_API_BASE_URL',
+    'BITBUCKET_API_BASE_URL',
+})
+
+# Keys whose value must look like an email address when non-empty.
+_EMAIL_KEYS: frozenset[str] = frozenset({
+    'KATO_FAILURE_EMAIL_TO',
+    'KATO_FAILURE_EMAIL_SENDER_EMAIL',
+    'KATO_COMPLETION_EMAIL_TO',
+    'KATO_COMPLETION_EMAIL_SENDER_EMAIL',
+    'KATO_OPERATOR_EMAIL',
+})
 
 # Each entry: (key, type, label, help, extra). ``extra`` is a dict:
 #   options=[...]         for select
@@ -443,6 +469,78 @@ SETTINGS_SCHEMA: list[dict] = [
         ],
     },
 ]
+
+
+def _schema_type_lookup() -> dict[str, dict]:
+    """Return {key: {type, options?, ...}} for every schema-declared field."""
+    lookup: dict[str, dict] = {}
+    for section in SETTINGS_SCHEMA:
+        for key, ftype, _label, _help, extra in section['fields']:
+            if key not in lookup:
+                lookup[key] = {'type': ftype, **(extra or {})}
+    return lookup
+
+
+def _check_type(key: str, val: str, meta: dict) -> str | None:
+    ftype = meta.get('type', 'text')
+    if ftype == 'select':
+        options: list[str] = meta.get('options', [])
+        if options and val not in options:
+            return f'{key}: must be one of {options}; got "{val}"'
+    elif ftype == 'number':
+        try:
+            parsed = float(val)
+            if not math.isfinite(parsed) or parsed < 0:
+                raise ValueError
+        except (ValueError, TypeError):
+            return f'{key}: must be a non-negative number; got "{val}"'
+    elif ftype == 'bool' and val not in ('true', 'false'):
+        return f'{key}: must be "true" or "false"; got "{val}"'
+    return None
+
+
+def _check_url(key: str, val: str) -> str | None:
+    if key in _URL_KEYS and not val.startswith(('http://', 'https://')):
+        return f'{key}: must be an http:// or https:// URL; got "{val}"'
+    return None
+
+
+def _check_email(key: str, val: str) -> str | None:
+    if key not in _EMAIL_KEYS:
+        return None
+    parts = val.split('@', 1)
+    if len(parts) != 2 or not parts[0] or '.' not in parts[1]:
+        return f'{key}: must be a valid email address; got "{val}"'
+    return None
+
+
+def validate_settings_values(updates: dict[str, str]) -> list[str]:
+    """Validate a settings dict before it is persisted.
+
+    Covers:
+    - ``select`` fields: value must be one of the declared options
+    - ``number`` fields: value must parse as a finite non-negative number
+    - ``bool`` fields: value must be ``"true"`` or ``"false"``
+    - URL keys: value must start with ``http://`` or ``https://``
+    - Email keys: value must contain ``@`` with a dotted domain
+
+    Empty-string values are skipped — clearing a field is always valid.
+    Returns a (possibly empty) list of human-readable error strings.
+    """
+    lookup = _schema_type_lookup()
+    errors: list[str] = []
+    for key, raw in updates.items():
+        val = str(raw).strip()
+        if not val:
+            continue
+        for check in (
+            _check_type(key, val, lookup.get(key, {})),
+            _check_url(key, val),
+            _check_email(key, val),
+        ):
+            if check:
+                errors.append(check)
+    return errors
 
 
 def all_settings_keys() -> set[str]:

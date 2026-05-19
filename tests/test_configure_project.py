@@ -383,7 +383,7 @@ class ConfigureProjectTests(unittest.TestCase):
         with patch(
             'git_core_lib.git_core_lib.helpers.repository_discovery_utils.discover_git_repositories',
             return_value=[],
-        ):
+        ), patch.object(Path, 'is_dir', return_value=True):
             return validate_agent_env(values)
 
     def test_main_writes_env_file(self) -> None:

@@ -273,6 +273,9 @@ class RepositoryInventoryService(Service):
         for repository in self._ensure_repositories():
             if repository.id == repository_id:
                 return repository
+        direct = self._discover_repository_at_named_folder(repository_id)
+        if direct is not None:
+            return direct
         raise ValueError(f'unknown repository id: {repository_id}')
 
     def _validate_inventory(self) -> None:
