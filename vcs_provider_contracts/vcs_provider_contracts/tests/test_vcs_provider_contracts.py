@@ -282,3 +282,96 @@ class VcsProviderContractsTests(unittest.TestCase):
         self.assertIsInstance(bitbucket.pull_request, BitbucketClient)
         self.assertIsInstance(bitbucket.issue, BitbucketIssuesClient)
         self.assertEqual(bitbucket.issue.max_retries, 4)
+
+
+# ---------------------------------------------------------------------------
+# Cover the ``raise NotImplementedError`` bodies in the Protocol classes
+# ---------------------------------------------------------------------------
+
+
+class ProtocolMethodNotImplementedTests(unittest.TestCase):
+    """The ``raise NotImplementedError`` bodies inside Protocol classes
+    exist so a subclass that forgets to override gets a clear error
+    rather than a silent no-op. Call each as an unbound method to
+    cover the body — ``self`` doesn't have to be an instance since
+    Python only enforces that at call sites that go through a
+    bound-method descriptor."""
+
+    def test_pull_request_provider_validate_connection(self) -> None:
+        with self.assertRaises(NotImplementedError):
+            PullRequestProvider.validate_connection(None, 'o', 'r')
+
+    def test_pull_request_provider_create_pull_request(self) -> None:
+        with self.assertRaises(NotImplementedError):
+            PullRequestProvider.create_pull_request(
+                None, 'title', 'src', 'o', 'r',
+            )
+
+    def test_pull_request_provider_list_pull_request_comments(self) -> None:
+        with self.assertRaises(NotImplementedError):
+            PullRequestProvider.list_pull_request_comments(None, 'o', 'r', '1')
+
+    def test_pull_request_provider_find_pull_requests(self) -> None:
+        with self.assertRaises(NotImplementedError):
+            PullRequestProvider.find_pull_requests(None, 'o', 'r')
+
+    def test_pull_request_provider_reply_to_review_comment(self) -> None:
+        with self.assertRaises(NotImplementedError):
+            PullRequestProvider.reply_to_review_comment(
+                None, 'o', 'r', ReviewComment(
+                    pull_request_id='1', comment_id='1', author='a', body='b',
+                ), 'reply',
+            )
+
+    def test_pull_request_provider_resolve_review_comment(self) -> None:
+        with self.assertRaises(NotImplementedError):
+            PullRequestProvider.resolve_review_comment(
+                None, 'o', 'r', ReviewComment(
+                    pull_request_id='1', comment_id='1', author='a', body='b',
+                ),
+            )
+
+    def test_issue_provider_validate_connection(self) -> None:
+        with self.assertRaises(NotImplementedError):
+            IssueProvider.validate_connection(None, 'p', 'a', ['open'])
+
+    def test_issue_provider_get_assigned_tasks(self) -> None:
+        with self.assertRaises(NotImplementedError):
+            IssueProvider.get_assigned_tasks(None, 'p', 'a', ['open'])
+
+    def test_issue_provider_add_comment(self) -> None:
+        with self.assertRaises(NotImplementedError):
+            IssueProvider.add_comment(None, 'issue-1', 'body')
+
+    def test_issue_provider_move_issue_to_state(self) -> None:
+        with self.assertRaises(NotImplementedError):
+            IssueProvider.move_issue_to_state(None, 'issue-1', 'field', 'state')
+
+    def test_issue_provider_add_tag(self) -> None:
+        with self.assertRaises(NotImplementedError):
+            IssueProvider.add_tag(None, 'issue-1', 'kato:ready')
+
+    def test_issue_provider_remove_tag(self) -> None:
+        with self.assertRaises(NotImplementedError):
+            IssueProvider.remove_tag(None, 'issue-1', 'kato:ready')
+
+
+class IssueCommentDataclassTests(unittest.TestCase):
+    """``IssueComment`` is a simple frozen dataclass — touch it once
+    to cover the module-level dataclass declaration."""
+
+    def test_default_construction(self) -> None:
+        from vcs_provider_contracts.vcs_provider_contracts.issue_comment import (
+            IssueComment,
+        )
+        comment = IssueComment()
+        self.assertEqual(comment.author, '')
+        self.assertEqual(comment.body, '')
+
+    def test_explicit_construction(self) -> None:
+        from vcs_provider_contracts.vcs_provider_contracts.issue_comment import (
+            IssueComment,
+        )
+        comment = IssueComment(author='reviewer', body='lgtm')
+        self.assertEqual(comment.author, 'reviewer')
+        self.assertEqual(comment.body, 'lgtm')

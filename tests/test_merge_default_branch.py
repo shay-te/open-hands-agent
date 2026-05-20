@@ -280,5 +280,215 @@ class AgentAggregationTests(unittest.TestCase):
         self.assertEqual(skipped['detail'], 'uncommitted changes')
 
 
+# ---------------------------------------------------------------------------
+# Coverage for defensive branches in _merge_preflight + merge_default_branch_into_clone
+# ---------------------------------------------------------------------------
+
+
+class MergePreflightDefensiveBranchTests(unittest.TestCase):
+    """Cover the remaining ``return fail(...)`` branches in
+    ``_merge_preflight`` that the original tests didn't reach."""
+
+    def setUp(self) -> None:
+        self.service = _make_service()
+        self.service._validate_local_path = MagicMock()
+
+    def test_not_a_git_repo(self) -> None:
+        repo = SimpleNamespace(id='c', local_path='/no/git/here')
+        with patch.object(Path, 'is_dir', return_value=False):
+            out = self.service.merge_default_branch_into_clone(repo, 'feat/x')
+        self.assertEqual(out['reason'], 'not_a_git_repo')
+
+    def test_no_branch_argument(self) -> None:
+        repo = SimpleNamespace(id='c', local_path='/x')
+        with patch.object(Path, 'is_dir', return_value=True):
+            out = self.service.merge_default_branch_into_clone(repo, '   ')
+        self.assertEqual(out['reason'], 'no_branch')
+
+    def test_current_branch_lookup_failure(self) -> None:
+        repo = SimpleNamespace(id='c', local_path='/x')
+        with patch.object(Path, 'is_dir', return_value=True), \
+             patch.object(self.service, '_current_branch',
+                          side_effect=RuntimeError('git rev-parse failed')):
+            out = self.service.merge_default_branch_into_clone(repo, 'feat/x')
+        self.assertEqual(out['reason'], 'branch_lookup_failed')
+        self.assertIn('git rev-parse failed', out['detail'])
+
+    def test_status_check_failure(self) -> None:
+        repo = SimpleNamespace(id='c', local_path='/x')
+        with patch.object(Path, 'is_dir', return_value=True), \
+             patch.object(self.service, '_current_branch',
+                          return_value='feat/x'), \
+             patch.object(self.service, '_working_tree_status',
+                          side_effect=RuntimeError('git status failed')):
+            out = self.service.merge_default_branch_into_clone(repo, 'feat/x')
+        self.assertEqual(out['reason'], 'status_check_failed')
+
+    def test_default_branch_unknown(self) -> None:
+        repo = SimpleNamespace(id='c', local_path='/x')
+        with patch.object(Path, 'is_dir', return_value=True), \
+             patch.object(self.service, '_current_branch',
+                          return_value='feat/x'), \
+             patch.object(self.service, '_working_tree_status',
+                          return_value=''), \
+             patch.object(self.service, 'destination_branch',
+                          side_effect=ValueError('no default branch')):
+            out = self.service.merge_default_branch_into_clone(repo, 'feat/x')
+        self.assertEqual(out['reason'], 'default_branch_unknown')
+
+
+class MergeDefaultBranchPostPreflightBranchTests(unittest.TestCase):
+    """Defensive branches AFTER ``_merge_preflight`` returns OK —
+    fetch failure, remote-lookup failure, missing remote default,
+    commit-count failure, merge-fail-with-abort."""
+
+    def setUp(self) -> None:
+        self.service = _make_service()
+        # All preflight checks pass; default branch is 'master'.
+        self.service._merge_preflight = MagicMock(
+            return_value={'default_branch': 'master'},
+        )
+
+    def test_fetch_failure_surfaces_fetch_failed(self) -> None:
+        repo = SimpleNamespace(id='c', local_path='/x')
+        with patch.object(self.service, '_run_git',
+                          side_effect=RuntimeError('network down')):
+            out = self.service.merge_default_branch_into_clone(repo, 'feat/x')
+        self.assertEqual(out['reason'], 'fetch_failed')
+        self.assertIn('network down', out['detail'])
+
+    def test_remote_lookup_exception_surfaces_remote_lookup_failed(self) -> None:
+        repo = SimpleNamespace(id='c', local_path='/x')
+        with patch.object(self.service, '_run_git'), \
+             patch.object(self.service, '_git_reference_exists',
+                          side_effect=RuntimeError('rev-parse failed')):
+            out = self.service.merge_default_branch_into_clone(repo, 'feat/x')
+        self.assertEqual(out['reason'], 'remote_lookup_failed')
+
+    def test_remote_default_missing(self) -> None:
+        repo = SimpleNamespace(id='c', local_path='/x')
+        with patch.object(self.service, '_run_git'), \
+             patch.object(self.service, '_git_reference_exists',
+                          return_value=False):
+            out = self.service.merge_default_branch_into_clone(repo, 'feat/x')
+        self.assertEqual(out['reason'], 'remote_default_missing')
+
+    def test_commit_count_failure(self) -> None:
+        repo = SimpleNamespace(id='c', local_path='/x')
+        with patch.object(self.service, '_run_git'), \
+             patch.object(self.service, '_git_reference_exists',
+                          return_value=True), \
+             patch.object(self.service, '_left_right_commit_counts',
+                          side_effect=RuntimeError('count failed')):
+            out = self.service.merge_default_branch_into_clone(repo, 'feat/x')
+        self.assertEqual(out['reason'], 'commit_count_failed')
+
+    def test_non_zero_merge_with_no_conflict_aborts(self) -> None:
+        # Lines 769-775: ``git merge`` returns non-zero but
+        # ``_unmerged_paths`` is empty — so the merge failed for some
+        # other reason (refusing for an unrelated cause). We must
+        # abort the merge and return reason='merge_failed'.
+        repo = SimpleNamespace(id='c', local_path='/x')
+        # Behind-count > 0 so we actually attempt the merge.
+        with patch.object(self.service, '_run_git'), \
+             patch.object(self.service, '_git_reference_exists',
+                          return_value=True), \
+             patch.object(self.service, '_left_right_commit_counts',
+                          return_value=(0, 3)), \
+             patch.object(self.service, '_run_git_subprocess',
+                          return_value=SimpleNamespace(
+                              returncode=1, stderr='merge bailed',
+                              stdout='',
+                          )), \
+             patch.object(self.service, '_unmerged_paths', return_value=[]):
+            out = self.service.merge_default_branch_into_clone(repo, 'feat/x')
+        self.assertEqual(out['reason'], 'merge_failed')
+        self.assertIn('merge bailed', out['detail'])
+
+
+class UnmergedPathsBranchTest(unittest.TestCase):
+    """Line 784: ``_unmerged_paths`` returns [] when git exits non-zero."""
+
+    def test_returns_empty_list_on_git_failure(self) -> None:
+        service = _make_service()
+        with patch.object(
+            service, '_run_git_subprocess',
+            return_value=SimpleNamespace(returncode=1, stdout='', stderr='x'),
+        ):
+            self.assertEqual(service._unmerged_paths('/x'), [])
+
+
+class GetRepositoryRaisesWhenAllFallbacksMissTests(unittest.TestCase):
+    """Line 179: the final ``raise ValueError`` in
+    ``RepositoryService.get_repository`` when both the inventory
+    lookup AND the direct-folder fallback miss."""
+
+    def test_raises_when_inventory_and_direct_lookup_both_miss(self) -> None:
+        service = _make_service()
+        with patch.object(service, '_ensure_repositories', return_value=[]), \
+             patch.object(service, '_discover_repository_at_named_folder',
+                          return_value=None):
+            with self.assertRaisesRegex(ValueError, 'unknown repository id: nope'):
+                service.get_repository('nope')
+
+    def test_returns_direct_lookup_when_inventory_missed_repo(self) -> None:
+        # Line 178: ``return direct`` — the inventory walk doesn't
+        # include the repo but the direct-folder lookup finds it.
+        # This is the fix path for the Windows-operator case where the
+        # full inventory walk missed a repo that nevertheless exists
+        # at REPOSITORY_ROOT_PATH/<id>/.
+        service = _make_service()
+        stub_repo = SimpleNamespace(
+            id='ob-love-admin-client',
+            local_path='/repos/ob-love-admin-client',
+        )
+        with patch.object(service, '_ensure_repositories', return_value=[]), \
+             patch.object(service, '_discover_repository_at_named_folder',
+                          return_value=stub_repo) as discover:
+            result = service.get_repository('ob-love-admin-client')
+        discover.assert_called_once_with('ob-love-admin-client')
+        self.assertIs(result, stub_repo)
+
+
+class WorkspaceHasTaskChangesDefensiveBranchTests(unittest.TestCase):
+    """Lines 479-480, 483-484, 495-496 in ``workspace_has_task_changes``:
+    OSError on ``.git`` is_dir check, exception in ``_current_branch``,
+    exception in ``_ahead_count``."""
+
+    def test_oserror_on_git_dir_check_returns_true(self) -> None:
+        # Lines 479-480: ``(Path(local_path) / '.git').is_dir()`` raises
+        # OSError (path too long, perms, etc.). Fail-open → return True.
+        service = _make_service()
+        repo = SimpleNamespace(id='c', local_path='/x')
+        with patch.object(Path, 'is_dir', side_effect=OSError('denied')):
+            self.assertTrue(
+                service.workspace_has_task_changes(repo, 'feat/x'),
+            )
+
+    def test_current_branch_exception_returns_true(self) -> None:
+        # Lines 483-484: fail-open on ``_current_branch`` failure.
+        service = _make_service()
+        repo = SimpleNamespace(id='c', local_path='/x')
+        with patch.object(Path, 'is_dir', return_value=True), \
+             patch.object(service, '_current_branch',
+                          side_effect=RuntimeError('git failed')):
+            self.assertTrue(
+                service.workspace_has_task_changes(repo, 'feat/x'),
+            )
+
+    def test_destination_branch_exception_returns_true(self) -> None:
+        # Lines 495-496: fail-open on destination_branch / _ahead_count.
+        service = _make_service()
+        repo = SimpleNamespace(id='c', local_path='/x')
+        with patch.object(Path, 'is_dir', return_value=True), \
+             patch.object(service, '_current_branch',
+                          return_value='feat/x'), \
+             patch.object(service, 'destination_branch',
+                          side_effect=ValueError('no default')):
+            self.assertTrue(
+                service.workspace_has_task_changes(repo, 'feat/x'),
+            )
+
+
 if __name__ == '__main__':
     unittest.main()

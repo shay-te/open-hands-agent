@@ -451,6 +451,35 @@ class JiraClientMoveIssueToStateTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'unknown jira transition'):
                 client.move_issue_to_state('PROJ-1', 'status', 'In Review')
 
+    def test_verifies_dict_field_value_normalises_to_value_key(self) -> None:
+        # When Jira returns the field as a dict (e.g. ``priority``
+        # comes back as ``{"value": "High"}`` for some custom field
+        # types), the verification path must unwrap it before the
+        # equality check — otherwise every non-status update would
+        # falsely "fail verification" because ``{"value": ...} != "..."``.
+        client = _make_client()
+        put_response = mock_response()
+        verify_response = mock_response(
+            json_data={'fields': {'priority': {'value': 'High'}}},
+        )
+
+        with patch.object(client, '_put', return_value=put_response), \
+             patch.object(client, '_get', return_value=verify_response):
+            # Should NOT raise — the dict-shape field unwraps to "High".
+            client.move_issue_to_state('PROJ-1', 'priority', 'High')
+
+    def test_verifies_dict_field_value_normalises_to_name_key(self) -> None:
+        # Other Jira custom field types return ``{"name": "..."}``.
+        client = _make_client()
+        put_response = mock_response()
+        verify_response = mock_response(
+            json_data={'fields': {'priority': {'name': 'High'}}},
+        )
+
+        with patch.object(client, '_put', return_value=put_response), \
+             patch.object(client, '_get', return_value=verify_response):
+            client.move_issue_to_state('PROJ-1', 'priority', 'High')
+
 
 class JiraClientBuildRecordTests(unittest.TestCase):
     def test_generates_branch_name_from_id(self) -> None:

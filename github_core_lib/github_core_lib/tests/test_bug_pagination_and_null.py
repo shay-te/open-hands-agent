@@ -67,6 +67,23 @@ class GitHubReviewThreadsPaginationTests(unittest.TestCase):
         # 5 comments mapped from 5 threads.
         self.assertEqual(len(comments), 5)
 
+    def test_has_next_page_but_missing_end_cursor_breaks_loop(self) -> None:
+        # Adversarial GraphQL response: ``hasNextPage`` says yes but
+        # ``endCursor`` is missing/empty. Without the ``if not cursor:
+        # break`` guard the loop would re-issue the same cursorless
+        # query and spin forever (or until GitHub rate-limited).
+        client = GitHubClient('https://api.github.com', 'gh-token')
+        page = _payload_page(
+            [_thread(1)], has_next=True, end_cursor=None,
+        )
+
+        with patch.object(client, '_graphql_with_retry', return_value=page) as mock_q:
+            comments = client.list_pull_request_comments('owner', 'repo', '17')
+
+        # Single call — the missing cursor must short-circuit the loop.
+        self.assertEqual(mock_q.call_count, 1)
+        self.assertEqual(len(comments), 1)
+
     def test_multi_page_follows_endCursor_until_done(self) -> None:
         client = GitHubClient('https://api.github.com', 'gh-token')
         page1 = _payload_page(

@@ -594,6 +594,31 @@ class StreamingClaudeSessionPureMethodTests(unittest.TestCase):
         )
         session.logger.info.assert_not_called()
 
+    def test_capture_swallows_correction_callback_exception(self) -> None:
+        # If the session_id_correction_callback raises (e.g. the manager
+        # can't persist the corrected id because the state dir went
+        # read-only), the streaming session must NOT crash mid-event.
+        # The exception is logged and the stream continues.
+        session = self._build_session(resume_session_id='sess-abc')
+        session._claude_session_id = 'sess-abc'
+        session.logger = MagicMock()
+
+        def broken_callback(_actual_id):
+            raise RuntimeError('persist failed')
+
+        session._session_id_correction_callback = broken_callback
+        ev = SessionEvent(raw={
+            'type': 'system', 'subtype': 'init', 'session_id': 'sess-zzz',
+        })
+        # Must NOT raise.
+        session._maybe_capture_session_id(ev)
+        # The callback exception is logged via logger.exception.
+        session.logger.exception.assert_called_once()
+        msg = session.logger.exception.call_args.args[0]
+        self.assertIn('session_id_correction_callback raised', msg)
+        # The corrected id is still adopted on the session itself.
+        self.assertEqual(session.claude_session_id, 'sess-zzz')
+
     def test_maybe_fire_done_sentinel_fires_callback_once(self) -> None:
         callback_calls: list = []
         session = self._build_session()

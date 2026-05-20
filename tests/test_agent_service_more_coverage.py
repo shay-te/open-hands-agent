@@ -1725,5 +1725,306 @@ class AdvanceFinishedCommentRunsTests(unittest.TestCase):
         self.assertEqual(results, [])
 
 
+# ---------------------------------------------------------------------------
+# Coverage for remaining defensive branches in agent_service.py
+# ---------------------------------------------------------------------------
+
+
+class CompleteInProgressTaskCommentsDefensiveBranches(unittest.TestCase):
+    """Lines 950-954, 1014-1015: defensive exception paths in
+    ``complete_in_progress_task_comments``."""
+
+    def test_store_list_exception_returns_empty(self) -> None:
+        # Lines 950-954: when ``store.list()`` raises, log and return [].
+        service = AgentService(**_kwargs())
+        store = MagicMock()
+        store.list.side_effect = RuntimeError('store boom')
+        with patch.object(service, '_comment_store_for', return_value=store), \
+             patch.object(service, 'logger', MagicMock()) as mock_logger:
+            result = service.complete_in_progress_task_comments(
+                'T1', success=True, result_text='ok',
+            )
+        self.assertEqual(result, [])
+        mock_logger.exception.assert_called_once()
+
+
+class AdvanceFinishedCommentRunsDefensiveBranches(unittest.TestCase):
+    """Lines 1037, 1040, 1043-1044, 1050, 1058-1059, 1069-1070, 1081-1109:
+    every branch + exception path in ``advance_finished_comment_runs``."""
+
+    def _comment(self, comment_id, status):
+        from kato_core_lib.comment_core_lib import KatoCommentStatus
+        return SimpleNamespace(
+            id=comment_id, kato_status=KatoCommentStatus(status).value,
+        )
+
+    def test_blank_task_id_skipped(self) -> None:
+        # Line 1037: ``if not task_id: continue``.
+        service = AgentService(**_kwargs())
+        with patch.object(service, '_safe_list_workspaces',
+                          return_value=[SimpleNamespace(task_id='   ')]):
+            result = service.advance_finished_comment_runs()
+        self.assertEqual(result, [])
+
+    def test_no_comment_store_skipped(self) -> None:
+        # Line 1040: ``store is None → continue``.
+        service = AgentService(**_kwargs())
+        with patch.object(service, '_safe_list_workspaces',
+                          return_value=[SimpleNamespace(task_id='T1')]), \
+             patch.object(service, '_comment_store_for', return_value=None):
+            result = service.advance_finished_comment_runs()
+        self.assertEqual(result, [])
+
+    def test_store_list_exception_skipped(self) -> None:
+        # Lines 1043-1044: ``store.list()`` exception → continue.
+        service = AgentService(**_kwargs())
+        store = MagicMock()
+        store.list.side_effect = RuntimeError('store boom')
+        with patch.object(service, '_safe_list_workspaces',
+                          return_value=[SimpleNamespace(task_id='T1')]), \
+             patch.object(service, '_comment_store_for', return_value=store):
+            result = service.advance_finished_comment_runs()
+        self.assertEqual(result, [])
+
+    def test_no_in_progress_comments_skipped(self) -> None:
+        # Line 1050: ``if not in_progress: continue``.
+        service = AgentService(**_kwargs())
+        store = _FakeCommentStore([self._comment('c1', 'queued')])
+        with patch.object(service, '_safe_list_workspaces',
+                          return_value=[SimpleNamespace(task_id='T1')]), \
+             patch.object(service, '_comment_store_for', return_value=store):
+            result = service.advance_finished_comment_runs()
+        self.assertEqual(result, [])
+
+    def test_get_session_exception_swallowed(self) -> None:
+        # Lines 1058-1059: ``session_manager.get_session`` raises.
+        # Session ends up None — fall through to terminal_event branch
+        # (which is also None → no advance / no requeue).
+        service = AgentService(**_kwargs())
+        store = _FakeCommentStore([self._comment('c1', 'in_progress')])
+        mgr = MagicMock()
+        mgr.get_session.side_effect = RuntimeError('mgr down')
+        service._session_manager = mgr
+        with patch.object(service, '_safe_list_workspaces',
+                          return_value=[SimpleNamespace(task_id='T1')]), \
+             patch.object(service, '_comment_store_for', return_value=store), \
+             patch.object(service, '_task_has_busy_turn', return_value=False):
+            # Must not raise even though get_session does.
+            result = service.advance_finished_comment_runs()
+        # No session → fall to terminal_event branch (None) → requeue path.
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]['action'], 'requeued')
+
+    def test_recent_events_exception_treats_as_no_result_yet(self) -> None:
+        # Lines 1069-1070: ``session.recent_events()`` raises → last_result
+        # stays None → ``continue`` (no advance for this comment).
+        service = AgentService(**_kwargs())
+        store = _FakeCommentStore([self._comment('c1', 'in_progress')])
+        session = SimpleNamespace(
+            is_alive=True,
+            recent_events=MagicMock(side_effect=RuntimeError('events failed')),
+        )
+        mgr = MagicMock()
+        mgr.get_session.return_value = session
+        service._session_manager = mgr
+        with patch.object(service, '_safe_list_workspaces',
+                          return_value=[SimpleNamespace(task_id='T1')]), \
+             patch.object(service, '_comment_store_for', return_value=store), \
+             patch.object(service, '_task_has_busy_turn', return_value=False), \
+             patch.object(service, 'complete_in_progress_task_comments') as complete:
+            service.advance_finished_comment_runs()
+        complete.assert_not_called()
+
+    def test_dead_session_with_terminal_event_advances(self) -> None:
+        # Lines 1081-1089: dead session with terminal event → advance.
+        service = AgentService(**_kwargs())
+        store = _FakeCommentStore([self._comment('c1', 'in_progress')])
+        session = SimpleNamespace(
+            is_alive=False,
+            terminal_event=SimpleNamespace(
+                raw={'is_error': False, 'result': 'finished'},
+            ),
+        )
+        mgr = MagicMock()
+        mgr.get_session.return_value = session
+        service._session_manager = mgr
+        with patch.object(service, '_safe_list_workspaces',
+                          return_value=[SimpleNamespace(task_id='T1')]), \
+             patch.object(service, '_comment_store_for', return_value=store), \
+             patch.object(service, '_task_has_busy_turn', return_value=False), \
+             patch.object(service, 'complete_in_progress_task_comments',
+                          return_value=[{'comment_id': 'c1'}]) as complete:
+            results = service.advance_finished_comment_runs()
+        complete.assert_called_once_with(
+            'T1', success=True, result_text='finished',
+        )
+        self.assertEqual(len(results), 1)
+
+    def test_session_gone_no_terminal_event_requeues_in_progress(self) -> None:
+        # Lines 1091-1107: dead session, no terminal event → requeue all
+        # in_progress comments.
+        service = AgentService(**_kwargs())
+        store = _FakeCommentStore([self._comment('c1', 'in_progress')])
+        session = SimpleNamespace(
+            is_alive=False,
+            terminal_event=None,
+        )
+        mgr = MagicMock()
+        mgr.get_session.return_value = session
+        service._session_manager = mgr
+        with patch.object(service, '_safe_list_workspaces',
+                          return_value=[SimpleNamespace(task_id='T1')]), \
+             patch.object(service, '_comment_store_for', return_value=store), \
+             patch.object(service, '_task_has_busy_turn', return_value=False):
+            results = service.advance_finished_comment_runs()
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]['action'], 'requeued')
+
+    def test_requeue_exception_logged_swallowed(self) -> None:
+        # Lines 1108-1112: ``store.update_kato_status`` raises during
+        # requeue — exception logged, loop continues.
+        service = AgentService(**_kwargs())
+        bad_store = MagicMock()
+        bad_store.list.return_value = [self._comment('c1', 'in_progress')]
+        bad_store.update_kato_status.side_effect = RuntimeError('update boom')
+        session = SimpleNamespace(is_alive=False, terminal_event=None)
+        mgr = MagicMock()
+        mgr.get_session.return_value = session
+        service._session_manager = mgr
+        with patch.object(service, '_safe_list_workspaces',
+                          return_value=[SimpleNamespace(task_id='T1')]), \
+             patch.object(service, '_comment_store_for', return_value=bad_store), \
+             patch.object(service, '_task_has_busy_turn', return_value=False), \
+             patch.object(service, 'logger', MagicMock()) as mock_logger:
+            results = service.advance_finished_comment_runs()
+        # Exception logged, requeue skipped for this comment.
+        mock_logger.exception.assert_called_once()
+        self.assertEqual(results, [])
+
+
+class CommentAgentCwdBranchTests(unittest.TestCase):
+    """Lines 1633, 1638-1643: ``_comment_agent_cwd`` fallbacks when
+    ``repository_path`` raises or no repo_id is set."""
+
+    def test_returns_empty_when_no_workspace_manager(self) -> None:
+        service = AgentService(**_kwargs())
+        service._workspace_manager = None
+        record = SimpleNamespace(repo_id='r')
+        self.assertEqual(service._comment_agent_cwd('T1', record), '')
+
+    def test_falls_back_to_workspace_path_when_repository_path_raises(self) -> None:
+        # Line 1638-1639: repository_path raises → fall through.
+        service = AgentService(**_kwargs())
+        wm = MagicMock()
+        wm.repository_path.side_effect = RuntimeError('repo not found')
+        wm.workspace_path.return_value = '/work/T1'
+        service._workspace_manager = wm
+        record = SimpleNamespace(repo_id='r')
+        self.assertEqual(service._comment_agent_cwd('T1', record), '/work/T1')
+
+    def test_returns_empty_when_workspace_path_also_raises(self) -> None:
+        # Line 1642-1643: even workspace_path raises → return ''.
+        service = AgentService(**_kwargs())
+        wm = MagicMock()
+        wm.repository_path.side_effect = RuntimeError('no repo')
+        wm.workspace_path.side_effect = RuntimeError('no workspace')
+        service._workspace_manager = wm
+        record = SimpleNamespace(repo_id='r')
+        self.assertEqual(service._comment_agent_cwd('T1', record), '')
+
+    def test_no_repo_id_falls_back_directly_to_workspace_path(self) -> None:
+        # Lines 1633-1634: ``repo_id`` blank → skip the repo branch
+        # and use workspace_path.
+        service = AgentService(**_kwargs())
+        wm = MagicMock()
+        wm.workspace_path.return_value = '/work/T1'
+        service._workspace_manager = wm
+        record = SimpleNamespace(repo_id='   ')
+        self.assertEqual(service._comment_agent_cwd('T1', record), '/work/T1')
+
+
+class UpdateSourceWorkspaceHasChangesBranchTests(unittest.TestCase):
+    """Lines 1803-1809, 1817-1821 in ``update_source_for_task``:
+    workspace_has_task_changes exception (logged) + no-changes skip."""
+
+    def test_workspace_has_changes_exception_treats_as_changed(self) -> None:
+        # Lines 1803-1809: workspace_has_task_changes raises → fail-open
+        # (treat as has_changes=True so we still try the update rather
+        # than silently swallow real work).
+        service = AgentService(**_kwargs())
+        repo = SimpleNamespace(id='r1', local_path='/x')
+        with patch.object(service, '_resolve_publish_context',
+                          return_value=([repo], 'feat/x',
+                                        SimpleNamespace(id='T1'))), \
+             patch.object(service, 'push_task',
+                          return_value={'pushed': True}), \
+             patch.object(service._repository_service,
+                          'build_branch_name', return_value='feat/x'), \
+             patch.object(service._repository_service,
+                          'workspace_has_task_changes',
+                          side_effect=RuntimeError('precheck boom')), \
+             patch.object(service._repository_service, 'get_repository',
+                          side_effect=ValueError('unknown')), \
+             patch.object(service, 'logger', MagicMock()) as mock_logger:
+            result = service.update_source_for_task('T1')
+        # Pre-check exception was logged.
+        log_calls = [c[0][0] for c in mock_logger.exception.call_args_list]
+        self.assertTrue(any(
+            'workspace-has-changes pre-check failed' in msg
+            for msg in log_calls
+        ))
+        # ValueError from get_repository ended up in skipped_repositories.
+        self.assertEqual(len(result['skipped_repositories']), 1)
+
+    def test_workspace_no_changes_skips_repo_with_reason(self) -> None:
+        # Lines 1817-1821: ``has_changes=False`` → repo added to
+        # skipped_repositories with reason 'no changes in workspace clone'.
+        service = AgentService(**_kwargs())
+        repo = SimpleNamespace(id='r1', local_path='/x')
+        with patch.object(service, '_resolve_publish_context',
+                          return_value=([repo], 'feat/x',
+                                        SimpleNamespace(id='T1'))), \
+             patch.object(service, 'push_task',
+                          return_value={'pushed': True}), \
+             patch.object(service._repository_service,
+                          'build_branch_name', return_value='feat/x'), \
+             patch.object(service._repository_service,
+                          'workspace_has_task_changes', return_value=False):
+            result = service.update_source_for_task('T1')
+        skipped = result['skipped_repositories']
+        self.assertEqual(len(skipped), 1)
+        self.assertEqual(skipped[0]['reason'], 'no changes in workspace clone')
+
+
+class AddCommentAgentReplyBranchTests(unittest.TestCase):
+    """Lines 1014-1015 in ``_add_comment_agent_reply``: when
+    ``store.add(...)`` raises (DB write failure, schema mismatch),
+    the exception is logged but not propagated — Claude's reply was
+    already delivered via SSE; failing to mirror it into the
+    comment thread mustn't crash the post-result pipeline."""
+
+    def test_empty_body_short_circuits(self) -> None:
+        service = AgentService(**_kwargs())
+        store = MagicMock()
+        comment = SimpleNamespace(id='c1')
+        service._add_comment_agent_reply(store, comment, '')
+        store.add.assert_not_called()
+
+    def test_store_add_exception_logged_swallowed(self) -> None:
+        # Lines 1014-1015: try/except around ``store.add``.
+        service = AgentService(**_kwargs())
+        store = MagicMock()
+        store.add.side_effect = RuntimeError('add failed')
+        comment = SimpleNamespace(
+            id='c1', repo_id='r', file_path='f.py', line=10,
+        )
+        with patch.object(service, 'logger', MagicMock()) as mock_logger:
+            # Must NOT raise — exception is swallowed.
+            service._add_comment_agent_reply(store, comment, 'reply text')
+        mock_logger.exception.assert_called_once()
+        msg = mock_logger.exception.call_args[0][0]
+        self.assertIn('failed to add Claude reply', msg)
+
+
 if __name__ == '__main__':
     unittest.main()

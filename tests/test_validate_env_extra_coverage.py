@@ -121,5 +121,44 @@ class ScriptEntryPointTests(unittest.TestCase):
             sys.argv = argv_backup
 
 
+class ValidateRepositoryRootPathTests(unittest.TestCase):
+    """Cover ``_validate_repository_root_path`` — the boot-time check
+    that ``REPOSITORY_ROOT_PATH`` exists on disk. Two branches:
+    empty path (skip) and path-does-not-exist (return error string)."""
+
+    def test_empty_path_is_a_noop(self) -> None:
+        from kato_core_lib.validate_env import _validate_repository_root_path
+        # Empty / whitespace-only path → no check, no error.
+        self.assertEqual(_validate_repository_root_path({}), [])
+        self.assertEqual(
+            _validate_repository_root_path({'REPOSITORY_ROOT_PATH': '   '}),
+            [],
+        )
+
+    def test_nonexistent_path_returns_actionable_error(self) -> None:
+        from kato_core_lib.validate_env import _validate_repository_root_path
+        errors = _validate_repository_root_path({
+            'REPOSITORY_ROOT_PATH': '/this/path/should/not/exist/anywhere',
+        })
+        self.assertEqual(len(errors), 1)
+        # Operator-readable: must name the bad path so they know what
+        # to fix in their .env.
+        self.assertIn(
+            '/this/path/should/not/exist/anywhere', errors[0],
+        )
+        self.assertIn('does not exist', errors[0])
+
+    def test_existing_directory_passes(self) -> None:
+        import tempfile
+        from kato_core_lib.validate_env import _validate_repository_root_path
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(
+                _validate_repository_root_path({
+                    'REPOSITORY_ROOT_PATH': tmp,
+                }),
+                [],
+            )
+
+
 if __name__ == '__main__':
     unittest.main()

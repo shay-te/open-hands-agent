@@ -2,14 +2,21 @@
 
 Same public surface as ``ClaudeCliClient`` so the orchestration
 layer can use either backend interchangeably — selection is driven
-by ``KATO_AGENT_BACKEND``. The Codex CLI flags differ from Claude
-Code, but the method names + return shapes are identical so call
-sites do not branch on backend.
+by ``KATO_AGENT_BACKEND``. The Codex CLI is shaped quite differently
+from Claude Code under the hood (sandbox modes instead of an
+allow/deny tool list, a ``resume <id>`` subcommand instead of a
+``--resume`` flag, JSONL events instead of one JSON object), but
+the methods kato calls + the result shape kato receives are
+identical.
 
 This is a one-shot implementation (no streaming-session machinery
-yet). Codex CLI's session-resume + stream-json input support can be
-layered on later under the same ``session/`` folder name claude
-uses, keeping the structural parity the operator asked for.
+yet). Codex's interactive / streaming surface can be layered on
+later under the same ``session/`` folder name claude uses, keeping
+the structural parity the operator asked for.
+
+Verified against ``codex-cli 0.132.0`` (the OpenAI ``@openai/codex``
+package). When the CLI version moves, re-read ``codex exec --help``
+and adjust the flag table below if it has changed.
 """
 
 from __future__ import annotations
@@ -18,6 +25,7 @@ import json
 import os
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -31,7 +39,6 @@ from agent_core_lib.agent_core_lib.helpers.text_utils import (
     condensed_text,
     normalized_text,
     text_from_attr,
-    text_from_mapping,
 )
 from provider_client_base.provider_client_base.data.review_comment import ReviewComment
 from sandbox_core_lib.sandbox_core_lib.workspace_delimiter import (
@@ -47,27 +54,45 @@ class CodexCliClient(object):
     ``fix_review_comments``, ``delete_conversation``,
     ``stop_all_conversations``, ``validate_model_access``) match
     ``ClaudeCliClient`` one-to-one so callers do not branch on
-    backend. The only differences are inside the private
-    ``_build_command`` / ``_parse_completed_process`` helpers where
-    we translate to / from Codex's CLI shape.
+    backend. The differences live inside ``_build_command`` (Codex
+    CLI flag set) and ``_parse_completed_process`` (JSONL event
+    stream + ``--output-last-message`` file).
+
+    Constructor params that are Claude-specific (``max_turns``,
+    ``effort``, ``allowed_tools``, ``disallowed_tools``,
+    ``read_only_tools_on``) are accepted for API parity with
+    ``ClaudeCliClient`` but are **no-ops** in this client — Codex
+    has no equivalent flags. We log a single info message at
+    construction so operators don't silently expect those knobs to
+    bite.
     """
 
     DEFAULT_BINARY = 'codex'
     DEFAULT_TIMEOUT_SECONDS = 1800
-    SAFE_PERMISSION_MODE = 'ask'
-    BYPASS_PERMISSION_MODE = 'bypass'
-    DEFAULT_ALLOWED_TOOLS = 'edit,write,read,shell'
-    # Mirror of ``ClaudeCliClient.GIT_DENY_PATTERNS``. Kato is the
-    # only component that runs git operations; Codex must NEVER
-    # invoke git directly for the same reasons listed in the Claude
-    # client. Patterns are codex-shaped (the exact denylist syntax
-    # depends on Codex CLI version and can be tuned by an operator
-    # via ``KATO_CODEX_DISALLOWED_TOOLS``).
-    GIT_DENY_PATTERNS = ('shell(git:*)', 'shell(git *)')
+    # Codex 0.132 has NO ``--ask-for-approval`` flag on ``codex exec``
+    # — that flag is only on the top-level interactive ``codex``
+    # command. For the non-interactive ``codex exec`` path the
+    # approval policy comes from ``~/.codex/config.toml`` (key
+    # ``approval_policy``) or from a ``-c approval_policy=<value>``
+    # override. We don't set one by default and trust the operator's
+    # codex config; the real safety boundary in safe mode is the
+    # ``--sandbox`` flag below.
+    #
+    # Codex's sandbox policy values (--sandbox). ``workspace-write``
+    # lets the agent edit files inside the workspace directory tree
+    # but blocks writes elsewhere — the right default for kato's
+    # per-task clone model. ``danger-full-access`` removes the
+    # filesystem boundary; we never set that automatically.
+    SAFE_SANDBOX_MODE = 'workspace-write'
     SMOKE_TEST_PROMPT = 'Reply with exactly: ok. Do not call any tools.'
     SMOKE_TEST_TIMEOUT_SECONDS = 120
     VERSION_PROBE_TIMEOUT_SECONDS = 30
 
+    # Effort param is accepted for parity with ClaudeCliClient but
+    # not translated to a flag — Codex routes reasoning depth via
+    # the ``model_reasoning_effort`` config key in
+    # ``~/.codex/config.toml``, not a per-invocation flag. Operators
+    # who care can set it there.
     SUPPORTED_EFFORT_LEVELS = frozenset({'low', 'medium', 'high', 'xhigh', 'max'})
 
     def __init__(
@@ -94,20 +119,20 @@ class CodexCliClient(object):
         self._binary = normalized_text(binary) or self.DEFAULT_BINARY
         self._binary_path = ''
         self._model = normalized_text(model)
+        # Stored for API parity but not emitted as a flag — Codex
+        # has no per-invocation turn cap.
         self._max_turns = self._coerce_max_turns(max_turns)
+        # Same: accepted for parity, validated, but not used. Effort
+        # routing is via ``-c model_reasoning_effort=...`` only when
+        # we're confident the operator's codex install has that key.
         self._effort = self._coerce_effort(effort)
         self._bypass_permissions = bool(bypass_permissions)
-        # Same semantics as the Claude client: docker mode wraps the
-        # spawn in the hardened sandbox, bypass disables per-tool
-        # prompts. The two are independent.
         self._docker_mode_on = bool(docker_mode_on)
         self._read_only_tools_on = bool(read_only_tools_on)
-        normalized_allowed = normalized_text(allowed_tools)
-        self._allowed_tools = (
-            normalized_allowed
-            if normalized_allowed or self._bypass_permissions
-            else self.DEFAULT_ALLOWED_TOOLS
-        )
+        # Stored for API parity. Codex uses sandbox modes + execpolicy
+        # ``.rules`` files instead of a per-spawn allow/deny tool
+        # list, so these are not translated to flags here.
+        self._allowed_tools = normalized_text(allowed_tools)
         self._disallowed_tools = normalized_text(disallowed_tools)
         self._timeout_seconds = max(60, int(timeout_seconds or self.DEFAULT_TIMEOUT_SECONDS))
         self._repository_root_path = normalized_text(repository_root_path)
@@ -120,35 +145,43 @@ class CodexCliClient(object):
         if self._bypass_permissions:
             self.logger.warning(
                 'KATO_CODEX_BYPASS_PERMISSIONS=true: Codex will run with '
-                'permission prompts disabled. Per-tool prompts are off — '
-                'the agent can run shell, edit, write, and any other tool '
-                'without asking. The operator who set this flag accepts '
-                'responsibility for any harm caused by the agent. '
-                'See SECURITY.md.'
+                '--dangerously-bypass-approvals-and-sandbox. Per-tool '
+                'prompts and sandbox containment are BOTH disabled — the '
+                'agent can run shell, edit, write, and any other tool '
+                'against any path it can reach. The operator who set this '
+                'flag accepts responsibility for any harm caused by the '
+                'agent. See SECURITY.md.'
             )
-
-    @property
-    def _permission_mode(self) -> str:
-        return (
-            self.BYPASS_PERMISSION_MODE
-            if self._bypass_permissions
-            else self.SAFE_PERMISSION_MODE
-        )
+        if (
+            self._allowed_tools or self._disallowed_tools
+            or self._max_turns is not None or self._effort
+            or self._read_only_tools_on
+        ):
+            # One line so operators using the same .env across both
+            # backends know which knobs the codex backend silently
+            # ignores instead of debugging mid-run.
+            self.logger.info(
+                'Codex backend ignores allowed_tools / disallowed_tools / '
+                'max_turns / effort / read_only_tools_on — those are '
+                'Claude Code concepts with no Codex CLI 0.132.x equivalent. '
+                'Use --sandbox mode (auto-set by kato) and ~/.codex/config.toml '
+                'for similar controls.'
+            )
 
     # ----- public API parity with ClaudeCliClient / KatoClient -----
 
     @staticmethod
     def _running_inside_docker() -> bool:
         # /.dockerenv is the canonical marker the Docker engine creates
-        # inside every container. Mirrors ``ClaudeCliClient`` so the two
-        # backends share the same "is this Docker?" definition.
+        # inside every container. Mirrors ``ClaudeCliClient``.
         return Path('/.dockerenv').exists()
 
     def validate_connection(self) -> None:
         if self._running_inside_docker():
             raise RuntimeError(
                 'KATO_AGENT_BACKEND=codex is not supported inside Docker. '
-                'The Codex CLI authenticates against your host credentials, '
+                'The Codex CLI authenticates against your host credentials '
+                '(``codex login`` writes to ``$CODEX_HOME`` on the host), '
                 'and the container cannot reach those. Run kato locally '
                 'instead. If you genuinely need Docker, switch to '
                 'KATO_AGENT_BACKEND=openhands.'
@@ -170,7 +203,8 @@ class CodexCliClient(object):
                 f'\n'
                 f'After install, the ``codex`` binary must be on PATH (npm puts it\n'
                 f'there automatically). If you installed it somewhere else, set\n'
-                f'KATO_CODEX_BINARY to the full path.\n'
+                f'KATO_CODEX_BINARY to the full path. Authenticate once with\n'
+                f'``codex login``.\n'
             )
         self._binary_path = binary_path
         try:
@@ -203,8 +237,8 @@ class CodexCliClient(object):
         self._validate_model_access_smoke_test()
 
     def delete_conversation(self, conversation_id: str) -> None:
-        # Codex CLI sessions are local on disk; nothing to clean up remotely.
-        # Matches the Claude backend's no-op contract.
+        # Codex sessions live on disk under ``$CODEX_HOME``; nothing
+        # to clean up remotely. Matches the Claude backend's no-op contract.
         return
 
     def stop_all_conversations(self) -> None:
@@ -260,28 +294,34 @@ class CodexCliClient(object):
         return result
 
     def investigate(self, prompt: str, *, cwd: str = '') -> str:
-        """Read-only single turn — used by the triage flow."""
+        """Read-only single turn — used by the triage flow.
+
+        Codex's ``--sandbox read-only`` policy enforces the read-only
+        contract at the sandbox layer, which is stronger than
+        Claude's allow/deny tool list.
+        """
         normalized_prompt = normalized_text(prompt)
         if not normalized_prompt:
             raise ValueError('prompt is required to run an investigation')
         normalized_cwd = normalized_text(cwd)
         if not normalized_cwd:
             normalized_cwd = self._repository_root_path or os.getcwd()
-        original_disallowed = self._disallowed_tools
-        original_allowed = self._allowed_tools
+        # Temporarily flip the sandbox to read-only so we cannot
+        # accidentally mutate the workspace during triage. Restore
+        # whatever was in place on the way out.
+        original_bypass = self._bypass_permissions
         try:
-            self._disallowed_tools = 'edit,write,shell'
-            self._allowed_tools = 'read'
+            self._bypass_permissions = False  # never bypass on triage
             payload = self._run_prompt(
                 prompt=normalized_prompt,
                 cwd=normalized_cwd,
                 additional_dirs=[],
                 log_label='triage investigation',
                 task_id='triage',
+                sandbox_override='read-only',
             )
         finally:
-            self._disallowed_tools = original_disallowed
-            self._allowed_tools = original_allowed
+            self._bypass_permissions = original_bypass
         result_text = payload.get('result') or payload.get(ImplementationFields.MESSAGE) or ''
         return str(result_text)
 
@@ -367,7 +407,15 @@ class CodexCliClient(object):
             source_path=f'task:{task.id}',
         )
         scope_prefix = f'{scope_block}\n' if scope_block else ''
+        # Codex has no ``--append-system-prompt`` flag, so the
+        # architecture doc + lessons are prepended to the prompt body
+        # instead. Same content the operator would otherwise see in
+        # the Claude system prompt — just delivered via the user-prompt
+        # channel.
+        system_addendum = self._system_prompt_addendum()
+        addendum_prefix = f'{system_addendum}\n\n' if system_addendum else ''
         return (
+            f'{addendum_prefix}'
             f'{scope_prefix}'
             f'Implement task {task.id}.\n\n'
             f'{untrusted_task_body}\n\n'
@@ -396,7 +444,10 @@ class CodexCliClient(object):
             f'{task.summary}\n\n{task.description}',
             source_path=f'task:{task.id}',
         )
+        system_addendum = self._system_prompt_addendum()
+        addendum_prefix = f'{system_addendum}\n\n' if system_addendum else ''
         return (
+            f'{addendum_prefix}'
             f'Validate the implementation for task {task.id}.\n\n'
             f'{untrusted_task_body}\n\n'
             f'{repository_scope}\n\n'
@@ -480,8 +531,9 @@ class CodexCliClient(object):
                 'code to understand context, then write a concise plain-text '
                 'answer that addresses every question.\n'
                 'Rules:\n'
-                '- Do NOT modify any files. Do not call edit, write, or any '
-                'tool that mutates the workspace.\n'
+                '- Do NOT modify any files. Stay strictly in read-only mode '
+                '— the orchestration layer expects no edits for an answer-mode '
+                'turn.\n'
                 '- Do not commit. Do not push.\n'
                 '- Number your answers 1, 2, 3 to match the numbered '
                 'questions above.\n'
@@ -566,8 +618,7 @@ class CodexCliClient(object):
                 'Read the relevant code to understand context, then write a '
                 'concise plain-text answer.\n'
                 'Rules:\n'
-                '- Do NOT modify any files. Do not call edit, write, or any '
-                'tool that mutates the workspace.\n'
+                '- Do NOT modify any files. Stay in read-only mode.\n'
                 '- Do not commit. Do not push.\n'
                 '- Keep the answer focused: explain the behaviour, point to '
                 'the relevant file/line if helpful, and stop.\n'
@@ -588,6 +639,24 @@ class CodexCliClient(object):
             'Do not change indentation, formatting, or unrelated lines when a narrow edit is enough.\n'
             'Do not report success until all intended changes are saved in the repository worktree.\n'
             'When you are done, stop. Do not produce any extra commentary.\n'
+        )
+
+    def _system_prompt_addendum(self) -> str:
+        """Codex has no ``--append-system-prompt`` flag, so the
+        architecture-doc + lessons text is prepended to the user
+        prompt instead. Same payload Claude gets through
+        ``--append-system-prompt``."""
+        architecture_doc = read_architecture_doc(
+            self._architecture_doc_path, logger=self.logger,
+        )
+        lessons_text = read_lessons_file(
+            self._lessons_path, logger=self.logger,
+        )
+        from sandbox_core_lib.sandbox_core_lib.system_prompt import compose_system_prompt
+        return compose_system_prompt(
+            architecture_doc,
+            docker_mode_on=self._docker_mode_on,
+            lessons=lessons_text,
         )
 
     def _completion_instructions_text(self, *, testing: bool = False) -> str:
@@ -624,10 +693,16 @@ class CodexCliClient(object):
 
     @staticmethod
     def _tool_guardrails_text() -> str:
+        # Codex has no allow/deny tool list flag, so the prompt-level
+        # rules are the only layer that says "no git". The
+        # ``workspace-write`` sandbox limits writes to the workspace
+        # dir, but does NOT block ``git`` shell calls inside it. This
+        # block is therefore load-bearing for the codex backend in a
+        # way it is only defense-in-depth for claude.
         return (
             'Tool guardrails:\n'
-            '- Use edit/write/read for file edits and reads.\n'
-            '- Use shell sparingly and only for non-destructive needs (rg, sed -n, cat, ls).\n'
+            '- Use edit/write/read tooling for file edits and reads.\n'
+            '- Use the shell sparingly and only for non-destructive needs (rg, sed -n, cat, ls).\n'
             '\n'
             'YOUR JOB IS TO EDIT FILES. THAT IS ALL.\n'
             '\n'
@@ -687,87 +762,108 @@ class CodexCliClient(object):
         session_id: str = '',
         log_label: str = '',
         task_id: str = '',
+        sandbox_override: str = '',
     ) -> dict[str, str | bool]:
-        command = self._build_command(
-            additional_dirs=additional_dirs,
-            session_id=session_id,
-            resolve_binary=not self._docker_mode_on,
-        )
-        env = self._build_subprocess_env()
-        log_label = log_label or 'Codex CLI'
-        spawn_cwd: str | None = cwd or None
-        if self._docker_mode_on:
-            from sandbox_core_lib.sandbox_core_lib.manager import (
-                SandboxError,
-                check_spawn_rate,
-                ensure_image,
-                enforce_no_workspace_secrets,
-                make_container_name,
-                record_spawn,
-                wrap_command,
-            )
-            workspace_path = cwd or self._repository_root_path or os.getcwd()
-            try:
-                ensure_image(logger=self.logger)
-            except SandboxError as exc:
-                raise RuntimeError(
-                    f'failed to prepare Codex sandbox image: {exc}',
-                ) from exc
-            try:
-                check_spawn_rate()
-            except SandboxError as exc:
-                raise RuntimeError(
-                    f'sandbox spawn rate-limited: {exc}',
-                ) from exc
-            container_name = make_container_name(task_id)
-            try:
-                enforce_no_workspace_secrets(workspace_path, logger=self.logger)
-            except SandboxError as exc:
-                raise RuntimeError(
-                    f'sandbox spawn blocked: {exc}',
-                ) from exc
-            command = wrap_command(
-                command,
-                workspace_path=workspace_path,
-                container_name=container_name,
-                task_id=task_id or 'unknown',
-            )
-            try:
-                record_spawn(
-                    task_id=task_id or 'unknown',
-                    container_name=container_name,
-                    workspace_path=workspace_path,
-                    logger=self.logger,
-                )
-            except SandboxError as exc:
-                raise RuntimeError(
-                    f'sandbox audit log required but failed: {exc}',
-                ) from exc
-            spawn_cwd = None
-        self.logger.info('Mission %s: invoking Codex CLI', log_label)
+        # ``--output-last-message <file>`` is the cleanest way to get
+        # the agent's final reply text from a non-interactive run —
+        # the alternative is parsing the JSONL event stream for the
+        # last ``agent_message`` event, whose exact event-name we'd
+        # be guessing at across codex versions.
+        fd, last_message_file = tempfile.mkstemp(prefix='kato-codex-last-', suffix='.txt')
+        os.close(fd)
         try:
-            completed = subprocess.run(
-                command,
-                input=prompt,
-                cwd=spawn_cwd,
-                env=env,
-                capture_output=True,
-                text=True,
-                encoding='utf-8',
-                errors='replace',
-                check=False,
-                timeout=self._timeout_seconds,
+            command = self._build_command(
+                additional_dirs=additional_dirs,
+                session_id=session_id,
+                resolve_binary=not self._docker_mode_on,
+                last_message_file=last_message_file,
+                cwd=cwd,
+                sandbox_override=sandbox_override,
             )
-        except subprocess.TimeoutExpired as exc:
-            raise TimeoutError(
-                f'Codex CLI did not finish within {self._timeout_seconds}s for {log_label}'
-            ) from exc
-        except OSError as exc:
-            raise RuntimeError(
-                f'failed to invoke Codex CLI binary "{self._binary}": {exc}'
-            ) from exc
+            env = self._build_subprocess_env()
+            log_label = log_label or 'Codex CLI'
+            spawn_cwd: str | None = cwd or None
+            if self._docker_mode_on:
+                from sandbox_core_lib.sandbox_core_lib.manager import (
+                    SandboxError,
+                    check_spawn_rate,
+                    ensure_image,
+                    enforce_no_workspace_secrets,
+                    make_container_name,
+                    record_spawn,
+                    wrap_command,
+                )
+                workspace_path = cwd or self._repository_root_path or os.getcwd()
+                try:
+                    ensure_image(logger=self.logger)
+                except SandboxError as exc:
+                    raise RuntimeError(
+                        f'failed to prepare Codex sandbox image: {exc}',
+                    ) from exc
+                try:
+                    check_spawn_rate()
+                except SandboxError as exc:
+                    raise RuntimeError(
+                        f'sandbox spawn rate-limited: {exc}',
+                    ) from exc
+                container_name = make_container_name(task_id)
+                try:
+                    enforce_no_workspace_secrets(workspace_path, logger=self.logger)
+                except SandboxError as exc:
+                    raise RuntimeError(
+                        f'sandbox spawn blocked: {exc}',
+                    ) from exc
+                command = wrap_command(
+                    command,
+                    workspace_path=workspace_path,
+                    container_name=container_name,
+                    task_id=task_id or 'unknown',
+                )
+                try:
+                    record_spawn(
+                        task_id=task_id or 'unknown',
+                        container_name=container_name,
+                        workspace_path=workspace_path,
+                        logger=self.logger,
+                    )
+                except SandboxError as exc:
+                    raise RuntimeError(
+                        f'sandbox audit log required but failed: {exc}',
+                    ) from exc
+                spawn_cwd = None
+            self.logger.info('Mission %s: invoking Codex CLI', log_label)
+            try:
+                completed = subprocess.run(
+                    command,
+                    input=prompt,
+                    cwd=spawn_cwd,
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                    encoding='utf-8',
+                    errors='replace',
+                    check=False,
+                    timeout=self._timeout_seconds,
+                )
+            except subprocess.TimeoutExpired as exc:
+                raise TimeoutError(
+                    f'Codex CLI did not finish within {self._timeout_seconds}s for {log_label}'
+                ) from exc
+            except OSError as exc:
+                raise RuntimeError(
+                    f'failed to invoke Codex CLI binary "{self._binary}": {exc}'
+                ) from exc
 
-        return self._parse_completed_process(completed, log_label=log_label)
+            return self._parse_completed_process(
+                completed,
+                log_label=log_label,
+                last_message_file=last_message_file,
+            )
+        finally:
+            try:
+                os.unlink(last_message_file)
+            except OSError:
+                pass
 
     def _build_command(
         self,
@@ -775,111 +871,128 @@ class CodexCliClient(object):
         additional_dirs: list[str],
         session_id: str,
         resolve_binary: bool = True,
-        include_system_prompt: bool = True,
+        include_system_prompt: bool = True,  # accepted for API parity, see note
+        last_message_file: str = '',
+        cwd: str = '',
+        sandbox_override: str = '',
     ) -> list[str]:
-        # Codex CLI uses ``codex exec`` for non-interactive runs. Flag
-        # names differ from Claude Code; the structure (prompt on
-        # stdin, JSON result on stdout, system-prompt-append for the
-        # architecture doc + lessons) matches.
+        """Build the argv for one ``codex exec`` (or ``codex exec resume``) spawn.
+
+        Verified against ``codex-cli 0.132.0``.
+
+        Important shape differences from Claude:
+
+        * Resume is a sub-subcommand (``codex exec resume <id>``), not
+          a flag. The resume subcommand has a **restricted option set**
+          — ``--sandbox`` / ``-C`` / ``--add-dir`` are NOT accepted
+          (the resumed session inherits those settings from its
+          original spawn). Only ``--json``, ``-o``, ``-m``,
+          ``--skip-git-repo-check``, ``--dangerously-bypass-*`` and
+          ``-c`` overrides pass through.
+        * ``--ask-for-approval`` is **not** on ``codex exec`` at all —
+          it's a top-level interactive-mode option. Approval policy
+          for non-interactive runs comes from ``~/.codex/config.toml``
+          (or ``-c approval_policy=<value>`` override). Kato leaves
+          it to the operator's config and relies on ``--sandbox`` as
+          the real safety boundary.
+        * The ``include_system_prompt`` param is accepted for parity
+          with ``ClaudeCliClient._build_command`` but is **not used**
+          here — Codex 0.132 has no ``--append-system-prompt``
+          equivalent, so the system-prompt addendum is woven into
+          the prompt body in the implement / test prompt builders.
+        """
+        del include_system_prompt  # see docstring
         command: list[str] = [
             *(self._host_binary_argv() if resolve_binary else [self._binary]),
             'exec',
-            '--json',
-            '--ask-for-approval',
-            self._permission_mode,
         ]
-        if self._model:
-            command.extend(['--model', self._model])
-        if self._max_turns is not None:
-            command.extend(['--max-turns', str(self._max_turns)])
-        if self._effort:
-            command.extend(['--reasoning-effort', self._effort])
-        merged_allowed = self._merge_allowed_with_read_only_allowlist(self._allowed_tools)
-        if merged_allowed:
-            command.extend(['--allow-tools', merged_allowed])
-        merged_disallowed = self._merge_disallowed_with_git_deny(self._disallowed_tools)
-        command.extend(['--deny-tools', merged_disallowed])
-        if include_system_prompt:
-            architecture_doc = read_architecture_doc(
-                self._architecture_doc_path, logger=self.logger,
-            )
-            lessons_text = read_lessons_file(
-                self._lessons_path, logger=self.logger,
-            )
-            from sandbox_core_lib.sandbox_core_lib.system_prompt import compose_system_prompt
-            appended_system_prompt = compose_system_prompt(
-                architecture_doc,
-                docker_mode_on=self._docker_mode_on,
-                lessons=lessons_text,
-            )
-            if appended_system_prompt:
-                command.extend(['--system-prompt-append', appended_system_prompt])
         normalized_session_id = normalized_text(session_id)
-        if normalized_session_id:
-            command.extend(['--resume', normalized_session_id])
-        for directory in additional_dirs:
-            normalized_dir = normalized_text(directory)
-            if normalized_dir:
-                command.extend(['--workspace', normalized_dir])
+        is_resume = bool(normalized_session_id)
+        if is_resume:
+            command.extend(['resume', normalized_session_id])
+
+        # Flags accepted by BOTH ``codex exec`` and ``codex exec resume``.
+        command.extend([
+            '--json',                  # JSONL event stream on stdout
+            '--skip-git-repo-check',   # workspace clones may not be a git root
+        ])
+
+        # Bypass is a single flag that works on both exec and resume
+        # and overrides everything else. Conflicts with --sandbox so
+        # don't emit that alongside it.
+        if self._bypass_permissions:
+            command.append('--dangerously-bypass-approvals-and-sandbox')
+        elif not is_resume:
+            # --sandbox is ONLY accepted on fresh ``codex exec``; the
+            # resume subcommand inherits sandbox mode from the
+            # session being resumed.
+            sandbox = normalized_text(sandbox_override) or self.SAFE_SANDBOX_MODE
+            command.extend(['--sandbox', sandbox])
+
+        if self._model:
+            command.extend(['-m', self._model])
+
+        if not is_resume:
+            # -C and --add-dir are ONLY accepted on fresh ``codex exec``;
+            # resumed sessions inherit their working set.
+            normalized_cwd = normalized_text(cwd)
+            if normalized_cwd:
+                command.extend(['-C', normalized_cwd])
+            for directory in additional_dirs:
+                normalized_dir = normalized_text(directory)
+                if normalized_dir:
+                    command.extend(['--add-dir', normalized_dir])
+
+        if last_message_file:
+            command.extend(['-o', last_message_file])
+
         command.extend(self._extra_args)
         return command
 
-    def _merge_allowed_with_read_only_allowlist(self, operator_allowed: str) -> str:
-        if not self._read_only_tools_on:
-            return operator_allowed
-        from sandbox_core_lib.sandbox_core_lib.bypass_permissions_validator import (
-            READ_ONLY_TOOLS_ALLOWLIST,
-        )
-        existing = [
-            entry.strip()
-            for entry in (operator_allowed or '').split(',')
-            if entry.strip()
-        ]
-        seen = {entry: True for entry in existing}
-        for pattern in sorted(READ_ONLY_TOOLS_ALLOWLIST):
-            if pattern not in seen:
-                existing.append(pattern)
-                seen[pattern] = True
-        return ','.join(existing)
-
-    @classmethod
-    def _merge_disallowed_with_git_deny(cls, operator_disallowed: str) -> str:
-        existing = [
-            entry.strip()
-            for entry in (operator_disallowed or '').split(',')
-            if entry.strip()
-        ]
-        seen = {entry: True for entry in existing}
-        for pattern in cls.GIT_DENY_PATTERNS:
-            if pattern not in seen:
-                existing.append(pattern)
-                seen[pattern] = True
-        return ','.join(existing)
-
     def _build_subprocess_env(self) -> dict[str, str]:
-        env = os.environ.copy()
-        # Force JSON output to stdout and prevent any TTY-dependent behavior.
-        env.setdefault('CODEX_NONINTERACTIVE', '1')
-        return env
+        # Codex has no documented ``CODEX_NONINTERACTIVE`` env knob;
+        # ``--json`` on the subcommand already forces non-interactive
+        # behaviour. Inherit the operator's environment so ``$CODEX_HOME``,
+        # ``$OPENAI_API_KEY``, and auth state continue to work.
+        return os.environ.copy()
 
     def _parse_completed_process(
         self,
         completed: subprocess.CompletedProcess,
         *,
         log_label: str,
+        last_message_file: str = '',
     ) -> dict[str, str | bool]:
         stdout = completed.stdout or ''
         stderr = (completed.stderr or '').strip()
 
-        payload = self._parse_json_payload(stdout)
+        payload = self._parse_jsonl_payload(stdout)
+
+        # Prefer the file the CLI wrote (``--output-last-message``)
+        # over whatever we managed to recover from JSONL — the file
+        # contract is what codex documents; JSONL event names can
+        # drift between versions.
+        file_message = ''
+        if last_message_file:
+            try:
+                with open(last_message_file, 'r', encoding='utf-8') as handle:
+                    file_message = handle.read().strip()
+            except OSError:
+                file_message = ''
 
         is_error = bool(payload.get('is_error', False))
         success = completed.returncode == 0 and not is_error
-        result_text = normalized_text(payload.get('result', ''))
+        # For result text, prefer ``--output-last-message`` file (always
+        # set on success). For error text, prefer the parsed JSONL error
+        # (operator-readable like "model X not supported") over raw
+        # stderr (often shell-snapshot noise from codex's own bookkeeping
+        # — we observed this on every probe).
+        parsed_error_text = normalized_text(payload.get('result', '')) if is_error else ''
+        result_text = file_message or normalized_text(payload.get('result', ''))
         session_id_value = normalized_text(payload.get('session_id', ''))
 
         if completed.returncode != 0:
-            detail = stderr or condensed_text(stdout) or 'no output'
+            detail = parsed_error_text or stderr or condensed_text(stdout) or 'no output'
             self.logger.error(
                 'Codex CLI returned exit code %s for %s: %s',
                 completed.returncode,
@@ -890,7 +1003,7 @@ class CodexCliClient(object):
                 f'Codex CLI exited with status {completed.returncode}: {detail}'
             )
         if is_error:
-            detail = result_text or stderr or 'unknown Codex CLI error'
+            detail = parsed_error_text or stderr or 'unknown Codex CLI error'
             raise RuntimeError(f'Codex CLI reported an error: {detail}')
 
         self._scan_response_for_credentials(result_text, log_label=log_label)
@@ -938,37 +1051,44 @@ class CodexCliClient(object):
                 summarize_findings(phishing_findings),
             )
 
-    def _parse_json_payload(self, stdout: str) -> dict[str, object]:
-        text = (stdout or '').strip()
-        if not text:
-            return {}
+    def _parse_jsonl_payload(self, stdout: str) -> dict[str, object]:
+        """Parse the ``--json`` JSONL event stream into a kato-shaped dict.
 
-        try:
-            payload = json.loads(text)
-        except json.JSONDecodeError:
-            payload = self._extract_first_json_object(text)
-        if isinstance(payload, dict):
+        Verified against a real ``codex exec --json`` run on
+        codex-cli 0.132.0. Observed event shapes:
+
+        * ``{"type": "thread.started", "thread_id": "<uuid>"}`` —
+          this is where the session-id-equivalent comes from. Codex
+          calls it ``thread_id``; kato's contract calls it
+          ``session_id``, so we translate. ``codex exec resume <id>``
+          accepts the thread_id as its positional argument.
+        * ``{"type": "turn.started"}`` — informational.
+        * ``{"type": "item.completed", "item": {"type": "agent_message",
+          "text": "..."}}`` — the agent's final reply, nested under
+          ``item``. Primary source for result text is still the
+          ``--output-last-message`` file (documented contract); this
+          parser is the fallback.
+        * ``{"type": "turn.completed", "usage": {...}}`` — token-usage
+          stats at the end.
+
+        Error events haven't been observed yet (the success-case probe
+        emitted none). The error detection in :func:`_extract_error_text`
+        is heuristic — anything whose type contains ``error`` /
+        ``failed`` / ``fail`` flips ``is_error``. If future codex
+        versions surface a concrete error event name, add it to
+        :data:`_ERROR_EVENT_TYPES`.
+        """
+        payload: dict[str, object] = {'session_id': '', 'is_error': False, 'result': ''}
+        if not stdout:
             return payload
-        if isinstance(payload, list):
-            for item in payload:
-                if isinstance(item, dict):
-                    return item
-        self.logger.warning(
-            'failed to parse Codex CLI JSON output; got: %s',
-            condensed_text(text)[:500],
-        )
-        return {}
-
-    @staticmethod
-    def _extract_first_json_object(text: str) -> object:
-        brace_start = text.find('{')
-        brace_end = text.rfind('}')
-        if brace_start == -1 or brace_end <= brace_start:
-            return {}
-        try:
-            return json.loads(text[brace_start:brace_end + 1])
-        except json.JSONDecodeError:
-            return {}
+        for raw_line in stdout.splitlines():
+            event = _parse_json_event(raw_line)
+            if event is None:
+                continue
+            _absorb_thread_id(event, payload)
+            _absorb_agent_message(event, payload)
+            _absorb_error(event, payload)
+        return payload
 
     # ----- working directory resolution -----
 
@@ -1014,6 +1134,9 @@ class CodexCliClient(object):
 
     def _run_model_access_validation(self) -> None:
         self.logger.info('running Codex CLI model access validation')
+        # Smoke test: short prompt, no tools needed, no
+        # ``--output-last-message`` file (we only care that the spawn
+        # exited 0 and the JSONL stream had no error events).
         command = self._build_command(
             additional_dirs=[], session_id='',
             include_system_prompt=False,
@@ -1039,9 +1162,9 @@ class CodexCliClient(object):
         if completed.returncode != 0:
             detail = (completed.stderr or completed.stdout or '').strip() or 'unknown error'
             raise RuntimeError(f'Codex CLI smoke test failed: {detail}')
-        payload = self._parse_json_payload(completed.stdout or '')
+        payload = self._parse_jsonl_payload(completed.stdout or '')
         if payload.get('is_error'):
-            detail = text_from_mapping(payload, 'result') or 'unknown Codex CLI error'
+            detail = str(payload.get('result') or '') or 'unknown Codex CLI error'
             raise RuntimeError(f'Codex CLI smoke test reported an error: {detail}')
 
     # ----- helpers -----
@@ -1055,9 +1178,7 @@ class CodexCliClient(object):
         Mirrors :meth:`ClaudeCliClient._host_binary_argv`. On Windows
         the npm-installed ``codex.cmd`` is a cmd.exe shim with the
         same 8K command-line cap as Claude's shim, so the same
-        ``node.exe + script.js`` workaround applies. Falls back to
-        the resolved path on platforms / shim shapes we don't
-        recognise.
+        ``node.exe + script.js`` workaround applies.
         """
         resolved = self._host_binary()
         via_node = self._resolve_windows_node_invocation(resolved)
@@ -1067,31 +1188,9 @@ class CodexCliClient(object):
 
     @staticmethod
     def _resolve_windows_node_invocation(cmd_path: str) -> list[str] | None:
-        if os.name != 'nt':
+        if not _is_windows_host():
             return None
-        path = Path(cmd_path)
-        if path.suffix.lower() not in ('.cmd', '.bat'):
-            return None
-        try:
-            shim_text = path.read_text(encoding='utf-8', errors='replace')
-        except OSError:
-            return None
-        import re
-        match = re.search(r'"([^"]+\.js)"', shim_text)
-        if not match:
-            return None
-        js_ref = match.group(1)
-        js_ref = js_ref.replace('%~dp0\\', '').replace('%~dp0/', '').replace('%~dp0', '')
-        js_path = (path.parent / js_ref).resolve()
-        if not js_path.is_file():
-            return None
-        node_path = path.parent / 'node.exe'
-        if not node_path.is_file():
-            node_via_path = shutil.which('node')
-            if not node_via_path:
-                return None
-            node_path = Path(node_via_path)
-        return [str(node_path), str(js_path)]
+        return _resolve_windows_node_invocation_impl(cmd_path)
 
     @staticmethod
     def _coerce_max_turns(value: int | str | None) -> int | None:
@@ -1118,6 +1217,147 @@ class CodexCliClient(object):
         return normalized
 
 
+_ERROR_EVENT_TYPES = frozenset({
+    # Concrete failure-event type names observed in real codex
+    # 0.132.0 runs. The substring heuristic in ``_absorb_error``
+    # below additionally catches anything with ``error`` / ``fail``
+    # in the type so a future renamed event still trips the flag.
+    'error',         # top-level model/API error
+    'turn.failed',   # turn-scope failure
+})
+
+
+def _parse_json_event(raw_line: str) -> dict | None:
+    """Parse one JSONL line, tolerating noise / banners / blanks."""
+    line = raw_line.strip()
+    if not line or not line.startswith('{'):
+        return None
+    try:
+        event = json.loads(line)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(event, dict):  # pragma: no cover
+        # Unreachable in practice: the caller's ``startswith('{')``
+        # guard above means any successful ``json.loads`` here MUST
+        # produce a dict (a JSON ``{...}`` literal is by spec an
+        # object). Defensive belt-and-braces for future refactors.
+        return None
+    return event
+
+
+def _absorb_thread_id(event: dict, payload: dict[str, object]) -> None:
+    """Codex calls it ``thread_id`` (translated to ``session_id`` for kato).
+
+    Falls back to a top-level ``session_id`` key on any event for
+    forward-compat with future codex versions.
+    """
+    if payload.get('session_id'):
+        return
+    tid = event.get('thread_id') or event.get('session_id', '')
+    if tid:
+        payload['session_id'] = str(tid).strip()
+
+
+def _absorb_agent_message(event: dict, payload: dict[str, object]) -> None:
+    """Pull ``item.text`` out of an ``item.completed`` agent-message event."""
+    if str(event.get('type', '')) != 'item.completed':
+        return
+    item = event.get('item') or {}
+    if not isinstance(item, dict) or item.get('type') != 'agent_message':
+        return
+    text = item.get('text', '')
+    if text:
+        payload['result'] = str(text).strip()
+
+
+def _absorb_error(event: dict, payload: dict[str, object]) -> None:
+    """Heuristic error detection. See :meth:`CodexCliClient._parse_jsonl_payload`.
+
+    Real codex 0.132 emits errors in two shapes:
+
+    * ``{"type":"error","message":"<JSON-encoded backend envelope>"}``
+      — the API error from OpenAI's backend, stringified into the
+      ``message`` field. We unwrap one JSON level so operators see
+      the inner ``error.message`` text instead of the wire envelope.
+    * ``{"type":"turn.failed","error":{"message":"..."}}`` — error
+      nested one level deep under ``error``. We dig in.
+    """
+    event_type = str(event.get('type', ''))
+    is_error_event = (
+        event_type in _ERROR_EVENT_TYPES
+        or 'error' in event_type
+        or 'fail' in event_type
+    )
+    if not is_error_event:
+        return
+    payload['is_error'] = True
+    err_text = _extract_error_text(event)
+    if err_text:
+        payload['result'] = _unwrap_backend_error_envelope(err_text)
+
+
+def _extract_error_text(event: dict) -> str:
+    """Pull the error string out of whichever shape codex chose this turn."""
+    top = event.get('message')
+    if isinstance(top, str) and top:
+        return top
+    nested = event.get('error')
+    if isinstance(nested, dict):
+        for key in ('message', 'error'):
+            val = nested.get(key)
+            if isinstance(val, str) and val:
+                return val
+    elif isinstance(nested, str) and nested:
+        return nested
+    item = event.get('item')
+    if isinstance(item, dict):
+        for key in ('text', 'message'):
+            val = item.get(key)
+            if isinstance(val, str) and val:
+                return val
+    return ''
+
+
+def _unwrap_backend_error_envelope(text: str) -> str:
+    """Backend errors come JSON-stringified inside the JSONL message.
+
+    Example real payload from codex 0.132:
+        '{"type":"error","status":400,"error":{"type":"invalid_request_error",
+          "message":"The X model is not supported..."}}'
+
+    Operators want to see the inner ``error.message``, not the wire
+    envelope. Unwrap one level if it parses; otherwise return as-is.
+    """
+    stripped = text.strip()
+    if not stripped.startswith('{'):
+        return stripped
+    try:
+        inner = json.loads(stripped)
+    except (json.JSONDecodeError, TypeError):
+        return stripped
+    if not isinstance(inner, dict):  # pragma: no cover
+        # Unreachable in practice: the ``startswith('{')`` guard above
+        # means any successful ``json.loads`` here MUST produce a dict
+        # (a JSON ``{...}`` literal is by spec an object). Defensive
+        # belt-and-braces for future refactors.
+        return stripped
+    return _readable_message_from_envelope(inner) or stripped
+
+
+def _readable_message_from_envelope(envelope: dict) -> str:
+    """Pull the operator-readable string out of a parsed backend envelope."""
+    nested = envelope.get('error')
+    if isinstance(nested, dict):
+        for key in ('message', 'error'):
+            val = nested.get(key)
+            if isinstance(val, str) and val:
+                return val.strip()
+    top = envelope.get('message')
+    if isinstance(top, str) and top:
+        return top.strip()
+    return ''
+
+
 def _repository_local_paths(prepared_task) -> list[str]:
     """Pull the per-task workspace clone paths off ``prepared_task``."""
     if prepared_task is None:
@@ -1129,3 +1369,71 @@ def _repository_local_paths(prepared_task) -> list[str]:
         if path:
             paths.append(path)
     return paths
+
+
+# ---------------------------------------------------------------------------
+# Windows shim helpers — split out so tests can call the inner impl
+# directly without patching ``os.name`` (which would break ``pathlib``
+# on non-Windows hosts because it tries to construct WindowsPath).
+# ---------------------------------------------------------------------------
+
+
+def _is_windows_host() -> bool:
+    """Indirection for the Windows-host check so tests can mock it
+    without patching ``os.name`` globally (which would break
+    ``pathlib`` on non-Windows hosts)."""
+    return os.name == 'nt'
+
+
+def _resolve_windows_node_invocation_impl(cmd_path: str) -> list[str] | None:
+    """Inner implementation of :meth:`CodexCliClient._resolve_windows_node_invocation`.
+
+    Same logic, minus the ``os.name == 'nt'`` gate the caller does.
+    """
+    path = Path(cmd_path)
+    if path.suffix.lower() not in ('.cmd', '.bat'):
+        return None
+    shim_text = _read_shim_text(path)
+    if shim_text is None:
+        return None
+    js_path = _resolve_shim_js_path(path, shim_text)
+    if js_path is None:
+        return None
+    node_path = _resolve_node_binary(path.parent)
+    if node_path is None:
+        return None
+    return [str(node_path), str(js_path)]
+
+
+def _read_shim_text(path: Path) -> str | None:
+    try:
+        return path.read_text(encoding='utf-8', errors='replace')
+    except OSError:
+        return None
+
+
+def _resolve_shim_js_path(shim_path: Path, shim_text: str) -> Path | None:
+    """Extract the ``"...\\foo.js"`` literal from an npm cmd-shim and
+    resolve it to an absolute Path next to the shim."""
+    import re
+    match = re.search(r'"([^"]+\.js)"', shim_text)
+    if not match:
+        return None
+    js_ref = match.group(1)
+    js_ref = js_ref.replace('%~dp0\\', '').replace('%~dp0/', '').replace('%~dp0', '')
+    js_path = (shim_path.parent / js_ref).resolve()
+    if not js_path.is_file():
+        return None
+    return js_path
+
+
+def _resolve_node_binary(shim_dir: Path) -> Path | None:
+    """Prefer the ``node.exe`` next to the npm shim; fall back to
+    whichever node is on PATH; return None if neither is found."""
+    local = shim_dir / 'node.exe'
+    if local.is_file():
+        return local
+    on_path = shutil.which('node')
+    if not on_path:
+        return None
+    return Path(on_path)

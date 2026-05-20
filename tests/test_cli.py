@@ -167,6 +167,92 @@ class ComposeDockerTests(unittest.TestCase):
              mock.patch.object(cli.subprocess, 'call', return_value=0):
             self.assertEqual(cli.main(['compose-docker']), 1)
 
+    def test_docker_compose_up_failure_short_circuits(self):
+        # cli.py line 150: when ``docker compose up --build -d`` returns
+        # non-zero, return that exit code without trying to attach.
+        with mock.patch.object(cli, '_load_env', return_value={}), \
+             mock.patch.dict('os.environ', {}, clear=True), \
+             mock.patch.object(cli.subprocess, 'call', return_value=2) as call_mock:
+            rc = cli.main(['compose-docker'])
+        self.assertEqual(rc, 2)
+        # Only the up call should have happened.
+        self.assertEqual(call_mock.call_count, 1)
+
+
+class VenvPythonTests(unittest.TestCase):
+    """Cover the venv-discovery branches in ``_venv_python``."""
+
+    def test_returns_venv_python_when_present_posix(self):
+        with mock.patch.object(cli, 'os', SimpleNamespace(name='posix')), \
+             mock.patch.object(cli.Path, 'exists', return_value=True):
+            result = cli._venv_python()
+        self.assertTrue(result.endswith('/.venv/bin/python'))
+
+    def test_returns_venv_python_windows_branch(self):
+        with mock.patch.object(cli, 'os', SimpleNamespace(name='nt')), \
+             mock.patch.object(cli.Path, 'exists', return_value=True):
+            result = cli._venv_python()
+        self.assertTrue(result.endswith('python.exe'))
+        self.assertIn('Scripts', result)
+
+    def test_falls_back_to_sys_executable_when_venv_missing(self):
+        with mock.patch.object(cli, 'os', SimpleNamespace(name='posix')), \
+             mock.patch.object(cli.Path, 'exists', return_value=False):
+            result = cli._venv_python()
+        self.assertEqual(result, sys.executable)
+
+
+class LoadEnvTests(unittest.TestCase):
+    """Cover ``_load_env``'s parsing edge cases."""
+
+    def test_returns_empty_for_missing_file(self):
+        # Line 63: ``if not path.exists(): return out`` early-return.
+        from pathlib import Path
+        result = cli._load_env(Path('/no/such/path/.env'))
+        self.assertEqual(result, {})
+
+    def test_parses_kv_pairs_and_strips_quotes(self):
+        # Lines 64-75: real file with mixed shapes — blanks,
+        # comments, unquoted, single-quoted, double-quoted, missing key.
+        import tempfile
+        from pathlib import Path
+        with tempfile.NamedTemporaryFile(
+            'w', suffix='.env', delete=False, encoding='utf-8',
+        ) as fh:
+            fh.write(
+                '# comment line\n'
+                '\n'
+                'NOT_A_PAIR\n'
+                'A=plain\n'
+                'B="double quoted"\n'
+                "C='single quoted'\n"
+                '=missing_key\n'
+            )
+            env_path = Path(fh.name)
+        try:
+            out = cli._load_env(env_path)
+        finally:
+            env_path.unlink()
+        self.assertEqual(out['A'], 'plain')
+        self.assertEqual(out['B'], 'double quoted')
+        self.assertEqual(out['C'], 'single quoted')
+        self.assertNotIn('', out)
+
+
+class ScriptEntryPointTest(unittest.TestCase):
+    def test_main_module_invocation_raises_system_exit(self):
+        # cli.py line 199: ``if __name__ == '__main__': raise SystemExit(main())``
+        import runpy
+        argv_backup = sys.argv
+        sys.argv = ['cli', 'doctor']
+        try:
+            with mock.patch.object(cli, 'cmd_doctor', return_value=0):
+                with self.assertRaises(SystemExit) as ctx:
+                    runpy.run_module('kato_core_lib.cli', run_name='__main__')
+                self.assertEqual(ctx.exception.code, 0)
+        finally:
+            sys.argv = argv_backup
+
 
 if __name__ == '__main__':
     unittest.main()

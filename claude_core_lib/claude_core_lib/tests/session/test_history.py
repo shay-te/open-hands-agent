@@ -15,6 +15,7 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from claude_core_lib.claude_core_lib.session.history import (
     delete_session_file,
@@ -660,6 +661,20 @@ class DeleteSessionFileTests(unittest.TestCase):
         self.assertFalse(
             delete_session_file('x', projects_root=missing),
         )
+
+    def test_false_when_unlink_raises_oserror(self) -> None:
+        # Defensive ``except OSError`` branch: file exists, find_session_file
+        # returns its path, but unlink fails (perms denied, file vanished
+        # mid-delete, fs hiccup). delete_session_file must report False
+        # rather than propagate — the done-cleanup loop should never
+        # crash on a leftover transcript.
+        path = self._seed('enc-a', 'cant-delete')
+        self.assertTrue(path.is_file())
+        with patch.object(Path, 'unlink', side_effect=OSError('denied')):
+            removed = delete_session_file(
+                'cant-delete', projects_root=self.projects_root,
+            )
+        self.assertFalse(removed)
 
 
 if __name__ == '__main__':

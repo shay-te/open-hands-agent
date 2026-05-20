@@ -256,5 +256,67 @@ class LoadHooksConfigTests(unittest.TestCase):
             os.unlink(env_path)
 
 
+class HookConfigDefensiveBranchTests(unittest.TestCase):
+    """Cover the remaining defensive branches in ``_parse_one_hook``
+    and ``load_hooks_config``."""
+
+    def test_hook_entry_not_a_dict_raises(self) -> None:
+        # Line 131: hook entry must be a dict.
+        with tempfile.NamedTemporaryFile(
+            'w', suffix='.json', delete=False, encoding='utf-8',
+        ) as fh:
+            json.dump({'session_end': ['not-a-dict']}, fh)
+            path = fh.name
+        try:
+            with self.assertRaisesRegex(HookConfigError, 'must be an object'):
+                load_hooks_config(path)
+        finally:
+            os.unlink(path)
+
+    def test_match_not_a_dict_raises(self) -> None:
+        # Line 141: match field must be a dict.
+        with tempfile.NamedTemporaryFile(
+            'w', suffix='.json', delete=False, encoding='utf-8',
+        ) as fh:
+            json.dump({
+                'session_end': [{'command': 'echo', 'match': 'not-a-dict'}],
+            }, fh)
+            path = fh.name
+        try:
+            with self.assertRaisesRegex(HookConfigError, '``match``'):
+                load_hooks_config(path)
+        finally:
+            os.unlink(path)
+
+    def test_timeout_not_a_number_raises(self) -> None:
+        # Lines 147-148: timeout_seconds must coerce to float.
+        with tempfile.NamedTemporaryFile(
+            'w', suffix='.json', delete=False, encoding='utf-8',
+        ) as fh:
+            json.dump({
+                'session_end': [{'command': 'echo', 'timeout_seconds': 'forever'}],
+            }, fh)
+            path = fh.name
+        try:
+            with self.assertRaisesRegex(HookConfigError, 'must be a number'):
+                load_hooks_config(path)
+        finally:
+            os.unlink(path)
+
+    def test_read_text_oserror_raises_hook_config_error(self) -> None:
+        # Lines 178-179: file exists at the resolved path but unreadable.
+        with tempfile.NamedTemporaryFile(
+            'w', suffix='.json', delete=False, encoding='utf-8',
+        ) as fh:
+            json.dump({'session_end': [{'command': 'echo'}]}, fh)
+            path = fh.name
+        try:
+            with patch.object(Path, 'read_text', side_effect=OSError('denied')):
+                with self.assertRaisesRegex(HookConfigError, 'failed to read'):
+                    load_hooks_config(path)
+        finally:
+            os.unlink(path)
+
+
 if __name__ == '__main__':
     unittest.main()

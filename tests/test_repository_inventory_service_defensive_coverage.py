@@ -568,5 +568,33 @@ class ReviewUrlFallbackProviderTests(unittest.TestCase):
         self.assertEqual(url, 'https://web.example/o/r')
 
 
+class GetRepositoryDirectFolderFallbackTests(unittest.TestCase):
+    """Cover the fallback in ``get_repository`` (line 278): when the
+    inventory walk doesn't include the id, try
+    ``_discover_repository_at_named_folder`` directly. This is the
+    fix we added for the Windows operator case where the inventory
+    walk found the repo via the approvals UI but the strict-id
+    lookup missed it."""
+
+    def test_falls_back_to_direct_folder_lookup_when_inventory_missed_repo(self) -> None:
+        service = _make_service()
+        # The inventory has no repos, so the strict id-match loop
+        # finishes without a return. The fallback discovers the
+        # named folder.
+        stub_repo = SimpleNamespace(
+            id='ob-love-admin-client',
+            local_path='/some/path/ob-love-admin-client',
+        )
+        with patch.object(
+            service, '_ensure_repositories', return_value=[],
+        ), patch.object(
+            service, '_discover_repository_at_named_folder',
+            return_value=stub_repo,
+        ) as discover:
+            result = service.get_repository('ob-love-admin-client')
+        discover.assert_called_once_with('ob-love-admin-client')
+        self.assertIs(result, stub_repo)
+
+
 if __name__ == '__main__':
     unittest.main()

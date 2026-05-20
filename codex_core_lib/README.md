@@ -46,24 +46,50 @@ differ from Claude Code flags) and `_parse_completed_process`
 
 ## Differences from `claude_core_lib`
 
+Verified against **codex-cli 0.132.0** (the OpenAI `@openai/codex`
+package). If you upgrade codex, re-run `codex exec --help` and
+adjust this table + `cli_client.py::_build_command` if anything
+moved.
+
 | Aspect | Claude | Codex |
 |---|---|---|
 | Binary default | `claude` | `codex` |
 | Non-interactive entry | `claude -p` | `codex exec` |
-| JSON output flag | `--output-format json` | `--json` |
-| Permission flag | `--permission-mode <mode>` | `--ask-for-approval <mode>` |
-| Reasoning flag | `--effort` | `--reasoning-effort` |
-| Allow / deny flags | `--allowedTools` / `--disallowedTools` | `--allow-tools` / `--deny-tools` |
-| Workspace flag | `--add-dir` | `--workspace` |
-| System-prompt append flag | `--append-system-prompt` | `--system-prompt-append` |
-| Non-interactive env hint | `CLAUDE_CODE_NONINTERACTIVE=1` | `CODEX_NONINTERACTIVE=1` |
-| Session resume flag | `--resume <id>` | `--resume <id>` (shared) |
+| JSON / event stream | `--output-format json` (single JSON object) | `--json` (JSONL event stream, one event per line) |
+| Final-message capture | parsed from JSON `result` field | `-o, --output-last-message <FILE>` writes the agent's final reply to a file |
+| Permission flag | `--permission-mode acceptEdits\|bypassPermissions` | **none on `codex exec`** — `--ask-for-approval` is a top-level interactive-mode flag, not on the non-interactive subcommand. Approval policy comes from `~/.codex/config.toml` (`approval_policy`) or a `-c approval_policy=<value>` override. |
+| Bypass mode | `--permission-mode bypassPermissions` | `--dangerously-bypass-approvals-and-sandbox` (single flag, no value; conflicts with `--sandbox`) |
+| Sandbox containment | (no built-in flag; relies on docker wrapper) | `--sandbox read-only\|workspace-write\|danger-full-access` (built into the CLI) |
+| Tool allow/deny lists | `--allowedTools` / `--disallowedTools` | **none** — sandbox mode + execpolicy `.rules` files take their place |
+| Reasoning depth | `--effort low\|medium\|high\|xhigh\|max` | **no flag** — set via `~/.codex/config.toml` key `model_reasoning_effort` or `-c model_reasoning_effort=high` config override |
+| Max turns | `--max-turns N` | **none** — Codex 0.132 has no per-invocation turn cap |
+| Working directory | subprocess `cwd=` | `-C, --cd <DIR>` (explicit flag) |
+| Additional writable dirs | `--add-dir <DIR>` | `--add-dir <DIR>` (same name) |
+| System-prompt append flag | `--append-system-prompt <text>` | **none** — kato prepends the architecture-doc + lessons text to the user prompt instead |
+| Non-interactive env hint | `CLAUDE_CODE_NONINTERACTIVE=1` | **none** — `--json` on `codex exec` already disables TTY behaviour |
+| Session resume | `--resume <id>` flag | `codex exec resume <id>` sub-subcommand (NOT a flag). Resume accepts a **restricted flag subset** — `--sandbox`, `-C`, `--add-dir` are rejected (resumed sessions inherit those from the original spawn); `--json`, `-o`, `-m`, `--skip-git-repo-check`, `--dangerously-bypass-*`, `-c` are accepted. |
+| Workspace-outside-git escape hatch | n/a | `--skip-git-repo-check` (kato always sets this since workspaces aren't always git roots) |
 
-Streaming chat sessions and `--resume`-driven multi-round review
-flows aren't wired yet — the current client is one-shot. When
-Codex CLI's streaming support is added, the streaming machinery
-will follow the same file layout `claude_core_lib` uses (a
-`session/` folder with the same module names).
+Streaming chat sessions and the planning-UI tab integration aren't
+wired yet — the current client is one-shot. When Codex's
+streaming surface is added, the streaming machinery will follow
+the same file layout `claude_core_lib` uses (a `session/` folder
+with the same module names).
+
+### Knobs accepted but ignored
+
+These constructor params exist on `CodexCliClient` so the factory
+can call it with the same kwargs it calls `ClaudeCliClient` with,
+but they have **no effect** because Codex 0.132 has no equivalent:
+
+- `max_turns`
+- `effort`
+- `allowed_tools`
+- `disallowed_tools`
+- `read_only_tools_on`
+
+Kato logs one info line at construction listing these so an
+operator who set them on the wrong backend isn't left guessing.
 
 ## Configuration
 

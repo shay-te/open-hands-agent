@@ -1341,5 +1341,152 @@ class GateResumeByJsonlSizeTests(unittest.TestCase):
         self.assertEqual(result, 'abc-123')
 
 
+class CorrectSessionIdInRecordTests(unittest.TestCase):
+    """Lines 529-542: when Claude reports a different session id than
+    kato's expected UUID, ``_correct_session_id_in_record`` updates
+    the in-memory + persisted record so the next ``--resume`` targets
+    Claude's actual JSONL."""
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.state_dir = Path(self._tmp.name)
+        self.manager = ClaudeSessionManager(
+            state_dir=self.state_dir,
+            session_factory=lambda **kw: _FakeStreamingSession(**kw),
+        )
+
+    def test_blank_actual_id_is_a_noop(self) -> None:
+        # Defensive early return — caller passed empty / whitespace.
+        # Should not touch the record or call persist.
+        key = self.manager._lookup_key('PROJ-A')
+        self.manager._records[key] = PlanningSessionRecord(
+            task_id='PROJ-A', claude_session_id='original',
+        )
+        with patch.object(self.manager, '_persist_record') as persist:
+            self.manager._correct_session_id_in_record(key, 'PROJ-A', '   ')
+        persist.assert_not_called()
+        self.assertEqual(
+            self.manager._records[key].claude_session_id, 'original',
+        )
+
+    def test_unknown_lookup_key_is_a_noop(self) -> None:
+        # No record for this task — silently return rather than crash.
+        with patch.object(self.manager, '_persist_record') as persist:
+            self.manager._correct_session_id_in_record(
+                'unknown-key', 'PROJ-MISSING', 'new-id',
+            )
+        persist.assert_not_called()
+
+    def test_matching_id_is_a_noop(self) -> None:
+        # Record already has the same id — no work to do, no persist call.
+        key = self.manager._lookup_key('PROJ-B')
+        self.manager._records[key] = PlanningSessionRecord(
+            task_id='PROJ-B', claude_session_id='same-id',
+        )
+        with patch.object(self.manager, '_persist_record') as persist:
+            self.manager._correct_session_id_in_record(key, 'PROJ-B', 'same-id')
+        persist.assert_not_called()
+
+    def test_different_id_updates_record_and_persists(self) -> None:
+        # The real correction path: record had 'old', Claude reports
+        # 'new' — record is updated and persisted.
+        key = self.manager._lookup_key('PROJ-C')
+        self.manager._records[key] = PlanningSessionRecord(
+            task_id='PROJ-C', claude_session_id='old-id',
+        )
+        with patch.object(self.manager, '_persist_record') as persist:
+            self.manager._correct_session_id_in_record(key, 'PROJ-C', 'new-id')
+        self.assertEqual(
+            self.manager._records[key].claude_session_id, 'new-id',
+        )
+        persist.assert_called_once()
+
+
+class AdoptSessionIdRefusesWhenLiveTests(unittest.TestCase):
+    """Line 645: refuse adoption when a live subprocess is still
+    running for the task — adoption is supposed to swap the resumed
+    id before the next spawn, and silently reusing the live session
+    would discard the operator's intent."""
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.state_dir = Path(self._tmp.name)
+        self.manager = ClaudeSessionManager(
+            state_dir=self.state_dir,
+            session_factory=lambda **kw: _FakeStreamingSession(**kw),
+        )
+
+    def test_raises_when_live_session_present(self) -> None:
+        key = self.manager._lookup_key('PROJ-Y')
+        # Plant a "live" session under the lookup key.
+        live_session = SimpleNamespace(is_alive=True)
+        self.manager._sessions[key] = live_session
+        with self.assertRaises(RuntimeError) as ctx:
+            self.manager.adopt_session_id(
+                'PROJ-Y', claude_session_id='external-id',
+            )
+        msg = str(ctx.exception)
+        self.assertIn('PROJ-Y', msg)
+        self.assertIn('Terminate', msg)
+
+
+class ForgetClaudeTranscriptExceptionTests(unittest.TestCase):
+    """Lines 866-867: when ``delete_session_file`` itself raises an
+    unexpected exception (not just a quiet OSError), ``_forget_claude_transcript``
+    logs the exception and returns rather than propagating. The
+    terminate path must never bubble a transcript-cleanup failure."""
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.state_dir = Path(self._tmp.name)
+        self.manager = ClaudeSessionManager(
+            state_dir=self.state_dir,
+            session_factory=lambda **kw: _FakeStreamingSession(**kw),
+        )
+
+    def test_unexpected_exception_in_delete_is_logged_and_swallowed(self) -> None:
+        record = PlanningSessionRecord(
+            task_id='PROJ-Z', claude_session_id='sess-z',
+        )
+        with patch(
+            'claude_core_lib.claude_core_lib.session.history.delete_session_file',
+            side_effect=RuntimeError('unexpected boom'),
+        ), patch.object(self.manager, 'logger', MagicMock()) as mock_logger:
+            self.manager._forget_claude_transcript(record, 'PROJ-Z')
+        # Exception must be logged but not propagated.
+        mock_logger.exception.assert_called_once()
+        msg = mock_logger.exception.call_args[0][0]
+        self.assertIn('failed deleting', msg)
+
+
+class DeletePersistedRecordGlobOSErrorTests(unittest.TestCase):
+    """Lines 890-893: when ``Path.glob('*.json')`` raises OSError
+    (directory listing failed mid-traversal), the helper must fall
+    through to the canonical-path-only unlink rather than crash."""
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.state_dir = Path(self._tmp.name)
+        self.manager = ClaudeSessionManager(
+            state_dir=self.state_dir,
+            session_factory=lambda **kw: _FakeStreamingSession(**kw),
+        )
+
+    def test_glob_oserror_falls_back_to_canonical_path(self) -> None:
+        # First persist a record so the canonical file exists.
+        self.manager.start_session(task_id='PROJ-G')
+        canonical = self.manager._record_path('PROJ-G')
+        self.assertTrue(canonical.is_file())
+        # Now make glob() raise — the fallback should still unlink the
+        # canonical file without propagating.
+        with patch.object(Path, 'glob', side_effect=OSError('dir listing failed')):
+            self.manager._delete_persisted_record('PROJ-G')
+        self.assertFalse(canonical.is_file())
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -1,6 +1,6 @@
 import types
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from kato_core_lib.data_layers.data.task import Task
 from kato_core_lib.data_layers.service.notification_service import NotificationService
@@ -266,3 +266,43 @@ class SecurityScanBlockedCommentTests(unittest.TestCase):
             'Kato agent could not safely process this task: boom',
         )
         self.assertNotIn('| severity |', comment)
+
+
+class SecurityScanDetailFallbackTests(unittest.TestCase):
+    """Defensive branches in ``_security_scan_detail`` — covers
+    ImportError when ``security_scanner_core_lib`` isn't importable,
+    and the ``except Exception`` around ``summarize_for_ticket``."""
+
+    def test_returns_empty_string_when_security_scanner_lib_missing(self) -> None:
+        # Simulate the lib being unimportable (operator running kato
+        # without the optional security_scanner_core_lib install).
+        import builtins
+        from kato_core_lib.data_layers.service.task_failure_handler import (
+            _security_scan_detail,
+        )
+        real_import = builtins.__import__
+
+        def fake_import(name, *args, **kwargs):
+            if 'security_scanner_core_lib' in name:
+                raise ImportError(f'no module named {name}')
+            return real_import(name, *args, **kwargs)
+
+        with patch('builtins.__import__', side_effect=fake_import):
+            result = _security_scan_detail(RuntimeError('plain error'))
+        self.assertEqual(result, '')
+
+    def test_returns_empty_string_when_summarize_for_ticket_raises(self) -> None:
+        # The formatter inside SecurityScannerService may itself fail
+        # (template bug, malformed report). The handler must swallow
+        # so the operator still gets the short-line comment.
+        from kato_core_lib.data_layers.service.task_failure_handler import (
+            _security_scan_detail,
+        )
+        error = SecurityScanBlocked(_build_blocked_report())
+        with patch(
+            'security_scanner_core_lib.security_scanner_core_lib.'
+            'security_scanner_service.SecurityScannerService.summarize_for_ticket',
+            side_effect=RuntimeError('formatter broke'),
+        ):
+            result = _security_scan_detail(error)
+        self.assertEqual(result, '')

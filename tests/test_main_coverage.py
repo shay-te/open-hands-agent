@@ -1204,5 +1204,136 @@ class MainModuleScriptEntryTests(unittest.TestCase):
             sys.argv = old_argv
 
 
+class LoadHooksOrRefuseBranchTests(unittest.TestCase):
+    """Lines 547-548: when the loaded hooks config has entries, log
+    the configured points + counts."""
+
+    def test_non_empty_hooks_config_logs_point_summary(self) -> None:
+        from kato_core_lib.hooks.config import HookConfig, HookDefinition, HookPoint
+        # Build a non-empty config with two points.
+        h1 = HookDefinition(point=HookPoint.SESSION_END, command='echo', match={}, timeout_seconds=1.0)
+        h2 = HookDefinition(point=HookPoint.SESSION_START, command='echo', match={}, timeout_seconds=1.0)
+        config = HookConfig(hooks_by_point={
+            HookPoint.SESSION_END: [h1],
+            HookPoint.SESSION_START: [h2],
+        })
+        app = SimpleNamespace()
+        logger = MagicMock()
+        # The imports happen inside the function — patch where the
+        # symbols actually live, not on the main module.
+        with patch('kato_core_lib.hooks.config.load_hooks_config', return_value=config), \
+             patch('kato_core_lib.hooks.runner.HookRunner'):
+            main_module._load_hooks_or_refuse(app, logger)
+        logger.info.assert_called_once()
+        msg = logger.info.call_args[0][0]
+        self.assertIn('hooks loaded', msg)
+
+
+class LogKnownSessionIdsBranchTests(unittest.TestCase):
+    """Lines 756-758, 760-761, 764-767, 769 — every branch of
+    ``_log_known_session_ids``."""
+
+    def _app_with_records(self, records_or_exc):
+        session_manager = MagicMock()
+        if isinstance(records_or_exc, Exception):
+            session_manager.list_records.side_effect = records_or_exc
+        else:
+            session_manager.list_records.return_value = records_or_exc
+        service = SimpleNamespace(_session_manager=session_manager)
+        return SimpleNamespace(service=service, logger=MagicMock())
+
+    def test_list_records_exception_logged_and_returns(self) -> None:
+        app = self._app_with_records(RuntimeError('db gone'))
+        main_module._log_known_session_ids(app)
+        app.logger.exception.assert_called_once()
+
+    def test_empty_records_logs_info_and_returns(self) -> None:
+        app = self._app_with_records([])
+        main_module._log_known_session_ids(app)
+        # The "no known Claude session ids" message fires.
+        msg = app.logger.info.call_args[0][0]
+        self.assertIn('no known Claude session ids', msg)
+
+    def test_records_with_ids_log_per_task_line(self) -> None:
+        records = [
+            SimpleNamespace(task_id='PROJ-1', claude_session_id='sess-a'),
+            SimpleNamespace(task_id='PROJ-2', claude_session_id='sess-b'),
+            SimpleNamespace(task_id='', claude_session_id='no-task'),  # skipped
+        ]
+        app = self._app_with_records(records)
+        main_module._log_known_session_ids(app)
+        # Last info call should be the multi-line "known Claude session ids" log.
+        info_msg = app.logger.info.call_args[0][0]
+        self.assertIn('known Claude session ids', info_msg)
+
+    def test_records_present_but_all_skipped_logs_no_ids(self) -> None:
+        # Records exist but every one is missing either task_id or session_id
+        # → ``lines`` ends empty → fall to the "no Claude session ids
+        # recorded at startup" else branch.
+        records = [
+            SimpleNamespace(task_id='', claude_session_id='x'),
+            SimpleNamespace(task_id='y', claude_session_id=''),
+        ]
+        app = self._app_with_records(records)
+        main_module._log_known_session_ids(app)
+        msg = app.logger.info.call_args[0][0]
+        self.assertIn('no Claude session ids recorded', msg)
+
+
+class WaitForPlanningUiHealthzTests(unittest.TestCase):
+    """Lines 837, 839-840 in ``_wait_for_planning_ui_healthz``."""
+
+    def test_healthz_success_returns_immediately(self) -> None:
+        # Line 837: a successful urlopen returns from the function.
+        logger = MagicMock()
+        # Patch urllib.request.urlopen to context-manage successfully.
+        ok_response = MagicMock()
+        ok_response.__enter__ = MagicMock(return_value=ok_response)
+        ok_response.__exit__ = MagicMock(return_value=False)
+        with patch('urllib.request.urlopen', return_value=ok_response):
+            main_module._wait_for_planning_ui_healthz('http://x', logger)
+        # No warning logged on success.
+        logger.warning.assert_not_called()
+
+    def test_healthz_failure_then_success_eventually_returns(self) -> None:
+        # Lines 838-839: first attempt raises (URLError), short sleep,
+        # second attempt succeeds.
+        import urllib.error
+        logger = MagicMock()
+        ok_response = MagicMock()
+        ok_response.__enter__ = MagicMock(return_value=ok_response)
+        ok_response.__exit__ = MagicMock(return_value=False)
+        with patch(
+            'urllib.request.urlopen',
+            side_effect=[urllib.error.URLError('not yet'), ok_response],
+        ), patch('time.sleep') as sleep_mock:
+            main_module._wait_for_planning_ui_healthz('http://x', logger)
+        sleep_mock.assert_called()
+        logger.warning.assert_not_called()
+
+    def test_healthz_deadline_exceeded_logs_warning(self) -> None:
+        # Line 840: ``logger.warning(...)`` when the loop runs past
+        # the 15s deadline without a single successful healthz.
+        # Advance ``time.monotonic`` past the deadline on the second
+        # check so the loop exits the while.
+        import urllib.error
+        logger = MagicMock()
+        # Sequence: start (t=0), deadline check 1 (t=0, enter loop),
+        # deadline check 2 (t=99, exit loop) → no successes.
+        monotonic_values = iter([0.0, 0.0, 99.0])
+        with patch(
+            'time.monotonic',
+            side_effect=lambda: next(monotonic_values),
+        ), patch(
+            'urllib.request.urlopen',
+            side_effect=urllib.error.URLError('never up'),
+        ), patch('time.sleep'):
+            main_module._wait_for_planning_ui_healthz('http://x', logger)
+        # The warning about queued comments dispatching anyway must fire.
+        logger.warning.assert_called_once()
+        msg = logger.warning.call_args[0][0]
+        self.assertIn('did not answer', msg)
+
+
 if __name__ == '__main__':
     unittest.main()

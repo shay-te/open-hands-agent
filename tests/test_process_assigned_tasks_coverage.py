@@ -295,5 +295,47 @@ class FormatProcessingResultsTests(unittest.TestCase):
         self.assertIn('repository repo-a', result)
 
 
+class AdvanceFinishedCommentRunsBranches(unittest.TestCase):
+    """Cover defensive branches in ``_advance_finished_local_comment_runs``
+    and ``_drain_queued_local_comments``: missing method, exception
+    in invocation, and non-list return values."""
+
+    def test_advance_returns_empty_when_service_lacks_method(self) -> None:
+        # Line 41: ``advance_finished_comment_runs`` not callable.
+        from kato_core_lib.jobs.process_assigned_tasks import (
+            _advance_finished_local_comment_runs,
+        )
+        # SimpleNamespace without the attribute.
+        self.assertEqual(_advance_finished_local_comment_runs(SimpleNamespace()), [])
+
+    def test_advance_returns_empty_when_method_raises(self) -> None:
+        # Lines 44-48: ``advance_finished_comment_runs`` raises.
+        from kato_core_lib.jobs.process_assigned_tasks import (
+            _advance_finished_local_comment_runs,
+        )
+        svc = SimpleNamespace(
+            advance_finished_comment_runs=MagicMock(side_effect=RuntimeError('x')),
+        )
+        # Must swallow + return [], not propagate.
+        self.assertEqual(_advance_finished_local_comment_runs(svc), [])
+
+    def test_advance_returns_list_when_method_returns_tuple(self) -> None:
+        # Tuple → list conversion at the end of _advance_finished_local_comment_runs.
+        from kato_core_lib.jobs.process_assigned_tasks import (
+            _advance_finished_local_comment_runs,
+        )
+        svc = SimpleNamespace(
+            advance_finished_comment_runs=MagicMock(return_value=('a', 'b')),
+        )
+        self.assertEqual(_advance_finished_local_comment_runs(svc), ['a', 'b'])
+
+    def test_drain_returns_empty_when_service_lacks_method(self) -> None:
+        # Line 64: ``drain_all_queued_task_comments`` not callable.
+        from kato_core_lib.jobs.process_assigned_tasks import (
+            _drain_queued_local_comments,
+        )
+        self.assertEqual(_drain_queued_local_comments(SimpleNamespace()), [])
+
+
 if __name__ == '__main__':
     unittest.main()
