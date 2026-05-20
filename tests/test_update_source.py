@@ -260,6 +260,123 @@ class UpdateSourceToTaskBranchTests(unittest.TestCase):
         self.assertIn('fast-forward', str(cm.exception).lower())
 
 
+# ----- repository service: workspace_has_task_changes ------------------------
+
+
+class WorkspaceHasTaskChangesTests(unittest.TestCase):
+    """``RepositoryService.workspace_has_task_changes`` against real git.
+
+    Pins the "Update source" skip rule: the source clone is only
+    touched when the workspace clone actually carries task-branch
+    commits. Repos the agent never modified are left alone.
+    """
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.tmp = Path(self._tmp.name)
+        self.origin = self.tmp / 'origin'
+        self.workspace = self.tmp / 'workspace'
+        _make_origin_with_branch(self.origin, 'master')
+        _clone(self.origin, self.workspace)
+        self.service = RepositoryService(build_test_cfg(), 3)
+
+    def test_skips_when_workspace_still_on_master(self) -> None:
+        # Agent never created the task branch — workspace is on master.
+        # Nothing to propagate to the source folder.
+        repo = _RepoStub('myrepo', self.workspace)
+
+        self.assertFalse(
+            self.service.workspace_has_task_changes(repo, 'UNA-1234'),
+        )
+
+    def test_skips_when_on_task_branch_but_zero_commits_ahead(self) -> None:
+        # Agent created the branch but made no commits. Switching the
+        # source folder would be busywork — and the branch may not even
+        # exist on origin yet, so the checkout would fail.
+        _git(self.workspace, 'checkout', '-b', 'UNA-1234')
+        repo = _RepoStub('myrepo', self.workspace)
+
+        self.assertFalse(
+            self.service.workspace_has_task_changes(repo, 'UNA-1234'),
+        )
+
+    def test_skips_when_on_task_branch_with_untracked_files_only(self) -> None:
+        # Untracked artifacts (test runs, build outputs) must NOT count
+        # as "changes". Only commits on the task branch do — otherwise
+        # every repo the agent ran tests in looks "changed" and the
+        # operator's source folder gets yanked off its current branch
+        # for nothing.
+        _git(self.workspace, 'checkout', '-b', 'UNA-1234')
+        (self.workspace / 'test-output.log').write_text(
+            'pytest noise\n', encoding='utf-8',
+        )
+        (self.workspace / '.pytest_cache').mkdir()
+        (self.workspace / '.pytest_cache' / 'v').write_text(
+            'cache', encoding='utf-8',
+        )
+        repo = _RepoStub('myrepo', self.workspace)
+
+        self.assertFalse(
+            self.service.workspace_has_task_changes(repo, 'UNA-1234'),
+        )
+
+    def test_skips_when_on_task_branch_with_modified_tracked_files_uncommitted(
+        self,
+    ) -> None:
+        # Even uncommitted edits to TRACKED files don't count —
+        # ``update_source_to_task_branch`` only does fetch/checkout/pull,
+        # so uncommitted changes never propagate via the branch anyway.
+        _git(self.workspace, 'checkout', '-b', 'UNA-1234')
+        (self.workspace / 'README.md').write_text(
+            'modified but not committed\n', encoding='utf-8',
+        )
+        repo = _RepoStub('myrepo', self.workspace)
+
+        self.assertFalse(
+            self.service.workspace_has_task_changes(repo, 'UNA-1234'),
+        )
+
+    def test_updates_when_task_branch_has_a_commit_ahead_of_master(self) -> None:
+        # Agent committed work on the task branch. THIS is the case
+        # the source folder needs to be updated for.
+        _git(self.workspace, 'checkout', '-b', 'UNA-1234')
+        (self.workspace / 'feature.py').write_text(
+            'def new_feature(): pass\n', encoding='utf-8',
+        )
+        _git(self.workspace, 'add', '-A')
+        _git(self.workspace, 'commit', '-m', 'feat: add new_feature')
+        repo = _RepoStub('myrepo', self.workspace)
+
+        self.assertTrue(
+            self.service.workspace_has_task_changes(repo, 'UNA-1234'),
+        )
+
+    def test_safe_default_true_on_missing_local_path(self) -> None:
+        repo = _RepoStub('myrepo', Path(''))
+        repo.local_path = ''
+        # Empty local_path is an unexpected state. Returning True lets
+        # the update path run + raise its own clearer error rather than
+        # silently swallowing work the operator was expecting.
+        self.assertTrue(
+            self.service.workspace_has_task_changes(repo, 'UNA-1234'),
+        )
+
+    def test_safe_default_true_on_non_git_directory(self) -> None:
+        not_a_repo = self.tmp / 'plain-folder'
+        not_a_repo.mkdir()
+        repo = _RepoStub('myrepo', not_a_repo)
+        self.assertTrue(
+            self.service.workspace_has_task_changes(repo, 'UNA-1234'),
+        )
+
+    def test_safe_default_true_on_empty_branch_name(self) -> None:
+        repo = _RepoStub('myrepo', self.workspace)
+        self.assertTrue(
+            self.service.workspace_has_task_changes(repo, ''),
+        )
+
+
 # ----- agent service: orchestration ------------------------------------------
 
 

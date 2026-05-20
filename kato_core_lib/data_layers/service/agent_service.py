@@ -1789,6 +1789,36 @@ class AgentService(Service):
             branch_name = self._repository_service.build_branch_name(
                 task_obj, repository,
             )
+            # Skip repos the agent never touched. ``repository`` here is
+            # the workspace-clone view (``_resolve_publish_context``
+            # rewrites ``local_path`` to the workspace path), so this
+            # asks "did the agent leave anything in the workspace worth
+            # propagating?" — no task-branch commits and a clean tree
+            # means switching the operator's source folder is busywork
+            # that would yank them off whatever branch they were on.
+            try:
+                has_changes = self._repository_service.workspace_has_task_changes(
+                    repository, branch_name,
+                )
+            except Exception:
+                self.logger.exception(
+                    'workspace-has-changes pre-check failed for task %s '
+                    'repository %s',
+                    normalized, repository.id,
+                )
+                has_changes = True
+            self.logger.info(
+                'update-source for task %s: %s has_changes=%s '
+                '(workspace=%s, branch=%s)',
+                normalized, repository.id, has_changes,
+                getattr(repository, 'local_path', '<unknown>'), branch_name,
+            )
+            if not has_changes:
+                skipped_repositories.append({
+                    'repository_id': repository.id,
+                    'reason': 'no changes in workspace clone',
+                })
+                continue
             # Resolve the SOURCE-side repository (inventory ``local_path``,
             # i.e. the operator's running-system clone under
             # REPOSITORY_ROOT_PATH) — NOT the per-task workspace clone.

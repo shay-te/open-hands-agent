@@ -446,6 +446,56 @@ class RepositoryService(GitClientMixin, RepositoryInventoryService):
             return False
         return ahead_remote > 0
 
+    def workspace_has_task_changes(self, repository, branch_name: str) -> bool:
+        """True when the workspace clone has commits on the task branch.
+
+        Drives the "Update source" skip path: ``update_source_to_task_branch``
+        only does fetch / checkout / pull — it never commits. So the only
+        thing that can propagate from the workspace to the operator's
+        source folder is a commit that already lives on the task branch.
+        Untracked artifacts left behind by the agent's test runs (npm
+        install caches, .pytest_cache, build outputs, etc.) are
+        deliberately NOT a "change" signal: counting them would falsely
+        flip every repo to "changed" and pull the operator off their
+        current branch for nothing.
+
+        Returns ``True`` on any inspection failure so unexpected git
+        states fall through to the update path rather than silently
+        swallow real work the operator was expecting.
+
+        Skip rules (return ``False``):
+        - Workspace HEAD is not on the task branch — the agent never
+          moved off master, so there is nothing branch-shaped to ship.
+        - Workspace IS on the task branch but has zero commits ahead of
+          the destination branch — branch exists but is empty of work.
+        """
+        local_path = str(getattr(repository, 'local_path', '') or '').strip()
+        normalized_branch = (branch_name or '').strip()
+        if not local_path or not normalized_branch:
+            return True
+        try:
+            if not (Path(local_path) / '.git').is_dir():
+                return True
+        except OSError:
+            return True
+        try:
+            current_branch = self._current_branch(local_path)
+        except Exception:
+            return True
+        if current_branch != normalized_branch:
+            return False
+        try:
+            destination_branch = self.destination_branch(repository)
+            comparison_reference = self._comparison_reference(
+                local_path, destination_branch,
+            )
+            ahead = self._ahead_count(
+                local_path, comparison_reference, normalized_branch,
+            )
+        except Exception:
+            return True
+        return ahead > 0
+
     def pull_workspace_clone(
         self,
         repository,

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Bubble from './Bubble.jsx';
 import Icon from './Icon.jsx';
+import MarkdownContent from './MarkdownContent.jsx';
 import StickyHeader from './StickyHeader.jsx';
 import { BUBBLE_KIND } from '../constants/bubbleKind.js';
 import { CLAUDE_EVENT, CLAUDE_SYSTEM_SUBTYPE } from '../constants/claudeEvent.js';
@@ -397,7 +398,7 @@ function assistantBubbles(raw, index, onOpenFile) {
   return [
     ...toolBubbles,
     <Bubble key={keyOf(raw, index, 'assistant')} kind={BUBBLE_KIND.ASSISTANT}>
-      {textPieces.join('\n')}
+      <MarkdownContent>{textPieces.join('\n')}</MarkdownContent>
     </Bubble>,
   ];
 }

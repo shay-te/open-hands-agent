@@ -20,7 +20,9 @@
     "react-arborist": "^3.4.0",
     "react-diff-view": "^3.2.1",
     "react-dom": "^18.3.1",
+    "react-markdown": "^9.0.1",
     "refractor": "^5.0.0",
+    "remark-gfm": "^4.0.0",
     "unidiff": "^1.0.4"
   },
   "devDependencies": {

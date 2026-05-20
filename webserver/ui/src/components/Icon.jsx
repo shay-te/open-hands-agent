@@ -34,6 +34,7 @@ import {
   faClockRotateLeft,
   faArrowUpRightFromSquare,
   faComment,
+  faCopy,
 } from '@fortawesome/free-solid-svg-icons';
 
 const ICONS = {
@@ -80,6 +81,8 @@ const ICONS = {
   'history': faClockRotateLeft,
   // "Open in a new tab" — used by the chat header's open-PR button.
   'external-link': faArrowUpRightFromSquare,
+  // Copy-to-clipboard glyph for the markdown code-block copy button.
+  'copy': faCopy,
 };
 
 export default function Icon({ name, className = '', spin = false }) {
