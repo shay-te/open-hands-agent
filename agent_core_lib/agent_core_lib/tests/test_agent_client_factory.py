@@ -64,6 +64,35 @@ def _make_open_cfg_for_claude(**claude_overrides):
     return ns
 
 
+def _make_codex_cfg(**overrides):
+    """Minimal duck-typed Codex config object — same shape as Claude's."""
+    ns = types.SimpleNamespace(
+        binary='codex',
+        model='codex-mini',
+        max_turns=10,
+        effort='medium',
+        allowed_tools='',
+        disallowed_tools='',
+        bypass_permissions=False,
+        timeout_seconds=1800,
+        model_smoke_test_enabled=False,
+        architecture_doc_path='',
+        lessons_path='',
+    )
+    for k, v in overrides.items():
+        setattr(ns, k, v)
+    return ns
+
+
+def _make_open_cfg_for_codex(**codex_overrides):
+    """Wraps a Codex config in the outer open_cfg envelope."""
+    ns = types.SimpleNamespace(
+        codex=_make_codex_cfg(**codex_overrides),
+        repository_root_path='/repos',
+    )
+    return ns
+
+
 class _OpenHandsCfg:
     """Supports both attribute access and dict-style .get() — mirrors
     OmegaConf DictConfig behaviour used in production."""
@@ -117,21 +146,24 @@ def _make_compliant_backend():
 # ---------------------------------------------------------------------------
 
 class AgentPlatformTests(unittest.TestCase):
-    def test_enum_has_exactly_two_members(self) -> None:
+    def test_enum_has_exactly_three_members(self) -> None:
         members = list(AgentPlatform)
-        self.assertEqual(len(members), 2, f'expected 2 members, got {members}')
+        self.assertEqual(len(members), 3, f'expected 3 members, got {members}')
 
-    def test_enum_members_are_claude_and_openhands(self) -> None:
+    def test_enum_members_are_claude_codex_and_openhands(self) -> None:
         self.assertIn(AgentPlatform.CLAUDE, list(AgentPlatform))
+        self.assertIn(AgentPlatform.CODEX, list(AgentPlatform))
         self.assertIn(AgentPlatform.OPENHANDS, list(AgentPlatform))
 
     def test_enum_values_are_lowercase_string_slugs(self) -> None:
         self.assertEqual(AgentPlatform.CLAUDE.value, 'claude')
+        self.assertEqual(AgentPlatform.CODEX.value, 'codex')
         self.assertEqual(AgentPlatform.OPENHANDS.value, 'openhands')
 
     def test_enum_members_compare_by_identity(self) -> None:
         self.assertIs(AgentPlatform.CLAUDE, AgentPlatform.CLAUDE)
         self.assertIsNot(AgentPlatform.CLAUDE, AgentPlatform.OPENHANDS)
+        self.assertIsNot(AgentPlatform.CODEX, AgentPlatform.CLAUDE)
 
 
 # ---------------------------------------------------------------------------
@@ -151,6 +183,11 @@ class PlatformAliasTableTests(unittest.TestCase):
     def test_openhands_aliases_cover_expected_spellings(self) -> None:
         expected = {'openhands', 'open-hands', 'open_hands', ''}
         actual = {k for k, v in _PLATFORM_ALIASES.items() if v == AgentPlatform.OPENHANDS}
+        self.assertEqual(actual, expected)
+
+    def test_codex_aliases_cover_expected_spellings(self) -> None:
+        expected = {'codex', 'codex-cli', 'codex_cli', 'openai-codex', 'openai_codex'}
+        actual = {k for k, v in _PLATFORM_ALIASES.items() if v == AgentPlatform.CODEX}
         self.assertEqual(actual, expected)
 
     def test_empty_string_is_in_aliases_for_historical_compat(self) -> None:
@@ -187,9 +224,11 @@ class ResolvePlatformTests(unittest.TestCase):
         self.assertIn('openhands', msg)
 
     def test_unknown_backend_message_includes_the_bad_value(self) -> None:
+        # ``codex`` is now a supported backend, so use an unknown name that
+        # is still firmly outside the alias table.
         with self.assertRaises(ValueError) as ctx:
-            resolve_platform('codex')
-        self.assertIn('codex', str(ctx.exception))
+            resolve_platform('gemini')
+        self.assertIn('gemini', str(ctx.exception))
 
     def test_input_is_case_insensitive(self) -> None:
         self.assertEqual(resolve_platform('Claude'), AgentPlatform.CLAUDE)
@@ -256,20 +295,35 @@ class FactoryDispatchTests(unittest.TestCase):
     def test_claude_dispatch_routes_to_claude_builder(self) -> None:
         factory = AgentClientFactory(max_retries=1)
         with patch.object(factory, '_build_claude', return_value='CLAUDE') as bc, \
+             patch.object(factory, '_build_codex', return_value='CODEX') as bcx, \
              patch.object(factory, '_build_openhands', return_value='OH') as boh:
             result = factory.build(AgentPlatform.CLAUDE, object())
         self.assertEqual(result, 'CLAUDE')
         bc.assert_called_once()
+        bcx.assert_not_called()
+        boh.assert_not_called()
+
+    def test_codex_dispatch_routes_to_codex_builder(self) -> None:
+        factory = AgentClientFactory(max_retries=1)
+        with patch.object(factory, '_build_claude', return_value='CLAUDE') as bc, \
+             patch.object(factory, '_build_codex', return_value='CODEX') as bcx, \
+             patch.object(factory, '_build_openhands', return_value='OH') as boh:
+            result = factory.build(AgentPlatform.CODEX, object())
+        self.assertEqual(result, 'CODEX')
+        bcx.assert_called_once()
+        bc.assert_not_called()
         boh.assert_not_called()
 
     def test_openhands_dispatch_routes_to_openhands_builder(self) -> None:
         factory = AgentClientFactory(max_retries=1)
         with patch.object(factory, '_build_claude', return_value='CLAUDE') as bc, \
+             patch.object(factory, '_build_codex', return_value='CODEX') as bcx, \
              patch.object(factory, '_build_openhands', return_value='OH') as boh:
             result = factory.build(AgentPlatform.OPENHANDS, object())
         self.assertEqual(result, 'OH')
         boh.assert_called_once()
         bc.assert_not_called()
+        bcx.assert_not_called()
 
     def test_unhandled_platform_raises_clearly(self) -> None:
         factory = AgentClientFactory(max_retries=1)
@@ -391,6 +445,128 @@ class BuildClaudeTests(unittest.TestCase):
             return_value=MagicMock(),
         ) as MockCls:
             factory._build_claude(cfg)
+
+        _, kwargs = MockCls.call_args
+        self.assertEqual(kwargs['binary'], '')
+        self.assertEqual(kwargs['model'], '')
+        self.assertIsNone(kwargs['max_turns'])
+        self.assertEqual(kwargs['timeout_seconds'], 1800)
+        self.assertEqual(kwargs['repository_root_path'], '')
+
+
+# ---------------------------------------------------------------------------
+# AgentClientFactory._build_codex
+# ---------------------------------------------------------------------------
+
+class BuildCodexTests(unittest.TestCase):
+    """Mirror of ``BuildClaudeTests`` — same behaviour, codex backend.
+
+    Pins the symmetry contract: both CLI backends share the same
+    config-block validation, same forwarding rules, same testing /
+    smoke-test interaction. If a future refactor diverges them
+    accidentally, these tests fire alongside the Claude tests.
+    """
+
+    def test_raises_when_codex_config_block_is_missing(self) -> None:
+        factory = AgentClientFactory(max_retries=1)
+        cfg_without_codex = types.SimpleNamespace()  # no .codex attribute
+        with patch('codex_core_lib.codex_core_lib.cli_client.CodexCliClient'):
+            with self.assertRaises(RuntimeError) as ctx:
+                factory._build_codex(cfg_without_codex)
+        self.assertIn('codex', str(ctx.exception).lower())
+
+    def test_raises_when_codex_config_is_explicitly_none(self) -> None:
+        factory = AgentClientFactory(max_retries=1)
+        cfg = types.SimpleNamespace(codex=None)
+        with patch('codex_core_lib.codex_core_lib.cli_client.CodexCliClient'):
+            with self.assertRaises(RuntimeError):
+                factory._build_codex(cfg)
+
+    def test_instantiates_codex_cli_client_with_correct_params(self) -> None:
+        factory = AgentClientFactory(max_retries=3, docker_mode_on=True, read_only_tools_on=True)
+        cfg = _make_open_cfg_for_codex(
+            binary='/usr/bin/codex',
+            model='codex-large',
+            max_turns=20,
+            effort='high',
+            allowed_tools='read,write',
+            disallowed_tools='shell',
+            bypass_permissions=True,
+            timeout_seconds=900,
+            model_smoke_test_enabled=False,
+            architecture_doc_path='/arch.md',
+            lessons_path='/lessons.md',
+        )
+        cfg.repository_root_path = '/repos/project'
+
+        mock_client = MagicMock()
+        with patch(
+            'codex_core_lib.codex_core_lib.cli_client.CodexCliClient',
+            return_value=mock_client,
+        ) as MockCls:
+            result = factory._build_codex(cfg)
+
+        MockCls.assert_called_once_with(
+            binary='/usr/bin/codex',
+            model='codex-large',
+            max_turns=20,
+            effort='high',
+            allowed_tools='read,write',
+            disallowed_tools='shell',
+            bypass_permissions=True,
+            docker_mode_on=True,
+            read_only_tools_on=True,
+            timeout_seconds=900,
+            max_retries=3,
+            repository_root_path='/repos/project',
+            model_smoke_test_enabled=False,
+            architecture_doc_path='/arch.md',
+            lessons_path='/lessons.md',
+        )
+        self.assertIs(result, mock_client)
+
+    def test_testing_flag_suppresses_model_smoke_test(self) -> None:
+        factory = AgentClientFactory(max_retries=1, testing=True)
+        cfg = _make_open_cfg_for_codex(model_smoke_test_enabled=True)
+
+        with patch(
+            'codex_core_lib.codex_core_lib.cli_client.CodexCliClient',
+            return_value=MagicMock(),
+        ) as MockCls:
+            factory._build_codex(cfg)
+
+        _, kwargs = MockCls.call_args
+        # testing=True AND model_smoke_test_enabled=True → still False
+        self.assertFalse(kwargs['model_smoke_test_enabled'])
+
+    def test_non_testing_with_smoke_test_enabled_passes_true(self) -> None:
+        factory = AgentClientFactory(max_retries=1, testing=False)
+        cfg = _make_open_cfg_for_codex(model_smoke_test_enabled=True)
+
+        with patch(
+            'codex_core_lib.codex_core_lib.cli_client.CodexCliClient',
+            return_value=MagicMock(),
+        ) as MockCls:
+            factory._build_codex(cfg)
+
+        _, kwargs = MockCls.call_args
+        self.assertTrue(kwargs['model_smoke_test_enabled'])
+
+    def test_missing_optional_cfg_fields_use_safe_defaults(self) -> None:
+        # Operator config block exists but has none of the optional
+        # knobs set — kato should fall back to documented defaults
+        # rather than crash with AttributeError.
+        factory = AgentClientFactory(max_retries=1)
+        cfg = types.SimpleNamespace(
+            codex=types.SimpleNamespace(),  # empty namespace
+            repository_root_path='',
+        )
+
+        with patch(
+            'codex_core_lib.codex_core_lib.cli_client.CodexCliClient',
+            return_value=MagicMock(),
+        ) as MockCls:
+            factory._build_codex(cfg)
 
         _, kwargs = MockCls.call_args
         self.assertEqual(kwargs['binary'], '')
@@ -630,6 +806,7 @@ class FlowTests(unittest.TestCase):
             factory = AgentClientFactory(max_retries=1, testing=True)
             backend = _make_compliant_backend()
             with patch.object(factory, '_build_claude', return_value=backend), \
+                 patch.object(factory, '_build_codex', return_value=backend), \
                  patch.object(factory, '_build_openhands', return_value=backend):
                 agent = factory.build(platform, object())
             self.assertIsInstance(

@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from claude_core_lib.claude_core_lib.helpers.text_utils import normalized_text, text_from_attr
+from agent_core_lib.agent_core_lib.helpers.text_utils import normalized_text, text_from_attr
 
 AGENTS_FILE_NAME = 'AGENTS.md'
 SKIPPED_DIRECTORIES = frozenset({'.git'})

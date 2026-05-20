@@ -31,6 +31,11 @@ _PLATFORM_ALIASES: dict[str, AgentPlatform] = {
     'claude_code': AgentPlatform.CLAUDE,
     'claude-cli': AgentPlatform.CLAUDE,
     'claude_cli': AgentPlatform.CLAUDE,
+    'codex': AgentPlatform.CODEX,
+    'codex-cli': AgentPlatform.CODEX,
+    'codex_cli': AgentPlatform.CODEX,
+    'openai-codex': AgentPlatform.CODEX,
+    'openai_codex': AgentPlatform.CODEX,
     'openhands': AgentPlatform.OPENHANDS,
     'open-hands': AgentPlatform.OPENHANDS,
     'open_hands': AgentPlatform.OPENHANDS,
@@ -75,6 +80,8 @@ class AgentClientFactory(object):
     def build(self, platform: AgentPlatform, cfg: Any) -> AgentProvider:
         if platform == AgentPlatform.CLAUDE:
             return self._build_claude(cfg)
+        if platform == AgentPlatform.CODEX:
+            return self._build_codex(cfg)
         if platform == AgentPlatform.OPENHANDS:
             return self._build_openhands(cfg)
         raise ValueError(f'unhandled agent platform: {platform!r}')
@@ -113,6 +120,43 @@ class AgentClientFactory(object):
             ),
             lessons_path=str(
                 getattr(claude_cfg, 'lessons_path', '') or ''
+            ),
+        )
+
+    def _build_codex(self, open_cfg: Any) -> AgentProvider:
+        # Imported lazily so a Claude-only / OpenHands-only install
+        # never touches the Codex module tree.
+        from codex_core_lib.codex_core_lib.cli_client import CodexCliClient
+
+        codex_cfg = getattr(open_cfg, 'codex', None)
+        if codex_cfg is None:
+            raise RuntimeError(
+                'agent_backend=codex requires a codex configuration block; '
+                'rebuild the configuration template'
+            )
+        repository_root_path = str(getattr(open_cfg, 'repository_root_path', '') or '').strip()
+        return CodexCliClient(
+            binary=str(getattr(codex_cfg, 'binary', '') or ''),
+            model=str(getattr(codex_cfg, 'model', '') or ''),
+            max_turns=getattr(codex_cfg, 'max_turns', None),
+            effort=str(getattr(codex_cfg, 'effort', '') or ''),
+            allowed_tools=str(getattr(codex_cfg, 'allowed_tools', '') or ''),
+            disallowed_tools=str(getattr(codex_cfg, 'disallowed_tools', '') or ''),
+            bypass_permissions=bool(getattr(codex_cfg, 'bypass_permissions', False)),
+            docker_mode_on=self._docker_mode_on,
+            read_only_tools_on=self._read_only_tools_on,
+            timeout_seconds=int(getattr(codex_cfg, 'timeout_seconds', 1800) or 1800),
+            max_retries=self._max_retries,
+            repository_root_path=repository_root_path,
+            model_smoke_test_enabled=(
+                not self._testing
+                and bool(getattr(codex_cfg, 'model_smoke_test_enabled', False))
+            ),
+            architecture_doc_path=str(
+                getattr(codex_cfg, 'architecture_doc_path', '') or ''
+            ),
+            lessons_path=str(
+                getattr(codex_cfg, 'lessons_path', '') or ''
             ),
         )
 

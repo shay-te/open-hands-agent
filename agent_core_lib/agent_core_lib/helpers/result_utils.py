@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from claude_core_lib.claude_core_lib.data.fields import ImplementationFields
-from claude_core_lib.claude_core_lib.helpers.text_utils import normalized_text, text_from_mapping
+from agent_core_lib.agent_core_lib.data.fields import ImplementationFields
+from agent_core_lib.agent_core_lib.helpers.text_utils import normalized_text, text_from_mapping
 
 _TASK_SUMMARY_KEY = 'summary'
 _TASK_BRANCH_NAME_KEY = 'branch_name'

@@ -15,37 +15,37 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from claude_core_lib.claude_core_lib.helpers.text_utils import (
+from agent_core_lib.agent_core_lib.helpers.text_utils import (
     condensed_text,
     normalized_text,
     text_from_attr,
     text_from_mapping,
 )
-from claude_core_lib.claude_core_lib.helpers.logging_utils import configure_logger
-from claude_core_lib.claude_core_lib.helpers.atomic_write import atomic_write_json
-from claude_core_lib.claude_core_lib.helpers.result_utils import (
+from agent_core_lib.agent_core_lib.helpers.logging_utils import configure_logger
+from agent_core_lib.agent_core_lib.helpers.atomic_write import atomic_write_json
+from agent_core_lib.agent_core_lib.helpers.result_utils import (
     build_openhands_result,
     openhands_session_id,
     openhands_success_flag,
 )
-from claude_core_lib.claude_core_lib.helpers.architecture_doc_utils import (
+from agent_core_lib.agent_core_lib.helpers.architecture_doc_utils import (
     read_architecture_doc,
     _cache as _arch_cache,
     _cache_lock as _arch_cache_lock,
 )
-from claude_core_lib.claude_core_lib.helpers.lessons_doc_utils import (
+from agent_core_lib.agent_core_lib.helpers.lessons_doc_utils import (
     read_lessons_file,
     _cache as _lessons_cache,
     _cache_lock as _lessons_cache_lock,
     _strip_timestamp_header,
 )
-from claude_core_lib.claude_core_lib.helpers.agents_instruction_utils import (
+from agent_core_lib.agent_core_lib.helpers.agents_instruction_utils import (
     AGENTS_FILE_NAME,
     SKIPPED_DIRECTORIES,
     agents_instructions_for_path,
     repository_agents_instructions_text,
 )
-from claude_core_lib.claude_core_lib.helpers.agent_prompt_utils import (
+from agent_core_lib.agent_core_lib.helpers.agent_prompt_utils import (
     IGNORED_REPOSITORY_FOLDERS_ENV,
     _SELF_REPLY_PREFIXES,
     _is_self_reply_body,
@@ -507,7 +507,7 @@ class ReadLessonsFileTests(unittest.TestCase):
         self.assertIn('Lesson one', result)
 
     def test_body_truncated_at_max_chars(self) -> None:
-        from claude_core_lib.claude_core_lib.helpers.lessons_doc_utils import _MAX_BODY_CHARS
+        from agent_core_lib.agent_core_lib.helpers.lessons_doc_utils import _MAX_BODY_CHARS
         path = Path(self._tmp.name) / 'long_lessons.md'
         big = 'x' * (_MAX_BODY_CHARS + 1000)
         path.write_text(big, encoding='utf-8')
@@ -769,9 +769,12 @@ class PrependChatWorkspaceContextTests(unittest.TestCase):
         # the continuity block is always non-empty, so this branch can only
         # fire if a future refactor makes continuity optional. Patch the
         # block to return '' so we exercise the safety net.
+        # The function lives in ``agent_core_lib`` (re-exported here for
+        # back-compat), so patch the canonical home — patching the shim's
+        # namespace would not affect the resolved name inside the function.
         from unittest.mock import patch as patch_obj
         with patch_obj(
-            'claude_core_lib.claude_core_lib.helpers.agent_prompt_utils.'
+            'agent_core_lib.agent_core_lib.helpers.agent_prompt_utils.'
             'chat_continuity_ground_truth_block',
             return_value='',
         ):

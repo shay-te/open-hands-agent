@@ -17,4 +17,5 @@ class AgentPlatform(Enum):
     """Agent backends supported by ``agent_core_lib``."""
 
     CLAUDE = 'claude'
+    CODEX = 'codex'
     OPENHANDS = 'openhands'

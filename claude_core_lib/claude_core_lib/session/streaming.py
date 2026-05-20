@@ -34,9 +34,9 @@ from claude_core_lib.claude_core_lib.session.wire_protocol import (
     CLAUDE_SYSTEM_SUBTYPE_INIT,
     PERMISSION_REQUEST_EVENT_TYPES,
 )
-from claude_core_lib.claude_core_lib.helpers.architecture_doc_utils import read_architecture_doc
-from claude_core_lib.claude_core_lib.helpers.logging_utils import configure_logger
-from claude_core_lib.claude_core_lib.helpers.text_utils import condensed_text, normalized_text
+from agent_core_lib.agent_core_lib.helpers.architecture_doc_utils import read_architecture_doc
+from agent_core_lib.agent_core_lib.helpers.logging_utils import configure_logger
+from agent_core_lib.agent_core_lib.helpers.text_utils import condensed_text, normalized_text
 
 
 def _wait_for_exit(proc: subprocess.Popen, timeout: float) -> bool:
@@ -734,7 +734,7 @@ class StreamingClaudeSession(object):
         architecture_doc = read_architecture_doc(
             self._architecture_doc_path, logger=self.logger,
         )
-        from claude_core_lib.claude_core_lib.helpers.lessons_doc_utils import read_lessons_file
+        from agent_core_lib.agent_core_lib.helpers.lessons_doc_utils import read_lessons_file
         lessons_text = read_lessons_file(
             self._lessons_path, logger=self.logger,
         )

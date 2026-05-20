@@ -18,7 +18,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from claude_core_lib.claude_core_lib.cli_client import ClaudeCliClient
-from claude_core_lib.claude_core_lib.data.fields import ImplementationFields
+from agent_core_lib.agent_core_lib.data.fields import ImplementationFields
 from claude_core_lib.claude_core_lib.session.manager import (
     SESSION_STATUS_DONE,
     SESSION_STATUS_TERMINATED,
@@ -37,7 +37,7 @@ from claude_core_lib.claude_core_lib.session.index import (
     migrate_session_to_workspace,
     claude_project_dir_for_cwd,
 )
-from claude_core_lib.claude_core_lib.helpers.agent_prompt_utils import (
+from agent_core_lib.agent_core_lib.helpers.agent_prompt_utils import (
     forbidden_repository_guardrails_text,
     prepend_chat_workspace_context,
     repository_scope_text,
@@ -45,10 +45,10 @@ from claude_core_lib.claude_core_lib.helpers.agent_prompt_utils import (
     workspace_inventory_block,
     workspace_scope_block,
 )
-from claude_core_lib.claude_core_lib.helpers.agents_instruction_utils import (
+from agent_core_lib.agent_core_lib.helpers.agents_instruction_utils import (
     agents_instructions_for_path,
 )
-from claude_core_lib.claude_core_lib.helpers.result_utils import build_openhands_result
+from agent_core_lib.agent_core_lib.helpers.result_utils import build_openhands_result
 
 
 # ---------------------------------------------------------------------------

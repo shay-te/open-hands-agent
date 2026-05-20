@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 
-from claude_core_lib.claude_core_lib.helpers.text_utils import (
+from agent_core_lib.agent_core_lib.helpers.text_utils import (
     condensed_text,
     normalized_text,
     text_from_attr,

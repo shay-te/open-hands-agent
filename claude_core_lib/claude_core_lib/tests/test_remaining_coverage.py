@@ -87,7 +87,7 @@ class ReviewCommentsBatchSnippetTests(unittest.TestCase):
     and append. Drive this with a real workspace file."""
 
     def test_renders_indented_snippet_when_workspace_has_file(self) -> None:
-        from claude_core_lib.claude_core_lib.helpers.agent_prompt_utils import (
+        from agent_core_lib.agent_core_lib.helpers.agent_prompt_utils import (
             review_comments_batch_text,
         )
         with tempfile.TemporaryDirectory() as td:

@@ -9,7 +9,7 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 from claude_core_lib.claude_core_lib.cli_client import ClaudeCliClient
-from claude_core_lib.claude_core_lib.data.fields import ImplementationFields
+from agent_core_lib.agent_core_lib.data.fields import ImplementationFields
 from tests.utils import build_review_comment, build_task
 
 
