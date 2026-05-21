@@ -572,17 +572,28 @@ class WorkspaceRecoveryServiceTests(unittest.TestCase):
             self.assertEqual(service._collect_orphan_directories(), [])
 
     def test_collect_skips_existing_metadata_folders(self) -> None:
-        # Line 114: ``if (entry / _METADATA_FILENAME).is_file(): continue``.
+        # ``if (entry / metadata_filename).is_file(): continue`` —
+        # the recovery service now reads the filename from the
+        # workspace_manager's data_access at runtime so it honours
+        # kato's override (``.kato-meta.json``) without hardcoding.
+        # Stub ``data_access.metadata_filename`` on the mocked
+        # workspace_manager so the lookup returns the right string.
         from kato_core_lib.data_layers.service.workspace_recovery_service import (
             WorkspaceRecoveryService,
+        )
+        from workspace_core_lib.workspace_core_lib.data_layers.data_access.workspace_data_access import (
+            DEFAULT_METADATA_FILENAME,
         )
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             (root / 'managed').mkdir()
-            (root / 'managed' / '.kato-meta.json').write_text('{}')
+            (root / 'managed' / DEFAULT_METADATA_FILENAME).write_text('{}')
             (root / 'orphan').mkdir()
             workspace_manager = MagicMock()
             workspace_manager.root = root
+            workspace_manager.data_access.metadata_filename = (
+                DEFAULT_METADATA_FILENAME
+            )
             service = WorkspaceRecoveryService(
                 workspace_manager=workspace_manager,
                 task_service=MagicMock(),

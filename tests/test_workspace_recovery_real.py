@@ -31,6 +31,9 @@ from kato_core_lib.data_layers.service.workspace_recovery_service import (
 from workspace_core_lib.workspace_core_lib.data_layers.data.workspace_record import (
     WORKSPACE_STATUS_ACTIVE,
 )
+from workspace_core_lib.workspace_core_lib.data_layers.data_access.workspace_data_access import (
+    DEFAULT_METADATA_FILENAME,
+)
 
 from tests.chaos_lib import (
     CHAOS_TASK_IDS_SAFE,
@@ -90,11 +93,17 @@ def _make_task(task_id: str, *, summary: str | None = None) -> SimpleNamespace:
 def _make_orphan(
     root: Path, task_id: str, repos: list[str], *, with_metadata: bool = False,
 ) -> Path:
-    """Create ``<root>/<task_id>/<repo>/.git/`` on real disk."""
+    """Create ``<root>/<task_id>/<repo>/.git/`` on real disk.
+
+    ``with_metadata=True`` writes the REAL workspace metadata filename
+    (``DEFAULT_METADATA_FILENAME``) so the test marks the folder as
+    "already managed" using the same sentinel ``WorkspaceDataAccess``
+    actually writes — not a leftover misspelling.
+    """
     folder = root / task_id
     folder.mkdir(parents=True, exist_ok=True)
     if with_metadata:
-        (folder / '.kato-meta.json').write_text('{}', encoding='utf-8')
+        (folder / DEFAULT_METADATA_FILENAME).write_text('{}', encoding='utf-8')
     for repo in repos:
         (folder / repo / '.git').mkdir(parents=True)
     return folder
@@ -128,7 +137,9 @@ class WorkspaceRecoveryRealDiskTests(unittest.TestCase):
     def test_recovers_real_orphan_with_real_workspace_metadata_on_disk(self) -> None:
         # Real disk: <root>/PROJ-1/repo-a/.git
         _make_orphan(self.root, 'PROJ-1', ['repo-a'])
-        task_service = _RealishTaskService(assigned=[_make_task('PROJ-1')])
+        task_service = _RealishTaskService(assigned=[_make_task(
+            'PROJ-1', summary='fix this thing',
+        )])
         repo_service = _RealishRepoService(
             mapping={'PROJ-1': [SimpleNamespace(id='repo-a')]},
         )
@@ -145,9 +156,17 @@ class WorkspaceRecoveryRealDiskTests(unittest.TestCase):
         recovered = managed[0]
         self.assertEqual(recovered.status, WORKSPACE_STATUS_ACTIVE)
         self.assertEqual(recovered.repository_ids, ['repo-a'])
-        # And the metadata file is actually on disk in the expected place.
-        meta_path = self.root / 'PROJ-1' / '.workspace-meta.json'
+        # Metadata file is on disk under the real filename.
+        meta_path = self.root / 'PROJ-1' / DEFAULT_METADATA_FILENAME
         self.assertTrue(meta_path.is_file())
+        # And the raw JSON has every field we said we'd persist —
+        # don't trust the service's own readback, read the bytes.
+        import json
+        on_disk = json.loads(meta_path.read_text(encoding='utf-8'))
+        self.assertEqual(on_disk['task_id'], 'PROJ-1')
+        self.assertEqual(on_disk['task_summary'], 'fix this thing')
+        self.assertEqual(on_disk['status'], WORKSPACE_STATUS_ACTIVE)
+        self.assertEqual(on_disk['repository_ids'], ['repo-a'])
 
     def test_recovers_multi_repo_orphan_in_one_pass(self) -> None:
         _make_orphan(self.root, 'BIG-1', ['client', 'backend', 'shared'])
@@ -210,7 +229,7 @@ class WorkspaceRecoveryRealDiskTests(unittest.TestCase):
         adopted = self._build(task_service, repo_service).recover_orphan_workspaces()
         self.assertEqual(adopted, [])
         # No metadata file was written — the folder is still an orphan.
-        self.assertFalse((self.root / 'PROJ-4' / '.workspace-meta.json').is_file())
+        self.assertFalse((self.root / 'PROJ-4' / DEFAULT_METADATA_FILENAME).is_file())
 
     def test_orphan_with_no_git_subdirectories_is_skipped(self) -> None:
         # Just an empty folder under root — no .git anywhere.
@@ -233,7 +252,7 @@ class WorkspaceRecoveryRealDiskTests(unittest.TestCase):
 
         adopted = self._build(task_service, repo_service).recover_orphan_workspaces()
         self.assertEqual(adopted, [])
-        self.assertFalse((self.root / 'ghost-task' / '.workspace-meta.json').is_file())
+        self.assertFalse((self.root / 'ghost-task' / DEFAULT_METADATA_FILENAME).is_file())
 
     def test_returns_empty_when_task_service_fetches_fail_for_both_kinds(self) -> None:
         # If assigned + review BOTH explode, recovery bails out gracefully.
@@ -247,7 +266,7 @@ class WorkspaceRecoveryRealDiskTests(unittest.TestCase):
         adopted = self._build(task_service, repo_service).recover_orphan_workspaces()
         self.assertEqual(adopted, [])
         # No metadata was written — the orphan is still unmanaged.
-        self.assertFalse((self.root / 'PROJ-6' / '.workspace-meta.json').is_file())
+        self.assertFalse((self.root / 'PROJ-6' / DEFAULT_METADATA_FILENAME).is_file())
 
     def test_per_orphan_failure_does_not_abort_recovery_of_the_rest(self) -> None:
         # First orphan's repo lookup explodes; second orphan recovers fine.
@@ -271,8 +290,8 @@ class WorkspaceRecoveryRealDiskTests(unittest.TestCase):
         # folder still exists (it's a leftover orphan) so it shows up
         # as a synthetic `errored` record in list_workspaces(), but its
         # metadata file was never written.
-        self.assertTrue((self.root / 'PROJ-OK' / '.workspace-meta.json').is_file())
-        self.assertFalse((self.root / 'PROJ-BAD' / '.workspace-meta.json').is_file())
+        self.assertTrue((self.root / 'PROJ-OK' / DEFAULT_METADATA_FILENAME).is_file())
+        self.assertFalse((self.root / 'PROJ-BAD' / DEFAULT_METADATA_FILENAME).is_file())
 
     def test_assigned_takes_precedence_over_review_for_same_task_id(self) -> None:
         # Same id in both lists — recovery should still adopt once.
@@ -310,6 +329,74 @@ class WorkspaceRecoveryRealDiskTests(unittest.TestCase):
         for tid in CHAOS_TASK_IDS_SAFE:
             self.assertIn(tid, managed)
             self.assertEqual(managed[tid].repository_ids, ['repo-a'])
+
+    def test_recovering_twice_is_a_no_op_on_the_second_pass(self) -> None:
+        """Regression for the metadata-filename mismatch bug.
+
+        Before fix: recovery checked for ``.kato-meta.json`` while the
+        data layer wrote ``.workspace-meta.json``. The marker file the
+        recovery looked for never appeared, so every boot re-adopted
+        every already-managed workspace. After fix: the second pass
+        sees the workspace metadata file and returns ``[]``.
+        """
+        _make_orphan(self.root, 'PROJ-RT', ['repo-a'])
+        task_service = _RealishTaskService(assigned=[_make_task('PROJ-RT')])
+        repo_service = _RealishRepoService(
+            mapping={'PROJ-RT': [SimpleNamespace(id='repo-a')]},
+        )
+        service = self._build(task_service, repo_service)
+
+        first = service.recover_orphan_workspaces()
+        self.assertEqual([a.task_id for a in first], ['PROJ-RT'])
+        # Now the workspace metadata file exists on disk.
+        self.assertTrue(
+            (self.root / 'PROJ-RT' / DEFAULT_METADATA_FILENAME).is_file(),
+        )
+
+        # Second recovery pass: workspace is no longer an orphan.
+        second = service.recover_orphan_workspaces()
+        self.assertEqual(second, [],
+                         'second recovery should be a no-op — managed '
+                         'workspaces must not be re-adopted')
+
+    def test_second_recovery_does_not_revert_review_workspace_to_active(self) -> None:
+        """The bug's actual blast radius: REVIEW workspaces flipping to ACTIVE.
+
+        When the metadata-filename mismatch caused re-adoption every
+        boot, ``_recover_one`` would call
+        ``workspace_manager.update_status(..., WORKSPACE_STATUS_ACTIVE)``
+        on every managed workspace — silently bumping anything in
+        REVIEW (or any other status) back to ACTIVE. That violates
+        the documented "never delete a review clone" invariant
+        because the cleanup classifier protects REVIEW separately.
+        """
+        from workspace_core_lib.workspace_core_lib.data_layers.data.workspace_record import (
+            WORKSPACE_STATUS_REVIEW,
+        )
+
+        # Adopt PROJ-REV once, then move it to REVIEW (mirroring the
+        # publish path that promotes a finished workspace to review).
+        _make_orphan(self.root, 'PROJ-REV', ['repo-a'])
+        task_service = _RealishTaskService(assigned=[_make_task('PROJ-REV')])
+        repo_service = _RealishRepoService(
+            mapping={'PROJ-REV': [SimpleNamespace(id='repo-a')]},
+        )
+        service = self._build(task_service, repo_service)
+        first = service.recover_orphan_workspaces()
+        self.assertEqual(len(first), 1)
+        # Move it to REVIEW the way the real publish path does.
+        self.workspace_service.update_status('PROJ-REV', WORKSPACE_STATUS_REVIEW)
+
+        # Now run recovery again. The pre-fix code would re-adopt and
+        # bump back to ACTIVE; the post-fix code must leave it alone.
+        second = service.recover_orphan_workspaces()
+        self.assertEqual(second, [])
+        live = self.workspace_service.get('PROJ-REV')
+        self.assertEqual(
+            live.status, WORKSPACE_STATUS_REVIEW,
+            'recovery silently dragged a REVIEW workspace back to ACTIVE — '
+            'the metadata-filename mismatch bug must have regressed',
+        )
 
     def test_workspace_root_does_not_exist_returns_empty_list_gracefully(self) -> None:
         # Wipe the workspace root before recovery runs.

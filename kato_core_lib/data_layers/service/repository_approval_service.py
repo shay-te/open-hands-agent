@@ -71,6 +71,20 @@ def operator_identity(env: dict | None = None) -> str:
 class RepositoryApprovalService(Service):
     """Read/write the approval sidecar; expose a thread-safe lookup API."""
 
+    # Class-level lock registry keyed by resolved sidecar path. Multiple
+    # ``RepositoryApprovalService`` instances that point at the same
+    # sidecar (e.g. the webserver and the scanner each construct their
+    # own) share ONE lock so concurrent ``approve()`` / ``revoke()``
+    # calls can't both read the same baseline and clobber each other's
+    # write. Without this, the per-instance ``Lock`` only serialised
+    # one instance's own calls; cross-instance writes raced on the
+    # shared ``approvals.json.tmp`` rename and threw FileNotFoundError
+    # while silently losing every other approval. Single-process safety
+    # only — different OS processes still race; tighten with
+    # ``fcntl.flock`` if multi-process operator setups appear.
+    _locks_by_path: dict[Path, Lock] = {}
+    _locks_registry_lock = Lock()
+
     def __init__(
         self,
         storage_path: Path | str | None = None,
@@ -80,12 +94,25 @@ class RepositoryApprovalService(Service):
         self.logger = logger or configure_logger(self.__class__.__name__)
         self._storage_path = Path(storage_path).expanduser() if storage_path else default_storage_path()
         self._cache: ApprovalSidecar | None = None
-        # Cross-thread guard for the read-modify-write cycle. Multiple
-        # processes hitting the same sidecar is rare (a single kato per
-        # operator) but the in-process lock is cheap and saves us from
-        # races between the webserver thread and the scanner thread.
-        self._write_lock = Lock()
+        self._write_lock = self._lock_for(self._storage_path)
         self._corrupt_warned = False
+
+    @classmethod
+    def _lock_for(cls, path: Path) -> Lock:
+        """Return the shared ``Lock`` for ``path`` (resolves symlinks).
+
+        Resolution uses the parent + name (the sidecar file may not
+        exist yet at construction time so ``Path.resolve()`` on the
+        full path would silently fail to canonicalise on some
+        systems). Same parent + same filename → same lock.
+        """
+        key = path.parent.resolve() / path.name
+        with cls._locks_registry_lock:
+            lock = cls._locks_by_path.get(key)
+            if lock is None:
+                lock = Lock()
+                cls._locks_by_path[key] = lock
+            return lock
 
     # ----- public API -----
 
@@ -247,10 +274,18 @@ class RepositoryApprovalService(Service):
     def _write_sidecar(self, sidecar: ApprovalSidecar) -> None:
         path = self._storage_path
         path.parent.mkdir(parents=True, exist_ok=True)
-        # Write to a sibling temp file then atomic-rename so a crash
-        # mid-write can't leave a half-written sidecar that future
-        # boots have to interpret.
-        tmp_path = path.with_suffix(path.suffix + '.tmp')
+        # Per-process + per-thread + uuid-unique temp filename so two
+        # writers (different processes, or the rare case where the
+        # path-keyed lock above is bypassed) can't collide on the
+        # shared ``.tmp`` and have one rename steal the other's file.
+        # The atomic rename still guarantees readers never see a
+        # half-written sidecar.
+        import threading
+        import uuid
+        tmp_path = path.with_suffix(
+            path.suffix
+            + f'.{os.getpid()}.{threading.get_ident()}.{uuid.uuid4().hex}.tmp',
+        )
         with tmp_path.open('w', encoding='utf-8') as handle:
             json.dump(sidecar.to_dict(), handle, indent=2, sort_keys=True)
             handle.write('\n')

@@ -3,8 +3,8 @@
 A user can drop a repo clone under ``KATO_WORKSPACES_ROOT/<task_id>/<repo>/``
 out-of-band — for example, if they cloned and started editing manually
 before kato was running, or copied a folder from another machine. The
-folder won't have ``.kato-meta.json`` so kato has no idea it exists, and
-the planning UI's tab list will skip it.
+folder won't have the workspace metadata file so kato has no idea it
+exists, and the planning UI's tab list will skip it.
 
 This service runs once at startup, finds those orphan folders, and
 adopts them as if kato had provisioned the workspace itself:
@@ -16,8 +16,8 @@ adopts them as if kato had provisioned the workspace itself:
 * If Claude already ran a session inside the folder (Claude Code
   records every conversation under ``~/.claude/projects``), we look up
   the matching session id by ``cwd`` and store it.
-* A fresh ``.kato-meta.json`` is written so future kato cycles treat
-  the workspace exactly like one it provisioned itself.
+* A fresh workspace metadata file is written so future kato cycles
+  treat the workspace exactly like one it provisioned itself.
 
 Folders that don't match (no live task, no tags, empty, or already
 managed) are left alone — recovery is opt-in by virtue of having a
@@ -42,9 +42,11 @@ from kato_core_lib.data_layers.service.workspace_manager import (
 )
 from kato_core_lib.helpers.logging_utils import configure_logger
 from kato_core_lib.helpers.text_utils import normalized_text
+from workspace_core_lib.workspace_core_lib.data_layers.data_access.workspace_data_access import (
+    DEFAULT_METADATA_FILENAME,
+)
 
 
-_METADATA_FILENAME = '.kato-meta.json'
 _GIT_DIR = '.git'
 
 
@@ -119,18 +121,39 @@ class WorkspaceRecoveryService(object):
         return adopted
 
     def _collect_orphan_directories(self) -> list[Path]:
-        """Folders under workspace root that lack ``.kato-meta.json``."""
+        """Folders under workspace root that lack the workspace metadata file.
+
+        The metadata filename is whatever the configured workspace
+        ``data_access`` actually writes. Kato pins ``.kato-meta.json``
+        (see ``_KATO_METADATA_FILENAME`` in workspace_manager.py); the
+        bare ``workspace_core_lib`` default is ``.workspace-meta.json``.
+        Asking the data_access (rather than hardcoding a literal) means
+        a future filename change in one place can't drift this check.
+        """
         root = self._workspace_manager.root
         if not root.exists():
             return []
+        metadata_filename = self._metadata_filename()
         orphans: list[Path] = []
         for entry in sorted(root.iterdir()):
             if not entry.is_dir():
                 continue
-            if (entry / _METADATA_FILENAME).is_file():
+            if (entry / metadata_filename).is_file():
                 continue
             orphans.append(entry)
         return orphans
+
+    def _metadata_filename(self) -> str:
+        """Filename the configured ``data_access`` writes for metadata.
+
+        Falls back to ``DEFAULT_METADATA_FILENAME`` if the workspace_manager
+        doesn't expose ``data_access`` (defensive — every real
+        ``WorkspaceService`` from workspace_core_lib does, but a future
+        wrapper might not).
+        """
+        data_access = getattr(self._workspace_manager, 'data_access', None)
+        filename = getattr(data_access, 'metadata_filename', None)
+        return filename or DEFAULT_METADATA_FILENAME
 
     def _fetch_live_tasks_by_id(self) -> dict[str, object]:
         """Index of task_id → task for tasks worth recovering against."""

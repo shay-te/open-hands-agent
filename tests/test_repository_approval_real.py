@@ -229,8 +229,8 @@ class RepositoryApprovalConcurrentApprovalsTests(unittest.TestCase):
         )
 
     def test_20_concurrent_approve_calls_all_persist(self) -> None:
-        # 20 different repos, approved in parallel. After all threads
-        # join, every single one is on disk.
+        # 20 different repos, approved in parallel via ONE service
+        # instance. After all threads join, every single one is on disk.
         ids = [f'concurrent-repo-{i}' for i in range(20)]
 
         def worker(repo_id):
@@ -249,6 +249,62 @@ class RepositoryApprovalConcurrentApprovalsTests(unittest.TestCase):
         # Real on-disk check: every id is there.
         approved_ids = sorted(e.repository_id for e in self.service.list_approvals())
         self.assertEqual(approved_ids, sorted(ids))
+
+    def test_cross_instance_concurrent_approve_all_persist(self) -> None:
+        """Regression: each thread builds its OWN service instance.
+
+        Real-world shape: webserver thread instantiates one
+        ``RepositoryApprovalService``, scanner thread instantiates
+        another, both pointing at the same sidecar path. Before the
+        fix the per-instance ``Lock`` couldn't serialise across
+        instances; threads raced on the shared ``approvals.json.tmp``
+        rename and most calls raised ``FileNotFoundError`` while
+        the rest lost updates (count came back as ~3 of 20).
+
+        The class-level path-keyed lock + per-process-unique tmp
+        filename in ``RepositoryApprovalService`` makes this
+        deterministic. If the fix regresses, ``errors`` becomes
+        non-empty and the on-disk count drops below 20 — both
+        assertions catch it.
+        """
+        sidecar = self.service.storage_path
+        ids = [f'cross-inst-repo-{i}' for i in range(20)]
+
+        errors: list[BaseException] = []
+        errors_lock = threading.Lock()
+
+        def worker(repo_id: str) -> None:
+            # SEPARATE service instance per thread — the whole point
+            # of this test.
+            svc = RepositoryApprovalService(sidecar)
+            try:
+                svc.approve(
+                    repo_id, f'https://git/{repo_id}.git',
+                    mode=ApprovalMode.RESTRICTED,
+                    approved_by='cross-instance-test',
+                )
+            except BaseException as exc:        # pragma: no cover
+                with errors_lock:
+                    errors.append(exc)
+
+        with ThreadPoolExecutor(max_workers=20) as pool:
+            list(as_completed([pool.submit(worker, rid) for rid in ids]))
+
+        self.assertEqual(
+            errors, [],
+            f'cross-instance approve raised {len(errors)} exception(s); '
+            'the path-keyed lock + unique tmp filename must have regressed',
+        )
+        # Fresh instance to bypass any in-memory cache.
+        on_disk = sorted(
+            e.repository_id
+            for e in RepositoryApprovalService(sidecar).list_approvals()
+        )
+        self.assertEqual(
+            on_disk, sorted(ids),
+            f'cross-instance approve lost updates: only {len(on_disk)} of '
+            f'{len(ids)} survived on disk',
+        )
 
     def test_interleaved_approve_and_revoke_converge_to_consistent_state(
         self,

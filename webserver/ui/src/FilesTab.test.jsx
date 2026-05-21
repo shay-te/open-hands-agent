@@ -668,6 +668,20 @@ describe('FilesTab — chaos / random button mashing', () => {
       const headers = await screen.findAllByText('Lines updated');
       expect(headers.length).toBeGreaterThanOrEqual(1);
 
+      // Seed the clipboard so the post-loop invariant has teeth even
+      // if the random sequence never lands on a successful menu copy.
+      // Without this, a chaos seed that never opens the menu in the
+      // right order leaves ``writeText.mock.calls`` empty and the
+      // forEach below passes vacuously.
+      const seedFile = screen.getByText('Changed.js');
+      fireEvent.contextMenu(seedFile.closest('button'));
+      fireEvent.click(screen.getByRole('menuitem', {
+        name: 'Copy relative path',
+      }));
+      await Promise.resolve();
+      const seedCallCount = navigator.clipboard.writeText.mock.calls.length;
+      expect(seedCallCount).toBeGreaterThan(0);
+
       const rng = xorshift32(seed);
       const actions = chaosActions(container);
       const log = [];
@@ -691,10 +705,16 @@ describe('FilesTab — chaos / random button mashing', () => {
       }
 
       // After the mashing:
-      //   3. Every clipboard write was a well-formed "<repo>:<path>".
+      //   3. The clipboard saw at least the seeded copy plus whatever
+      //      the chaos sequence produced. Asserting > 0 explicitly so
+      //      the forEach below isn't vacuous if every call somehow
+      //      drops out (would mean the seed copy regressed, too).
+      const allCalls = navigator.clipboard.writeText.mock.calls;
+      expect(allCalls.length).toBeGreaterThanOrEqual(seedCallCount);
+      //   4. Every clipboard write was a well-formed "<repo>:<path>".
       //      A bug where the context-menu copies the absolute /tmp
       //      path or an empty string would surface here.
-      navigator.clipboard.writeText.mock.calls.forEach(([payload]) => {
+      allCalls.forEach(([payload]) => {
         expect(typeof payload).toBe('string');
         expect(payload).toMatch(/^(client|backend):/);
         // Never leaks the OS-level path.
@@ -720,6 +740,17 @@ describe('FilesTab — chaos / random button mashing', () => {
       <FilesTab taskId="solo-task" onOpenFile={vi.fn()} />,
     );
     expect(await screen.findByText('Lines updated')).toBeInTheDocument();
+
+    // Seed the clipboard so the "no backend: leak" check below has
+    // teeth even if the random sequence never lands on a copy.
+    const seedFile = screen.getByText('Changed.js');
+    fireEvent.contextMenu(seedFile.closest('button'));
+    fireEvent.click(screen.getByRole('menuitem', {
+      name: 'Copy relative path',
+    }));
+    await Promise.resolve();
+    expect(navigator.clipboard.writeText.mock.calls.length).toBeGreaterThan(0);
+
     const actions = chaosActions(container);
     const rng = xorshift32(31337);
     for (let i = 0; i < 40; i += 1) {
@@ -730,8 +761,11 @@ describe('FilesTab — chaos / random button mashing', () => {
       expect(container.firstChild).not.toBeNull();
     }
     // The single-repo task should never produce a "backend:" copy
-    // because that repo isn't in the tree.
-    navigator.clipboard.writeText.mock.calls.forEach(([payload]) => {
+    // because that repo isn't in the tree. We've already seeded
+    // at least one client: copy, so this isn't a vacuous check.
+    const allCalls = navigator.clipboard.writeText.mock.calls;
+    expect(allCalls.length).toBeGreaterThan(0);
+    allCalls.forEach(([payload]) => {
       if (typeof payload === 'string') {
         expect(payload.startsWith('backend:')).toBe(false);
       }
