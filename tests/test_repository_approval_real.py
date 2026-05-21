@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import tempfile
+import textwrap
 import threading
 import time
 import unittest
@@ -228,6 +229,119 @@ class RepositoryApprovalConcurrentApprovalsTests(unittest.TestCase):
             Path(self._tmp.name) / 'approvals.json',
         )
 
+    # Subprocess scripts read the repo id from sys.argv[1] so the
+    # caller passes it as a real argv (no f-string escaping of weird
+    # chars). The sidecar path is the only interpolated value.
+    _APPROVE_SCRIPT_TEMPLATE = textwrap.dedent("""
+        import sys
+        from pathlib import Path
+        from kato_core_lib.data_layers.service.repository_approval_service \\
+            import RepositoryApprovalService
+        from kato_core_lib.data_layers.data.repository_approval \\
+            import ApprovalMode
+        sidecar = Path({sidecar!r})
+        repo_id = sys.argv[1]
+        mode = ApprovalMode.from_string({mode!r})
+        RepositoryApprovalService(sidecar).approve(
+            repo_id, 'https://git/' + repo_id + '.git',
+            mode=mode, approved_by='subprocess-writer',
+        )
+    """)
+
+    _REVOKE_SCRIPT_TEMPLATE = textwrap.dedent("""
+        import sys
+        from pathlib import Path
+        from kato_core_lib.data_layers.service.repository_approval_service \\
+            import RepositoryApprovalService
+        sidecar = Path({sidecar!r})
+        repo_id = sys.argv[1]
+        RepositoryApprovalService(sidecar).revoke(repo_id)
+    """)
+
+    def _run_subprocess_approve(self, sidecar: Path, repo_id: str,
+                                 *, mode: str = 'restricted') -> int:
+        """Run ``approve()`` in a fresh subprocess. Returns the rc."""
+        import subprocess
+        import sys
+        script = self._APPROVE_SCRIPT_TEMPLATE.format(
+            sidecar=str(sidecar), mode=mode,
+        )
+        return subprocess.run(
+            [sys.executable, '-c', script, repo_id],
+            capture_output=True, timeout=15.0,
+        ).returncode
+
+    def _run_subprocess_revoke(self, sidecar: Path, repo_id: str) -> int:
+        import subprocess
+        import sys
+        script = self._REVOKE_SCRIPT_TEMPLATE.format(sidecar=str(sidecar))
+        return subprocess.run(
+            [sys.executable, '-c', script, repo_id],
+            capture_output=True, timeout=15.0,
+        ).returncode
+
+    def test_long_lived_service_sees_writes_made_by_another_process(self) -> None:
+        """Regression: stale-cache after a cross-process write.
+
+        ``RepositoryApprovalService`` caches the parsed sidecar on
+        the first read. With cross-process writes now actually safe
+        (flock), a long-lived service whose cache is warm must still
+        see another process's later writes. Otherwise REP refuses
+        repos that ANOTHER kato (or the CLI) approved seconds ago.
+
+        Before the mtime-based cache invalidation: the cached service
+        keeps returning ``None`` from ``is_approved`` because it
+        never re-reads the file. After fix: the next ``is_approved``
+        notices the mtime change and re-reads.
+        """
+        sidecar = self.service.storage_path
+        # Warm the cache with an empty file.
+        self.assertIsNone(self.service.is_approved('lifetime-repo'))
+
+        # A separate process approves the repo, writing to the same file.
+        rc = self._run_subprocess_approve(sidecar, 'lifetime-repo')
+        self.assertEqual(rc, 0, 'subprocess approve crashed')
+        # And the file on disk really has the new entry.
+        self.assertIn(
+            'lifetime-repo',
+            (sidecar).read_text(encoding='utf-8'),
+        )
+
+        # Long-lived service: a SECOND is_approved must see the
+        # cross-process write — not the cached empty sidecar.
+        live = self.service.is_approved('lifetime-repo')
+        self.assertEqual(
+            live, ApprovalMode.RESTRICTED,
+            'cached service returned None after another process '
+            'approved the repo — mtime-based cache invalidation must '
+            'have regressed',
+        )
+
+    def test_long_lived_service_sees_revokes_from_another_process(self) -> None:
+        """Mirror of the stale-cache approve test, for revokes.
+
+        Symmetric: if A has cached "approved" and B revokes from
+        another process, A's next ``is_approved`` must reflect the
+        revoke. Otherwise the operator's revoke is silently ignored
+        by everyone holding a warm cache.
+        """
+        sidecar = self.service.storage_path
+        # Approve in-process, then read so the cache holds an "approved" view.
+        self.service.approve('to-revoke', 'https://git/to-revoke.git')
+        self.assertEqual(
+            self.service.is_approved('to-revoke'), ApprovalMode.RESTRICTED,
+        )
+
+        rc = self._run_subprocess_revoke(sidecar, 'to-revoke')
+        self.assertEqual(rc, 0, 'subprocess revoke crashed')
+
+        live = self.service.is_approved('to-revoke')
+        self.assertIsNone(
+            live,
+            'cached service still reports approval after another '
+            'process revoked it — stale cache must have regressed',
+        )
+
     def test_20_concurrent_approve_calls_all_persist(self) -> None:
         # 20 different repos, approved in parallel via ONE service
         # instance. After all threads join, every single one is on disk.
@@ -249,6 +363,186 @@ class RepositoryApprovalConcurrentApprovalsTests(unittest.TestCase):
         # Real on-disk check: every id is there.
         approved_ids = sorted(e.repository_id for e in self.service.list_approvals())
         self.assertEqual(approved_ids, sorted(ids))
+
+    def test_cross_process_concurrent_approve_all_persist(self) -> None:
+        """Regression: separate OS PROCESSES racing the same sidecar.
+
+        The class-level ``_locks_by_path`` only serialises within
+        one process; flock on the sidecar lockfile serialises
+        across processes. Without the flock, two kato processes
+        on the same machine would race on ``approvals.json.tmp``
+        renames the same way separate instances did. This test
+        spawns real subprocesses to prove the cross-process path.
+
+        Skipped on Windows (no ``fcntl``); the service no-ops
+        gracefully there.
+        """
+        import subprocess
+        import sys
+        import textwrap
+
+        # Cross-process locking works on POSIX (fcntl) and Windows (msvcrt).
+        # Only skip when neither is importable (vanishingly rare).
+        try:
+            import fcntl                                # noqa: F401
+        except ImportError:                              # pragma: no cover
+            try:
+                import msvcrt                            # noqa: F401
+            except ImportError:                          # pragma: no cover
+                self.skipTest('no fcntl or msvcrt on this platform')
+
+        sidecar = self.service.storage_path
+        n_processes = 12
+        worker_script = textwrap.dedent(f"""
+            import sys
+            from pathlib import Path
+            from kato_core_lib.data_layers.service.repository_approval_service \\
+                import RepositoryApprovalService
+            from kato_core_lib.data_layers.data.repository_approval \\
+                import ApprovalMode
+
+            sidecar = Path({str(sidecar)!r})
+            repo_id = sys.argv[1]
+            svc = RepositoryApprovalService(sidecar)
+            svc.approve(
+                repo_id, f'https://git/{{repo_id}}.git',
+                mode=ApprovalMode.RESTRICTED,
+                approved_by='cross-process-test',
+            )
+        """)
+
+        procs = []
+        for i in range(n_processes):
+            repo_id = f'cross-proc-repo-{i}'
+            proc = subprocess.Popen(
+                [sys.executable, '-c', worker_script, repo_id],
+                stderr=subprocess.PIPE, stdout=subprocess.PIPE,
+            )
+            procs.append((repo_id, proc))
+
+        failures: list[tuple[str, str]] = []
+        for repo_id, proc in procs:
+            _stdout, stderr = proc.communicate(timeout=30.0)
+            if proc.returncode != 0:
+                failures.append((repo_id, stderr.decode('utf-8', 'replace')))
+
+        self.assertEqual(
+            failures, [],
+            'cross-process approve raised in '
+            f'{len(failures)} subprocess(es); flock must have regressed',
+        )
+        on_disk = sorted(
+            e.repository_id
+            for e in RepositoryApprovalService(sidecar).list_approvals()
+        )
+        expected = sorted(f'cross-proc-repo-{i}' for i in range(n_processes))
+        self.assertEqual(
+            on_disk, expected,
+            f'cross-process approve lost updates: {len(on_disk)} of '
+            f'{n_processes} survived on disk',
+        )
+
+    def test_cross_process_mixed_approve_revoke_converges(self) -> None:
+        """Cross-process approve + revoke racing on overlapping ids.
+
+        Harder shape than approve-only: half the subprocesses approve
+        one id, the other half revoke a different id that was
+        pre-approved in this process. Expected end state, deterministic:
+          * all "to-approve-*" ids end up approved
+          * all "pre-approved-*" ids end up revoked
+          * no subprocess crashes
+          * the read-modify-write inside flock means a revoke of repo X
+            can never accidentally drop an approve of repo Y that
+            landed between baseline read and final write.
+
+        If the flock / mtime invalidation regresses, either a process
+        will crash, OR the final on-disk set will be missing some
+        approves / still containing some revoked ids.
+        """
+        import subprocess
+        import sys
+        import textwrap
+
+        # Cross-process locking works on POSIX (fcntl) and Windows (msvcrt).
+        # Only skip when neither is importable (vanishingly rare).
+        try:
+            import fcntl                                # noqa: F401
+        except ImportError:                              # pragma: no cover
+            try:
+                import msvcrt                            # noqa: F401
+            except ImportError:                          # pragma: no cover
+                self.skipTest('no fcntl or msvcrt on this platform')
+
+        sidecar = self.service.storage_path
+        # Pre-approve the "to-revoke" ids in this process so the
+        # subprocess revokes have something to remove. They'll race
+        # against fresh approves of disjoint ids.
+        n = 8
+        for i in range(n):
+            self.service.approve(
+                f'pre-approved-{i}', f'https://git/pre-approved-{i}.git',
+            )
+
+        approve_script = textwrap.dedent(f"""
+            import sys
+            from pathlib import Path
+            from kato_core_lib.data_layers.service.repository_approval_service \\
+                import RepositoryApprovalService
+            from kato_core_lib.data_layers.data.repository_approval import ApprovalMode
+            svc = RepositoryApprovalService(Path({str(sidecar)!r}))
+            svc.approve(
+                sys.argv[1], f'https://git/{{sys.argv[1]}}.git',
+                mode=ApprovalMode.RESTRICTED, approved_by='mixed-test',
+            )
+        """)
+        revoke_script = textwrap.dedent(f"""
+            import sys
+            from pathlib import Path
+            from kato_core_lib.data_layers.service.repository_approval_service \\
+                import RepositoryApprovalService
+            svc = RepositoryApprovalService(Path({str(sidecar)!r}))
+            svc.revoke(sys.argv[1])
+        """)
+
+        procs: list[tuple[str, str, subprocess.Popen]] = []
+        for i in range(n):
+            for action, script, repo_id in (
+                ('approve', approve_script, f'to-approve-{i}'),
+                ('revoke',  revoke_script,  f'pre-approved-{i}'),
+            ):
+                procs.append((action, repo_id, subprocess.Popen(
+                    [sys.executable, '-c', script, repo_id],
+                    stderr=subprocess.PIPE, stdout=subprocess.PIPE,
+                )))
+
+        failures: list[tuple[str, str, str]] = []
+        for action, repo_id, proc in procs:
+            _stdout, stderr = proc.communicate(timeout=30.0)
+            if proc.returncode != 0:
+                failures.append((
+                    action, repo_id, stderr.decode('utf-8', 'replace'),
+                ))
+        self.assertEqual(failures, [],
+                         f'{len(failures)} subprocess(es) crashed under '
+                         'mixed approve/revoke; flock+RMW must have regressed')
+
+        # Final on-disk state — fresh instance to bypass any in-proc cache.
+        on_disk_ids = {
+            e.repository_id
+            for e in RepositoryApprovalService(sidecar).list_approvals()
+        }
+        expected_approved = {f'to-approve-{i}' for i in range(n)}
+        for repo_id in expected_approved:
+            self.assertIn(
+                repo_id, on_disk_ids,
+                f'{repo_id} lost — concurrent revoke clobbered it',
+            )
+        for i in range(n):
+            self.assertNotIn(
+                f'pre-approved-{i}', on_disk_ids,
+                f'pre-approved-{i} survived — concurrent approve '
+                'clobbered the revoke',
+            )
 
     def test_cross_instance_concurrent_approve_all_persist(self) -> None:
         """Regression: each thread builds its OWN service instance.

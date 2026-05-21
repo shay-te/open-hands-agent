@@ -1,25 +1,13 @@
-"""JSON-backed per-workspace comment store.
-
-The store lives at ``<workspace>/.kato-comments.json`` so it travels
-with the workspace folder — an operator who moves a workspace clone
-to another machine carries the comment history with it. Reads /
-writes go through ``atomic_write_json`` so a kato crash mid-write
-can never leave the file half-serialised.
-
-Thread-safety: a per-store ``threading.RLock`` guards every public
-mutation. Concurrent reads on disjoint stores (different workspaces)
-don't contend.
-
-Public surface is intentionally narrow. The webserver and the
-``CommentService`` (in ``agent_service``) drive the flows that
-matter; nothing else should be reaching into the store directly.
-"""
+"""JSON-backed per-workspace comment store. See ``LocalCommentStore``."""
 
 from __future__ import annotations
 
+import contextlib
 import json
+import os
 import threading
 import time
+import uuid
 from pathlib import Path
 
 from kato_core_lib.comment_core_lib.comment_record import (
@@ -28,21 +16,82 @@ from kato_core_lib.comment_core_lib.comment_record import (
     CommentStatus,
     KatoCommentStatus,
 )
-from kato_core_lib.helpers.atomic_json_utils import atomic_write_json
 from kato_core_lib.helpers.logging_utils import configure_logger
+
+# Cross-platform file locking. POSIX has fcntl; Windows has msvcrt.
+try:
+    import fcntl                            # type: ignore[import-not-found]
+except ImportError:                          # pragma: no cover — Windows
+    fcntl = None                            # type: ignore[assignment]
+try:
+    import msvcrt                           # type: ignore[import-not-found]
+except ImportError:                          # POSIX
+    msvcrt = None                           # type: ignore[assignment]
 
 
 _STORE_FILENAME = '.kato-comments.json'
 
 
+@contextlib.contextmanager
+def _process_safe_write_lock(store_path: Path):
+    """Cross-process exclusive lock for the store's read-modify-write."""
+    lock_path = store_path.with_suffix(store_path.suffix + '.lock')
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    if fcntl is not None:
+        with lock_path.open('a+') as handle:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+        return
+    if msvcrt is not None:
+        with lock_path.open('a+b') as handle:
+            handle.seek(0)
+            while True:
+                try:
+                    msvcrt.locking(handle.fileno(), msvcrt.LK_LOCK, 1)
+                    break
+                except OSError:
+                    continue
+            try:
+                yield
+            finally:
+                handle.seek(0)
+                msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+        return
+    yield
+
+
 class LocalCommentStore(object):
     """JSON file at ``<workspace>/.kato-comments.json`` — CRUD + sync."""
+
+    # Shared across instances pointing at the same store so two
+    # callers in the same process (webserver thread + scanner
+    # thread) can't both read the same baseline and lose updates.
+    _locks_by_path: dict[Path, threading.RLock] = {}
+    _locks_registry_lock = threading.Lock()
 
     def __init__(self, workspace_dir: str | Path) -> None:
         self._workspace_dir = Path(workspace_dir)
         self._path = self._workspace_dir / _STORE_FILENAME
-        self._lock = threading.RLock()
+        self._lock = self._lock_for(self._path)
         self.logger = configure_logger(self.__class__.__name__)
+        # Cache + mtime so a long-lived instance sees cross-process writes.
+        self._cache: list[CommentRecord] | None = None
+        self._cache_mtime_ns: int = 0
+
+    @classmethod
+    def _lock_for(cls, path: Path) -> threading.RLock:
+        # parent.resolve() + name, not full resolve() — the store
+        # file may not exist yet at construction time.
+        key = path.parent.resolve() / path.name
+        with cls._locks_registry_lock:
+            lock = cls._locks_by_path.get(key)
+            if lock is None:
+                lock = threading.RLock()
+                cls._locks_by_path[key] = lock
+            return lock
 
     # ----- public API -----
 
@@ -86,12 +135,20 @@ class LocalCommentStore(object):
             raise ValueError('comment body must be non-empty')
         if not str(record.repo_id or '').strip():
             raise ValueError('comment repo_id must be non-empty')
-        if record.parent_id and self.get(record.parent_id) is None:
-            raise ValueError(
-                f'parent comment {record.parent_id!r} does not exist',
-            )
-        with self._lock:
-            existing = list(self._load_all())
+        # flock wraps the WHOLE RMW so a sibling process can't load the
+        # same baseline and clobber us on rename.
+        with self._lock, _process_safe_write_lock(self._path):
+            if record.parent_id:
+                parent = next(
+                    (r for r in self._load_all(force=True)
+                     if r.id == record.parent_id),
+                    None,
+                )
+                if parent is None:
+                    raise ValueError(
+                        f'parent comment {record.parent_id!r} does not exist',
+                    )
+            existing = list(self._load_all(force=True))
             existing.append(record)
             self._persist(existing)
         return record
@@ -112,8 +169,8 @@ class LocalCommentStore(object):
             )
         if not record.remote_id:
             raise ValueError('remote_id is required to upsert a remote comment')
-        with self._lock:
-            existing = list(self._load_all())
+        with self._lock, _process_safe_write_lock(self._path):
+            existing = list(self._load_all(force=True))
             for index, current in enumerate(existing):
                 if (
                     current.source == CommentSource.REMOTE.value
@@ -150,8 +207,8 @@ class LocalCommentStore(object):
             CommentStatus.RESOLVED.value,
         ):
             raise ValueError(f'unknown comment status: {status!r}')
-        with self._lock:
-            existing = list(self._load_all())
+        with self._lock, _process_safe_write_lock(self._path):
+            existing = list(self._load_all(force=True))
             for index, current in enumerate(existing):
                 if current.id != comment_id:
                     continue
@@ -185,8 +242,8 @@ class LocalCommentStore(object):
         """
         if kato_status not in {item.value for item in KatoCommentStatus}:
             raise ValueError(f'unknown kato_status: {kato_status!r}')
-        with self._lock:
-            existing = list(self._load_all())
+        with self._lock, _process_safe_write_lock(self._path):
+            existing = list(self._load_all(force=True))
             for index, current in enumerate(existing):
                 if current.id != comment_id:
                     continue
@@ -205,8 +262,8 @@ class LocalCommentStore(object):
 
     def delete(self, comment_id: str) -> bool:
         """Remove a comment (and any direct replies). Returns True on hit."""
-        with self._lock:
-            existing = list(self._load_all())
+        with self._lock, _process_safe_write_lock(self._path):
+            existing = list(self._load_all(force=True))
             removed = False
             kept: list[CommentRecord] = []
             ids_to_drop = {comment_id}
@@ -258,8 +315,24 @@ class LocalCommentStore(object):
 
     # ----- internals -----
 
-    def _load_all(self) -> list[CommentRecord]:
+    def _current_mtime_ns(self) -> int:
+        try:
+            return self._path.stat().st_mtime_ns
+        except OSError:
+            return 0
+
+    def _load_all(self, *, force: bool = False) -> list[CommentRecord]:
+        # Cross-process writes bump the file mtime; drop the cache on change.
+        current_mtime = self._current_mtime_ns()
+        if (
+            self._cache is not None
+            and not force
+            and current_mtime == self._cache_mtime_ns
+        ):
+            return list(self._cache)
         if not self._path.is_file():
+            self._cache = []
+            self._cache_mtime_ns = current_mtime
             return []
         try:
             with self._path.open('r', encoding='utf-8') as fh:
@@ -269,11 +342,17 @@ class LocalCommentStore(object):
                 'comment store at %s is unreadable (%s) — treating as empty',
                 self._path, exc,
             )
+            self._cache = []
+            self._cache_mtime_ns = current_mtime
             return []
         if not isinstance(payload, dict):
+            self._cache = []
+            self._cache_mtime_ns = current_mtime
             return []
         rows = payload.get('comments') or []
         if not isinstance(rows, list):
+            self._cache = []
+            self._cache_mtime_ns = current_mtime
             return []
         out: list[CommentRecord] = []
         for entry in rows:
@@ -286,16 +365,28 @@ class LocalCommentStore(object):
                     'skipping malformed comment record in %s',
                     self._path,
                 )
+        self._cache = list(out)
+        self._cache_mtime_ns = current_mtime
         return out
 
     def _persist(self, records: list[CommentRecord]) -> None:
-        # Workspace folder is created by WorkspaceManager.create
-        # before any agent runs. If the operator manually deleted
-        # it, we recreate the parent so the write doesn't fail.
+        # Callers hold the cross-process flock; this just serialises
+        # the file IO. pid/thread/uuid in the tmp name guards against
+        # a stray writer that bypassed the lock.
         self._workspace_dir.mkdir(parents=True, exist_ok=True)
-        atomic_write_json(
-            self._path,
-            {'comments': [record.to_dict() for record in records]},
-            logger=self.logger,
-            label=f'comment store at {self._path}',
+        payload = {'comments': [record.to_dict() for record in records]}
+        tmp_path = self._path.with_suffix(
+            self._path.suffix
+            + f'.{os.getpid()}.{threading.get_ident()}.{uuid.uuid4().hex}.tmp',
         )
+        try:
+            with tmp_path.open('w', encoding='utf-8') as handle:
+                json.dump(payload, handle, indent=2, sort_keys=True)
+            os.replace(tmp_path, self._path)
+        except OSError as exc:
+            self.logger.warning(
+                'failed to persist comment store at %s: %s', self._path, exc,
+            )
+            return
+        self._cache = list(records)
+        self._cache_mtime_ns = self._current_mtime_ns()

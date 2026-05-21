@@ -1,0 +1,22 @@
+{
+  "expected": {
+    "task_id": "PROJ-SYNC"
+  },
+  "no_workspace": {
+    "error": "no workspace exists for this task yet",
+    "synced": false,
+    "task_id": "GHOST-TASK"
+  },
+  "nothing_to_sync": {
+    "added_repositories": [],
+    "already_present": [],
+    "failed_repositories": [],
+    "synced": true,
+    "task_id": "PROJ-SYNC"
+  },
+  "task_lookup_failed": {
+    "error": "could not load task from the ticket platform \u2014 no tags / description available to resolve repositories",
+    "synced": false,
+    "task_id": "PROJ-SYNC"
+  }
+}

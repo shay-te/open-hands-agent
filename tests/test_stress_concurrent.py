@@ -341,33 +341,19 @@ class DrainQueuedCommentsUnderConcurrentSubmissionTests(unittest.TestCase):
                 f'comment {comment_id} stuck QUEUED after race',
             )
 
-    def test_cross_instance_writes_lose_updates_deterministic_reproducer(self) -> None:
-        """Deterministic reproducer for the cross-instance lost-update bug.
+    def test_cross_instance_writes_both_survive_with_shared_locking(self) -> None:
+        """Regression for the lost-update fix.
 
-        ``LocalCommentStore`` uses a per-instance ``RLock`` for its
-        read-modify-write cycle. Two instances of the same workspace
-        each have their own lock, so this interleaving:
+        Originally pinned the BUG (assertLess(on_disk, 2)) — two
+        separate ``LocalCommentStore`` instances on the same path
+        each had their own RLock, raced on the shared ``.json.tmp``
+        rename, and at most one record survived. Now flipped:
+        ``_locks_by_path`` makes the two instances share a lock and
+        the cross-process flock + unique tmp filename close the
+        remaining gap. Both records MUST persist.
 
-            store_a.add(r_a):  load → []      ┐
-            store_b.add(r_b):  load → []      │ both see same baseline
-            store_a.add(r_a):  append → [r_a] │
-            store_b.add(r_b):  append → [r_b] │
-            store_a.add(r_a):  persist [r_a]  ┘ first writer
-            store_b.add(r_b):  persist [r_b]  → SECOND WIPES FIRST
-
-        ...drops ``r_a`` silently. ``AgentService._comment_store_for``
-        builds a fresh instance on every call, so this happens in
-        production whenever the scan-loop drain (one thread) and the
-        webserver's CommentService (another thread) write to the same
-        workspace's store.
-
-        This test forces that exact interleaving via a barrier injected
-        AFTER the baseline read but BEFORE the persist, so we get a
-        deterministic failure rather than a racey one. The final on-disk
-        record count is EXACTLY 1 — one writer's record was lost. When
-        the bug is fixed (e.g. a path-keyed class-level lock, or
-        ``fcntl.flock``), this assertion will start failing because the
-        count will reach 2 — flip it to ``assertEqual(..., 2)`` then.
+        If anyone removes the class-level lock OR drops the flock
+        from ``add``, this test fails because one record gets lost.
         """
         tmp = tempfile.TemporaryDirectory(prefix='kato-lost-update-')
         self.addCleanup(tmp.cleanup)
@@ -377,72 +363,140 @@ class DrainQueuedCommentsUnderConcurrentSubmissionTests(unittest.TestCase):
         store_a = LocalCommentStore(workspace)
         store_b = LocalCommentStore(workspace)
 
-        # Synchronize the two adds at the read/persist seam so the
-        # race is no longer probabilistic. Each thread loads its
-        # baseline, then waits at ``both_loaded``; only after BOTH
-        # threads have loaded does the persist phase begin.
-        both_loaded = threading.Barrier(2)
         results: dict[str, BaseException | None] = {}
 
-        original_load = LocalCommentStore._load_all
+        def worker(store, body, key):
+            try:
+                store.add(CommentRecord(
+                    repo_id='r', body=body, author='op',
+                    source=CommentSource.LOCAL.value,
+                ))
+                results[key] = None
+            except BaseException as exc:        # pragma: no cover
+                results[key] = exc
 
-        def synced_load_all(self):
-            data = original_load(self)
-            # Wait for the SIBLING thread to also have loaded its
-            # baseline (same lock has been released by then on each
-            # side because _load_all returns inside the with-block).
-            both_loaded.wait(timeout=2.0)
-            return data
-
-        # Inject the barrier ONLY into the load-step of these two
-        # instances; other tests are unaffected (we restore on exit).
-        with patch.object(LocalCommentStore, '_load_all', synced_load_all):
-            def worker(store, body, key):
-                try:
-                    store.add(CommentRecord(
-                        repo_id='r', body=body, author='op',
-                        source=CommentSource.LOCAL.value,
-                    ))
-                    results[key] = None
-                except BaseException as exc:    # pragma: no cover
-                    results[key] = exc
-
-            t_a = threading.Thread(
-                target=worker, args=(store_a, 'from-a', 'a'),
-            )
-            t_b = threading.Thread(
-                target=worker, args=(store_b, 'from-b', 'b'),
-            )
-            t_a.start(); t_b.start()
-            t_a.join(timeout=3.0); t_b.join(timeout=3.0)
+        t_a = threading.Thread(target=worker, args=(store_a, 'from-a', 'a'))
+        t_b = threading.Thread(target=worker, args=(store_b, 'from-b', 'b'))
+        t_a.start(); t_b.start()
+        t_a.join(timeout=3.0); t_b.join(timeout=3.0)
 
         self.assertFalse(t_a.is_alive(), 'thread A deadlocked')
         self.assertFalse(t_b.is_alive(), 'thread B deadlocked')
-        # Both threads completed without raising.
         self.assertIsNone(results.get('a'))
         self.assertIsNone(results.get('b'))
 
         # The bug: FEWER than 2 records survive. Under proper shared
-        # locking the on-disk count would be EXACTLY 2. Under the
-        # current per-instance-lock code, both threads load the same
-        # baseline, append, and persist; outcomes observed in
-        # practice (depending on the exact rename interleaving in
-        # atomic_write_json):
-        #   * 1 record  — one writer's persist won; the other was lost
-        #   * 0 records — both renames raced the shared tmp path and
-        #                 failed; both writers swallowed the OSError
-        # Either way: at least one write was silently lost. That's
-        # the regression. When LocalCommentStore grows shared locking
-        # this assertion will FAIL (count == 2) — flip it to
-        # ``assertEqual(len(on_disk), 2)`` then.
+        # Both records on disk — neither overwrote the other.
         on_disk = LocalCommentStore(workspace).list()
-        self.assertLess(
-            len(on_disk), 2,
-            'LocalCommentStore appears to have grown cross-instance '
-            'locking (BOTH writes survived). Flip this assertion to '
-            'assertEqual(len(on_disk), 2) because the bug is fixed. '
-            'Current on-disk: ' + repr([c.body for c in on_disk]),
+        bodies = sorted(c.body for c in on_disk)
+        self.assertEqual(
+            bodies, ['from-a', 'from-b'],
+            'cross-instance writes lost an update — the shared '
+            '_locks_by_path lock or the cross-process flock must '
+            'have regressed. On-disk: ' + repr(bodies),
         )
+
+
+class LocalCommentStoreCrossProcessTests(unittest.TestCase):
+    """Cross-process safety for ``LocalCommentStore``.
+
+    Same bug class as ``RepositoryApprovalService`` had before the fix:
+    per-instance lock, no mtime invalidation, static ``.tmp`` rename.
+    Two kato processes (or kato + the CLI) writing the same store
+    could lose updates. Now fixed with class-level path-keyed locks,
+    cross-process flock, mtime invalidation, and unique tmp filenames.
+    """
+
+    _APPROVE_SCRIPT_TEMPLATE = __import__('textwrap').dedent("""
+        import sys
+        from pathlib import Path
+        from kato_core_lib.comment_core_lib import (
+            CommentRecord, CommentSource, LocalCommentStore,
+        )
+        store = LocalCommentStore(Path({workspace!r}))
+        body = sys.argv[1]
+        store.add(CommentRecord(
+            repo_id='r', body=body, author='op',
+            source=CommentSource.LOCAL.value,
+        ))
+    """)
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory(prefix='kato-comment-cross-')
+        self.addCleanup(self._tmp.cleanup)
+        self.workspace = Path(self._tmp.name) / 'ws'
+        self.workspace.mkdir()
+
+    def _spawn_add(self, body: str):
+        import subprocess
+        import sys
+        script = self._APPROVE_SCRIPT_TEMPLATE.format(
+            workspace=str(self.workspace),
+        )
+        return subprocess.Popen(
+            [sys.executable, '-c', script, body],
+            stderr=subprocess.PIPE, stdout=subprocess.PIPE,
+        )
+
+    def test_cross_process_concurrent_add_all_persist(self) -> None:
+        """Twelve real Python processes adding to the same store. All 12 land.
+
+        Before the fix: 11 of 12 made it (one lost on the shared
+        ``.json.tmp`` rename race), no subprocess crashed (the lost
+        record was silently dropped). After fix: 12 of 12.
+        """
+        try:
+            import fcntl                                # noqa: F401
+        except ImportError:                              # pragma: no cover
+            try:
+                import msvcrt                            # noqa: F401
+            except ImportError:                          # pragma: no cover
+                self.skipTest('no fcntl or msvcrt on this platform')
+
+        procs = [self._spawn_add(f'body-{i}') for i in range(12)]
+        failures: list[str] = []
+        for proc in procs:
+            _stdout, stderr = proc.communicate(timeout=15.0)
+            if proc.returncode != 0:
+                failures.append(stderr.decode('utf-8', 'replace'))
+        self.assertEqual(
+            failures, [],
+            f'{len(failures)} subprocess(es) crashed; cross-process '
+            'lock must have regressed',
+        )
+        on_disk = LocalCommentStore(self.workspace).list()
+        bodies = sorted(c.body for c in on_disk)
+        expected = sorted(f'body-{i}' for i in range(12))
+        self.assertEqual(
+            bodies, expected,
+            f'cross-process add lost updates: got {len(bodies)} of 12. '
+            'Surviving bodies: ' + repr(bodies),
+        )
+
+    def test_long_lived_instance_sees_external_writes(self) -> None:
+        """A cached store must drop its cache when another process writes.
+
+        Mirror of the RepositoryApprovalService stale-cache fix.
+        Before mtime invalidation: an in-process store that had
+        cached an empty list would never see a cross-process write.
+        After fix: the next read picks it up.
+        """
+        store = LocalCommentStore(self.workspace)
+        # Warm the cache (empty file).
+        self.assertEqual(store.list(), [])
+
+        # Subprocess writes.
+        proc = self._spawn_add('from-external-process')
+        _stdout, stderr = proc.communicate(timeout=15.0)
+        self.assertEqual(
+            proc.returncode, 0,
+            f'subprocess crashed: {stderr.decode("utf-8", "replace")}',
+        )
+
+        # Long-lived store must now see the write.
+        live = store.list()
+        self.assertEqual(len(live), 1, 'stale cache served empty list')
+        self.assertEqual(live[0].body, 'from-external-process')
 
 
 if __name__ == '__main__':

@@ -1,0 +1,56 @@
+{
+  "create": {
+    "comment": {
+      "author": "operator",
+      "body": "fix it pls",
+      "created_at_epoch": 0.0,
+      "file_path": "src/app.py",
+      "id": "__FIXTURE_ID__",
+      "kato_addressed_sha": "",
+      "kato_failure_reason": "",
+      "kato_status": "in_progress",
+      "line": 12,
+      "parent_id": "",
+      "remote_id": "",
+      "repo_id": "client",
+      "resolved_at_epoch": 0.0,
+      "resolved_by": "",
+      "source": "local",
+      "status": "open"
+    },
+    "ok": true,
+    "triggered_immediately": true
+  },
+  "expected": {
+    "body": "fix it pls",
+    "file_path": "src/app.py",
+    "line": 12,
+    "repo_id": "client",
+    "task_id": "PROJ-COMMENTS"
+  },
+  "list_after_create": {
+    "comments": [
+      {
+        "author": "operator",
+        "body": "fix it pls",
+        "created_at_epoch": 0.0,
+        "file_path": "src/app.py",
+        "id": "__FIXTURE_ID__",
+        "kato_addressed_sha": "",
+        "kato_failure_reason": "",
+        "kato_status": "in_progress",
+        "line": 12,
+        "parent_id": "",
+        "remote_id": "",
+        "repo_id": "client",
+        "resolved_at_epoch": 0.0,
+        "resolved_by": "",
+        "source": "local",
+        "status": "open"
+      }
+    ]
+  },
+  "list_empty": {
+    "comments": []
+  }
+}

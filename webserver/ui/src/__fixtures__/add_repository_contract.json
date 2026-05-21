@@ -1,0 +1,17 @@
+{
+  "empty_repository_id": {
+    "error": "repository_id is required"
+  },
+  "expected": {
+    "task_id": "PROJ-ADD"
+  },
+  "missing_body": {
+    "error": "repository_id is required"
+  },
+  "unknown_repository_id": {
+    "added": false,
+    "error": "repository 'never-configured' is not in the kato inventory; add it to the kato config under ``repositories`` first",
+    "repository_id": "never-configured",
+    "task_id": "PROJ-ADD"
+  }
+}

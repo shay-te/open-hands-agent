@@ -1,0 +1,112 @@
+{
+  "commits": {
+    "base": "main",
+    "commits": [
+      {
+        "author": "contract-test",
+        "epoch": 0,
+        "sha": "__FIXTURE_SHA__",
+        "short_sha": "__FIX__",
+        "subject": "task: real edit + new helper"
+      }
+    ],
+    "head": "PROJ-CONTRACT",
+    "repo_id": "client"
+  },
+  "diff": {
+    "base": "main",
+    "diff": "diff --git a/src/app.py b/src/app.py\nindex 372e690..9400411 100644\n--- a/src/app.py\n+++ b/src/app.py\n@@ -1,2 +1,3 @@\n def main():\n-    print('hello')\n+    print('hello, fixed')\n+    return 0\ndiff --git a/src/helper.py b/src/helper.py\nnew file mode 100644\nindex 0000000..c961442\n--- /dev/null\n+++ b/src/helper.py\n@@ -0,0 +1,2 @@\n+def helper():\n+    return 42\n",
+    "diffs": [
+      {
+        "base": "main",
+        "conflicted_files": [],
+        "cwd": "/__fixture__/client",
+        "diff": "diff --git a/src/app.py b/src/app.py\nindex 372e690..9400411 100644\n--- a/src/app.py\n+++ b/src/app.py\n@@ -1,2 +1,3 @@\n def main():\n-    print('hello')\n+    print('hello, fixed')\n+    return 0\ndiff --git a/src/helper.py b/src/helper.py\nnew file mode 100644\nindex 0000000..c961442\n--- /dev/null\n+++ b/src/helper.py\n@@ -0,0 +1,2 @@\n+def helper():\n+    return 42\n",
+        "error": "",
+        "head": "PROJ-CONTRACT",
+        "repo_id": "client"
+      }
+    ],
+    "head": "PROJ-CONTRACT",
+    "repo_id": "client",
+    "repository_ids": [
+      "client"
+    ],
+    "workspace_status": "active"
+  },
+  "expected": {
+    "changed_basenames": [
+      "app.py",
+      "helper.py"
+    ],
+    "commit_subjects_include": [
+      "task: real edit + new helper"
+    ],
+    "file_text_includes": "hello, fixed",
+    "repo_id": "client",
+    "task_id": "PROJ-CONTRACT"
+  },
+  "file": {
+    "binary": false,
+    "content": "def main():\n    print('hello, fixed')\n    return 0\n",
+    "path": "/__fixture__/client/src/app.py",
+    "size": 51
+  },
+  "files": {
+    "cwd": "/__fixture__/client",
+    "repository_ids": [
+      "client"
+    ],
+    "tree": [
+      {
+        "children": [
+          {
+            "name": "app.py",
+            "path": "src/app.py"
+          },
+          {
+            "name": "helper.py",
+            "path": "src/helper.py"
+          }
+        ],
+        "name": "src",
+        "path": "src"
+      },
+      {
+        "name": "README.md",
+        "path": "README.md"
+      }
+    ],
+    "trees": [
+      {
+        "changed_files": [
+          "src/app.py",
+          "src/helper.py"
+        ],
+        "conflicted_files": [],
+        "cwd": "/__fixture__/client",
+        "repo_id": "client",
+        "tree": [
+          {
+            "children": [
+              {
+                "name": "app.py",
+                "path": "src/app.py"
+              },
+              {
+                "name": "helper.py",
+                "path": "src/helper.py"
+              }
+            ],
+            "name": "src",
+            "path": "src"
+          },
+          {
+            "name": "README.md",
+            "path": "README.md"
+          }
+        ]
+      }
+    ]
+  }
+}

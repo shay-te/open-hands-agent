@@ -705,15 +705,70 @@ describe('FilesTab — chaos / random button mashing', () => {
       }
 
       // After the mashing:
-      //   3. The clipboard saw at least the seeded copy plus whatever
-      //      the chaos sequence produced. Asserting > 0 explicitly so
-      //      the forEach below isn't vacuous if every call somehow
-      //      drops out (would mean the seed copy regressed, too).
+      //   3. Force a final right-click + copy. This is the load-bearing
+      //      assertion: the seed copy only proves "copy works once on
+      //      a fresh render". This proves "copy still works AFTER the
+      //      chaos sequence" — catches a state-machine bug where some
+      //      sequence of toggles/menus leaves the context menu wired
+      //      to nothing, or makes the copy item silently a no-op.
+      const callCountAfterChaos = navigator.clipboard.writeText.mock.calls.length;
+      function pickTreeRowButton(text) {
+        // Match the text node that's inside an actual tree-row button.
+        // Section headers / breadcrumbs share the same text but are
+        // not buttons.
+        const candidates = screen.queryAllByText(text);
+        for (const node of candidates) {
+          const btn = node.closest('button');
+          if (btn) return btn;
+        }
+        return null;
+      }
+      // Drive the toggle into "changed only" mode (button label
+      // "Show all files" means changed-only is currently active).
+      // The changed-only view always shows changed files at the top
+      // level without needing a folder to be expanded.
+      const showAllBtn = screen.queryByRole(
+        'button', { name: 'Show all files' },
+      );
+      if (!showAllBtn) {
+        // Currently in "all" mode — toggle back.
+        const showingAllBtn = screen.queryByRole(
+          'button', { name: 'Showing all files' },
+        );
+        if (showingAllBtn) fireEvent.click(showingAllBtn);
+        await Promise.resolve();
+      }
+      let finalTarget = pickTreeRowButton('Changed.js')
+        || pickTreeRowButton('AlsoChanged.js')
+        || pickTreeRowButton('handler.py');
+      if (finalTarget === null) {
+        // Chaos may have collapsed src/api — expand them.
+        const srcRow = pickTreeRowButton('src');
+        if (srcRow) fireEvent.click(srcRow);
+        const apiRow = pickTreeRowButton('api');
+        if (apiRow) fireEvent.click(apiRow);
+        await Promise.resolve();
+        finalTarget = pickTreeRowButton('Changed.js')
+          || pickTreeRowButton('AlsoChanged.js')
+          || pickTreeRowButton('handler.py');
+      }
+      expect(finalTarget).not.toBeNull();
+      fireEvent.contextMenu(finalTarget);
+      const finalMenuItem = screen.queryByRole('menuitem', {
+        name: 'Copy relative path',
+      });
+      expect(finalMenuItem).not.toBeNull();
+      fireEvent.click(finalMenuItem);
+      await Promise.resolve();
+      const callCountAfterFinalCopy = navigator.clipboard.writeText.mock.calls.length;
+      expect(callCountAfterFinalCopy).toBeGreaterThan(callCountAfterChaos);
+
+      //   4. Every clipboard write (seed + chaos + final) was a
+      //      well-formed "<repo>:<path>". A bug where the context-menu
+      //      copies the absolute /tmp path or an empty string surfaces
+      //      here.
       const allCalls = navigator.clipboard.writeText.mock.calls;
-      expect(allCalls.length).toBeGreaterThanOrEqual(seedCallCount);
-      //   4. Every clipboard write was a well-formed "<repo>:<path>".
-      //      A bug where the context-menu copies the absolute /tmp
-      //      path or an empty string would surface here.
+      expect(allCalls.length).toBeGreaterThanOrEqual(seedCallCount + 1);
       allCalls.forEach(([payload]) => {
         expect(typeof payload).toBe('string');
         expect(payload).toMatch(/^(client|backend):/);
@@ -760,9 +815,51 @@ describe('FilesTab — chaos / random button mashing', () => {
       await Promise.resolve();
       expect(container.firstChild).not.toBeNull();
     }
+    // Final right-click + copy AFTER the chaos so we prove the copy
+    // path still works post-mashing — not just on a fresh render.
+    const callCountAfterChaos = navigator.clipboard.writeText.mock.calls.length;
+    const showAllBtn = screen.queryByRole(
+      'button', { name: 'Show all files' },
+    );
+    if (!showAllBtn) {
+      const showingAllBtn = screen.queryByRole(
+        'button', { name: 'Showing all files' },
+      );
+      if (showingAllBtn) fireEvent.click(showingAllBtn);
+      await Promise.resolve();
+    }
+    function findTreeRowButton(label) {
+      const match = screen.queryAllByText(label).find(
+        (n) => n.closest('button') !== null,
+      );
+      return match ? match.closest('button') : null;
+    }
+    // The chaos may have collapsed the src folder. If no file row is
+    // visible, click src to expand and try again.
+    let finalTarget = findTreeRowButton('Changed.js')
+      || findTreeRowButton('AlsoChanged.js');
+    if (finalTarget === null) {
+      const srcRow = findTreeRowButton('src');
+      if (srcRow) fireEvent.click(srcRow);
+      await Promise.resolve();
+      finalTarget = findTreeRowButton('Changed.js')
+        || findTreeRowButton('AlsoChanged.js');
+    }
+    expect(finalTarget).not.toBeNull();
+    fireEvent.contextMenu(finalTarget);
+    const finalMenuItem = screen.queryByRole(
+      'menuitem', { name: 'Copy relative path' },
+    );
+    expect(finalMenuItem).not.toBeNull();
+    fireEvent.click(finalMenuItem);
+    await Promise.resolve();
+    expect(navigator.clipboard.writeText.mock.calls.length)
+      .toBeGreaterThan(callCountAfterChaos);
+
     // The single-repo task should never produce a "backend:" copy
     // because that repo isn't in the tree. We've already seeded
-    // at least one client: copy, so this isn't a vacuous check.
+    // at least one client: copy AND forced one post-chaos copy —
+    // so this isn't a vacuous check.
     const allCalls = navigator.clipboard.writeText.mock.calls;
     expect(allCalls.length).toBeGreaterThan(0);
     allCalls.forEach(([payload]) => {

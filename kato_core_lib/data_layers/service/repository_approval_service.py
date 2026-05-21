@@ -28,6 +28,7 @@ REP (refuse all unapproved repos) keeps that safe.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 from collections.abc import Iterable
@@ -35,6 +36,16 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from threading import Lock
 from typing import Optional
+
+# Cross-platform file locking. POSIX has fcntl; Windows has msvcrt.
+try:
+    import fcntl                            # type: ignore[import-not-found]
+except ImportError:                          # pragma: no cover — Windows
+    fcntl = None                            # type: ignore[assignment]
+try:
+    import msvcrt                           # type: ignore[import-not-found]
+except ImportError:                          # POSIX
+    msvcrt = None                           # type: ignore[assignment]
 
 from core_lib.data_layers.service.service import Service
 
@@ -59,6 +70,48 @@ def default_storage_path() -> Path:
     return Path.home() / '.kato' / 'approved-repositories.json'
 
 
+@contextlib.contextmanager
+def _process_safe_write_lock(sidecar_path: Path):
+    """Cross-process exclusive lock for the sidecar's read-modify-write.
+
+    POSIX uses ``fcntl.flock``; Windows uses ``msvcrt.locking`` on a
+    sidecar lockfile.
+    """
+    lock_path = sidecar_path.with_suffix(sidecar_path.suffix + '.lock')
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    if fcntl is not None:
+        with lock_path.open('a+') as handle:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+        return
+    if msvcrt is not None:
+        # msvcrt.locking is byte-range; lock a single byte at offset 0.
+        # The lockfile only ever needs to exist — we never read its bytes.
+        with lock_path.open('a+b') as handle:
+            handle.seek(0)
+            # LK_LOCK blocks for up to ~10s then raises; retry forever
+            # so a long-running sibling writer doesn't surface as a
+            # spurious approval failure.
+            while True:
+                try:
+                    msvcrt.locking(handle.fileno(), msvcrt.LK_LOCK, 1)
+                    break
+                except OSError:
+                    continue
+            try:
+                yield
+            finally:
+                handle.seek(0)
+                msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+        return
+    # Neither — degrade to no-op (rare; only on a platform without
+    # either module). Callers still have the in-process Lock.
+    yield
+
+
 def operator_identity(env: dict | None = None) -> str:
     source = env if env is not None else os.environ
     explicit = str(source.get(OPERATOR_EMAIL_ENV_KEY, '') or '').strip()
@@ -71,17 +124,9 @@ def operator_identity(env: dict | None = None) -> str:
 class RepositoryApprovalService(Service):
     """Read/write the approval sidecar; expose a thread-safe lookup API."""
 
-    # Class-level lock registry keyed by resolved sidecar path. Multiple
-    # ``RepositoryApprovalService`` instances that point at the same
-    # sidecar (e.g. the webserver and the scanner each construct their
-    # own) share ONE lock so concurrent ``approve()`` / ``revoke()``
-    # calls can't both read the same baseline and clobber each other's
-    # write. Without this, the per-instance ``Lock`` only serialised
-    # one instance's own calls; cross-instance writes raced on the
-    # shared ``approvals.json.tmp`` rename and threw FileNotFoundError
-    # while silently losing every other approval. Single-process safety
-    # only — different OS processes still race; tighten with
-    # ``fcntl.flock`` if multi-process operator setups appear.
+    # Shared across instances pointing at the same sidecar so the
+    # webserver + scanner threads can't both read the same baseline
+    # and lose updates on write.
     _locks_by_path: dict[Path, Lock] = {}
     _locks_registry_lock = Lock()
 
@@ -94,18 +139,15 @@ class RepositoryApprovalService(Service):
         self.logger = logger or configure_logger(self.__class__.__name__)
         self._storage_path = Path(storage_path).expanduser() if storage_path else default_storage_path()
         self._cache: ApprovalSidecar | None = None
+        # File mtime at cache time — drops cache on cross-process writes.
+        self._cache_mtime_ns: int = 0
         self._write_lock = self._lock_for(self._storage_path)
         self._corrupt_warned = False
 
     @classmethod
     def _lock_for(cls, path: Path) -> Lock:
-        """Return the shared ``Lock`` for ``path`` (resolves symlinks).
-
-        Resolution uses the parent + name (the sidecar file may not
-        exist yet at construction time so ``Path.resolve()`` on the
-        full path would silently fail to canonicalise on some
-        systems). Same parent + same filename → same lock.
-        """
+        # parent.resolve() + name, not full resolve() — the sidecar
+        # file may not exist yet at construction time.
         key = path.parent.resolve() / path.name
         with cls._locks_registry_lock:
             lock = cls._locks_by_path.get(key)
@@ -170,7 +212,9 @@ class RepositoryApprovalService(Service):
         approval_mode = mode if isinstance(mode, ApprovalMode) else ApprovalMode.from_string(mode)
         identity = approved_by or operator_identity()
         normalised_url = normalized_text(remote_url)
-        with self._write_lock:
+        # flock wraps the WHOLE read-modify-write so a sibling process
+        # can't load the same baseline and clobber us on rename.
+        with self._write_lock, _process_safe_write_lock(self._storage_path):
             sidecar = self._read_sidecar(force=True)
             existing = next(
                 (entry for entry in sidecar.approved if entry.repository_id == normalised_id),
@@ -196,7 +240,7 @@ class RepositoryApprovalService(Service):
         normalised_id = normalized_lower_text(repository_id)
         if not normalised_id:
             return False
-        with self._write_lock:
+        with self._write_lock, _process_safe_write_lock(self._storage_path):
             sidecar = self._read_sidecar(force=True)
             updated = tuple(
                 entry for entry in sidecar.approved if entry.repository_id != normalised_id
@@ -245,11 +289,18 @@ class RepositoryApprovalService(Service):
     # ----- internals -----
 
     def _read_sidecar(self, *, force: bool = False) -> ApprovalSidecar:
-        if self._cache is not None and not force:
-            return self._cache
         path = self._storage_path
+        # Cross-process writes bump the mtime; drop the cache on change.
+        current_mtime = self._current_mtime_ns()
+        if (
+            self._cache is not None
+            and not force
+            and current_mtime == self._cache_mtime_ns
+        ):
+            return self._cache
         if not path.is_file():
             self._cache = ApprovalSidecar()
+            self._cache_mtime_ns = current_mtime
             return self._cache
         try:
             with path.open('r', encoding='utf-8') as handle:
@@ -264,22 +315,27 @@ class RepositoryApprovalService(Service):
                 )
                 self._corrupt_warned = True
             self._cache = ApprovalSidecar()
+            self._cache_mtime_ns = current_mtime
             return self._cache
         if not isinstance(payload, dict):
             self._cache = ApprovalSidecar()
+            self._cache_mtime_ns = current_mtime
             return self._cache
         self._cache = ApprovalSidecar.from_dict(payload)
+        self._cache_mtime_ns = current_mtime
         return self._cache
 
+    def _current_mtime_ns(self) -> int:
+        try:
+            return self._storage_path.stat().st_mtime_ns
+        except OSError:
+            return 0
+
     def _write_sidecar(self, sidecar: ApprovalSidecar) -> None:
+        # Callers hold the lock. Unique tmp name guards against a
+        # stray writer that bypassed it.
         path = self._storage_path
         path.parent.mkdir(parents=True, exist_ok=True)
-        # Per-process + per-thread + uuid-unique temp filename so two
-        # writers (different processes, or the rare case where the
-        # path-keyed lock above is bypassed) can't collide on the
-        # shared ``.tmp`` and have one rename steal the other's file.
-        # The atomic rename still guarantees readers never see a
-        # half-written sidecar.
         import threading
         import uuid
         tmp_path = path.with_suffix(
@@ -291,6 +347,7 @@ class RepositoryApprovalService(Service):
             handle.write('\n')
         os.replace(tmp_path, path)
         self._cache = sidecar
+        self._cache_mtime_ns = self._current_mtime_ns()
 
 
 class RestrictedExecutionRefusal(RuntimeError):

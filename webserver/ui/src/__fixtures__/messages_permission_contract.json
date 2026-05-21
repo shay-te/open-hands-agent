@@ -1,0 +1,28 @@
+{
+  "expected": {
+    "task_id": "PROJ-MSG"
+  },
+  "messages_delivered": {
+    "image_count": 0,
+    "status": "delivered",
+    "text": "fix it pls"
+  },
+  "messages_rejected": {
+    "error": "text or images is required"
+  },
+  "messages_with_images": {
+    "image_count": 1,
+    "status": "delivered",
+    "text": "shot"
+  },
+  "permission_allow": {
+    "allow": true,
+    "status": "delivered"
+  },
+  "permission_missing_id": {
+    "error": "request_id is required"
+  },
+  "permission_session_gone": {
+    "error": "session is not running"
+  }
+}
