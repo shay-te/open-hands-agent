@@ -18,6 +18,7 @@ target/
 
 docker_data
 
+.claude/ 
 
 docker-composebackup.txt
 mount_docker_data
