@@ -102,7 +102,7 @@ class PullRequestDataAccessTests(unittest.TestCase):
 
         data_access = PullRequestDataAccess(config, client)
         data_access.create_pull_request(
-            title='PROJ-1: Fix bug',
+            title='PROJ-1: fix it already',
             source_branch='feature/proj-1',
             destination_branch='main',
             description='Ready for review',
@@ -110,7 +110,7 @@ class PullRequestDataAccessTests(unittest.TestCase):
 
         client.create_pull_request.assert_called_once_with(
             Platform.BITBUCKET,
-            title='PROJ-1: Fix bug',
+            title='PROJ-1: fix it already',
             source_branch='feature/proj-1',
             repo_owner='workspace',
             repo_slug='repo',
@@ -136,7 +136,7 @@ class PullRequestDataAccessTests(unittest.TestCase):
 
         with self.assertRaisesRegex(PermissionError, 'title'):
             data_access.create_pull_request(
-                title=['PROJ-1: Fix bug'],
+                title=['PROJ-1: fix it already'],
                 source_branch='feature/proj-1',
                 destination_branch='main',
                 description='Ready for review',
@@ -144,7 +144,7 @@ class PullRequestDataAccessTests(unittest.TestCase):
 
         with self.assertRaisesRegex(PermissionError, 'source_branch'):
             data_access.create_pull_request(
-                title='PROJ-1: Fix bug',
+                title='PROJ-1: fix it already',
                 source_branch=['feature/proj-1'],
                 destination_branch='main',
                 description='Ready for review',
@@ -152,7 +152,7 @@ class PullRequestDataAccessTests(unittest.TestCase):
 
         with self.assertRaisesRegex(PermissionError, 'destination_branch'):
             data_access.create_pull_request(
-                title='PROJ-1: Fix bug',
+                title='PROJ-1: fix it already',
                 source_branch='feature/proj-1',
                 destination_branch=['main'],
                 description='Ready for review',
@@ -160,7 +160,7 @@ class PullRequestDataAccessTests(unittest.TestCase):
 
         with self.assertRaisesRegex(PermissionError, 'description'):
             data_access.create_pull_request(
-                title='PROJ-1: Fix bug',
+                title='PROJ-1: fix it already',
                 source_branch='feature/proj-1',
                 destination_branch='main',
                 description=['Ready for review'],
@@ -182,7 +182,7 @@ class PullRequestDataAccessTests(unittest.TestCase):
 
         data_access = PullRequestDataAccess(config, client)
         data_access.create_pull_request(
-            title='PROJ-1: Fix bug',
+            title='PROJ-1: fix it already',
             source_branch='feature/proj-1',
             destination_branch='release',
             description='Ready for review',
@@ -190,7 +190,7 @@ class PullRequestDataAccessTests(unittest.TestCase):
 
         client.create_pull_request.assert_called_once_with(
             Platform.BITBUCKET,
-            title='PROJ-1: Fix bug',
+            title='PROJ-1: fix it already',
             source_branch='feature/proj-1',
             repo_owner='workspace',
             repo_slug='repo',

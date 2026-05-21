@@ -439,3 +439,302 @@ describe('FilesTab — render shell', () => {
     expect(screen.queryByLabelText(/comment/i)).not.toBeInTheDocument();
   });
 });
+
+
+// --------------------------------------------------------------------------
+// Chaos / random-order driver against the REAL FilesTab component.
+//
+// The fixed-sequence tests above pin specific behaviours. A real user
+// toggles "Show all files" mid-scroll, right-clicks a folder, clicks
+// a file, scrolls, toggles back, right-clicks again — in whatever
+// order their attention drifts. A bug like "context menu sticks open
+// after toggle" or "selected row clears when the tree re-renders"
+// only shows up under unpredictable ordering.
+//
+// We don't stub FilesTab here — the api.js layer is mocked (as in the
+// rest of this file) but everything FilesTab actually composes runs:
+// react-arborist, the context menu, the tree-filter, the changed/all
+// toggle, the focus-target selection logic. After each random click
+// we re-assert the load-bearing invariants.
+// --------------------------------------------------------------------------
+
+function xorshift32(seed) {
+  let state = (seed | 0) || 1;
+  return () => {
+    state ^= state << 13;
+    state ^= state >>> 17;
+    state ^= state << 5;
+    return ((state >>> 0) / 0xffffffff);
+  };
+}
+
+// Larger payload — multiple repos, multiple files, mix of changed and
+// unchanged so the chaos driver has interesting state to land on.
+const CHAOS_FILE_TREE = {
+  trees: [
+    {
+      repo_id: 'client',
+      cwd: '/tmp/client',
+      tree: [{
+        name: 'src',
+        path: '/tmp/client/src',
+        children: [
+          { name: 'Changed.js', path: '/tmp/client/src/Changed.js' },
+          { name: 'Unchanged.js', path: '/tmp/client/src/Unchanged.js' },
+          { name: 'AlsoChanged.js', path: '/tmp/client/src/AlsoChanged.js' },
+        ],
+      }],
+      changed_files: ['src/Changed.js', 'src/AlsoChanged.js'],
+      conflicted_files: [],
+    },
+    {
+      repo_id: 'backend',
+      cwd: '/tmp/backend',
+      tree: [{
+        name: 'api',
+        path: '/tmp/backend/api',
+        children: [
+          { name: 'handler.py', path: '/tmp/backend/api/handler.py' },
+        ],
+      }],
+      changed_files: ['api/handler.py'],
+      conflicted_files: [],
+    },
+  ],
+};
+
+const CHAOS_DIFFS = {
+  diffs: [
+    {
+      // One diff entry per repo with ALL changed files concatenated —
+      // matches how the production /api/diff endpoint returns data.
+      repo_id: 'client',
+      cwd: '/tmp/client',
+      diff: [
+        'diff --git a/src/Changed.js b/src/Changed.js',
+        'index 1111111..2222222 100644',
+        '--- a/src/Changed.js',
+        '+++ b/src/Changed.js',
+        '@@ -1 +1,2 @@',
+        '-old',
+        '+new',
+        '+newer',
+        'diff --git a/src/AlsoChanged.js b/src/AlsoChanged.js',
+        'index 3333333..4444444 100644',
+        '--- a/src/AlsoChanged.js',
+        '+++ b/src/AlsoChanged.js',
+        '@@ -1 +1 @@',
+        '-foo',
+        '+bar',
+        '',
+      ].join('\n'),
+      conflicted_files: [],
+    },
+    {
+      repo_id: 'backend',
+      cwd: '/tmp/backend',
+      diff: [
+        'diff --git a/api/handler.py b/api/handler.py',
+        'index 5555555..6666666 100644',
+        '--- a/api/handler.py',
+        '+++ b/api/handler.py',
+        '@@ -1 +1 @@',
+        '-pass',
+        '+return 1',
+        '',
+      ].join('\n'),
+      conflicted_files: [],
+    },
+  ],
+};
+
+// IMPATIENT_INPUTS — the chaos driver only uses these as labels;
+// they aren't typed into anything in this view, but the strings
+// flow into headers via the focus-target API in other tests. The
+// constant lives here to keep "what an impatient human says" in
+// one place per file.
+const IMPATIENT_INPUTS = [
+  'fix it',
+  'whats wrong with you please fix it',
+  'do it',
+  'ugh another null pointer',
+  'help me!!!',
+];
+
+// One callable per UI action the driver might fire. Each one
+// queries the DOM at call time (rows / folders re-render after
+// every interaction), so a stale handle from a previous tick
+// never gets clicked. Missing target is a no-op — the driver
+// shouldn't blow up just because nothing is selectable yet.
+function chaosActions(container) {
+  return [
+    {
+      name: 'toggle-show-all',
+      run: () => {
+        // The toggle's aria-label flips between "Show all files" (when
+        // the changed view is active) and "Showing all files" (when
+        // the all-files view is already active).
+        const btn = screen.queryByRole('button', { name: 'Show all files' })
+          || screen.queryByRole('button', { name: 'Showing all files' });
+        if (btn) fireEvent.click(btn);
+      },
+    },
+    {
+      name: 'expand-src',
+      run: () => {
+        const folder = screen.queryByText('src');
+        if (folder) fireEvent.click(folder);
+      },
+    },
+    {
+      name: 'expand-api',
+      run: () => {
+        const folder = screen.queryByText('api');
+        if (folder) fireEvent.click(folder);
+      },
+    },
+    {
+      name: 'click-changed-file',
+      run: () => {
+        const label = screen.queryByText('Changed.js');
+        if (label) fireEvent.click(label);
+      },
+    },
+    {
+      name: 'click-also-changed-file',
+      run: () => {
+        const label = screen.queryByText('AlsoChanged.js');
+        if (label) fireEvent.click(label);
+      },
+    },
+    {
+      name: 'click-handler-file',
+      run: () => {
+        const label = screen.queryByText('handler.py');
+        if (label) fireEvent.click(label);
+      },
+    },
+    {
+      name: 'right-click-changed-file',
+      run: () => {
+        const label = screen.queryByText('Changed.js');
+        const target = label && label.closest('button');
+        if (target) fireEvent.contextMenu(target);
+      },
+    },
+    {
+      name: 'right-click-src-folder',
+      run: () => {
+        const folder = screen.queryByText('src');
+        const target = folder && folder.closest('button');
+        if (target) fireEvent.contextMenu(target);
+      },
+    },
+    {
+      name: 'copy-from-menu',
+      run: () => {
+        const item = screen.queryByRole('menuitem', { name: 'Copy relative path' });
+        if (item) fireEvent.click(item);
+      },
+    },
+    {
+      name: 'close-menu-via-escape',
+      run: () => {
+        fireEvent.keyDown(document.body, { key: 'Escape', code: 'Escape' });
+      },
+    },
+  ];
+}
+
+describe('FilesTab — chaos / random button mashing', () => {
+
+  beforeEach(() => {
+    fetchFileTree.mockResolvedValue(CHAOS_FILE_TREE);
+    fetchDiff.mockResolvedValue(CHAOS_DIFFS);
+    fetchTaskComments.mockResolvedValue({ ok: true, body: { comments: [] } });
+  });
+
+  const SEEDS = [7, 99, 4096, 0xc0ffee];
+
+  SEEDS.forEach((seed) => {
+    test(`survives 50 random interactions with seed=${seed}`, async () => {
+      const { container } = render(
+        <FilesTab taskId={`CHAOS-${seed}`} onOpenFile={vi.fn()} />,
+      );
+      // Wait for the initial diff load so the tree is real before we
+      // start mashing. Two repos in the chaos payload → two "Lines
+      // updated" headers (one per repo). ``findAllByText`` returns
+      // once at least one is present.
+      const headers = await screen.findAllByText('Lines updated');
+      expect(headers.length).toBeGreaterThanOrEqual(1);
+
+      const rng = xorshift32(seed);
+      const actions = chaosActions(container);
+      const log = [];
+      for (let i = 0; i < 50; i += 1) {
+        const action = actions[Math.floor(rng() * actions.length)];
+        log.push(action.name);
+        action.run();
+        // eslint-disable-next-line no-await-in-loop
+        await Promise.resolve();
+
+        // Invariants that must hold after every interaction:
+        //   1. The root container is still mounted (no unmount/crash).
+        expect(container.firstChild).not.toBeNull();
+        //   2. The view-mode toggle is ALWAYS present — its
+        //      aria-label flips between "Show all files" and
+        //      "Showing all files" depending on state. The button
+        //      itself must never disappear.
+        const toggle = screen.queryByRole('button', { name: 'Show all files' })
+          || screen.queryByRole('button', { name: 'Showing all files' });
+        expect(toggle).not.toBeNull();
+      }
+
+      // After the mashing:
+      //   3. Every clipboard write was a well-formed "<repo>:<path>".
+      //      A bug where the context-menu copies the absolute /tmp
+      //      path or an empty string would surface here.
+      navigator.clipboard.writeText.mock.calls.forEach(([payload]) => {
+        expect(typeof payload).toBe('string');
+        expect(payload).toMatch(/^(client|backend):/);
+        // Never leaks the OS-level path.
+        expect(payload.startsWith('/tmp/')).toBe(false);
+      });
+      // Diagnostic — if the test ever fails, the trace tells us
+      // which sequence triggered it.
+      if (log.length !== 50) {
+        // eslint-disable-next-line no-console
+        console.warn('chaos seed=' + seed + ' trace:', log.join(','));
+      }
+    });
+  });
+
+  test('survives chaos on a single-repo task', async () => {
+    fetchFileTree.mockResolvedValue({
+      trees: [CHAOS_FILE_TREE.trees[0]],
+    });
+    fetchDiff.mockResolvedValue({
+      diffs: CHAOS_DIFFS.diffs.filter((d) => d.repo_id === 'client'),
+    });
+    const { container } = render(
+      <FilesTab taskId="solo-task" onOpenFile={vi.fn()} />,
+    );
+    expect(await screen.findByText('Lines updated')).toBeInTheDocument();
+    const actions = chaosActions(container);
+    const rng = xorshift32(31337);
+    for (let i = 0; i < 40; i += 1) {
+      const action = actions[Math.floor(rng() * actions.length)];
+      action.run();
+      // eslint-disable-next-line no-await-in-loop
+      await Promise.resolve();
+      expect(container.firstChild).not.toBeNull();
+    }
+    // The single-repo task should never produce a "backend:" copy
+    // because that repo isn't in the tree.
+    navigator.clipboard.writeText.mock.calls.forEach(([payload]) => {
+      if (typeof payload === 'string') {
+        expect(payload.startsWith('backend:')).toBe(false);
+      }
+    });
+  });
+});

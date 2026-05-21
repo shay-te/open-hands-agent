@@ -80,7 +80,7 @@ class YouTrackGetAssignedTasksTests(unittest.TestCase):
     def test_builds_query_and_maps_tasks(self) -> None:
         client = self._make_client()
         issue_response = mock_response(json_data=[
-            {'idReadable': 'PROJ-1', 'summary': 'Fix bug', 'description': 'Details'}
+            {'idReadable': 'PROJ-1', 'summary': 'fix it already', 'description': 'Details'}
         ])
         tags_response = mock_response(
             json_data=[
@@ -123,7 +123,7 @@ class YouTrackGetAssignedTasksTests(unittest.TestCase):
         self.assertEqual(len(tasks), 1)
         self.assertIsInstance(tasks[0], Task)
         self.assertEqual(tasks[0].id, 'PROJ-1')
-        self.assertEqual(tasks[0].summary, 'Fix bug')
+        self.assertEqual(tasks[0].summary, 'fix it already')
         self.assertEqual(tasks[0].tags, ['repo:client', 'priority:high'])
         self.assertIn('Details', tasks[0].description)
         self.assertIn(
@@ -173,7 +173,7 @@ class YouTrackGetAssignedTasksTests(unittest.TestCase):
     def test_reads_absolute_text_attachment_urls_directly(self) -> None:
         client = self._make_client()
         issue_response = mock_response(json_data=[
-            {'idReadable': 'PROJ-1', 'summary': 'Fix bug', 'description': 'Details'}
+            {'idReadable': 'PROJ-1', 'summary': 'fix it already', 'description': 'Details'}
         ])
         tags_response = mock_response(json_data=[])
         comments_response = mock_response(json_data=[])
@@ -207,7 +207,7 @@ class YouTrackGetAssignedTasksTests(unittest.TestCase):
     def test_handles_non_dict_comment_author(self) -> None:
         client = self._make_client()
         issue_response = mock_response(json_data=[
-            {'idReadable': 'PROJ-1', 'summary': 'Fix bug', 'description': 'Details'}
+            {'idReadable': 'PROJ-1', 'summary': 'fix it already', 'description': 'Details'}
         ])
         tags_response = mock_response(json_data=[])
         comments_response = mock_response(json_data=[
@@ -229,7 +229,7 @@ class YouTrackGetAssignedTasksTests(unittest.TestCase):
     def test_ignores_operational_comments_when_prefixes_configured(self) -> None:
         client = self._make_client(operational_comment_prefixes=_OP_PREFIXES)
         issue_response = mock_response(json_data=[
-            {'idReadable': 'PROJ-1', 'summary': 'Fix bug', 'description': 'Details'}
+            {'idReadable': 'PROJ-1', 'summary': 'fix it already', 'description': 'Details'}
         ])
         tags_response = mock_response(json_data=[])
         comments_response = mock_response(json_data=[
@@ -294,7 +294,7 @@ class YouTrackGetAssignedTasksTests(unittest.TestCase):
     def test_does_not_filter_comments_without_prefixes_configured(self) -> None:
         client = self._make_client()  # no operational_comment_prefixes
         issue_response = mock_response(json_data=[
-            {'idReadable': 'PROJ-1', 'summary': 'Fix bug', 'description': 'Details'}
+            {'idReadable': 'PROJ-1', 'summary': 'fix it already', 'description': 'Details'}
         ])
         tags_response = mock_response(json_data=[])
         comments_response = mock_response(json_data=[
@@ -340,7 +340,7 @@ class YouTrackGetAssignedTasksTests(unittest.TestCase):
     def test_retries_on_transient_timeout(self) -> None:
         client = self._make_client()
         issue_response = mock_response(json_data=[
-            {'idReadable': 'PROJ-1', 'summary': 'Fix bug', 'description': 'Details'}
+            {'idReadable': 'PROJ-1', 'summary': 'fix it already', 'description': 'Details'}
         ])
         tags_response = mock_response(json_data=[])
         comments_response = mock_response(json_data=[])
@@ -389,7 +389,7 @@ class YouTrackGetAssignedTasksTests(unittest.TestCase):
     def test_handles_comment_and_attachment_failures(self) -> None:
         client = self._make_client()
         issue_response = mock_response(json_data=[
-            {'idReadable': 'PROJ-1', 'summary': 'Fix bug', 'description': 'Details'}
+            {'idReadable': 'PROJ-1', 'summary': 'fix it already', 'description': 'Details'}
         ])
         tags_response = mock_response(json_data=[])
 
@@ -409,7 +409,7 @@ class YouTrackGetAssignedTasksTests(unittest.TestCase):
     def test_logs_comment_and_attachment_failures(self) -> None:
         client = self._make_client()
         issue_response = mock_response(json_data=[
-            {'idReadable': 'PROJ-1', 'summary': 'Fix bug', 'description': 'Details'}
+            {'idReadable': 'PROJ-1', 'summary': 'fix it already', 'description': 'Details'}
         ])
         tags_response = mock_response(json_data=[])
         client.logger = unittest.mock.Mock()
@@ -429,7 +429,7 @@ class YouTrackGetAssignedTasksTests(unittest.TestCase):
     def test_truncates_long_text_attachments_and_marks_unavailable(self) -> None:
         client = self._make_client()
         issue_response = mock_response(json_data=[
-            {'idReadable': 'PROJ-1', 'summary': 'Fix bug', 'description': ''}
+            {'idReadable': 'PROJ-1', 'summary': 'fix it already', 'description': ''}
         ])
         tags_response = mock_response(json_data=[])
         comments_response = mock_response(
@@ -476,7 +476,7 @@ class YouTrackGetAssignedTasksTests(unittest.TestCase):
     def test_decodes_binary_text_attachment_using_charset(self) -> None:
         client = self._make_client()
         issue_response = mock_response(json_data=[
-            {'idReadable': 'PROJ-1', 'summary': 'Fix bug', 'description': ''}
+            {'idReadable': 'PROJ-1', 'summary': 'fix it already', 'description': ''}
         ])
         tags_response = mock_response(json_data=[])
         comments_response = mock_response(json_data=[])
@@ -507,7 +507,7 @@ class YouTrackGetAssignedTasksTests(unittest.TestCase):
     def test_ignores_text_attachment_without_url(self) -> None:
         client = self._make_client()
         issue_response = mock_response(json_data=[
-            {'idReadable': 'PROJ-1', 'summary': 'Fix bug', 'description': 'Details'}
+            {'idReadable': 'PROJ-1', 'summary': 'fix it already', 'description': 'Details'}
         ])
         tags_response = mock_response(json_data=[])
         comments_response = mock_response(json_data=[])

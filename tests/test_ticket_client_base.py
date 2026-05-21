@@ -306,7 +306,7 @@ class TicketClientBaseTests(unittest.TestCase):
     def test_set_task_comments_persists_normalized_comments_on_task(self) -> None:
         task = Task(
             id='PROJ-1',
-            summary='Fix bug',
+            summary='fix it already',
             description='Details',
             branch_name='feature/proj-1',
         )

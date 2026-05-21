@@ -53,7 +53,7 @@ class BitbucketClientTests(unittest.TestCase):
         client = BitbucketClient('https://bitbucket.example', 'bb-token')
         response = mock_response(json_data={
             PullRequestFields.ID: 7,
-            PullRequestFields.TITLE: 'PROJ-1: Fix bug',
+            PullRequestFields.TITLE: 'PROJ-1: fix it already',
             'links': {'html': {'href': 'https://bitbucket/pr/7'}},
         })
 
@@ -65,7 +65,7 @@ class BitbucketClientTests(unittest.TestCase):
             pr,
             {
                 PullRequestFields.ID: '7',
-                PullRequestFields.TITLE: 'PROJ-1: Fix bug',
+                PullRequestFields.TITLE: 'PROJ-1: fix it already',
                 PullRequestFields.URL: 'https://bitbucket/pr/7',
             },
         )
@@ -73,7 +73,7 @@ class BitbucketClientTests(unittest.TestCase):
         mock_post.assert_called_once_with(
             '/repositories/workspace/repo/pullrequests',
             json={
-                PullRequestFields.TITLE: 'PROJ-1: Fix bug',
+                PullRequestFields.TITLE: 'PROJ-1: fix it already',
                 PullRequestFields.DESCRIPTION: 'Ready for review',
                 'source': {'branch': {'name': 'feature/proj-1'}},
                 'destination': {'branch': {'name': 'main'}},
@@ -84,7 +84,7 @@ class BitbucketClientTests(unittest.TestCase):
         client = BitbucketClient('https://bitbucket.example', 'bb-token')
         response = mock_response(json_data={
             PullRequestFields.ID: 7,
-            PullRequestFields.TITLE: 'PROJ-1: Fix bug',
+            PullRequestFields.TITLE: 'PROJ-1: fix it already',
             'links': {'html': {'href': 'https://bitbucket/pr/7'}},
         })
 
@@ -103,7 +103,7 @@ class BitbucketClientTests(unittest.TestCase):
         retry_response = mock_response(status_code=503)
         success_response = mock_response(json_data={
             PullRequestFields.ID: 7,
-            PullRequestFields.TITLE: 'PROJ-1: Fix bug',
+            PullRequestFields.TITLE: 'PROJ-1: fix it already',
             'links': {'html': {'href': 'https://bitbucket/pr/7'}},
         })
 
@@ -129,7 +129,7 @@ class BitbucketClientTests(unittest.TestCase):
         client = BitbucketClient('https://bitbucket.example', 'bb-token')
         response = mock_response(json_data={
             PullRequestFields.ID: 7,
-            PullRequestFields.TITLE: 'PROJ-1: Fix bug',
+            PullRequestFields.TITLE: 'PROJ-1: fix it already',
             'links': {},
         })
 
@@ -142,7 +142,7 @@ class BitbucketClientTests(unittest.TestCase):
         client = BitbucketClient('https://bitbucket.example', 'bb-token')
         response = mock_response(json_data={
             PullRequestFields.ID: 7,
-            PullRequestFields.TITLE: 'PROJ-1: Fix bug',
+            PullRequestFields.TITLE: 'PROJ-1: fix it already',
             'links': ['unexpected'],
         })
 
@@ -179,7 +179,7 @@ class BitbucketClientTests(unittest.TestCase):
         mock_post.assert_called_once_with(
             '/repositories/workspace/repo/pullrequests',
             json={
-                PullRequestFields.TITLE: 'PROJ-1: Fix bug',
+                PullRequestFields.TITLE: 'PROJ-1: fix it already',
                 PullRequestFields.DESCRIPTION: '',
                 'source': {'branch': {'name': 'feature/proj-1'}},
                 'destination': {'branch': {'name': 'main'}},
@@ -190,7 +190,7 @@ class BitbucketClientTests(unittest.TestCase):
         client = BitbucketClient('https://bitbucket.example', 'bb-token')
         response = mock_response(json_data={
             PullRequestFields.ID: 7,
-            PullRequestFields.TITLE: 'PROJ-1: Fix bug',
+            PullRequestFields.TITLE: 'PROJ-1: fix it already',
             'links': {'html': {'href': 'https://bitbucket/pr/7'}},
         })
 
@@ -436,7 +436,7 @@ class BitbucketClientTests(unittest.TestCase):
                 'values': [
                     {
                         'id': 17,
-                        PullRequestFields.TITLE: 'PROJ-1 Fix bug',
+                        PullRequestFields.TITLE: 'PROJ-1 fix it already',
                         'links': {'html': {'href': 'https://bitbucket/pr/17'}},
                         'source': {'branch': {'name': 'PROJ-1'}},
                     },
@@ -463,7 +463,7 @@ class BitbucketClientTests(unittest.TestCase):
             [
                 {
                     PullRequestFields.ID: '17',
-                    PullRequestFields.TITLE: 'PROJ-1 Fix bug',
+                    PullRequestFields.TITLE: 'PROJ-1 fix it already',
                     PullRequestFields.URL: 'https://bitbucket/pr/17',
                 }
             ],

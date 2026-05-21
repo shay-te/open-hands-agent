@@ -406,7 +406,7 @@ class OpenHandsClientImplementTaskTests(unittest.TestCase):
         self.assertEqual(mock_post.call_args.args, ('/api/v1/app-conversations',))
         request_body = mock_post.call_args.kwargs['json']
         self.assertEqual(request_body['title'], 'PROJ-1')
-        self.assertIn('Implement task PROJ-1: Fix bug', request_body['initial_message']['content'][0]['text'])
+        self.assertIn('Implement task PROJ-1: fix it already', request_body['initial_message']['content'][0]['text'])
         self.assertIn('Files changed:', request_body['initial_message']['content'][0]['text'])
         self.assertEqual(
             [c.args[0] for c in mock_get.call_args_list],
@@ -639,7 +639,7 @@ class OpenHandsClientFixReviewCommentTests(unittest.TestCase):
                 ImplementationFields.SESSION_ID: 'conversation-3',
             },
         ) as mock_run_prompt:
-            fix_review_comment_with_defaults(client, task_id='PROJ-1', task_summary='Fix bug')
+            fix_review_comment_with_defaults(client, task_id='PROJ-1', task_summary='fix it already')
 
         self.assertEqual(mock_run_prompt.call_args.kwargs['title'], 'PROJ-1 [review]')
 
@@ -1544,13 +1544,13 @@ class ResultUtilsTests(unittest.TestCase):
 
     def test_build_openhands_result_full(self) -> None:
         result = build_openhands_result(
-            {'success': True, 'summary': 'ok', 'commit_message': 'Fix bug', 'message': 'detail'},
+            {'success': True, 'summary': 'ok', 'commit_message': 'fix it already', 'message': 'detail'},
             branch_name='feature/xyz',
         )
         self.assertTrue(result[ImplementationFields.SUCCESS])
         self.assertEqual(result['summary'], 'ok')
         self.assertEqual(result['branch_name'], 'feature/xyz')
-        self.assertEqual(result[ImplementationFields.COMMIT_MESSAGE], 'Fix bug')
+        self.assertEqual(result[ImplementationFields.COMMIT_MESSAGE], 'fix it already')
         self.assertEqual(result[ImplementationFields.MESSAGE], 'detail')
 
     def test_build_openhands_result_uses_summary_fallback(self) -> None:

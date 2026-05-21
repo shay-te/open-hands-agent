@@ -73,7 +73,7 @@ class BitbucketIssuesClientGetTasksTests(unittest.TestCase):
         client = self._make_client()
         issues_resp = mock_response(json_data={
             'values': [{
-                'id': 17, 'title': 'Fix bug', 'content': {'raw': 'Details'},
+                'id': 17, 'title': 'fix it already', 'content': {'raw': 'Details'},
                 'state': 'new', 'assignee': {'nickname': 'reviewer'},
             }]
         })
@@ -191,7 +191,7 @@ class BitbucketIssuesClientGetTasksTests(unittest.TestCase):
         client = self._make_client()
         issues_resp = mock_response(json_data={
             'values': [{
-                'id': 17, 'title': 'Fix bug', 'content': {'raw': 'Details'},
+                'id': 17, 'title': 'fix it already', 'content': {'raw': 'Details'},
                 'state': 'new', 'assignee': {'nickname': 'reviewer'},
                 BitbucketIssueFields.LABELS: ['repo:client', 'priority:high'],
             }]
@@ -207,7 +207,7 @@ class BitbucketIssuesClientGetTasksTests(unittest.TestCase):
         client = self._make_client()
         issues_resp = mock_response(json_data={
             'values': [{
-                'id': 17, 'title': 'Fix bug', 'content': {'raw': 'Details'},
+                'id': 17, 'title': 'fix it already', 'content': {'raw': 'Details'},
                 'state': 'new', 'assignee': {'nickname': 'reviewer'},
             }]
         })
@@ -227,7 +227,7 @@ class BitbucketIssuesClientGetTasksTests(unittest.TestCase):
         client = self._make_client()
         issues_resp = mock_response(json_data={
             'values': [{
-                'id': 17, 'title': 'Fix bug', 'content': {'raw': 'Details'},
+                'id': 17, 'title': 'fix it already', 'content': {'raw': 'Details'},
                 'state': 'new', 'assignee': {'nickname': 'reviewer'},
             }]
         })
@@ -252,7 +252,7 @@ class BitbucketIssuesClientGetTasksTests(unittest.TestCase):
         )
         issues_resp = mock_response(json_data={
             'values': [{
-                'id': 17, 'title': 'Fix bug', 'content': {'raw': 'Details'},
+                'id': 17, 'title': 'fix it already', 'content': {'raw': 'Details'},
                 'state': 'new', 'assignee': {'nickname': 'reviewer'},
             }]
         })
@@ -277,7 +277,7 @@ class BitbucketIssuesClientGetTasksTests(unittest.TestCase):
         )
         issues_resp = mock_response(json_data={
             'values': [{
-                'id': 17, 'title': 'Fix bug', 'content': {'raw': 'Details'},
+                'id': 17, 'title': 'fix it already', 'content': {'raw': 'Details'},
                 'state': 'new', 'assignee': {'nickname': 'reviewer'},
             }]
         })
@@ -300,7 +300,7 @@ class BitbucketIssuesClientGetTasksTests(unittest.TestCase):
         client = self._make_client()
         issues_resp = mock_response(json_data={
             'values': [{
-                'id': 17, 'title': 'Fix bug', 'content': {'raw': 'Details'},
+                'id': 17, 'title': 'fix it already', 'content': {'raw': 'Details'},
                 'state': 'new', 'assignee': {'nickname': 'reviewer'},
             }]
         })

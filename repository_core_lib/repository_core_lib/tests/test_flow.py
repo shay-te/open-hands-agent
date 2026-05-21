@@ -18,8 +18,8 @@ from repository_core_lib.repository_core_lib.repository_core_lib import Reposito
 def _mock_provider_client():
     client = Mock()
     client.validate_connection.return_value = None
-    client.create_pull_request.return_value = {'id': '99', 'title': 'Fix bug', 'url': 'https://example.com/pr/99'}
-    client.find_pull_requests.return_value = [{'id': '99', 'title': 'Fix bug', 'url': ''}]
+    client.create_pull_request.return_value = {'id': '99', 'title': 'fix it already', 'url': 'https://example.com/pr/99'}
+    client.find_pull_requests.return_value = [{'id': '99', 'title': 'fix it already', 'url': ''}]
     client.list_pull_request_comments.return_value = []
     client.reply_to_review_comment.return_value = None
     client.resolve_review_comment.return_value = None
@@ -46,7 +46,7 @@ class GitHubCreateAndFindFlowTests(unittest.TestCase):
         service.validate_connection(Platform.GITHUB, repo_owner='octo', repo_slug='repo')
         pr = service.create_pull_request(
             Platform.GITHUB,
-            title='PROJ-1: Fix bug',
+            title='PROJ-1: fix it already',
             source_branch='feature/proj-1',
             repo_owner='octo',
             repo_slug='repo',
@@ -57,7 +57,7 @@ class GitHubCreateAndFindFlowTests(unittest.TestCase):
         self.assertEqual(pr['id'], '99')
         self.provider_client.validate_connection.assert_called_once()
         self.provider_client.create_pull_request.assert_called_once_with(
-            title='PROJ-1: Fix bug',
+            title='PROJ-1: fix it already',
             source_branch='feature/proj-1',
             repo_owner='octo',
             repo_slug='repo',

@@ -39,7 +39,7 @@ class TaskFailureHandlerTests(unittest.TestCase):
     def test_handle_repository_resolution_failure_comments_skip_for_repository_detection_error(
         self,
     ) -> None:
-        task = build_task(description='Update client and backend APIs')
+        task = build_task(description='whats wrong with you please fix it')
 
         self.handler.handle_repository_resolution_failure(
             task,
@@ -91,7 +91,7 @@ class TaskFailureHandlerTests(unittest.TestCase):
 
     def test_handle_task_failure_restores_repositories_and_notifies_without_reopening(self) -> None:
         prepared_task = types.SimpleNamespace(repositories=[types.SimpleNamespace(id='client')])
-        task = build_task(description='Update client and backend APIs')
+        task = build_task(description='whats wrong with you please fix it')
 
         self.handler.handle_task_failure(
             task,
@@ -117,7 +117,7 @@ class TaskFailureHandlerTests(unittest.TestCase):
 
     def test_handle_started_task_failure_moves_task_back_to_open(self) -> None:
         prepared_task = types.SimpleNamespace(repositories=[types.SimpleNamespace(id='client')])
-        task = build_task(description='Update client and backend APIs')
+        task = build_task(description='whats wrong with you please fix it')
 
         self.handler.handle_started_task_failure(
             task,

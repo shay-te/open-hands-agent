@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(echo \"exit:$? \\(1=no matches=good\\)\")",
-      "Bash(python -m pytest git_core_lib/git_core_lib/tests/test_git_client.py tests/test_repository_service.py tests/test_repository_service_defensive_coverage.py -q)",
-      "Bash(python -m unittest git_core_lib.git_core_lib.tests.test_git_client tests.test_repository_service tests.test_repository_service_defensive_coverage)"
-    ]
-  }
-}

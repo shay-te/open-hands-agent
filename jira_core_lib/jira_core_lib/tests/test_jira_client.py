@@ -35,7 +35,7 @@ def _adf_paragraph(text: str) -> dict:
 
 def _issue_payload(
     key: str = 'PROJ-1',
-    summary: str = 'Fix bug',
+    summary: str = 'fix it already',
     description=None,
     comments: list | None = None,
     attachments: list | None = None,

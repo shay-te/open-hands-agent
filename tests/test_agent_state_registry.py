@@ -32,7 +32,7 @@ class AgentStateRegistryTests(unittest.TestCase):
         pull_request = {
             PullRequestFields.REPOSITORY_ID: 'client',
             PullRequestFields.ID: '17',
-            PullRequestFields.TITLE: 'PROJ-1 Fix bug',
+            PullRequestFields.TITLE: 'PROJ-1 fix it already',
         }
 
         self.registry.remember_pull_request_context(
@@ -40,18 +40,18 @@ class AgentStateRegistryTests(unittest.TestCase):
             'feature/proj-1/client',
             session_id='conversation-1',
             task_id='PROJ-1',
-            task_summary='Fix bug',
+            task_summary='fix it already',
         )
 
         self.assertEqual(
             self.registry.pull_request_context('17', 'client'),
             {
                 PullRequestFields.REPOSITORY_ID: 'client',
-                PullRequestFields.TITLE: 'PROJ-1 Fix bug',
+                PullRequestFields.TITLE: 'PROJ-1 fix it already',
                 'branch_name': 'feature/proj-1/client',
                 'session_id': 'conversation-1',
                 'task_id': 'PROJ-1',
-                'task_summary': 'Fix bug',
+                'task_summary': 'fix it already',
             },
         )
         self.assertEqual(self.registry.task_id_for_pull_request('17', 'client'), 'PROJ-1')

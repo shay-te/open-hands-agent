@@ -19,7 +19,7 @@ class PullRequestContextTests(unittest.TestCase):
             ' feature/proj-1 ',
             ' conversation-1 ',
             ' PROJ-1 ',
-            ' Fix bug ',
+            ' fix it already ',
         )
 
         self.assertEqual(
@@ -29,7 +29,7 @@ class PullRequestContextTests(unittest.TestCase):
                 'branch_name': 'feature/proj-1',
                 ImplementationFields.SESSION_ID: 'conversation-1',
                 TaskFields.ID: 'PROJ-1',
-                TaskFields.SUMMARY: 'Fix bug',
+                TaskFields.SUMMARY: 'fix it already',
             },
         )
 

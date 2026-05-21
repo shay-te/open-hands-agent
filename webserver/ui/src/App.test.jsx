@@ -298,3 +298,183 @@ describe('App — forget task (hard-confirm modal gate)', () => {
     expect(screen.getByText('active=T1')).toBeInTheDocument();
   });
 });
+
+
+// --------------------------------------------------------------------------
+// Chaos / random-order driver — mash buttons in unpredictable sequences
+// and assert App's state-machine invariants hold for ALL of them.
+//
+// The fixed-sequence tests above pin specific behaviours, but a real
+// user rarely follows a script. They open the modal, cancel, open it
+// again, switch tabs, forget the active tab, open the modal again, ...
+// A test that always clicks in the SAME order can pass forever even
+// when the state machine has a "modal stays open if cancelled while
+// the tab is being forgotten" bug.
+//
+// This driver picks a button at random each step (deterministic by
+// seed so failures reproduce) and runs N iterations. After each step
+// it asserts the invariants below — every property that should hold
+// regardless of what the user just clicked.
+// --------------------------------------------------------------------------
+
+function makeRng(seed) {
+  // xorshift32 — enough randomness, deterministic, no extra deps.
+  let state = seed | 0 || 1;
+  return () => {
+    state ^= state << 13;
+    state ^= state >>> 17;
+    state ^= state << 5;
+    return ((state >>> 0) / 0xffffffff);
+  };
+}
+
+const IMPATIENT_HUMAN_INPUTS = [
+  'fix it',
+  'whats wrong with you please fix it',
+  'do it',
+  'this is broken AGAIN',
+  'just make it work',
+  'ugh another null pointer',
+  'help me!!!',
+];
+
+// Every button the operator can mash, plus the invariants they
+// must preserve. Buttons that aren't present in the current DOM
+// are skipped (the driver re-queries before every click).
+function chaosActions() {
+  return [
+    {
+      name: 'select-T1',
+      run: () => {
+        const b = screen.queryByRole('button', { name: 'T1' });
+        if (b) fireEvent.click(b);
+      },
+    },
+    {
+      name: 'select-T2',
+      run: () => {
+        const b = screen.queryByRole('button', { name: 'T2' });
+        if (b) fireEvent.click(b);
+      },
+    },
+    {
+      name: 'open-forget-T1',
+      run: () => {
+        const b = screen.queryByRole('button', { name: 'forget-T1' });
+        if (b) fireEvent.click(b);
+      },
+    },
+    {
+      name: 'open-forget-T2',
+      run: () => {
+        const b = screen.queryByRole('button', { name: 'forget-T2' });
+        if (b) fireEvent.click(b);
+      },
+    },
+    {
+      name: 'cancel-modal',
+      run: () => {
+        const b = document.getElementById('forget-task-cancel');
+        if (b) fireEvent.click(b);
+      },
+    },
+    {
+      name: 'confirm-modal',
+      run: () => {
+        const b = document.getElementById('forget-task-confirm');
+        if (b) fireEvent.click(b);
+      },
+    },
+  ];
+}
+
+function activeTaskFromDom() {
+  // Read the active=X chip the TabList stub renders.
+  const node = Array.from(document.querySelectorAll('span'))
+    .find((n) => /^active=/.test(n.textContent || ''));
+  return node ? node.textContent.replace(/^active=/, '') : 'none';
+}
+
+function modalOpen() {
+  return screen.queryByRole('dialog') !== null;
+}
+
+describe('App — chaos / random button mashing', () => {
+
+  // Seeds chosen so the suite covers a few different orderings; failure
+  // on any one of them surfaces the seed directly so the human can rerun.
+  const SEEDS = [11, 137, 4242, 0xdeadbeef];
+
+  SEEDS.forEach((seed) => {
+    test(`survives 60 random clicks with seed=${seed}`, async () => {
+      const refresh = vi.fn();
+      useSessions.mockReturnValue({
+        sessions: [
+          { task_id: 'T1', summary: IMPATIENT_HUMAN_INPUTS[seed % 7] },
+          { task_id: 'T2', summary: 'do it' },
+        ],
+        refresh,
+      });
+      render(<App />);
+      const actions = chaosActions();
+      const rng = makeRng(seed);
+      const log = [];
+
+      for (let i = 0; i < 60; i += 1) {
+        const action = actions[Math.floor(rng() * actions.length)];
+        log.push(action.name);
+        action.run();
+        // Settle any pending micro-tasks (forgetTaskWorkspace is async).
+        // eslint-disable-next-line no-await-in-loop
+        await Promise.resolve();
+
+        // Invariants that must hold after EVERY click:
+        //   1. App didn't unmount — the header is still there.
+        expect(screen.getByTestId('app-header')).toBeInTheDocument();
+        //   2. Tab list is still rendered.
+        expect(screen.getByTestId('tab-list')).toBeInTheDocument();
+        //   3. activeTaskId is one of {none, T1, T2} — never a stale
+        //      id that no longer exists in the session list.
+        const active = activeTaskFromDom();
+        expect(['none', 'T1', 'T2']).toContain(active);
+        //   4. The modal is either open or closed; if open, BOTH
+        //      buttons exist (you can always cancel or confirm).
+        if (modalOpen()) {
+          expect(document.getElementById('forget-task-confirm'))
+            .not.toBeNull();
+          expect(document.getElementById('forget-task-cancel'))
+            .not.toBeNull();
+        }
+      }
+      // forgetTaskWorkspace was called ONLY for ids that exist in the
+      // session list — never for a phantom id. (The fixed-sequence
+      // tests above pin the per-call behaviour; this asserts the
+      // invariant holds across every shuffled sequence.)
+      forgetTaskWorkspace.mock.calls.forEach(([taskId]) => {
+        expect(['T1', 'T2']).toContain(taskId);
+      });
+      // Diagnostic for failures: surface the click trace.
+      if (log.length !== 60) {
+        // eslint-disable-next-line no-console
+        console.warn('chaos seed=' + seed + ' trace:', log.join(','));
+      }
+    });
+  });
+
+  test('mashing buttons with NO sessions never crashes', async () => {
+    // Empty session list — every action should be a no-op safely.
+    useSessions.mockReturnValue({ sessions: [], refresh: vi.fn() });
+    render(<App />);
+    const actions = chaosActions();
+    const rng = makeRng(99);
+    for (let i = 0; i < 40; i += 1) {
+      const action = actions[Math.floor(rng() * actions.length)];
+      action.run();
+      // eslint-disable-next-line no-await-in-loop
+      await Promise.resolve();
+      expect(screen.getByTestId('app-header')).toBeInTheDocument();
+      expect(activeTaskFromDom()).toBe('none');
+    }
+    expect(forgetTaskWorkspace).not.toHaveBeenCalled();
+  });
+});

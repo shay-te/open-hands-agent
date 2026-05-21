@@ -95,7 +95,7 @@ from claude_core_lib.claude_core_lib.session.wire_protocol import (
 
 def _task(
     task_id: str = 'PROJ-1',
-    summary: str = 'Fix bug',
+    summary: str = 'fix it already',
     branch_name: str = 'feature/proj-1',
     repositories: list | None = None,
     repository_branches: dict | None = None,
@@ -884,7 +884,7 @@ class TaskBranchNameTests(unittest.TestCase):
 
 class TaskConversationTitleTests(unittest.TestCase):
     def test_uses_task_id_when_present(self) -> None:
-        task = _task(task_id='PROJ-1', summary='Fix bug')
+        task = _task(task_id='PROJ-1', summary='fix it already')
         self.assertEqual(task_conversation_title(task), 'PROJ-1')
 
     def test_uses_summary_when_no_id(self) -> None:

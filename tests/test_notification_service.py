@@ -24,7 +24,7 @@ class NotificationServiceTests(unittest.TestCase):
             {
                 PullRequestFields.REPOSITORY_ID: 'client',
                 PullRequestFields.ID: '17',
-                PullRequestFields.TITLE: 'PROJ-1: Fix bug',
+                PullRequestFields.TITLE: 'PROJ-1: fix it already',
                 PullRequestFields.URL: 'https://bitbucket/pr/17',
             },
         )
@@ -38,9 +38,9 @@ class NotificationServiceTests(unittest.TestCase):
         self.assertEqual(
             first_call.args[1][EmailFields.MESSAGE],
             (
-                'I am done with task PROJ-1: Fix bug.\n'
+                'I am done with task PROJ-1: fix it already.\n'
                 'Please review it.\n\n'
-                '- client: PROJ-1: Fix bug\n'
+                '- client: PROJ-1: fix it already\n'
                 'https://bitbucket/pr/17'
             ),
         )
@@ -83,7 +83,7 @@ class NotificationServiceTests(unittest.TestCase):
             build_task(),
             {
                 PullRequestFields.ID: '17',
-                PullRequestFields.TITLE: 'PROJ-1: Fix bug',
+                PullRequestFields.TITLE: 'PROJ-1: fix it already',
                 PullRequestFields.URL: 'https://bitbucket/pr/17',
             },
         )
@@ -98,7 +98,7 @@ class NotificationServiceTests(unittest.TestCase):
             build_task(),
             {
                 PullRequestFields.ID: '17',
-                PullRequestFields.TITLE: 'PROJ-1: Fix bug',
+                PullRequestFields.TITLE: 'PROJ-1: fix it already',
                 PullRequestFields.URL: 'https://bitbucket/pr/17',
             },
         )
@@ -153,7 +153,7 @@ class NotificationServiceTests(unittest.TestCase):
             build_task(),
             {
                 PullRequestFields.ID: '17',
-                PullRequestFields.TITLE: 'PROJ-1: Fix bug',
+                PullRequestFields.TITLE: 'PROJ-1: fix it already',
                 PullRequestFields.URL: 'https://bitbucket/pr/17',
             },
         )
@@ -252,7 +252,7 @@ class NotificationServiceTests(unittest.TestCase):
             build_task(),
             {
                 PullRequestFields.ID: '17',
-                PullRequestFields.TITLE: 'PROJ-1: Fix bug',
+                PullRequestFields.TITLE: 'PROJ-1: fix it already',
                 PullRequestFields.URL: 'https://bitbucket/pr/17',
             },
         )
@@ -269,7 +269,7 @@ class NotificationServiceTests(unittest.TestCase):
                 build_task(),
                 {
                     PullRequestFields.ID: '17',
-                    PullRequestFields.TITLE: 'PROJ-1: Fix bug',
+                    PullRequestFields.TITLE: 'PROJ-1: fix it already',
                     PullRequestFields.URL: 'https://bitbucket/pr/17',
                 },
             )

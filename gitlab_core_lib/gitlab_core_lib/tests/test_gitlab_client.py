@@ -40,7 +40,7 @@ class GitLabClientCreatePullRequestTests(unittest.TestCase):
         response = mock_response(
             json_data={
                 'iid': 9,
-                PullRequestFields.TITLE: 'PROJ-1: Fix bug',
+                PullRequestFields.TITLE: 'PROJ-1: fix it already',
                 'web_url': 'https://gitlab.example/group/repo/-/merge_requests/9',
             }
         )
@@ -56,7 +56,7 @@ class GitLabClientCreatePullRequestTests(unittest.TestCase):
             pr,
             {
                 PullRequestFields.ID: '9',
-                PullRequestFields.TITLE: 'PROJ-1: Fix bug',
+                PullRequestFields.TITLE: 'PROJ-1: fix it already',
                 PullRequestFields.URL: 'https://gitlab.example/group/repo/-/merge_requests/9',
             },
         )
@@ -64,7 +64,7 @@ class GitLabClientCreatePullRequestTests(unittest.TestCase):
         mock_post.assert_called_once_with(
             '/projects/group%2Fsubgroup%2Frepo/merge_requests',
             json={
-                PullRequestFields.TITLE: 'PROJ-1: Fix bug',
+                PullRequestFields.TITLE: 'PROJ-1: fix it already',
                 'source_branch': 'feature/proj-1',
                 'target_branch': 'main',
                 PullRequestFields.DESCRIPTION: 'Ready for review',
@@ -76,7 +76,7 @@ class GitLabClientCreatePullRequestTests(unittest.TestCase):
         response = mock_response(
             json_data={
                 'iid': 9,
-                PullRequestFields.TITLE: 'PROJ-1: Fix bug',
+                PullRequestFields.TITLE: 'PROJ-1: fix it already',
                 'web_url': 'https://gitlab.example/group/repo/-/merge_requests/9',
             }
         )
@@ -289,7 +289,7 @@ class GitLabClientFindPullRequestsTests(unittest.TestCase):
             json_data=[
                 {
                     'iid': 9,
-                    PullRequestFields.TITLE: 'PROJ-1 Fix bug',
+                    PullRequestFields.TITLE: 'PROJ-1 fix it already',
                     'web_url': 'https://gitlab.example/group/repo/-/merge_requests/9',
                     'source_branch': 'PROJ-1',
                 },
@@ -315,7 +315,7 @@ class GitLabClientFindPullRequestsTests(unittest.TestCase):
             [
                 {
                     PullRequestFields.ID: '9',
-                    PullRequestFields.TITLE: 'PROJ-1 Fix bug',
+                    PullRequestFields.TITLE: 'PROJ-1 fix it already',
                     PullRequestFields.URL: 'https://gitlab.example/group/repo/-/merge_requests/9',
                 }
             ],

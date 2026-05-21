@@ -46,7 +46,7 @@ class TaskPublisherTests(unittest.TestCase):
         )
 
     def test_publish_task_execution_marks_processed_and_moves_to_review(self) -> None:
-        task = build_task(description='Update client and backend APIs')
+        task = build_task(description='whats wrong with you please fix it')
         prepared_task = types.SimpleNamespace(
             repositories=[
                 types.SimpleNamespace(id='client', destination_branch='master'),
@@ -67,7 +67,7 @@ class TaskPublisherTests(unittest.TestCase):
             {
                 PullRequestFields.REPOSITORY_ID: 'client',
                 PullRequestFields.ID: '17',
-                PullRequestFields.TITLE: 'PROJ-1: Fix bug',
+                PullRequestFields.TITLE: 'PROJ-1: fix it already',
                 PullRequestFields.URL: 'https://bitbucket/pr/17',
                 PullRequestFields.SOURCE_BRANCH: 'feature/proj-1/client',
                 PullRequestFields.DESTINATION_BRANCH: 'master',
@@ -75,7 +75,7 @@ class TaskPublisherTests(unittest.TestCase):
             {
                 PullRequestFields.REPOSITORY_ID: 'backend',
                 PullRequestFields.ID: '18',
-                PullRequestFields.TITLE: 'PROJ-1: Fix bug',
+                PullRequestFields.TITLE: 'PROJ-1: fix it already',
                 PullRequestFields.URL: 'https://github/pr/18',
                 PullRequestFields.SOURCE_BRANCH: 'feature/proj-1/backend',
                 PullRequestFields.DESTINATION_BRANCH: 'main',
@@ -96,7 +96,7 @@ class TaskPublisherTests(unittest.TestCase):
         self.notification_service.notify_task_ready_for_review.assert_called_once()
         self.assertEqual(self.repository_service.create_pull_request.call_count, 2)
         first_call = self.repository_service.create_pull_request.call_args_list[0]
-        self.assertEqual(first_call.kwargs['title'], 'PROJ-1 Fix bug')
+        self.assertEqual(first_call.kwargs['title'], 'PROJ-1 fix it already')
         self.assertIn('Requested change:', first_call.kwargs['description'])
         self.assertIn('Implementation summary:', first_call.kwargs['description'])
         self.assertIn('Execution notes:', first_call.kwargs['description'])
@@ -108,7 +108,7 @@ class TaskPublisherTests(unittest.TestCase):
         self.state_registry.remember_pull_request_context.assert_called()
 
     def test_publish_task_execution_partial_failure_reports_failure(self) -> None:
-        task = build_task(description='Update client and backend APIs')
+        task = build_task(description='whats wrong with you please fix it')
         prepared_task = types.SimpleNamespace(
             repositories=[
                 types.SimpleNamespace(id='client', destination_branch='master'),
@@ -129,7 +129,7 @@ class TaskPublisherTests(unittest.TestCase):
             {
                 PullRequestFields.REPOSITORY_ID: 'client',
                 PullRequestFields.ID: '17',
-                PullRequestFields.TITLE: 'PROJ-1: Fix bug',
+                PullRequestFields.TITLE: 'PROJ-1: fix it already',
                 PullRequestFields.URL: 'https://bitbucket/pr/17',
                 PullRequestFields.SOURCE_BRANCH: 'feature/proj-1/client',
                 PullRequestFields.DESTINATION_BRANCH: 'master',
@@ -159,7 +159,7 @@ class TaskPublisherTests(unittest.TestCase):
         self.assertEqual(failure_kwargs['prepared_task'], prepared_task)
 
     def test_publish_task_execution_failure_to_move_review_calls_failure_handler(self) -> None:
-        task = build_task(description='Update client and backend APIs')
+        task = build_task(description='whats wrong with you please fix it')
         prepared_task = types.SimpleNamespace(
             repositories=[types.SimpleNamespace(id='client', destination_branch='master')],
             repository_branches={'client': 'feature/proj-1/client'},
@@ -173,7 +173,7 @@ class TaskPublisherTests(unittest.TestCase):
         self.repository_service.create_pull_request.return_value = {
             PullRequestFields.REPOSITORY_ID: 'client',
             PullRequestFields.ID: '17',
-            PullRequestFields.TITLE: 'PROJ-1: Fix bug',
+            PullRequestFields.TITLE: 'PROJ-1: fix it already',
             PullRequestFields.URL: 'https://bitbucket/pr/17',
             PullRequestFields.SOURCE_BRANCH: 'feature/proj-1/client',
             PullRequestFields.DESTINATION_BRANCH: 'master',
@@ -192,7 +192,7 @@ class TaskPublisherTests(unittest.TestCase):
         self.notification_service.notify_task_ready_for_review.assert_not_called()
 
     def test_comment_task_started_uses_repository_context(self) -> None:
-        task = build_task(description='Update client and backend APIs')
+        task = build_task(description='whats wrong with you please fix it')
 
         self.publisher.comment_task_started(
             task,
@@ -232,7 +232,7 @@ class TaskPublisherTests(unittest.TestCase):
             {
                 PullRequestFields.REPOSITORY_ID: 'client',
                 PullRequestFields.ID: '17',
-                PullRequestFields.TITLE: 'PROJ-1: Fix bug',
+                PullRequestFields.TITLE: 'PROJ-1: fix it already',
                 PullRequestFields.URL: 'https://bitbucket/pr/17',
                 PullRequestFields.SOURCE_BRANCH: 'feature/proj-1/client',
                 PullRequestFields.DESTINATION_BRANCH: 'master',
@@ -243,7 +243,7 @@ class TaskPublisherTests(unittest.TestCase):
             {
                 PullRequestFields.REPOSITORY_ID: 'backend',
                 PullRequestFields.ID: '18',
-                PullRequestFields.TITLE: 'PROJ-1: Fix bug',
+                PullRequestFields.TITLE: 'PROJ-1: fix it already',
                 PullRequestFields.URL: 'https://github/pr/18',
                 PullRequestFields.SOURCE_BRANCH: 'feature/proj-1/backend',
                 PullRequestFields.DESTINATION_BRANCH: 'main',
@@ -329,7 +329,7 @@ class TaskPublisherTests(unittest.TestCase):
         successful_pr = {
             PullRequestFields.REPOSITORY_ID: 'client',
             PullRequestFields.ID: '17',
-            PullRequestFields.TITLE: 'PROJ-1: Fix bug',
+            PullRequestFields.TITLE: 'PROJ-1: fix it already',
             PullRequestFields.URL: 'https://bitbucket/pr/17',
             PullRequestFields.SOURCE_BRANCH: 'feature/proj-1/client',
             PullRequestFields.DESTINATION_BRANCH: 'master',
@@ -442,7 +442,7 @@ class TaskPublisherTests(unittest.TestCase):
         self.repository_service.create_pull_request.return_value = {
             PullRequestFields.REPOSITORY_ID: 'client',
             PullRequestFields.ID: '17',
-            PullRequestFields.TITLE: 'PROJ-1: Fix bug',
+            PullRequestFields.TITLE: 'PROJ-1: fix it already',
             PullRequestFields.URL: 'https://bitbucket/pr/17',
             PullRequestFields.SOURCE_BRANCH: 'feature/proj-1/client',
             PullRequestFields.DESTINATION_BRANCH: 'master',
@@ -486,7 +486,7 @@ class TaskPublisherTests(unittest.TestCase):
             {
                 PullRequestFields.REPOSITORY_ID: 'client',
                 PullRequestFields.ID: '17',
-                PullRequestFields.TITLE: 'PROJ-1: Fix bug',
+                PullRequestFields.TITLE: 'PROJ-1: fix it already',
                 PullRequestFields.URL: 'https://bitbucket/pr/17',
                 PullRequestFields.SOURCE_BRANCH: 'feature/proj-1/client',
                 PullRequestFields.DESTINATION_BRANCH: 'master',

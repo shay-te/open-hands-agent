@@ -25,7 +25,7 @@ def _make_client(**kwargs) -> GitHubIssuesClient:
 
 def _issue(
     number: int = 17,
-    title: str = 'Fix bug',
+    title: str = 'fix it already',
     body: str = 'Details',
     state: str = 'open',
     labels=None,
@@ -107,7 +107,7 @@ class GitHubIssuesClientGetAssignedTasksTests(unittest.TestCase):
         self.assertEqual(len(records), 1)
         self.assertIsInstance(records[0], IssueRecord)
         self.assertEqual(records[0].id, '17')
-        self.assertEqual(records[0].summary, 'Fix bug')
+        self.assertEqual(records[0].summary, 'fix it already')
 
     def test_filters_out_pull_requests(self) -> None:
         client = _make_client()

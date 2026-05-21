@@ -917,7 +917,7 @@ class RepositoryServiceTests(unittest.TestCase):
         data_access = Mock()
         data_access.create_pull_request.return_value = {
             PullRequestFields.ID: '17',
-            PullRequestFields.TITLE: 'PROJ-1: Fix bug',
+            PullRequestFields.TITLE: 'PROJ-1: fix it already',
             PullRequestFields.URL: 'https://bitbucket.org/workspace/repo/pull-requests/17',
         }
 
@@ -942,7 +942,7 @@ class RepositoryServiceTests(unittest.TestCase):
             service = RepositoryService(self.cfg.kato.repositories, 3)
             result = service.create_pull_request(
                 repository,
-                title='PROJ-1: Fix bug',
+                title='PROJ-1: fix it already',
                 source_branch='feature/proj-1/client',
                 description='Ready',
                 commit_message='Implement PROJ-1',
@@ -956,7 +956,7 @@ class RepositoryServiceTests(unittest.TestCase):
             'https://bitbucket.org/workspace/repo/pull-requests/17',
         )
         data_access.create_pull_request.assert_called_once_with(
-            title='PROJ-1: Fix bug',
+            title='PROJ-1: fix it already',
             source_branch='feature/proj-1/client',
             destination_branch='main',
             description='Ready',
@@ -997,7 +997,7 @@ class RepositoryServiceTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, 'provider down'):
                 service.create_pull_request(
                     repository,
-                    title='PROJ-1: Fix bug',
+                    title='PROJ-1: fix it already',
                     source_branch='feature/proj-1/client',
                     description='Ready',
                     commit_message='Implement PROJ-1',
@@ -1010,7 +1010,7 @@ class RepositoryServiceTests(unittest.TestCase):
         data_access = Mock()
         pull_request_payload = {
             PullRequestFields.ID: '17',
-            PullRequestFields.TITLE: 'PROJ-1: Fix bug',
+            PullRequestFields.TITLE: 'PROJ-1: fix it already',
             PullRequestFields.URL: 'https://github.example/pull/17',
         }
         call_order: list[str] = []
@@ -1055,7 +1055,7 @@ class RepositoryServiceTests(unittest.TestCase):
             service = RepositoryService(self.cfg.kato.repositories, 3)
             service.create_pull_request(
                 repository,
-                title='PROJ-1: Fix bug',
+                title='PROJ-1: fix it already',
                 source_branch='feature/proj-1/backend',
                 description='Ready',
                 commit_message='Implement PROJ-1',
@@ -1070,7 +1070,7 @@ class RepositoryServiceTests(unittest.TestCase):
         mock_push_branch.assert_called_once_with('.', 'feature/proj-1/backend', repository)
         mock_restore_repositories.assert_called_once_with([repository], force=True)
         data_access.create_pull_request.assert_called_once_with(
-            title='PROJ-1: Fix bug',
+            title='PROJ-1: fix it already',
             source_branch='feature/proj-1/backend',
             destination_branch='main',
             description='Ready',
@@ -1105,7 +1105,7 @@ class RepositoryServiceTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, 'push failed'):
                 service.create_pull_request(
                     repository,
-                    title='PROJ-1: Fix bug',
+                    title='PROJ-1: fix it already',
                     source_branch='feature/proj-1/client',
                     description='Ready',
                     commit_message='Implement PROJ-1',
@@ -1118,7 +1118,7 @@ class RepositoryServiceTests(unittest.TestCase):
         data_access = Mock()
         data_access.create_pull_request.return_value = {
             PullRequestFields.ID: '17',
-            PullRequestFields.TITLE: 'PROJ-1: Fix bug',
+            PullRequestFields.TITLE: 'PROJ-1: fix it already',
             PullRequestFields.URL: 'https://github.example/pull/17',
         }
         subprocess_results = [
@@ -1172,7 +1172,7 @@ class RepositoryServiceTests(unittest.TestCase):
             service._publication_service.logger = Mock()
             service.create_pull_request(
                 repository,
-                title='PROJ-1: Fix bug',
+                title='PROJ-1: fix it already',
                 source_branch='feature/proj-1/backend',
                 description='Ready',
                 commit_message='Implement PROJ-1',
@@ -1196,7 +1196,7 @@ class RepositoryServiceTests(unittest.TestCase):
             ],
         )
         data_access.create_pull_request.assert_called_once_with(
-            title='PROJ-1: Fix bug',
+            title='PROJ-1: fix it already',
             source_branch='feature/proj-1/backend',
             destination_branch='main',
             description='Ready',
@@ -1214,7 +1214,7 @@ class RepositoryServiceTests(unittest.TestCase):
         data_access = Mock()
         data_access.create_pull_request.return_value = {
             PullRequestFields.ID: '17',
-            PullRequestFields.TITLE: 'PROJ-1: Fix bug',
+            PullRequestFields.TITLE: 'PROJ-1: fix it already',
             PullRequestFields.URL: 'https://github.example/pull/17',
         }
         subprocess_results = [
@@ -1269,7 +1269,7 @@ class RepositoryServiceTests(unittest.TestCase):
             service = RepositoryService(self.cfg.kato.repositories, 3)
             service.create_pull_request(
                 repository,
-                title='PROJ-1: Fix bug',
+                title='PROJ-1: fix it already',
                 source_branch='feature/proj-1/backend',
                 description='Ready',
                 commit_message='Implement PROJ-1',
@@ -1293,7 +1293,7 @@ class RepositoryServiceTests(unittest.TestCase):
         )
         mock_restore_repositories.assert_called_once_with([repository], force=True)
         data_access.create_pull_request.assert_called_once_with(
-            title='PROJ-1: Fix bug',
+            title='PROJ-1: fix it already',
             source_branch='feature/proj-1/backend',
             destination_branch='main',
             description='Validation report:\n- verified the task manually.',
@@ -1305,7 +1305,7 @@ class RepositoryServiceTests(unittest.TestCase):
         data_access = Mock()
         data_access.create_pull_request.return_value = {
             PullRequestFields.ID: '17',
-            PullRequestFields.TITLE: 'PROJ-1: Fix bug',
+            PullRequestFields.TITLE: 'PROJ-1: fix it already',
             PullRequestFields.URL: 'https://github.example/pull/17',
         }
         status_call_count = {'count': 0}
@@ -1373,7 +1373,7 @@ class RepositoryServiceTests(unittest.TestCase):
             service = RepositoryService(self.cfg.kato.repositories, 3)
             service.create_pull_request(
                 repository,
-                title='PROJ-1: Fix bug',
+                title='PROJ-1: fix it already',
                 source_branch='feature/proj-1/backend',
                 description='Ready',
                 commit_message='Implement PROJ-1',
@@ -1396,7 +1396,7 @@ class RepositoryServiceTests(unittest.TestCase):
             )
         mock_restore_repositories.assert_called_once_with([repository], force=True)
         data_access.create_pull_request.assert_called_once_with(
-            title='PROJ-1: Fix bug',
+            title='PROJ-1: fix it already',
             source_branch='feature/proj-1/backend',
             destination_branch='main',
             description='Validation report:\n- verified the task manually.',
@@ -1442,7 +1442,7 @@ class RepositoryServiceTests(unittest.TestCase):
             ):
                 service.create_pull_request(
                     repository,
-                    title='PROJ-1: Fix bug',
+                    title='PROJ-1: fix it already',
                     source_branch='feature/proj-1/backend',
                     description='Ready',
                     commit_message='Implement PROJ-1',

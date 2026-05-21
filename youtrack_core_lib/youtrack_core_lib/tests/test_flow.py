@@ -41,7 +41,7 @@ class F1_GetAssignedTasksWithCommentsAndTags(unittest.TestCase):
         client = _client()
 
         list_resp = mock_response(json_data=[
-            {'idReadable': 'PROJ-1', 'summary': 'Fix bug', 'description': 'Details'},
+            {'idReadable': 'PROJ-1', 'summary': 'fix it already', 'description': 'Details'},
             {'idReadable': 'PROJ-2', 'summary': 'Add feature', 'description': 'Spec'},
         ])
         tags_resp_1 = mock_response(json_data=[{'name': 'backend'}])

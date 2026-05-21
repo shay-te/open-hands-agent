@@ -60,7 +60,7 @@ class ListAllAssignedTasksTests(unittest.TestCase):
         task_service = MagicMock()
         task_service.list_all_assigned_tasks.return_value = [
             SimpleNamespace(
-                id='PROJ-1', summary='Fix bug', state='Open',
+                id='PROJ-1', summary='fix it already', state='Open',
                 description='Long body ' + 'x' * 1000,
             ),
         ]

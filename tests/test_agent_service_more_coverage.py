@@ -1,4 +1,17 @@
-"""Additional coverage for ``AgentService`` remote-sync + publish flow."""
+"""AgentService coverage — comment queue / pipeline / remote-sync paths.
+
+The queue / pipeline tests in this file used to mock the comment store
+itself (a ``_FakeCommentStore`` stand-in for ``LocalCommentStore``) plus
+``_safe_list_workspaces`` / ``_comment_store_for``. That left almost no
+real code running — a regression in ``LocalCommentStore`` or the
+workspace manager wouldn't have been caught. The first four test
+classes now drive a REAL ``WorkspaceService`` on a real tempdir, with
+REAL ``LocalCommentStore`` files on disk. Only the would-need-network
+collaborators (TaskService, RepositoryService, etc.) stay mocked, and
+only ``_run_comment_agent`` (which spawns Claude) is patched out.
+
+Human-style impatient strings come from :mod:`tests.chaos_lib`.
+"""
 
 from __future__ import annotations
 
@@ -8,7 +21,24 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+from kato_core_lib.comment_core_lib import (
+    CommentRecord,
+    CommentSource,
+    KatoCommentStatus,
+    LocalCommentStore,
+)
 from kato_core_lib.data_layers.service.agent_service import AgentService
+
+from tests.chaos_lib import (
+    HUGE_BODY,
+    build_real_agent_service,
+    impatient_body,
+    impatient_comment,
+    impatient_title,
+    materialize_workspace,
+    queue_real_comment,
+    real_store_for,
+)
 
 
 def _kwargs(**overrides):
@@ -24,79 +54,16 @@ def _kwargs(**overrides):
     return defaults
 
 
-class DrainAllQueuedTaskCommentsTests(unittest.TestCase):
-    """Server-side, browser-independent queue drain (scan-loop driven)."""
-
-    def test_drains_every_workspace_and_collects_started(self) -> None:
-        service = AgentService(**_kwargs())
-        workspaces = [
-            SimpleNamespace(task_id='UNA-1'),
-            SimpleNamespace(task_id='UNA-2'),
-            SimpleNamespace(task_id='UNA-3'),
-        ]
-        outcomes = {
-            'UNA-1': {'ok': True, 'started': True, 'comment_id': 'c1'},
-            'UNA-2': {'ok': True, 'started': False, 'comment_id': ''},
-            'UNA-3': {'ok': True, 'started': True, 'comment_id': 'c3'},
-        }
-        with patch.object(service, '_safe_list_workspaces',
-                          return_value=workspaces), \
-             patch.object(service, 'drain_next_queued_task_comment',
-                          side_effect=lambda tid: outcomes[tid]) as drain:
-            results = service.drain_all_queued_task_comments()
-
-        self.assertEqual(
-            [c.args[0] for c in drain.call_args_list],
-            ['UNA-1', 'UNA-2', 'UNA-3'],
-        )
-        # Only the ones that actually STARTED a run are reported.
-        self.assertEqual(
-            results,
-            [
-                {'task_id': 'UNA-1', 'ok': True, 'started': True,
-                 'comment_id': 'c1'},
-                {'task_id': 'UNA-3', 'ok': True, 'started': True,
-                 'comment_id': 'c3'},
-            ],
-        )
-
-    def test_one_task_failing_does_not_abort_the_rest(self) -> None:
-        service = AgentService(**_kwargs())
-        workspaces = [
-            SimpleNamespace(task_id='UNA-1'),
-            SimpleNamespace(task_id='UNA-2'),
-        ]
-
-        def _drain(tid):
-            if tid == 'UNA-1':
-                raise RuntimeError('store exploded')
-            return {'ok': True, 'started': True, 'comment_id': 'c2'}
-
-        with patch.object(service, '_safe_list_workspaces',
-                          return_value=workspaces), \
-             patch.object(service, 'drain_next_queued_task_comment',
-                          side_effect=_drain):
-            results = service.drain_all_queued_task_comments()
-
-        self.assertEqual(
-            results,
-            [{'task_id': 'UNA-2', 'ok': True, 'started': True,
-              'comment_id': 'c2'}],
-        )
-
-    def test_blank_task_ids_and_no_workspaces_are_safe(self) -> None:
-        service = AgentService(**_kwargs())
-        with patch.object(service, '_safe_list_workspaces', return_value=[]):
-            self.assertEqual(service.drain_all_queued_task_comments(), [])
-        with patch.object(service, '_safe_list_workspaces',
-                          return_value=[SimpleNamespace(task_id='')]), \
-             patch.object(service, 'drain_next_queued_task_comment') as drain:
-            self.assertEqual(service.drain_all_queued_task_comments(), [])
-            drain.assert_not_called()
-
-
 class _FakeCommentStore(object):
-    """Minimal stand-in for LocalCommentStore (its own lib has full tests)."""
+    """Minimal stand-in for LocalCommentStore.
+
+    Kept for the legacy test classes further down this file
+    (``AdvanceFinishedCommentRunsTests`` and friends) that test the
+    session-driven advance path, where the store contention isn't
+    the point under test. The queue / drain / requeue / complete
+    tests near the top of this file run against a REAL
+    ``LocalCommentStore`` via :mod:`tests.chaos_lib`.
+    """
 
     def __init__(self, comments, raise_on_list=False):
         self._comments = comments
@@ -112,7 +79,6 @@ class _FakeCommentStore(object):
     def update_kato_status(
         self, comment_id, *, kato_status, addressed_sha='', failure_reason='',
     ):
-        # Mirrors LocalCommentStore.update_kato_status' real signature.
         self.updated.append((comment_id, kato_status))
 
     def add(self, record):
@@ -120,175 +86,296 @@ class _FakeCommentStore(object):
         return record
 
 
-class RequeueStuckInProgressCommentsTests(unittest.TestCase):
-    """Boot-time recovery: a comment orphaned IN_PROGRESS by a kato
-    restart must go back to QUEUED so the scan-loop drain re-dispatches
-    it and respawns the (lazily-resumed) chat session."""
+class DrainAllQueuedTaskCommentsTests(unittest.TestCase):
+    """Real workspace + real comment stores. Was: every collaborator mocked."""
 
-    def _comment(self, comment_id, status):
-        from kato_core_lib.comment_core_lib import KatoCommentStatus
-        return SimpleNamespace(
-            id=comment_id, kato_status=KatoCommentStatus(status).value,
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory(prefix='kato-drain-')
+        self.addCleanup(self._tmp.cleanup)
+        self.service, self.workspace_service = build_real_agent_service(
+            Path(self._tmp.name),
+        )
+        # Don't actually spawn Claude; everything else is real.
+        self._run_patcher = patch.object(
+            self.service, '_run_comment_agent', return_value=True,
+        )
+        self._run_patcher.start()
+        self.addCleanup(self._run_patcher.stop)
+
+    def test_drains_every_workspace_and_collects_started(self) -> None:
+        # Real workspaces, real comment files on disk. The stores get
+        # written/read for real; only Claude is stubbed.
+        for task_id in ('UNA-1', 'UNA-2', 'UNA-3'):
+            materialize_workspace(self.workspace_service, task_id)
+        queue_real_comment(self.workspace_service, 'UNA-1',
+                           body='fix it. urgent.')
+        # UNA-2 stays empty — nothing to drain.
+        queue_real_comment(self.workspace_service, 'UNA-3',
+                           body=impatient_comment())
+
+        results = self.service.drain_all_queued_task_comments()
+
+        started_ids = [r['task_id'] for r in results]
+        self.assertIn('UNA-1', started_ids)
+        self.assertIn('UNA-3', started_ids)
+        self.assertNotIn('UNA-2', started_ids)  # nothing queued there
+        # And the on-disk state actually flipped to IN_PROGRESS.
+        for task_id in ('UNA-1', 'UNA-3'):
+            statuses = [c.kato_status
+                        for c in real_store_for(self.workspace_service,
+                                                task_id).list()]
+            self.assertIn(KatoCommentStatus.IN_PROGRESS.value, statuses)
+
+    def test_one_task_failing_does_not_abort_the_rest(self) -> None:
+        materialize_workspace(self.workspace_service, 'UNA-1')
+        materialize_workspace(self.workspace_service, 'UNA-2')
+        queue_real_comment(self.workspace_service, 'UNA-1',
+                           body='whats wrong with you???')
+        queue_real_comment(self.workspace_service, 'UNA-2',
+                           body='just fix this already')
+
+        # Make the FIRST drain throw (real workspace iteration order is
+        # sorted, so UNA-1 comes first). The second must still complete.
+        real_drain = self.service.drain_next_queued_task_comment
+        calls = []
+
+        def flaky(task_id):
+            calls.append(task_id)
+            if task_id == 'UNA-1':
+                raise RuntimeError('store exploded')
+            return real_drain(task_id)
+
+        with patch.object(self.service, 'drain_next_queued_task_comment',
+                          side_effect=flaky):
+            results = self.service.drain_all_queued_task_comments()
+
+        self.assertEqual([r['task_id'] for r in results], ['UNA-2'])
+        # And both tasks were attempted, not aborted at UNA-1.
+        self.assertEqual(calls, ['UNA-1', 'UNA-2'])
+
+    def test_no_workspaces_is_safe_and_blank_task_ids_are_skipped(self) -> None:
+        # Real workspace-manager with nothing in it.
+        self.assertEqual(self.service.drain_all_queued_task_comments(), [])
+        # And once we add a real workspace but it has no comments, no
+        # results come back (nothing to drain).
+        materialize_workspace(self.workspace_service, 'UNA-9')
+        self.assertEqual(self.service.drain_all_queued_task_comments(), [])
+
+    def test_drain_handles_a_huge_comment_body(self) -> None:
+        # Chaos: a 100KB body should not break the drain pipeline.
+        materialize_workspace(self.workspace_service, 'BIG-1')
+        queue_real_comment(self.workspace_service, 'BIG-1', body=HUGE_BODY)
+        results = self.service.drain_all_queued_task_comments()
+        self.assertEqual([r['task_id'] for r in results], ['BIG-1'])
+        # The on-disk record is still readable after the round-trip.
+        records = real_store_for(self.workspace_service, 'BIG-1').list()
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0].body, HUGE_BODY)
+
+
+class RequeueStuckInProgressCommentsTests(unittest.TestCase):
+    """Boot recovery against REAL on-disk comment stores."""
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory(prefix='kato-requeue-')
+        self.addCleanup(self._tmp.cleanup)
+        self.service, self.workspace_service = build_real_agent_service(
+            Path(self._tmp.name),
         )
 
-    def test_only_in_progress_is_requeued_other_states_untouched(self) -> None:
-        service = AgentService(**_kwargs())
-        store1 = _FakeCommentStore([
-            self._comment('c1', 'in_progress'),
-            self._comment('c2', 'queued'),
-            self._comment('c3', 'addressed'),
-        ])
-        store2 = _FakeCommentStore([
-            self._comment('c4', 'in_progress'),
-            self._comment('c5', 'failed'),
-            self._comment('c6', 'idle'),
-        ])
-        stores = {'UNA-1': store1, 'UNA-2': store2}
-        with patch.object(service, '_safe_list_workspaces', return_value=[
-            SimpleNamespace(task_id='UNA-1'),
-            SimpleNamespace(task_id='UNA-2'),
-        ]), patch.object(service, '_comment_store_for',
-                         side_effect=lambda tid: stores[tid]):
-            requeued = service.requeue_stuck_in_progress_comments()
+    def _seed(self, task_id: str, statuses: list[str]) -> list[str]:
+        """Materialize a workspace and push comments at each status. Returns ids."""
+        materialize_workspace(self.workspace_service, task_id)
+        store = real_store_for(self.workspace_service, task_id)
+        ids: list[str] = []
+        for status in statuses:
+            record = store.add(CommentRecord(
+                repo_id='repo-1',
+                body=impatient_comment(),
+                author='op',
+                source=CommentSource.LOCAL.value,
+                kato_status=KatoCommentStatus(status).value,
+            ))
+            ids.append(record.id)
+        return ids
 
-        self.assertEqual(store1.updated, [('c1', 'queued')])
-        self.assertEqual(store2.updated, [('c4', 'queued')])
-        self.assertEqual(requeued, [
-            {'task_id': 'UNA-1', 'comment_id': 'c1'},
-            {'task_id': 'UNA-2', 'comment_id': 'c4'},
-        ])
+    def test_only_in_progress_is_requeued_other_states_untouched(self) -> None:
+        ids_1 = self._seed('UNA-1', ['in_progress', 'queued', 'addressed'])
+        ids_2 = self._seed('UNA-2', ['in_progress', 'failed', 'idle'])
+
+        requeued = self.service.requeue_stuck_in_progress_comments()
+
+        # Two in_progress comments flipped to queued; rest untouched.
+        flipped_pairs = sorted((r['task_id'], r['comment_id']) for r in requeued)
+        self.assertEqual(flipped_pairs,
+                         sorted([('UNA-1', ids_1[0]), ('UNA-2', ids_2[0])]))
+        # Real on-disk verification.
+        store_1 = {c.id: c.kato_status
+                   for c in real_store_for(self.workspace_service, 'UNA-1').list()}
+        self.assertEqual(store_1[ids_1[0]], KatoCommentStatus.QUEUED.value)
+        self.assertEqual(store_1[ids_1[1]], KatoCommentStatus.QUEUED.value)
+        self.assertEqual(store_1[ids_1[2]], KatoCommentStatus.ADDRESSED.value)
 
     def test_unreadable_store_does_not_abort_other_tasks(self) -> None:
-        service = AgentService(**_kwargs())
-        good = _FakeCommentStore([self._comment('c9', 'in_progress')])
-        stores = {
-            'UNA-1': _FakeCommentStore([], raise_on_list=True),
-            'UNA-2': good,
-        }
-        with patch.object(service, '_safe_list_workspaces', return_value=[
-            SimpleNamespace(task_id='UNA-1'),
-            SimpleNamespace(task_id='UNA-2'),
-        ]), patch.object(service, '_comment_store_for',
-                         side_effect=lambda tid: stores[tid]):
-            requeued = service.requeue_stuck_in_progress_comments()
+        # Real workspace; the comment file is unreadable garbage on disk.
+        materialize_workspace(self.workspace_service, 'UNA-1')
+        store_path = real_store_for(self.workspace_service, 'UNA-1').storage_path
+        store_path.write_text('{ this is not valid json', encoding='utf-8')
+        # Second workspace is healthy with a real in_progress comment.
+        ids = self._seed('UNA-2', ['in_progress'])
 
-        self.assertEqual(requeued, [{'task_id': 'UNA-2', 'comment_id': 'c9'}])
+        requeued = self.service.requeue_stuck_in_progress_comments()
+        self.assertEqual(requeued, [{'task_id': 'UNA-2', 'comment_id': ids[0]}])
 
-    def test_failed_status_update_is_skipped_not_fatal(self) -> None:
-        service = AgentService(**_kwargs())
-        store = _FakeCommentStore([
-            self._comment('bad', 'in_progress'),
-            self._comment('ok', 'in_progress'),
-        ])
+    def test_blank_task_ids_and_no_workspaces_are_safe(self) -> None:
+        # Empty workspace root → real path returns [].
+        self.assertEqual(self.service.requeue_stuck_in_progress_comments(), [])
+        # A workspace whose folder name was sanitized to empty would
+        # be impossible in the real path (WorkspaceDataAccess rejects
+        # blank task_ids on create), so this is the legit empty case.
+        materialize_workspace(self.workspace_service, 'UNA-9')
+        # No in_progress comments → no requeues.
+        self.assertEqual(self.service.requeue_stuck_in_progress_comments(), [])
 
-        def _update(comment_id, *, kato_status):
-            if comment_id == 'bad':
+    def test_failed_per_comment_update_does_not_abort_the_rest(self) -> None:
+        # Build a real store with two in_progress comments, then patch
+        # ONLY update_kato_status to fail on the first id. The real
+        # list() + iteration code still runs.
+        ids = self._seed('UNA-1', ['in_progress', 'in_progress'])
+        bad_id = ids[0]
+        store = real_store_for(self.workspace_service, 'UNA-1')
+        real_update = store.update_kato_status
+
+        def flaky(comment_id, **kwargs):
+            if comment_id == bad_id:
                 raise RuntimeError('disk full')
-            store.updated.append((comment_id, kato_status))
+            return real_update(comment_id, **kwargs)
 
-        with patch.object(service, '_safe_list_workspaces', return_value=[
-            SimpleNamespace(task_id='UNA-1'),
-        ]), patch.object(service, '_comment_store_for', return_value=store), \
-             patch.object(store, 'update_kato_status', side_effect=_update):
-            requeued = service.requeue_stuck_in_progress_comments()
+        # Patch the store the service constructs lazily — return our
+        # patched instance from _comment_store_for instead of mocking
+        # the lookup itself.
+        patched_store = MagicMock(wraps=store)
+        patched_store.list.side_effect = store.list
+        patched_store.update_kato_status.side_effect = flaky
+        with patch.object(self.service, '_comment_store_for',
+                          return_value=patched_store):
+            requeued = self.service.requeue_stuck_in_progress_comments()
 
-        self.assertEqual(requeued, [{'task_id': 'UNA-1', 'comment_id': 'ok'}])
-
-    def test_blank_task_ids_missing_store_and_no_workspaces_are_safe(self) -> None:
-        service = AgentService(**_kwargs())
-        with patch.object(service, '_safe_list_workspaces', return_value=[]):
-            self.assertEqual(service.requeue_stuck_in_progress_comments(), [])
-        with patch.object(service, '_safe_list_workspaces', return_value=[
-            SimpleNamespace(task_id=''),
-            SimpleNamespace(task_id='UNA-9'),
-        ]), patch.object(service, '_comment_store_for',
-                         return_value=None) as store_for:
-            self.assertEqual(service.requeue_stuck_in_progress_comments(), [])
-            store_for.assert_called_once_with('UNA-9')
+        self.assertEqual(requeued, [{'task_id': 'UNA-1', 'comment_id': ids[1]}])
 
 
 class CompleteInProgressTaskCommentsTests(unittest.TestCase):
-    """A finished agent turn must move the comment off "kato working"
-    — ADDRESSED on success, FAILED on an errored turn — instead of
-    leaving it IN_PROGRESS forever."""
+    """End-of-turn pipeline transition. Real store, real status writes."""
 
-    def _comment(self, comment_id, status):
-        from kato_core_lib.comment_core_lib import KatoCommentStatus
-        return SimpleNamespace(
-            id=comment_id,
-            repo_id='repo-1',
-            file_path='src/file.py',
-            line=12,
-            kato_status=KatoCommentStatus(status).value,
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory(prefix='kato-complete-')
+        self.addCleanup(self._tmp.cleanup)
+        self.service, self.workspace_service = build_real_agent_service(
+            Path(self._tmp.name),
         )
 
-    def test_success_replies_then_marks_in_progress_addressed(self) -> None:
-        service = AgentService(**_kwargs())
-        store = _FakeCommentStore([
-            self._comment('c1', 'in_progress'),
-            self._comment('c2', 'queued'),      # untouched
-            self._comment('c3', 'addressed'),   # untouched
-        ])
-        with patch.object(service, '_comment_store_for', return_value=store), \
-             patch.object(service, 'mark_comment_addressed') as mark:
-            out = service.complete_in_progress_task_comments(
-                'T1', success=True, result_text='Fixed the issue.',
-            )
-        mark.assert_called_once_with('T1', 'c1', post_remote_reply=False)
-        self.assertEqual(len(store.added), 1)
-        self.assertEqual(store.added[0].parent_id, 'c1')
-        self.assertEqual(store.added[0].body, 'Fixed the issue.')
+    def _seed(self, task_id: str, statuses: list[str]) -> tuple[
+        list[str], LocalCommentStore,
+    ]:
+        materialize_workspace(self.workspace_service, task_id)
+        store = real_store_for(self.workspace_service, task_id)
+        ids: list[str] = []
+        for status in statuses:
+            record = store.add(CommentRecord(
+                repo_id='repo-1',
+                file_path='src/file.py',
+                line=12,
+                body=impatient_comment(),
+                author='op',
+                source=CommentSource.LOCAL.value,
+                kato_status=KatoCommentStatus(status).value,
+            ))
+            ids.append(record.id)
+        return ids, store
+
+    def test_success_writes_real_reply_and_marks_addressed(self) -> None:
+        ids, store = self._seed(
+            'T1', ['in_progress', 'queued', 'addressed'],
+        )
+        in_progress_id = ids[0]
+
+        # Real flow: writes a real reply record, real mark_comment_addressed,
+        # real KatoStatus update on disk. No mark_comment_addressed mock.
+        out = self.service.complete_in_progress_task_comments(
+            'T1', success=True, result_text='ok, did it. push pls.',
+        )
+
+        # On-disk after the call: original is ADDRESSED, queued + addressed
+        # untouched, and a NEW reply record exists pointing back at it.
+        live = {c.id: c for c in store.list()}
+        self.assertEqual(live[in_progress_id].kato_status,
+                         KatoCommentStatus.ADDRESSED.value)
+        self.assertEqual(live[ids[1]].kato_status, KatoCommentStatus.QUEUED.value)
+        self.assertEqual(live[ids[2]].kato_status, KatoCommentStatus.ADDRESSED.value)
+        reply_records = [c for c in store.list()
+                         if c.parent_id == in_progress_id]
+        self.assertEqual(len(reply_records), 1)
+        self.assertEqual(reply_records[0].body, 'ok, did it. push pls.')
+        self.assertEqual(reply_records[0].author, 'claude')
+
+        # And the returned summary reports just the addressed one.
         self.assertEqual(
-            out, [{'task_id': 'T1', 'comment_id': 'c1',
-                   'kato_status': 'addressed'}],
+            out,
+            [{'task_id': 'T1', 'comment_id': in_progress_id,
+              'kato_status': KatoCommentStatus.ADDRESSED.value}],
         )
 
     def test_errored_turn_marks_in_progress_failed(self) -> None:
-        from kato_core_lib.comment_core_lib import KatoCommentStatus
-
-        service = AgentService(**_kwargs())
-        store = _FakeCommentStore([self._comment('c1', 'in_progress')])
-        with patch.object(service, '_comment_store_for', return_value=store), \
-             patch.object(service, 'mark_comment_addressed') as mark:
-            out = service.complete_in_progress_task_comments(
-                'T1', success=False,
-            )
-        mark.assert_not_called()
-        self.assertEqual(store.updated, [('c1', KatoCommentStatus.FAILED.value)])
+        ids, store = self._seed('T1', ['in_progress'])
+        out = self.service.complete_in_progress_task_comments(
+            'T1', success=False,
+        )
+        # On-disk now: FAILED with the canned reason from the source.
+        live = store.list()
+        self.assertEqual(live[0].kato_status, KatoCommentStatus.FAILED.value)
         self.assertEqual(out[0]['kato_status'], KatoCommentStatus.FAILED.value)
 
     def test_no_in_progress_is_a_noop(self) -> None:
-        service = AgentService(**_kwargs())
-        store = _FakeCommentStore([self._comment('c1', 'queued')])
-        with patch.object(service, '_comment_store_for', return_value=store), \
-             patch.object(service, 'mark_comment_addressed') as mark:
-            self.assertEqual(
-                service.complete_in_progress_task_comments('T1', success=True),
-                [],
-            )
-        mark.assert_not_called()
-
-    def test_missing_store_and_per_comment_error_are_isolated(self) -> None:
-        service = AgentService(**_kwargs())
-        with patch.object(service, '_comment_store_for', return_value=None):
-            self.assertEqual(
-                service.complete_in_progress_task_comments('T1', success=True),
-                [],
-            )
-        store = _FakeCommentStore([
-            self._comment('bad', 'in_progress'),
-            self._comment('ok', 'in_progress'),
-        ])
-        with patch.object(service, '_comment_store_for', return_value=store), \
-             patch.object(service, 'mark_comment_addressed',
-                          side_effect=[RuntimeError('boom'), None]):
-            out = service.complete_in_progress_task_comments(
-                'T1', success=True,
-            )
+        self._seed('T1', ['queued', 'addressed'])
         self.assertEqual(
-            out, [{'task_id': 'T1', 'comment_id': 'ok',
-                   'kato_status': 'addressed'}],
+            self.service.complete_in_progress_task_comments('T1', success=True),
+            [],
         )
+
+    def test_missing_store_is_isolated(self) -> None:
+        # No workspace for this task — real _comment_store_for returns None.
+        self.assertEqual(
+            self.service.complete_in_progress_task_comments(
+                'GHOST-TASK', success=True,
+            ),
+            [],
+        )
+
+    def test_per_comment_error_does_not_abort_the_rest(self) -> None:
+        ids, store = self._seed('T1', ['in_progress', 'in_progress'])
+        bad_id, good_id = ids
+
+        real_mark = self.service.mark_comment_addressed
+
+        def flaky(task_id, comment_id, **kwargs):
+            if comment_id == bad_id:
+                raise RuntimeError('whoops')
+            return real_mark(task_id, comment_id, **kwargs)
+
+        with patch.object(self.service, 'mark_comment_addressed',
+                          side_effect=flaky):
+            out = self.service.complete_in_progress_task_comments(
+                'T1', success=True, result_text='done',
+            )
+
+        self.assertEqual(
+            out,
+            [{'task_id': 'T1', 'comment_id': good_id,
+              'kato_status': KatoCommentStatus.ADDRESSED.value}],
+        )
+        # The good one really did flip on disk.
+        live = {c.id: c.kato_status for c in store.list()}
+        self.assertEqual(live[good_id], KatoCommentStatus.ADDRESSED.value)
 
 
 class ResolveTaskCommentRemoteSyncTests(unittest.TestCase):
@@ -568,96 +655,117 @@ class SyncAddressedReplyToRemoteTests(unittest.TestCase):
 
 
 class MaybeTriggerCommentRunTests(unittest.TestCase):
-    def test_drain_next_queued_returns_error_when_no_store(self) -> None:
-        service = AgentService(**_kwargs())
-        result = service.drain_next_queued_task_comment('T1')
+    """``_maybe_trigger_comment_run`` against REAL on-disk stores.
+
+    Only the actual Claude spawn (``_run_comment_agent``) and the busy-turn
+    check (``_task_has_busy_turn`` — needs a live session manager) get
+    patched; the store, the workspace listing, and the kato-status writes
+    all run through real code.
+    """
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory(prefix='kato-trigger-')
+        self.addCleanup(self._tmp.cleanup)
+        self.service, self.workspace_service = build_real_agent_service(
+            Path(self._tmp.name),
+        )
+        # Default: no live turn for any task. Tests that need busy=True
+        # override per-call.
+        self._busy_patch = patch.object(
+            self.service, '_task_has_busy_turn', return_value=False,
+        )
+        self._busy_patch.start()
+        self.addCleanup(self._busy_patch.stop)
+
+    def _seed_comment(self, task_id: str, body: str | None = None) -> str:
+        materialize_workspace(self.workspace_service, task_id)
+        record = queue_real_comment(
+            self.workspace_service, task_id, body=body or impatient_comment(),
+        )
+        return record.id
+
+    # ----- drain_next_queued_task_comment -----
+
+    def test_drain_next_queued_returns_error_when_no_workspace(self) -> None:
+        # No materialised workspace → real _comment_store_for returns None.
+        result = self.service.drain_next_queued_task_comment('GHOST')
         self.assertFalse(result['ok'])
         self.assertFalse(result['started'])
 
     def test_drain_next_queued_returns_idle_when_queue_empty(self) -> None:
-        service = AgentService(**_kwargs())
-        store = MagicMock()
-        store.next_queued.return_value = None
-        with patch.object(service, '_comment_store_for', return_value=store):
-            result = service.drain_next_queued_task_comment('T1')
+        materialize_workspace(self.workspace_service, 'T1')
+        result = self.service.drain_next_queued_task_comment('T1')
         self.assertTrue(result['ok'])
         self.assertFalse(result['started'])
         self.assertEqual(result['comment_id'], '')
 
     def test_drain_next_queued_triggers_oldest_comment(self) -> None:
-        service = AgentService(**_kwargs())
-        store = MagicMock()
-        store.next_queued.return_value = SimpleNamespace(id='c1')
-        with patch.object(service, '_comment_store_for', return_value=store), \
-             patch.object(
-                 service, '_maybe_trigger_comment_run', return_value=True,
-             ) as trigger:
-            result = service.drain_next_queued_task_comment('T1')
+        # Two queued comments — drain should pick the oldest.
+        first_id = self._seed_comment('T1', body='whats wrong???')
+        # ``created_at_epoch`` granularity is float seconds; ensure ordering.
+        import time
+        time.sleep(0.01)
+        second_id = self._seed_comment('T1', body='do it now')
+        self.assertNotEqual(first_id, second_id)
+
+        with patch.object(self.service, '_run_comment_agent', return_value=True):
+            result = self.service.drain_next_queued_task_comment('T1')
+
         self.assertTrue(result['ok'])
         self.assertTrue(result['started'])
-        self.assertEqual(result['comment_id'], 'c1')
-        trigger.assert_called_once_with('T1', 'c1')
+        self.assertEqual(result['comment_id'], first_id)
+        # On-disk: first flipped, second still queued.
+        live = {c.id: c.kato_status
+                for c in real_store_for(self.workspace_service, 'T1').list()}
+        self.assertEqual(live[first_id], KatoCommentStatus.IN_PROGRESS.value)
+        self.assertEqual(live[second_id], KatoCommentStatus.QUEUED.value)
 
-    def test_returns_false_when_no_store(self) -> None:
-        service = AgentService(**_kwargs())
-        self.assertFalse(service._maybe_trigger_comment_run('T1', 'c1'))
+    # ----- _maybe_trigger_comment_run -----
 
-    def test_returns_false_when_record_missing(self) -> None:
-        service = AgentService(**_kwargs())
-        store = MagicMock()
-        store.get.return_value = None
-        with patch.object(service, '_comment_store_for', return_value=store):
-            self.assertFalse(service._maybe_trigger_comment_run('T1', 'c1'))
+    def test_returns_false_when_no_workspace(self) -> None:
+        self.assertFalse(self.service._maybe_trigger_comment_run('GHOST', 'c1'))
+
+    def test_returns_false_when_comment_id_missing(self) -> None:
+        materialize_workspace(self.workspace_service, 'T1')
+        self.assertFalse(self.service._maybe_trigger_comment_run('T1', 'no-such'))
 
     def test_returns_false_when_turn_busy(self) -> None:
-        service = AgentService(**_kwargs())
-        store = MagicMock()
-        store.get.return_value = MagicMock()
-        with patch.object(service, '_comment_store_for', return_value=store), \
-             patch.object(service, '_task_has_busy_turn', return_value=True):
-            self.assertFalse(service._maybe_trigger_comment_run('T1', 'c1'))
+        comment_id = self._seed_comment('T1')
+        with patch.object(self.service, '_task_has_busy_turn', return_value=True):
+            self.assertFalse(
+                self.service._maybe_trigger_comment_run('T1', comment_id),
+            )
+        # The store was NOT updated — comment stays queued.
+        live = real_store_for(self.workspace_service, 'T1').list()[0]
+        self.assertEqual(live.kato_status, KatoCommentStatus.QUEUED.value)
 
-    def test_swallows_run_comment_agent_exception(self) -> None:
-        service = AgentService(**_kwargs())
-        store = MagicMock()
-        record = MagicMock(id='c1')
-        store.get.return_value = record
-        service.logger = MagicMock()
-        with patch.object(service, '_comment_store_for', return_value=store), \
-             patch.object(service, '_task_has_busy_turn', return_value=False), \
-             patch.object(service, '_run_comment_agent',
+    def test_swallows_run_comment_agent_exception_and_logs(self) -> None:
+        comment_id = self._seed_comment('T1', body='help me!!!')
+        self.service.logger = MagicMock()  # so we can assert exception() fired
+        with patch.object(self.service, '_run_comment_agent',
                           side_effect=RuntimeError('agent fail')):
-            result = service._maybe_trigger_comment_run('T1', 'c1')
+            result = self.service._maybe_trigger_comment_run('T1', comment_id)
         self.assertFalse(result)
-        service.logger.exception.assert_called()
+        self.service.logger.exception.assert_called()
 
-    def test_returns_true_on_successful_run(self) -> None:
-        service = AgentService(**_kwargs())
-        store = MagicMock()
-        record = MagicMock(id='c1')
-        store.get.return_value = record
-        with patch.object(service, '_comment_store_for', return_value=store), \
-             patch.object(service, '_task_has_busy_turn', return_value=False), \
-             patch.object(service, '_run_comment_agent'):
-            result = service._maybe_trigger_comment_run('T1', 'c1')
+    def test_returns_true_on_successful_run_and_marks_in_progress_on_disk(self) -> None:
+        comment_id = self._seed_comment('T1', body='just make it work')
+        with patch.object(self.service, '_run_comment_agent', return_value=True):
+            result = self.service._maybe_trigger_comment_run('T1', comment_id)
         self.assertTrue(result)
+        live = real_store_for(self.workspace_service, 'T1').list()[0]
+        self.assertEqual(live.kato_status, KatoCommentStatus.IN_PROGRESS.value)
 
-    def test_requeues_when_comment_run_cannot_start(self) -> None:
-        from kato_core_lib.comment_core_lib import KatoCommentStatus
-
-        service = AgentService(**_kwargs())
-        store = MagicMock()
-        record = MagicMock(id='c1')
-        store.get.return_value = record
-        with patch.object(service, '_comment_store_for', return_value=store), \
-             patch.object(service, '_task_has_busy_turn', return_value=False), \
-             patch.object(service, '_run_comment_agent', return_value=False):
-            result = service._maybe_trigger_comment_run('T1', 'c1')
+    def test_requeues_on_disk_when_comment_run_cannot_start(self) -> None:
+        # Agent declines to run (returns False) — comment must go back to
+        # QUEUED so the next scan tick retries it.
+        comment_id = self._seed_comment('T1', body='do better')
+        with patch.object(self.service, '_run_comment_agent', return_value=False):
+            result = self.service._maybe_trigger_comment_run('T1', comment_id)
         self.assertFalse(result)
-        self.assertEqual(
-            store.update_kato_status.call_args_list[-1].kwargs['kato_status'],
-            KatoCommentStatus.QUEUED.value,
-        )
+        live = real_store_for(self.workspace_service, 'T1').list()[0]
+        # Real round-trip: in_progress → queued, persisted to disk.
+        self.assertEqual(live.kato_status, KatoCommentStatus.QUEUED.value)
 
 
 class RunCommentAgentTests(unittest.TestCase):

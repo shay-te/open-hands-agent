@@ -172,13 +172,13 @@ class PullRequestClientBaseAbstractTests(unittest.TestCase):
 class NormalizedPullRequestTests(unittest.TestCase):
     def test_returns_id_title_url(self) -> None:
         result = PullRequestClientBase._normalized_pull_request(
-            {'number': 17, PullRequestFields.TITLE: ' PROJ-1: Fix bug '},
+            {'number': 17, PullRequestFields.TITLE: ' PROJ-1: fix it already '},
             id_key='number',
             url=' https://example.com/pr/17 ',
         )
         self.assertEqual(result, {
             PullRequestFields.ID: '17',
-            PullRequestFields.TITLE: 'PROJ-1: Fix bug',
+            PullRequestFields.TITLE: 'PROJ-1: fix it already',
             PullRequestFields.URL: 'https://example.com/pr/17',
         })
 

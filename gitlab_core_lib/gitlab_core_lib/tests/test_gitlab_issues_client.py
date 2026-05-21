@@ -24,7 +24,7 @@ def _make_client(**kwargs) -> GitLabIssuesClient:
 
 def _issue(
     iid: int = 17,
-    title: str = 'Fix bug',
+    title: str = 'fix it already',
     description: str = 'Details',
     state: str = 'opened',
     labels=None,
@@ -105,7 +105,7 @@ class GitLabIssuesClientGetAssignedTasksTests(unittest.TestCase):
         self.assertEqual(len(records), 1)
         self.assertIsInstance(records[0], IssueRecord)
         self.assertEqual(records[0].id, '17')
-        self.assertEqual(records[0].summary, 'Fix bug')
+        self.assertEqual(records[0].summary, 'fix it already')
 
     def test_filters_by_allowed_states(self) -> None:
         client = _make_client()

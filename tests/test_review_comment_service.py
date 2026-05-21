@@ -186,12 +186,12 @@ class ReviewCommentServiceTests(unittest.TestCase):
             {
                 PullRequestFields.REPOSITORY_ID: 'client',
                 PullRequestFields.ID: '17',
-                PullRequestFields.TITLE: 'PROJ-1 Fix bug',
+                PullRequestFields.TITLE: 'PROJ-1 fix it already',
             },
             'feature/proj-1/client',
             session_id='conversation-1',
             task_id='PROJ-1',
-            task_summary='Fix bug',
+            task_summary='fix it already',
         )
 
         # No-changes is now a graceful terminal path — no exception.
@@ -238,12 +238,12 @@ class ReviewCommentServiceTests(unittest.TestCase):
             {
                 PullRequestFields.REPOSITORY_ID: 'client',
                 PullRequestFields.ID: '17',
-                PullRequestFields.TITLE: 'PROJ-1 Fix bug',
+                PullRequestFields.TITLE: 'PROJ-1 fix it already',
             },
             'feature/proj-1/client',
             session_id='conversation-1',
             task_id='PROJ-1',
-            task_summary='Fix bug',
+            task_summary='fix it already',
         )
 
         self.service.process_review_comment(comment)
@@ -270,12 +270,12 @@ class ReviewCommentServiceTests(unittest.TestCase):
             {
                 PullRequestFields.REPOSITORY_ID: 'client',
                 PullRequestFields.ID: '17',
-                PullRequestFields.TITLE: 'PROJ-1 Fix bug',
+                PullRequestFields.TITLE: 'PROJ-1 fix it already',
             },
             'feature/proj-1/client',
             session_id='conversation-1',
             task_id='PROJ-1',
-            task_summary='Fix bug',
+            task_summary='fix it already',
         )
 
         result = self.service.process_review_comment(comment)
@@ -521,11 +521,11 @@ class ReviewCommentServiceTests(unittest.TestCase):
             {
                 PullRequestFields.REPOSITORY_ID: 'client',
                 PullRequestFields.ID: '17',
-                PullRequestFields.TITLE: 'PROJ-1 Fix bug',
+                PullRequestFields.TITLE: 'PROJ-1 fix it already',
             },
             'feature/proj-1/client',
             task_id='PROJ-1',
-            task_summary='Fix bug',
+            task_summary='fix it already',
         )
 
         result = self.service.process_review_comment(comment)
@@ -562,11 +562,11 @@ class ReviewCommentServiceTests(unittest.TestCase):
             {
                 PullRequestFields.REPOSITORY_ID: 'client',
                 PullRequestFields.ID: '17',
-                PullRequestFields.TITLE: 'PROJ-1 Fix bug',
+                PullRequestFields.TITLE: 'PROJ-1 fix it already',
             },
             'feature/proj-1/client',
             task_id='PROJ-1',
-            task_summary='Fix bug',
+            task_summary='fix it already',
         )
 
         result = self.service.process_review_comment(comment)
@@ -593,7 +593,7 @@ class ReviewCommentServiceTests(unittest.TestCase):
             },
             'feature/proj-1/client',
             task_id='PROJ-1',
-            task_summary='Fix bug',
+            task_summary='fix it already',
         )
 
         with self.assertRaisesRegex(RuntimeError, 'push failed'):
@@ -615,7 +615,7 @@ class ReviewCommentServiceTests(unittest.TestCase):
             {
                 PullRequestFields.ID: '17',
                 PullRequestFields.REPOSITORY_ID: 'client',
-                PullRequestFields.TITLE: 'PROJ-1 Fix bug',
+                PullRequestFields.TITLE: 'PROJ-1 fix it already',
                 PullRequestFields.URL: 'https://bitbucket/pr/17',
             }
         ]
@@ -666,10 +666,10 @@ class ReviewCommentServiceTests(unittest.TestCase):
             self.state_registry.pull_request_context('17', 'client'),
             {
                 PullRequestFields.REPOSITORY_ID: 'client',
-                PullRequestFields.TITLE: 'PROJ-1 Fix bug',
+                PullRequestFields.TITLE: 'PROJ-1 fix it already',
                 'branch_name': 'PROJ-1',
                 'task_id': 'PROJ-1',
-                'task_summary': 'Fix bug',
+                'task_summary': 'fix it already',
             },
         )
 
@@ -681,7 +681,7 @@ class ReviewCommentServiceTests(unittest.TestCase):
             {
                 PullRequestFields.ID: '17',
                 PullRequestFields.REPOSITORY_ID: 'client',
-                PullRequestFields.TITLE: 'PROJ-1 Fix bug',
+                PullRequestFields.TITLE: 'PROJ-1 fix it already',
                 PullRequestFields.URL: 'https://bitbucket/pr/17',
             }
         ]
@@ -717,7 +717,7 @@ class ReviewCommentServiceTests(unittest.TestCase):
             {
                 PullRequestFields.ID: '17',
                 PullRequestFields.REPOSITORY_ID: 'client',
-                PullRequestFields.TITLE: 'PROJ-1 Fix bug',
+                PullRequestFields.TITLE: 'PROJ-1 fix it already',
                 PullRequestFields.URL: 'https://bitbucket/pr/17',
             }
         ]
@@ -745,7 +745,7 @@ class ReviewCommentServiceTests(unittest.TestCase):
         self.repository_service.find_pull_requests.return_value = [
             {
                 PullRequestFields.ID: '17',
-                PullRequestFields.TITLE: 'PROJ-1 Fix bug',
+                PullRequestFields.TITLE: 'PROJ-1 fix it already',
                 PullRequestFields.URL: 'https://bitbucket/pr/17',
             }
         ]
@@ -757,10 +757,10 @@ class ReviewCommentServiceTests(unittest.TestCase):
             self.state_registry.pull_request_context('17', 'client'),
             {
                 PullRequestFields.REPOSITORY_ID: 'client',
-                PullRequestFields.TITLE: 'PROJ-1 Fix bug',
+                PullRequestFields.TITLE: 'PROJ-1 fix it already',
                 'branch_name': 'PROJ-1',
                 'task_id': 'PROJ-1',
-                'task_summary': 'Fix bug',
+                'task_summary': 'fix it already',
             },
         )
 
@@ -801,7 +801,7 @@ class ReviewCommentServiceTests(unittest.TestCase):
                 PullRequestFields.REPOSITORY_ID: 'client',
                 'branch_name': 'PROJ-1',
                 'task_id': 'PROJ-1',
-                'task_summary': 'Fix bug',
+                'task_summary': 'fix it already',
             },
         )
 

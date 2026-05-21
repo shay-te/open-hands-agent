@@ -308,7 +308,7 @@ def build_review_comment_payload() -> dict[str, str]:
 
 def build_task(
     task_id: str = 'PROJ-1',
-    summary: str = 'Fix bug',
+    summary: str = 'fix it already',
     description: str = 'Details',
     branch_name: str = 'feature/proj-1',
     tags: list[str] | None = None,
@@ -372,7 +372,7 @@ def mock_response(
 
 def create_pull_request_with_defaults(
     client,
-    title: str = 'PROJ-1: Fix bug',
+    title: str = 'PROJ-1: fix it already',
     source_branch: str = 'feature/proj-1',
     repo_owner: str = 'workspace',
     repo_slug: str = 'repo',

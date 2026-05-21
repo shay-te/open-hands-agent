@@ -58,7 +58,7 @@ class KatoCoreLibTests(unittest.TestCase):
         repository_service.create_pull_request.return_value = {
             PullRequestFields.REPOSITORY_ID: repository.id,
             PullRequestFields.ID: '17',
-            PullRequestFields.TITLE: 'PROJ-1: Fix bug',
+            PullRequestFields.TITLE: 'PROJ-1: fix it already',
             PullRequestFields.URL: 'https://bitbucket/pr/17',
             PullRequestFields.SOURCE_BRANCH: 'feature/proj-1/client',
             PullRequestFields.DESTINATION_BRANCH: 'main',

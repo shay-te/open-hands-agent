@@ -293,7 +293,7 @@ class TaskFixFlowTests(unittest.TestCase):
             return {
                 PullRequestFields.REPOSITORY_ID: repository.id,
                 PullRequestFields.ID: '17',
-                PullRequestFields.TITLE: 'PROJ-1: Fix bug',
+                PullRequestFields.TITLE: 'PROJ-1: fix it already',
                 PullRequestFields.URL: 'https://example.com/pr/17',
                 PullRequestFields.SOURCE_BRANCH: 'PROJ-1',
                 PullRequestFields.DESTINATION_BRANCH: 'main',
@@ -651,7 +651,7 @@ class ReviewCommentFixFlowTests(unittest.TestCase):
                 {
                     PullRequestFields.REPOSITORY_ID: repository.id,
                     PullRequestFields.ID: '17',
-                    PullRequestFields.TITLE: 'PROJ-1 Fix bug',
+                    PullRequestFields.TITLE: 'PROJ-1 fix it already',
                     PullRequestFields.URL: 'https://example.com/pr/17',
                 }
             ]

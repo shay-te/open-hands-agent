@@ -17,7 +17,7 @@ from tests.utils import build_task
 
 class PullRequestSummaryCommentTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.task = build_task(summary='Fix bug', description='Some context')
+        self.task = build_task(summary='fix it already', description='Some context')
         self.successful_pr = {
             PullRequestFields.REPOSITORY_ID: 'client',
             PullRequestFields.URL: 'https://bitbucket/pr/17',

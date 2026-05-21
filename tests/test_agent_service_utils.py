@@ -171,7 +171,7 @@ class AgentServiceUtilsTests(unittest.TestCase):
                 'branch_name': ' feature/proj-1/client ',
                 ImplementationFields.SESSION_ID: ' conversation-1 ',
                 TaskFields.ID: ' PROJ-1 ',
-                TaskFields.SUMMARY: ' Fix bug ',
+                TaskFields.SUMMARY: ' fix it already ',
             }
         )
 
@@ -179,7 +179,7 @@ class AgentServiceUtilsTests(unittest.TestCase):
         self.assertEqual(context.branch_name, 'feature/proj-1/client')
         self.assertEqual(context.session_id, 'conversation-1')
         self.assertEqual(context.task_id, 'PROJ-1')
-        self.assertEqual(context.task_summary, 'Fix bug')
+        self.assertEqual(context.task_summary, 'fix it already')
         self.assertEqual(
             review_fix_result(comment, context),
             {
@@ -191,7 +191,7 @@ class AgentServiceUtilsTests(unittest.TestCase):
         )
 
     def test_pull_request_summary_comment_includes_links_and_failed_repositories(self) -> None:
-        task = build_task(task_id='PROJ-1', summary='Fix bug')
+        task = build_task(task_id='PROJ-1', summary='fix it already')
         summary = pull_request_summary_comment(
             task,
             [
@@ -203,7 +203,7 @@ class AgentServiceUtilsTests(unittest.TestCase):
             ['backend'],
         )
 
-        self.assertIn('Kato completed task PROJ-1: Fix bug.', summary)
+        self.assertIn('Kato completed task PROJ-1: fix it already.', summary)
         self.assertNotIn('Validation report:', summary)
         self.assertIn('Published review links:', summary)
         self.assertIn('- client: https://example.com/pr/17', summary)
@@ -215,7 +215,7 @@ class AgentServiceUtilsTests(unittest.TestCase):
         self.assertIn('- backend', summary)
 
     def test_pull_request_summary_comment_includes_validation_report_when_present(self) -> None:
-        task = build_task(task_id='PROJ-1', summary='Fix bug')
+        task = build_task(task_id='PROJ-1', summary='fix it already')
         summary = pull_request_summary_comment(
             task,
             [],
@@ -232,7 +232,7 @@ class AgentServiceUtilsTests(unittest.TestCase):
     def test_pull_request_description_is_structured_and_explanatory(self) -> None:
         task = build_task(
             task_id='PROJ-1',
-            summary='Fix bug',
+            summary='fix it already',
             description='Update the checkout validation flow',
         )
         description = pull_request_description(
@@ -243,7 +243,7 @@ class AgentServiceUtilsTests(unittest.TestCase):
             },
         )
 
-        self.assertIn('Kato completed task PROJ-1: Fix bug.', description)
+        self.assertIn('Kato completed task PROJ-1: fix it already.', description)
         self.assertIn('Requested change:', description)
         self.assertIn('Update the checkout validation flow', description)
         self.assertIn('Implementation summary:', description)

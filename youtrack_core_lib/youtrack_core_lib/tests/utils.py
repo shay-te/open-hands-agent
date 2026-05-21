@@ -66,7 +66,7 @@ def move_issue_to_state_with_defaults(
 
 def build_task(
     task_id: str = 'PROJ-1',
-    summary: str = 'Fix bug',
+    summary: str = 'fix it already',
     description: str = 'Details',
     branch_name: str = 'feature/proj-1',
     tags: list[str] | None = None,

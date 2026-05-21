@@ -29,7 +29,7 @@ class GitHubClientTests(unittest.TestCase):
         response = mock_response(
             json_data={
                 'number': 17,
-                PullRequestFields.TITLE: 'PROJ-1: Fix bug',
+                PullRequestFields.TITLE: 'PROJ-1: fix it already',
                 'html_url': 'https://github.com/owner/repo/pull/17',
             }
         )
@@ -45,7 +45,7 @@ class GitHubClientTests(unittest.TestCase):
             pr,
             {
                 PullRequestFields.ID: '17',
-                PullRequestFields.TITLE: 'PROJ-1: Fix bug',
+                PullRequestFields.TITLE: 'PROJ-1: fix it already',
                 PullRequestFields.URL: 'https://github.com/owner/repo/pull/17',
             },
         )
@@ -53,7 +53,7 @@ class GitHubClientTests(unittest.TestCase):
         mock_post.assert_called_once_with(
             '/repos/owner/repo/pulls',
             json={
-                PullRequestFields.TITLE: 'PROJ-1: Fix bug',
+                PullRequestFields.TITLE: 'PROJ-1: fix it already',
                 'head': 'feature/proj-1',
                 'base': 'main',
                 'body': 'Ready for review',
@@ -65,7 +65,7 @@ class GitHubClientTests(unittest.TestCase):
         response = mock_response(
             json_data={
                 'number': 17,
-                PullRequestFields.TITLE: 'PROJ-1: Fix bug',
+                PullRequestFields.TITLE: 'PROJ-1: fix it already',
                 'html_url': 'https://github.com/owner/repo/pull/17',
             }
         )
@@ -280,7 +280,7 @@ class GitHubClientTests(unittest.TestCase):
             json_data=[
                 {
                     'number': 17,
-                    PullRequestFields.TITLE: 'PROJ-1 Fix bug',
+                    PullRequestFields.TITLE: 'PROJ-1 fix it already',
                     'html_url': 'https://github.com/owner/repo/pull/17',
                     'head': {'ref': 'PROJ-1'},
                 },
@@ -306,7 +306,7 @@ class GitHubClientTests(unittest.TestCase):
             [
                 {
                     PullRequestFields.ID: '17',
-                    PullRequestFields.TITLE: 'PROJ-1 Fix bug',
+                    PullRequestFields.TITLE: 'PROJ-1 fix it already',
                     PullRequestFields.URL: 'https://github.com/owner/repo/pull/17',
                 }
             ],

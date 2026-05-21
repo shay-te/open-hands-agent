@@ -39,7 +39,7 @@ class PullRequestServiceCreatePullRequestTests(unittest.TestCase):
 
         result = service.create_pull_request(
             Platform.GITHUB,
-            title='PROJ-1: Fix bug',
+            title='PROJ-1: fix it already',
             source_branch='feature/proj-1',
             repo_owner='octo',
             repo_slug='repo',
@@ -50,7 +50,7 @@ class PullRequestServiceCreatePullRequestTests(unittest.TestCase):
         self.assertEqual(result, {'id': '17'})
         factory.get.assert_called_once_with(Platform.GITHUB)
         client.create_pull_request.assert_called_once_with(
-            title='PROJ-1: Fix bug',
+            title='PROJ-1: fix it already',
             source_branch='feature/proj-1',
             repo_owner='octo',
             repo_slug='repo',

@@ -27,7 +27,7 @@ from tests.utils import build_review_comment_payload, build_task, build_test_cfg
 
 class AgentServiceTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.task_description = 'Update client and backend APIs'
+        self.task_description = 'whats wrong with you please fix it'
         self.pr_description = (
             'Files changed:\n'
             '- client/app.ts\n'
@@ -108,7 +108,7 @@ class AgentServiceTests(unittest.TestCase):
                     {
                         PullRequestFields.REPOSITORY_ID: 'client',
                         PullRequestFields.ID: '17',
-                        PullRequestFields.TITLE: 'PROJ-1: Fix bug',
+                        PullRequestFields.TITLE: 'PROJ-1: fix it already',
                         PullRequestFields.URL: 'https://bitbucket/pr/17',
                         PullRequestFields.SOURCE_BRANCH: 'feature/proj-1/client',
                         PullRequestFields.DESTINATION_BRANCH: 'master',
@@ -116,7 +116,7 @@ class AgentServiceTests(unittest.TestCase):
                     {
                         PullRequestFields.REPOSITORY_ID: 'backend',
                         PullRequestFields.ID: '18',
-                        PullRequestFields.TITLE: 'PROJ-1: Fix bug',
+                        PullRequestFields.TITLE: 'PROJ-1: fix it already',
                         PullRequestFields.URL: 'https://github/pr/18',
                         PullRequestFields.SOURCE_BRANCH: 'feature/proj-1/backend',
                         PullRequestFields.DESTINATION_BRANCH: 'main',
@@ -218,7 +218,7 @@ class AgentServiceTests(unittest.TestCase):
                     {
                         PullRequestFields.REPOSITORY_ID: 'client',
                         PullRequestFields.ID: '17',
-                        PullRequestFields.TITLE: 'PROJ-1: Fix bug',
+                        PullRequestFields.TITLE: 'PROJ-1: fix it already',
                         PullRequestFields.URL: 'https://bitbucket/pr/17',
                         PullRequestFields.SOURCE_BRANCH: 'feature/proj-1/client',
                         PullRequestFields.DESTINATION_BRANCH: 'master',
@@ -226,7 +226,7 @@ class AgentServiceTests(unittest.TestCase):
                     {
                         PullRequestFields.REPOSITORY_ID: 'backend',
                         PullRequestFields.ID: '18',
-                        PullRequestFields.TITLE: 'PROJ-1: Fix bug',
+                        PullRequestFields.TITLE: 'PROJ-1: fix it already',
                         PullRequestFields.URL: 'https://github/pr/18',
                         PullRequestFields.SOURCE_BRANCH: 'feature/proj-1/backend',
                         PullRequestFields.DESTINATION_BRANCH: 'main',
@@ -257,9 +257,9 @@ class AgentServiceTests(unittest.TestCase):
         client_description = client_call.kwargs['description']
         backend_description = backend_call.kwargs['description']
         for description in (client_description, backend_description):
-            self.assertIn('Kato completed task PROJ-1: Fix bug.', description)
+            self.assertIn('Kato completed task PROJ-1: fix it already.', description)
             self.assertIn('Requested change:', description)
-            self.assertIn('Update client and backend APIs', description)
+            self.assertIn('whats wrong with you please fix it', description)
             self.assertIn('Implementation summary:', description)
             self.assertIn('Files changed:', description)
             self.assertIn('Execution notes:', description)
@@ -283,29 +283,29 @@ class AgentServiceTests(unittest.TestCase):
         self.assertEqual(self.email_core_lib.send.call_count, 2)
         completion_email = self.email_core_lib.send.call_args_list[0].args[1]
         self.assertEqual(completion_email[EmailFields.TASK_ID], 'PROJ-1')
-        self.assertIn('client: PROJ-1: Fix bug', completion_email[EmailFields.PULL_REQUEST_SUMMARY])
-        self.assertIn('backend: PROJ-1: Fix bug', completion_email[EmailFields.PULL_REQUEST_SUMMARY])
+        self.assertIn('client: PROJ-1: fix it already', completion_email[EmailFields.PULL_REQUEST_SUMMARY])
+        self.assertIn('backend: PROJ-1: fix it already', completion_email[EmailFields.PULL_REQUEST_SUMMARY])
         self.assertEqual(
             self.service._state_registry.pull_request_context_map,
             {
                 '17': [
                     {
                         PullRequestFields.REPOSITORY_ID: 'client',
-                        PullRequestFields.TITLE: 'PROJ-1: Fix bug',
+                        PullRequestFields.TITLE: 'PROJ-1: fix it already',
                         'branch_name': 'feature/proj-1/client',
                         ImplementationFields.SESSION_ID: 'conversation-1',
                         TaskFields.ID: 'PROJ-1',
-                        TaskFields.SUMMARY: 'Fix bug',
+                        TaskFields.SUMMARY: 'fix it already',
                     }
                 ],
                 '18': [
                     {
                         PullRequestFields.REPOSITORY_ID: 'backend',
-                        PullRequestFields.TITLE: 'PROJ-1: Fix bug',
+                        PullRequestFields.TITLE: 'PROJ-1: fix it already',
                         'branch_name': 'feature/proj-1/backend',
                         ImplementationFields.SESSION_ID: 'conversation-1',
                         TaskFields.ID: 'PROJ-1',
-                        TaskFields.SUMMARY: 'Fix bug',
+                        TaskFields.SUMMARY: 'fix it already',
                     }
                 ],
             },
@@ -323,9 +323,9 @@ class AgentServiceTests(unittest.TestCase):
 
         client_call = self.repository_service.create_pull_request.call_args_list[0]
         client_description = client_call.kwargs['description']
-        self.assertIn('Kato completed task PROJ-1: Fix bug.', client_description)
+        self.assertIn('Kato completed task PROJ-1: fix it already.', client_description)
         self.assertIn('Requested change:', client_description)
-        self.assertIn('Update client and backend APIs', client_description)
+        self.assertIn('whats wrong with you please fix it', client_description)
         self.assertIn('Implementation summary:', client_description)
         self.assertIn('Files changed:', client_description)
         self.assertIn('Execution notes:', client_description)
@@ -404,7 +404,7 @@ class AgentServiceTests(unittest.TestCase):
 
     def test_process_assigned_task_skips_when_prior_failure_comment_is_still_active(self) -> None:
         task = build_task(
-            description='Update client and backend APIs',
+            description='whats wrong with you please fix it',
             comments=[
                 {
                     TaskCommentFields.AUTHOR: 'shay',
@@ -438,7 +438,7 @@ class AgentServiceTests(unittest.TestCase):
 
     def test_process_assigned_task_skips_when_prior_completion_comment_is_still_active(self) -> None:
         task = build_task(
-            description='Update client and backend APIs',
+            description='whats wrong with you please fix it',
             comments=[
                 {
                     TaskCommentFields.AUTHOR: 'shay',
@@ -472,7 +472,7 @@ class AgentServiceTests(unittest.TestCase):
 
     def test_process_assigned_task_retries_when_prior_pre_start_failure_comment_is_stale(self) -> None:
         task = build_task(
-            description='Update client and backend APIs',
+            description='whats wrong with you please fix it',
             comments=[
                 {
                     TaskCommentFields.AUTHOR: 'shay',
@@ -501,7 +501,7 @@ class AgentServiceTests(unittest.TestCase):
 
     def test_process_assigned_task_skips_when_prior_pre_start_failure_still_blocks_preflight(self) -> None:
         task = build_task(
-            description='Update client and backend APIs',
+            description='whats wrong with you please fix it',
             comments=[
                 {
                     TaskCommentFields.AUTHOR: 'shay',
@@ -541,7 +541,7 @@ class AgentServiceTests(unittest.TestCase):
     def test_process_assigned_task_retries_when_prior_repository_detection_skip_is_stale(self) -> None:
         task = build_task(
             summary='client backend task needs update',
-            description='Update client and backend APIs',
+            description='whats wrong with you please fix it',
             comments=[
                 {
                     TaskCommentFields.AUTHOR: 'shay',
@@ -567,7 +567,7 @@ class AgentServiceTests(unittest.TestCase):
 
     def test_process_assigned_task_retries_after_later_retry_instruction(self) -> None:
         task = build_task(
-            description='Update client and backend APIs',
+            description='whats wrong with you please fix it',
             comments=[
                 {
                     TaskCommentFields.AUTHOR: 'shay',
@@ -597,7 +597,7 @@ class AgentServiceTests(unittest.TestCase):
 
     def test_process_assigned_task_retries_after_later_retry_instruction_following_completion_comment(self) -> None:
         task = build_task(
-            description='Update client and backend APIs',
+            description='whats wrong with you please fix it',
             comments=[
                 {
                     TaskCommentFields.AUTHOR: 'shay',
@@ -1044,7 +1044,7 @@ class AgentServiceTests(unittest.TestCase):
             {
                 PullRequestFields.REPOSITORY_ID: 'client',
                 PullRequestFields.ID: '17',
-                PullRequestFields.TITLE: 'PROJ-1: Fix bug',
+                PullRequestFields.TITLE: 'PROJ-1: fix it already',
                 PullRequestFields.URL: 'https://bitbucket/pr/17',
                 PullRequestFields.SOURCE_BRANCH: 'feature/proj-1/client',
                 PullRequestFields.DESTINATION_BRANCH: 'master',
@@ -1145,7 +1145,7 @@ class AgentServiceTests(unittest.TestCase):
                         {
                             PullRequestFields.REPOSITORY_ID: 'client',
                             PullRequestFields.ID: '17',
-                            PullRequestFields.TITLE: 'PROJ-1: Fix bug',
+                            PullRequestFields.TITLE: 'PROJ-1: fix it already',
                             PullRequestFields.URL: 'https://bitbucket/pr/17',
                             PullRequestFields.SOURCE_BRANCH: 'feature/proj-1/client',
                             PullRequestFields.DESTINATION_BRANCH: 'master',
@@ -1153,7 +1153,7 @@ class AgentServiceTests(unittest.TestCase):
                         {
                             PullRequestFields.REPOSITORY_ID: 'backend',
                             PullRequestFields.ID: '18',
-                            PullRequestFields.TITLE: 'PROJ-1: Fix bug',
+                            PullRequestFields.TITLE: 'PROJ-1: fix it already',
                             PullRequestFields.URL: 'https://github/pr/18',
                             PullRequestFields.SOURCE_BRANCH: 'feature/proj-1/backend',
                             PullRequestFields.DESTINATION_BRANCH: 'main',
@@ -1196,7 +1196,7 @@ class AgentServiceTests(unittest.TestCase):
         )
         self.assertEqual(self.task_client.add_comment.call_count, 3)
         self.assertIn(
-            'Kato completed task PROJ-1: Fix bug.',
+            'Kato completed task PROJ-1: fix it already.',
             self.task_client.add_comment.call_args_list[1].args[1],
         )
         self.assertIn(
@@ -1258,7 +1258,7 @@ class AgentServiceTests(unittest.TestCase):
                 'branch_name': 'feature/proj-1/client',
                 ImplementationFields.SESSION_ID: 'conversation-1',
                 TaskFields.ID: 'PROJ-1',
-                TaskFields.SUMMARY: 'Fix bug',
+                TaskFields.SUMMARY: 'fix it already',
             }
         ]
 
@@ -1283,7 +1283,7 @@ class AgentServiceTests(unittest.TestCase):
             self.kato_client.fix_review_comment.call_args.kwargs,
             {
                 'task_id': 'PROJ-1',
-                'task_summary': 'Fix bug',
+                'task_summary': 'fix it already',
             },
         )
         self.repository_service.prepare_task_branches.assert_called_once_with(
@@ -1454,7 +1454,7 @@ class AgentServiceTests(unittest.TestCase):
             {
                 PullRequestFields.REPOSITORY_ID: 'client',
                 PullRequestFields.ID: '17',
-                PullRequestFields.TITLE: 'PROJ-1 Fix bug',
+                PullRequestFields.TITLE: 'PROJ-1 fix it already',
                 PullRequestFields.URL: 'https://bitbucket/pr/17',
             }
         ]
@@ -1518,7 +1518,7 @@ class AgentServiceTests(unittest.TestCase):
             {
                 PullRequestFields.REPOSITORY_ID: 'client',
                 PullRequestFields.ID: '17',
-                PullRequestFields.TITLE: 'PROJ-1 Fix bug',
+                PullRequestFields.TITLE: 'PROJ-1 fix it already',
                 PullRequestFields.URL: 'https://bitbucket/pr/17',
             }
         ]
@@ -1567,7 +1567,7 @@ class AgentServiceTests(unittest.TestCase):
             {
                 PullRequestFields.REPOSITORY_ID: 'client',
                 PullRequestFields.ID: '17',
-                PullRequestFields.TITLE: 'PROJ-1 Fix bug',
+                PullRequestFields.TITLE: 'PROJ-1 fix it already',
                 PullRequestFields.URL: 'https://bitbucket/pr/17',
             }
         ]
@@ -1596,7 +1596,7 @@ class AgentServiceTests(unittest.TestCase):
             {
                 PullRequestFields.REPOSITORY_ID: 'client',
                 PullRequestFields.ID: '17',
-                PullRequestFields.TITLE: 'PROJ-1 Fix bug',
+                PullRequestFields.TITLE: 'PROJ-1 fix it already',
                 PullRequestFields.URL: 'https://bitbucket/pr/17',
             }
         ]
