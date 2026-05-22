@@ -28,20 +28,13 @@ from __future__ import annotations
 import json
 import os
 import subprocess
-import sys
 import tempfile
 import unittest
 from pathlib import Path
 
-# Adding webserver/ to sys.path so the test can import kato_webserver
-# without the package being installed in this repo's environment.
-_WEBSERVER_DIR = Path(__file__).resolve().parent.parent / 'webserver'
-if str(_WEBSERVER_DIR) not in sys.path:
-    sys.path.insert(0, str(_WEBSERVER_DIR))
+from kato_webserver.app import create_app, _build_fallback_manager
 
-from kato_webserver.app import create_app, _build_fallback_manager  # noqa: E402
-
-from tests.chaos_lib import build_real_workspace_service              # noqa: E402
+from tests.chaos_lib import build_real_workspace_service
 
 
 _FIXTURE_DIR = (
