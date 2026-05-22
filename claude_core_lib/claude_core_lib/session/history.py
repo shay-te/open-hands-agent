@@ -295,3 +295,41 @@ def iter_event_paths(
             continue
         for path in sorted(entry.glob('*.jsonl')):
             yield path
+
+
+def resolve_claude_session_id(manager, workspace_manager, task_id: str) -> str:
+    """Return the Claude session id bound to ``task_id``, or ``''``.
+
+    Tries the live session manager's record first (its ``claude_session_id``
+    field is set when kato spawned the agent in-process), then falls back
+    to the workspace metadata's ``agent_session_id`` (generic field name)
+    or ``claude_session_id`` (legacy pre-rename records). The fallback
+    chain lets a freshly-booted webserver attach to an orphan workspace
+    on disk even before the scan loop re-establishes the live record.
+
+    Lives in ``claude_core_lib`` because the field name + the downstream
+    consumer (Claude's JSONL transcript replay) are Claude-specific.
+    Other backends (OpenHands, Codex) don't have an equivalent webserver
+    SSE history-replay path, so they don't need an analogue.
+    """
+    if manager is not None:
+        try:
+            record = manager.get_record(task_id)
+        except Exception:
+            record = None
+        if record is not None and getattr(record, 'claude_session_id', ''):
+            return str(record.claude_session_id)
+    if workspace_manager is not None:
+        try:
+            workspace = workspace_manager.get(task_id)
+        except Exception:
+            workspace = None
+        if workspace is not None:
+            agent_id = (
+                getattr(workspace, 'agent_session_id', '')
+                or getattr(workspace, 'claude_session_id', '')
+                or ''
+            )
+            if agent_id:
+                return str(agent_id)
+    return ''

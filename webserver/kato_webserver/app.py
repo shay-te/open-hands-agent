@@ -2589,31 +2589,12 @@ def _replay_preflight_log(workspace_manager, task_id: str):
         )
 
 
-def _resolve_claude_session_id(manager, workspace_manager, task_id: str) -> str:
-    if manager is not None:
-        try:
-            record = manager.get_record(task_id)
-        except Exception:
-            record = None
-        if record is not None and getattr(record, 'claude_session_id', ''):
-            return str(record.claude_session_id)
-    if workspace_manager is not None:
-        try:
-            workspace = workspace_manager.get(task_id)
-        except Exception:
-            workspace = None
-        if workspace is not None:
-            # Generic ``agent_session_id`` is the new name in
-            # workspace_core_lib; legacy on-disk records that haven't
-            # been rewritten yet still expose ``claude_session_id``.
-            agent_id = (
-                getattr(workspace, 'agent_session_id', '')
-                or getattr(workspace, 'claude_session_id', '')
-                or ''
-            )
-            if agent_id:
-                return str(agent_id)
-    return ''
+# Resolver lives in claude_core_lib (Claude-specific: it reads the
+# ``claude_session_id`` field set by ClaudeSessionManager and feeds
+# the downstream replay of Claude's JSONL transcripts).
+from claude_core_lib.claude_core_lib.session.history import (
+    resolve_claude_session_id as _resolve_claude_session_id,  # noqa: F401 — kept as alias for in-file callers
+)
 
 
 def _replay_history_from_disk(claude_session_id: str):

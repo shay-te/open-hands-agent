@@ -1372,5 +1372,422 @@ class GitDiffUtilsUntrackedFileBranchesTests(unittest.TestCase):
         self.assertIn('(unreadable)', diff)
 
 
+# ---------------------------------------------------------------------------
+# Direct unit tests for already-extracted webserver helpers.
+#
+# These functions are already small and pure-ish in the existing code;
+# we don't refactor anything — just exercise the defensive branches
+# directly with concrete stand-ins. Per audit guidance: covering them
+# this way avoids needing to boot real Claude / real broadcasters
+# without resorting to coverage-driven code surgery.
+# ---------------------------------------------------------------------------
+
+
+# NOTE: ``resolve_claude_session_id`` moved to
+# ``claude_core_lib/claude_core_lib/session/history.py``. Its tests
+# live at ``claude_core_lib/claude_core_lib/tests/test_resolve_claude_session_id.py``.
+#
+# There is NO codex/openhands/openrouter equivalent. Those backends
+# don't have a webserver SSE history-replay code path (Claude's lives
+# in ``_replay_history_from_disk`` which reads ``~/.claude/projects/
+# <session_id>.jsonl``). Creating empty doppelgängers would be
+# cargo-cult.
+
+
+class ReplayHelpersUnitTests(unittest.TestCase):
+    """``_replay_preflight_log``, ``_replay_history_from_disk``,
+    ``_replay_session_backlog`` — small SSE-frame generators."""
+
+    # ---- _replay_preflight_log ----
+
+    def test_replay_preflight_log_empty_for_none_workspace_manager(self) -> None:
+        from kato_webserver.app import _replay_preflight_log
+        self.assertEqual(list(_replay_preflight_log(None, 'T1')), [])
+
+    def test_replay_preflight_log_empty_for_blank_task_id(self) -> None:
+        from kato_webserver.app import _replay_preflight_log
+
+        class _Ws:
+            def read_preflight_log(self, task_id):
+                return [(1.0, 'should never be read')]
+
+        self.assertEqual(list(_replay_preflight_log(_Ws(), '')), [])
+
+    def test_replay_preflight_log_skips_workspace_manager_without_method(self) -> None:
+        from kato_webserver.app import _replay_preflight_log
+
+        class _Ws:                                  # no read_preflight_log
+            pass
+
+        self.assertEqual(list(_replay_preflight_log(_Ws(), 'T1')), [])
+
+    def test_replay_preflight_log_swallows_read_exception(self) -> None:
+        from kato_webserver.app import _replay_preflight_log
+
+        class _Ws:
+            def read_preflight_log(self, task_id):
+                raise RuntimeError('disk fire')
+
+        self.assertEqual(list(_replay_preflight_log(_Ws(), 'T1')), [])
+
+    def test_replay_preflight_log_yields_one_frame_per_entry(self) -> None:
+        from kato_webserver.app import _replay_preflight_log
+
+        class _Ws:
+            def read_preflight_log(self, task_id):
+                return [
+                    (1.0, 'cloning 1/2: client'),
+                    (2.0, 'cloning 2/2: backend'),
+                ]
+
+        frames = list(_replay_preflight_log(_Ws(), 'T1'))
+        self.assertEqual(len(frames), 2)
+        for frame in frames:
+            self.assertIn('preflight', frame)
+            self.assertIn('session_history_event', frame)
+
+    # ---- _replay_history_from_disk ----
+
+    def test_replay_history_from_disk_returns_empty_when_session_id_blank(
+        self,
+    ) -> None:
+        from kato_webserver.app import _replay_history_from_disk
+        self.assertEqual(list(_replay_history_from_disk('')), [])
+
+    def test_replay_history_from_disk_swallows_load_history_exception(
+        self,
+    ) -> None:
+        from kato_webserver.app import _replay_history_from_disk
+        # Patch the lazy import target to raise — easier than
+        # constructing a real corrupt Claude history file.
+        import claude_core_lib.claude_core_lib.session.history as history_mod
+        original = history_mod.load_history_events
+        history_mod.load_history_events = lambda _id: (_ for _ in ()).throw(
+            RuntimeError('history corrupt'),
+        )
+        try:
+            self.assertEqual(
+                list(_replay_history_from_disk('some-id')), [],
+            )
+        finally:
+            history_mod.load_history_events = original
+
+    def test_replay_history_from_disk_yields_one_frame_per_event(self) -> None:
+        from kato_webserver.app import _replay_history_from_disk
+        import claude_core_lib.claude_core_lib.session.history as history_mod
+        original = history_mod.load_history_events
+        history_mod.load_history_events = lambda _id: [
+            {'type': 'assistant', 'text': 'hi'},
+            {'type': 'result', 'text': 'done'},
+        ]
+        try:
+            frames = list(_replay_history_from_disk('some-id'))
+        finally:
+            history_mod.load_history_events = original
+        self.assertEqual(len(frames), 2)
+        self.assertIn('"assistant"', frames[0])
+        self.assertIn('"result"', frames[1])
+
+    # ---- _replay_session_backlog ----
+
+    def test_replay_session_backlog_yields_one_frame_per_recent_event(self) -> None:
+        from kato_webserver.app import _replay_session_backlog
+
+        class _Event:
+            def __init__(self, event_type, raw) -> None:
+                self.event_type = event_type
+                self.raw = raw
+            def to_dict(self):
+                return {'type': self.event_type, 'raw': self.raw}
+
+        class _Session:
+            def recent_events(self):
+                return [
+                    _Event('assistant', {'text': 'hi'}),
+                    _Event('result', {'result': 'ok', 'is_error': False}),
+                ]
+
+        frames = list(_replay_session_backlog(_Session()))
+        self.assertEqual(len(frames), 2)
+        for frame in frames:
+            self.assertIn('session_event', frame)
+
+
+class AdvanceCommentsAfterResultUnitTests(unittest.TestCase):
+    """``_advance_task_comments_after_result`` — pure event dispatcher."""
+
+    def _event(self, *, event_type: str, raw: dict | None = None):
+        return SimpleNamespace(event_type=event_type, raw=raw or {})
+
+    def test_ignores_non_result_events(self) -> None:
+        from kato_webserver.app import _advance_task_comments_after_result
+        calls: list = []
+
+        class _AgentService:
+            def complete_in_progress_task_comments(self, task_id, *, success, result_text=''):
+                calls.append(('complete', task_id, success, result_text))
+            def drain_next_queued_task_comment(self, task_id):
+                calls.append(('drain', task_id))
+
+        _advance_task_comments_after_result(
+            self._event(event_type='assistant', raw={'type': 'assistant'}),
+            _AgentService(), 'T1',
+        )
+        self.assertEqual(calls, [])
+
+    def test_recognises_result_via_event_type_attribute(self) -> None:
+        from kato_webserver.app import _advance_task_comments_after_result
+        calls: list = []
+
+        class _AgentService:
+            def complete_in_progress_task_comments(self, task_id, *, success, result_text=''):
+                calls.append(('complete', task_id, success, result_text))
+            def drain_next_queued_task_comment(self, task_id):
+                calls.append(('drain', task_id))
+                return {'started': False}
+
+        _advance_task_comments_after_result(
+            self._event(event_type='result', raw={'result': 'ok'}),
+            _AgentService(), 'T1',
+        )
+        self.assertIn(('complete', 'T1', True, 'ok'), calls)
+        self.assertIn(('drain', 'T1'), calls)
+
+    def test_recognises_result_via_raw_type_field(self) -> None:
+        from kato_webserver.app import _advance_task_comments_after_result
+        calls: list = []
+
+        class _AgentService:
+            def complete_in_progress_task_comments(self, task_id, *, success, result_text=''):
+                calls.append(('complete', task_id, success, result_text))
+            def drain_next_queued_task_comment(self, task_id):
+                calls.append(('drain', task_id))
+                return {'started': True}
+
+        _advance_task_comments_after_result(
+            self._event(event_type='', raw={'type': 'result'}),
+            _AgentService(), 'T1',
+        )
+        # Both complete + drain ran.
+        self.assertTrue(any(c[0] == 'complete' for c in calls))
+        self.assertTrue(any(c[0] == 'drain' for c in calls))
+
+    def test_marks_failure_when_is_error_flag_is_set(self) -> None:
+        from kato_webserver.app import _advance_task_comments_after_result
+        outcomes: list[bool] = []
+
+        class _AgentService:
+            def complete_in_progress_task_comments(self, task_id, *, success, result_text=''):
+                outcomes.append(success)
+            def drain_next_queued_task_comment(self, task_id):
+                return {'started': False}
+
+        _advance_task_comments_after_result(
+            self._event(event_type='result', raw={'is_error': True}),
+            _AgentService(), 'T1',
+        )
+        self.assertEqual(outcomes, [False])
+
+
+class DrainAndCompleteCommentHelpersUnitTests(unittest.TestCase):
+    """``_complete_in_progress_task_comments`` + ``_drain_queued_task_comment``."""
+
+    def test_complete_skips_when_agent_service_lacks_method(self) -> None:
+        from kato_webserver.app import _complete_in_progress_task_comments
+        # Must not raise.
+        _complete_in_progress_task_comments(object(), 'T1', True)
+
+    def test_complete_swallows_method_exception_and_logs(self) -> None:
+        from kato_webserver.app import _complete_in_progress_task_comments
+
+        class _AgentService:
+            def complete_in_progress_task_comments(self, task_id, *, success, result_text=''):
+                raise RuntimeError('boom')
+
+        # Must not raise; the function logs and continues.
+        _complete_in_progress_task_comments(_AgentService(), 'T1', True)
+
+    def test_complete_calls_through_for_successful_turn(self) -> None:
+        from kato_webserver.app import _complete_in_progress_task_comments
+        seen: list = []
+
+        class _AgentService:
+            def complete_in_progress_task_comments(self, task_id, *, success, result_text=''):
+                seen.append((task_id, success, result_text))
+
+        _complete_in_progress_task_comments(
+            _AgentService(), 'T1', True, result_text='ok',
+        )
+        self.assertEqual(seen, [('T1', True, 'ok')])
+
+    def test_drain_returns_false_when_agent_service_lacks_method(self) -> None:
+        from kato_webserver.app import _drain_queued_task_comment
+        self.assertFalse(_drain_queued_task_comment(object(), 'T1'))
+
+    def test_drain_swallows_exception_and_returns_false(self) -> None:
+        from kato_webserver.app import _drain_queued_task_comment
+
+        class _AgentService:
+            def drain_next_queued_task_comment(self, task_id):
+                raise RuntimeError('boom')
+
+        self.assertFalse(_drain_queued_task_comment(_AgentService(), 'T1'))
+
+    def test_drain_returns_false_when_drain_returns_non_dict(self) -> None:
+        from kato_webserver.app import _drain_queued_task_comment
+
+        class _AgentService:
+            def drain_next_queued_task_comment(self, task_id):
+                return 'not-a-dict'
+
+        self.assertFalse(_drain_queued_task_comment(_AgentService(), 'T1'))
+
+    def test_drain_returns_true_when_drain_reports_started(self) -> None:
+        from kato_webserver.app import _drain_queued_task_comment
+
+        class _AgentService:
+            def drain_next_queued_task_comment(self, task_id):
+                return {'started': True, 'comment_id': 'c1'}
+
+        self.assertTrue(_drain_queued_task_comment(_AgentService(), 'T1'))
+
+
+class WebserverHookHelpersUnitTests(unittest.TestCase):
+    """``_fire_webserver_hook`` + ``_run_pre_tool_use_hook`` — hook plumbing.
+
+    Concrete ``_RecordingRunner`` stand-in (NO MagicMock) implements the
+    HookRunner surface the helpers call: ``fire()`` and ``is_blocked()``.
+    """
+
+    class _Result:
+        def __init__(self, *, blocked=False, stderr='', error='') -> None:
+            self.blocked = blocked
+            self.stderr = stderr
+            self.error = error
+
+    class _RecordingRunner:
+        def __init__(self, *, results=None, fire_raises=False) -> None:
+            self._results = list(results) if results else []
+            self._fire_raises = fire_raises
+            self.fired: list[tuple] = []
+
+        def fire(self, hook_point, event):
+            self.fired.append((hook_point, event))
+            if self._fire_raises:
+                raise RuntimeError('hook crashed')
+            return list(self._results)
+
+        @staticmethod
+        def is_blocked(results) -> bool:
+            return any(getattr(r, 'blocked', False) for r in results)
+
+    def _make_app(self, runner=None):
+        from kato_webserver.app import create_app
+        tmp = tempfile.TemporaryDirectory(prefix='kato-hook-unit-')
+        self.addCleanup(tmp.cleanup)
+        app = create_app(
+            fallback_state_dir=str(Path(tmp.name) / 'sessions'),
+            hook_runner=runner,
+        )
+        return app
+
+    # ---- _fire_webserver_hook ----
+
+    def test_fire_webserver_hook_is_noop_when_runner_not_configured(self) -> None:
+        from kato_webserver.app import _fire_webserver_hook
+        app = self._make_app(runner=None)
+        # Must not raise; just returns.
+        _fire_webserver_hook(app, 'post_tool_use', {'task_id': 'T1'})
+
+    def test_fire_webserver_hook_calls_runner_fire(self) -> None:
+        from kato_webserver.app import _fire_webserver_hook
+        runner = self._RecordingRunner()
+        app = self._make_app(runner=runner)
+        _fire_webserver_hook(app, 'post_tool_use', {'task_id': 'T1'})
+        self.assertEqual(len(runner.fired), 1)
+        hook_point, event = runner.fired[0]
+        # HookPoint is an enum — its .value or .name matches the input string.
+        self.assertIn(
+            'post_tool_use',
+            (getattr(hook_point, 'value', None) or str(hook_point)),
+        )
+        self.assertEqual(event, {'task_id': 'T1'})
+
+    def test_fire_webserver_hook_swallows_runner_exception(self) -> None:
+        from kato_webserver.app import _fire_webserver_hook
+        runner = self._RecordingRunner(fire_raises=True)
+        app = self._make_app(runner=runner)
+        # The route fired the hook but the runner blew up — must not raise.
+        _fire_webserver_hook(app, 'post_tool_use', {'task_id': 'T1'})
+
+    # ---- _run_pre_tool_use_hook ----
+
+    def test_pre_tool_use_returns_unblocked_when_runner_missing(self) -> None:
+        from kato_webserver.app import _run_pre_tool_use_hook
+        app = self._make_app(runner=None)
+        blocked, rationale = _run_pre_tool_use_hook(
+            app, 'T1', {'tool': 'Bash'},
+        )
+        self.assertFalse(blocked)
+        self.assertEqual(rationale, '')
+
+    def test_pre_tool_use_returns_unblocked_when_no_results(self) -> None:
+        from kato_webserver.app import _run_pre_tool_use_hook
+        runner = self._RecordingRunner(results=[])
+        app = self._make_app(runner=runner)
+        blocked, rationale = _run_pre_tool_use_hook(
+            app, 'T1', {'tool': 'Bash', 'request_id': 'r1'},
+        )
+        self.assertFalse(blocked)
+        self.assertEqual(rationale, '')
+
+    def test_pre_tool_use_returns_blocked_with_stderr_rationale(self) -> None:
+        from kato_webserver.app import _run_pre_tool_use_hook
+        runner = self._RecordingRunner(
+            results=[self._Result(blocked=True, stderr='policy says no')],
+        )
+        app = self._make_app(runner=runner)
+        blocked, rationale = _run_pre_tool_use_hook(
+            app, 'T1', {'tool': 'Bash', 'request_id': 'r1'},
+        )
+        self.assertTrue(blocked)
+        self.assertEqual(rationale, 'policy says no')
+
+    def test_pre_tool_use_falls_back_to_error_when_stderr_empty(self) -> None:
+        from kato_webserver.app import _run_pre_tool_use_hook
+        runner = self._RecordingRunner(
+            results=[self._Result(blocked=True, stderr='', error='hard fail')],
+        )
+        app = self._make_app(runner=runner)
+        blocked, rationale = _run_pre_tool_use_hook(
+            app, 'T1', {'tool': 'Bash'},
+        )
+        self.assertTrue(blocked)
+        self.assertEqual(rationale, 'hard fail')
+
+    def test_pre_tool_use_swallows_fire_exception_and_returns_unblocked(self) -> None:
+        from kato_webserver.app import _run_pre_tool_use_hook
+        runner = self._RecordingRunner(fire_raises=True)
+        app = self._make_app(runner=runner)
+        blocked, rationale = _run_pre_tool_use_hook(
+            app, 'T1', {'tool': 'Bash'},
+        )
+        self.assertFalse(blocked)
+        self.assertEqual(rationale, '')
+
+    def test_pre_tool_use_returns_unblocked_when_results_not_blocked(self) -> None:
+        from kato_webserver.app import _run_pre_tool_use_hook
+        # is_blocked returns False → unblocked path.
+        runner = self._RecordingRunner(
+            results=[self._Result(blocked=False, stderr='just a warning')],
+        )
+        app = self._make_app(runner=runner)
+        blocked, rationale = _run_pre_tool_use_hook(
+            app, 'T1', {'tool': 'Bash'},
+        )
+        self.assertFalse(blocked)
+        self.assertEqual(rationale, '')
+
+
 if __name__ == '__main__':
     unittest.main()

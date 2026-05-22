@@ -1,0 +1,33 @@
+[run]
+parallel = true
+branch = true
+source =
+    kato_core_lib
+    git_core_lib
+    workspace_core_lib
+    task_core_lib
+    agent_core_lib
+    provider_client_base
+    repository_core_lib
+    claude_core_lib
+    bitbucket_core_lib
+    github_core_lib
+    gitlab_core_lib
+    jira_core_lib
+    openhands_core_lib
+    youtrack_core_lib
+    codex_core_lib
+    sandbox_core_lib
+    security_scanner_core_lib
+    openrouter_core_lib
+    agent_provider_contracts
+    vcs_provider_contracts
+    webserver/kato_webserver
+omit =
+    */tests/*
+    */test_*
+    */__pycache__/*
+    */.venv/*
+
+[report]
+skip_empty = true
