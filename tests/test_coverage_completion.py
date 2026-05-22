@@ -807,5 +807,570 @@ class EnvFileParsingHelpersTests(unittest.TestCase):
             self.envfile.chmod(0o600)
 
 
+# ---------------------------------------------------------------------------
+# Misclassified Bucket A — items audit flagged as actually testable
+# ---------------------------------------------------------------------------
+
+
+class RepositoryApprovalsGetDiscoveryTests(unittest.TestCase):
+    """``GET /api/repository-approvals`` discovery path (app.py:1118-1167).
+
+    Codex audit flagged this as NOT integration-only —
+    ``discover_all_repositories()`` is fully env-driven and can be
+    exercised hermetically with temp git repos and the env knobs
+    ``REPOSITORY_ROOT_PATH`` / ``KATO_WORKSPACES_ROOT`` /
+    ``KATO_APPROVED_REPOSITORIES_PATH``.
+    """
+
+    def setUp(self) -> None:
+        from kato_webserver.app import create_app
+        self._tmp = tempfile.TemporaryDirectory(prefix='kato-discover-route-')
+        self.addCleanup(self._tmp.cleanup)
+        root = Path(self._tmp.name)
+
+        # Real bare + working clone so _read_origin_url returns a URL.
+        self.bare = root / 'origin.git'
+        self.bare.mkdir()
+        self._git_init_bare(self.bare)
+        # checkout root — REPOSITORY_ROOT_PATH points here.
+        self.checkout_root = root / 'checkouts'
+        self.checkout_root.mkdir()
+        self._clone_into(self.bare, self.checkout_root / 'discovered-repo')
+        # workspaces root — KATO_WORKSPACES_ROOT points here.
+        self.workspaces_root = root / 'workspaces'
+        self.workspaces_root.mkdir()
+        task_dir = self.workspaces_root / 'PROJ-1'
+        task_dir.mkdir()
+        self._clone_into(self.bare, task_dir / 'workspace-repo')
+
+        # Sidecar override so the real approval service doesn't touch
+        # the operator's home dir.
+        self.sidecar = root / 'approvals.json'
+
+        # Layer all env overrides at once.
+        self._env_patches = [
+            _env_override('REPOSITORY_ROOT_PATH', str(self.checkout_root)),
+            _env_override('KATO_WORKSPACES_ROOT', str(self.workspaces_root)),
+            _env_override('KATO_APPROVED_REPOSITORIES_PATH', str(self.sidecar)),
+        ]
+        for ctx in self._env_patches:
+            ctx.__enter__()
+            self.addCleanup(ctx.__exit__, None, None, None)
+
+        self.app = create_app(
+            fallback_state_dir=str(root / 'sessions'),
+        )
+        self.client = self.app.test_client()
+
+    # ---- helpers ----
+
+    @staticmethod
+    def _git_env() -> dict:
+        return {
+            **os.environ,
+            'GIT_AUTHOR_NAME': 'discover-test',
+            'GIT_AUTHOR_EMAIL': 'd@test',
+            'GIT_COMMITTER_NAME': 'discover-test',
+            'GIT_COMMITTER_EMAIL': 'd@test',
+        }
+
+    def _git_init_bare(self, bare: Path) -> None:
+        import subprocess
+        subprocess.check_call(
+            ['git', 'init', '--bare', '--initial-branch', 'main', str(bare)],
+            env=self._git_env(),
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        )
+        # Seed via throwaway clone so origin/main exists.
+        import tempfile as _t
+        with _t.TemporaryDirectory() as seed_root:
+            seed = Path(seed_root) / 'seed'
+            seed.mkdir()
+            for args in (
+                ['git', 'init', '--initial-branch', 'main'],
+                ['git', 'remote', 'add', 'origin', str(bare)],
+            ):
+                subprocess.check_call(
+                    args, cwd=str(seed), env=self._git_env(),
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                )
+            (seed / 'README.md').write_text('hi', encoding='utf-8')
+            for args in (
+                ['git', 'add', 'README.md'],
+                ['git', 'commit', '-m', 'seed'],
+                ['git', 'push', '-u', 'origin', 'main'],
+            ):
+                subprocess.check_call(
+                    args, cwd=str(seed), env=self._git_env(),
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                )
+
+    def _clone_into(self, bare: Path, target: Path) -> None:
+        import subprocess
+        subprocess.check_call(
+            ['git', 'clone', str(bare), str(target)],
+            env=self._git_env(),
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        )
+
+    # ---- tests ----
+
+    def test_get_returns_both_checkout_and_workspace_discoveries(self) -> None:
+        response = self.client.get('/api/repository-approvals')
+        self.assertEqual(response.status_code, 200)
+        body = response.get_json()
+        self.assertIn('repositories', body)
+        self.assertIn('storage_path', body)
+        ids = sorted(r['repository_id'] for r in body['repositories'])
+        # Both the checkout-root repo AND the workspace-root repo show up.
+        self.assertIn('discovered-repo', ids)
+        self.assertIn('workspace-repo', ids)
+
+    def test_get_joins_with_approvals_via_unified_list(self) -> None:
+        # Seed an approval for one discovered repo.
+        self.client.post(
+            '/api/repository-approvals',
+            json={
+                'approve': [
+                    {'repository_id': 'discovered-repo',
+                     'remote_url': str(self.bare),
+                     'mode': 'trusted'},
+                ],
+                'revoke': [],
+            },
+        )
+        response = self.client.get('/api/repository-approvals')
+        body = response.get_json()
+        match = [r for r in body['repositories']
+                 if r['repository_id'] == 'discovered-repo']
+        self.assertEqual(len(match), 1)
+        self.assertTrue(match[0]['approved'])
+        self.assertEqual(match[0]['approval_mode'], 'trusted')
+
+    def test_get_includes_orphan_approvals_not_currently_discovered(self) -> None:
+        # Approve a repo that isn't in any discovery source.
+        self.client.post(
+            '/api/repository-approvals',
+            json={
+                'approve': [
+                    {'repository_id': 'orphan-only',
+                     'remote_url': 'https://git/orphan-only.git'},
+                ],
+                'revoke': [],
+            },
+        )
+        response = self.client.get('/api/repository-approvals')
+        body = response.get_json()
+        orphan = [r for r in body['repositories']
+                  if r['repository_id'] == 'orphan-only']
+        self.assertEqual(len(orphan), 1)
+        self.assertEqual(orphan[0]['source'], 'orphan')
+        self.assertTrue(orphan[0]['approved'])
+
+
+class CommentsNotSupported501PathsTests(unittest.TestCase):
+    """``app.py:1828, 1842, 1852, 1863`` — 501 paths when agent_service
+    has no comment methods. Concrete stand-in, no MagicMock."""
+
+    def setUp(self) -> None:
+        from kato_webserver.app import create_app
+        self._tmp = tempfile.TemporaryDirectory(prefix='kato-comments-501-')
+        self.addCleanup(self._tmp.cleanup)
+
+        # Concrete agent_service with NO comment-method attributes.
+        # The routes check `callable(getattr(agent_service, 'X', None))`;
+        # an empty class makes every check fall through to 501.
+        class _NoCommentsAgentService:
+            pass
+
+        self.app = create_app(
+            agent_service=_NoCommentsAgentService(),
+            fallback_state_dir=str(Path(self._tmp.name) / 'sessions'),
+        )
+        self.client = self.app.test_client()
+
+    def test_mark_addressed_returns_501(self) -> None:
+        response = self.client.post(
+            '/api/sessions/T1/comments/c1/addressed', json={},
+        )
+        self.assertEqual(response.status_code, 501)
+        self.assertEqual(
+            response.get_json()['error'], 'comments not supported',
+        )
+
+    def test_reopen_returns_501(self) -> None:
+        response = self.client.post(
+            '/api/sessions/T1/comments/c1/reopen',
+        )
+        self.assertEqual(response.status_code, 501)
+
+    def test_delete_returns_501(self) -> None:
+        response = self.client.delete(
+            '/api/sessions/T1/comments/c1',
+        )
+        self.assertEqual(response.status_code, 501)
+
+    def test_sync_returns_501(self) -> None:
+        response = self.client.post(
+            '/api/sessions/T1/comments/sync',
+            json={'repo': 'r'},
+        )
+        self.assertEqual(response.status_code, 501)
+
+
+class StatusEventStreamTests(unittest.TestCase):
+    """``app.py:2088-2118`` — ``_status_event_stream``.
+
+    Audit-corrected: testable with a concrete broadcaster stand-in
+    (NOT MagicMock) that exposes ``recent()`` and ``wait_for_new()``
+    with real entry objects. Three branches covered:
+      * empty backlog → synthetic-open frame
+      * non-empty backlog → backlog entries flushed up front
+      * new entries from ``wait_for_new`` are yielded
+    """
+
+    class _Entry:
+        """Concrete StatusEntry shape — ``.sequence`` int + ``.to_dict()``."""
+
+        def __init__(self, sequence: int, message: str) -> None:
+            self.sequence = sequence
+            self._message = message
+
+        def to_dict(self) -> dict:
+            return {
+                'sequence': self.sequence,
+                'message': self._message,
+                'level': 'INFO',
+                'logger': 'test',
+                'epoch': 0,
+            }
+
+    class _Broadcaster:
+        """Concrete broadcaster — same surface ``_status_event_stream`` uses."""
+
+        def __init__(self, backlog=None, new_entries=None) -> None:
+            self._backlog = list(backlog or [])
+            self._new = list(new_entries or [])
+
+        def recent(self):
+            return list(self._backlog)
+
+        def wait_for_new(self, *, since_sequence, timeout):
+            # Pop one batch then return empty forever — the stream
+            # generator's outer loop is infinite by design; tests
+            # peek the first few yields and stop.
+            out, self._new = self._new, []
+            return out
+
+    def _take_frames(self, generator, *, max_frames: int) -> list[str]:
+        out: list[str] = []
+        for frame in generator:
+            out.append(frame)
+            if len(out) >= max_frames:
+                break
+        return out
+
+    def test_empty_backlog_emits_synthetic_open_frame(self) -> None:
+        from kato_webserver.app import _status_event_stream
+        gen = _status_event_stream(self._Broadcaster())
+        frames = self._take_frames(gen, max_frames=2)
+        # First frame is the `: open\n\n` SSE comment.
+        self.assertTrue(frames[0].startswith(': open'))
+        # Second is the synthetic-open status_entry frame.
+        self.assertIn('synthetic-open', frames[1])
+
+    def test_non_empty_backlog_flushes_each_entry_up_front(self) -> None:
+        from kato_webserver.app import _status_event_stream
+        backlog = [
+            self._Entry(1, 'first'),
+            self._Entry(2, 'second'),
+            self._Entry(3, 'third'),
+        ]
+        gen = _status_event_stream(self._Broadcaster(backlog=backlog))
+        frames = self._take_frames(gen, max_frames=4)
+        # Frame 0 = ': open', then one frame per backlog entry.
+        self.assertTrue(frames[0].startswith(': open'))
+        self.assertIn('"sequence": 1', frames[1])
+        self.assertIn('"sequence": 2', frames[2])
+        self.assertIn('"sequence": 3', frames[3])
+
+    def test_new_entries_from_wait_for_new_are_yielded(self) -> None:
+        from kato_webserver.app import _status_event_stream
+        bcast = self._Broadcaster(
+            backlog=[self._Entry(1, 'baseline')],
+            new_entries=[self._Entry(2, 'fresh')],
+        )
+        gen = _status_event_stream(bcast)
+        # Frames: ': open', baseline, fresh, then ': ping' or empty.
+        frames = self._take_frames(gen, max_frames=3)
+        self.assertIn('"sequence": 2', frames[2])
+        self.assertIn('"message": "fresh"', frames[2])
+
+
+class SessionHelpersWithConcreteStandInsTests(unittest.TestCase):
+    """``app.py:2826-2895, 2931-2970`` helpers — concrete session
+    manager + session stand-ins (NO MagicMock)."""
+
+    class _Session:
+        def __init__(self, *, is_alive: bool = True,
+                     is_working: bool = False,
+                     pending_tool: str = '') -> None:
+            self.is_alive = is_alive
+            self.is_working = is_working
+            self._pending_tool = pending_tool
+
+        def pending_control_request_tool(self) -> str:
+            return self._pending_tool
+
+        def recent_events(self):
+            return []
+
+    class _Record:
+        def __init__(self, task_id: str, claude_session_id: str = '') -> None:
+            self.task_id = task_id
+            self.claude_session_id = claude_session_id
+            self.cwd = ''
+
+    class _Manager:
+        def __init__(self, records: list, sessions: dict | None = None) -> None:
+            self._records = list(records)
+            self._sessions = dict(sessions or {})
+
+        def list_records(self):
+            return list(self._records)
+
+        def get_session(self, task_id):
+            return self._sessions.get(task_id)
+
+        def get_record(self, task_id):
+            for r in self._records:
+                if r.task_id == task_id:
+                    return r
+            return None
+
+    # ----- _session_ids_by_task -----
+
+    def test_session_ids_by_task_returns_empty_for_none_manager(self) -> None:
+        from kato_webserver.app import _session_ids_by_task
+        self.assertEqual(_session_ids_by_task(None), {})
+
+    def test_session_ids_by_task_swallows_list_records_exception(self) -> None:
+        from kato_webserver.app import _session_ids_by_task
+
+        class _Boom:
+            def list_records(self):
+                raise RuntimeError('disk fire')
+
+        self.assertEqual(_session_ids_by_task(_Boom()), {})
+
+    def test_session_ids_by_task_filters_out_blank_claude_session_ids(self) -> None:
+        from kato_webserver.app import _session_ids_by_task
+        mgr = self._Manager([
+            self._Record('T1', claude_session_id='abc'),
+            self._Record('T2', claude_session_id=''),  # filtered
+            self._Record('T3', claude_session_id='def'),
+        ])
+        result = _session_ids_by_task(mgr)
+        self.assertEqual(result, {'T1': 'abc', 'T3': 'def'})
+
+    # ----- _working_session_ids -----
+
+    def test_working_session_ids_returns_only_is_working_sessions(self) -> None:
+        from kato_webserver.app import _working_session_ids
+        mgr = self._Manager(
+            records=[
+                self._Record('T1'),
+                self._Record('T2'),
+                self._Record('T3'),
+            ],
+            sessions={
+                'T1': self._Session(is_alive=True, is_working=True),
+                'T2': self._Session(is_alive=True, is_working=False),
+                'T3': self._Session(is_alive=False, is_working=False),
+            },
+        )
+        self.assertEqual(_working_session_ids(mgr), {'T1'})
+
+    def test_working_session_ids_returns_empty_for_none_manager(self) -> None:
+        from kato_webserver.app import _working_session_ids
+        self.assertEqual(_working_session_ids(None), set())
+
+    def test_working_session_ids_swallows_get_session_exception(self) -> None:
+        from kato_webserver.app import _working_session_ids
+
+        class _Mgr:
+            def list_records(self):
+                return [SimpleNamespace(task_id='T1')]
+            def get_session(self, task_id):
+                raise RuntimeError('boom')
+
+        # Must not raise; the exception is caught + the task skipped.
+        self.assertEqual(_working_session_ids(_Mgr()), set())
+
+    # ----- _pending_permission_tool_by_task -----
+
+    def test_pending_permission_tool_by_task_surfaces_each_task_tool(self) -> None:
+        from kato_webserver.app import _pending_permission_tool_by_task
+        mgr = self._Manager(
+            records=[
+                self._Record('T1'),
+                self._Record('T2'),
+                self._Record('T3'),
+            ],
+            sessions={
+                'T1': self._Session(pending_tool='Edit'),
+                'T2': self._Session(pending_tool=''),     # not pending
+                'T3': self._Session(pending_tool='Bash'),
+            },
+        )
+        self.assertEqual(
+            _pending_permission_tool_by_task(mgr),
+            {'T1': 'Edit', 'T3': 'Bash'},
+        )
+
+    def test_pending_permission_tool_by_task_returns_empty_for_none_manager(
+        self,
+    ) -> None:
+        from kato_webserver.app import _pending_permission_tool_by_task
+        self.assertEqual(_pending_permission_tool_by_task(None), {})
+
+    # ----- _live_session_ids -----
+
+    def test_live_session_ids_returns_only_alive_sessions(self) -> None:
+        from kato_webserver.app import _live_session_ids
+        mgr = self._Manager(
+            records=[self._Record('T1'), self._Record('T2')],
+            sessions={
+                'T1': self._Session(is_alive=True),
+                'T2': self._Session(is_alive=False),
+            },
+        )
+        self.assertEqual(_live_session_ids(mgr), {'T1'})
+
+
+class GitDiffUtilsUntrackedFileBranchesTests(unittest.TestCase):
+    """``git_diff_utils.py:493-531`` — synthetic-diff branches for
+    untracked files (unreadable, binary, oversized, truncated).
+
+    Audit-corrected: these are NOT just merge-default-branch error
+    recovery; they're the untracked-file preview path. Testable with
+    real temp files.
+    """
+
+    def setUp(self) -> None:
+        import shutil
+        if not shutil.which('git'):
+            self.skipTest('git binary not available')
+        self._tmp = tempfile.TemporaryDirectory(prefix='kato-untracked-diff-')
+        self.addCleanup(self._tmp.cleanup)
+        self.repo = Path(self._tmp.name) / 'repo'
+        self.repo.mkdir()
+        self._git_init(self.repo)
+
+    @staticmethod
+    def _git_env() -> dict:
+        return {
+            **os.environ,
+            'GIT_AUTHOR_NAME': 'untracked-diff-test',
+            'GIT_AUTHOR_EMAIL': 'u@test',
+            'GIT_COMMITTER_NAME': 'untracked-diff-test',
+            'GIT_COMMITTER_EMAIL': 'u@test',
+        }
+
+    def _git_init(self, repo: Path) -> None:
+        import subprocess
+        for args in (
+            ['git', 'init', '--initial-branch', 'main'],
+        ):
+            subprocess.check_call(
+                args, cwd=str(repo), env=self._git_env(),
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            )
+        (repo / '.gitkeep').write_text('', encoding='utf-8')
+        for args in (
+            ['git', 'add', '.gitkeep'],
+            ['git', 'commit', '-m', 'seed'],
+        ):
+            subprocess.check_call(
+                args, cwd=str(repo), env=self._git_env(),
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            )
+
+    # ---- happy path ----
+
+    def test_small_text_file_gets_synthesized_full_hunk(self) -> None:
+        from kato_webserver.git_diff_utils import _untracked_files_as_diff
+        (self.repo / 'new.txt').write_text(
+            'line one\nline two\n', encoding='utf-8',
+        )
+        diff = _untracked_files_as_diff(str(self.repo))
+        self.assertIn('diff --git a/new.txt b/new.txt', diff)
+        self.assertIn('new file mode 100644', diff)
+        self.assertIn('+line one', diff)
+        self.assertIn('+line two', diff)
+
+    # ---- truncated path (line 524-528) ----
+
+    def test_file_with_too_many_lines_is_truncated_with_marker(self) -> None:
+        from kato_webserver.git_diff_utils import (
+            _untracked_files_as_diff, UNTRACKED_FILE_LINE_LIMIT,
+        )
+        big = '\n'.join(f'line {i}' for i in range(UNTRACKED_FILE_LINE_LIMIT + 50))
+        (self.repo / 'huge.txt').write_text(big + '\n', encoding='utf-8')
+        diff = _untracked_files_as_diff(str(self.repo))
+        self.assertIn(f'+(... truncated at {UNTRACKED_FILE_LINE_LIMIT} lines)', diff)
+
+    # ---- oversized path (line 513-517) ----
+
+    def test_file_over_byte_limit_gets_too_large_marker(self) -> None:
+        from kato_webserver.git_diff_utils import (
+            _untracked_files_as_diff, UNTRACKED_FILE_BYTE_LIMIT,
+        )
+        # 1 byte over the limit.
+        (self.repo / 'big.bin').write_bytes(b'x' * (UNTRACKED_FILE_BYTE_LIMIT + 1))
+        diff = _untracked_files_as_diff(str(self.repo))
+        self.assertIn('file too large to preview', diff)
+        self.assertIn(str(UNTRACKED_FILE_BYTE_LIMIT + 1), diff)
+
+    # ---- binary path (line 520-521) ----
+
+    def test_binary_file_with_invalid_utf8_gets_binary_marker(self) -> None:
+        from kato_webserver.git_diff_utils import _untracked_files_as_diff
+        # Invalid UTF-8 bytes → UnicodeDecodeError → binary marker.
+        (self.repo / 'data.bin').write_bytes(b'\xff\xfe\xfd\x00\x01\x02')
+        diff = _untracked_files_as_diff(str(self.repo))
+        self.assertIn('binary file', diff)
+
+    # ---- unreadable path (line 509-512) ----
+
+    def test_unreadable_file_gets_unreadable_marker(self) -> None:
+        from kato_webserver.git_diff_utils import _untracked_files_as_diff
+        target = self.repo / 'gone.txt'
+        target.write_text('placeholder', encoding='utf-8')
+        # Delete the file but ALSO mark the parent dir read-only so
+        # ls-files still reports it but stat raises. Simpler: chmod
+        # the file to 000 so stat works but read fails; even simpler:
+        # remove read perms on the file.
+        # Actually stat() works on unreadable files. The OSError branch
+        # at lines 511-512 fires when stat itself fails — that
+        # happens if the file VANISHES between ls-files and stat.
+        # Simulate: remove the file after ls-files would have seen it.
+        # ls-files runs INSIDE the helper, so we need a race ... or
+        # we make the parent dir unreadable.
+        # Cleanest: chmod the parent so stat raises PermissionError.
+        target.unlink()
+        # Empty placeholder so ls-files still surfaces it from the index?
+        # No — git only tracks committed paths. An untracked file that
+        # doesn't exist on disk won't appear in ls-files at all.
+        # So the OSError branch requires a vanished file. Force it
+        # via a path containing a NUL byte? No, ls-files won't list it.
+        # The cleanest reproducer: create a symlink to a missing target.
+        (self.repo / 'broken-link').symlink_to(self.repo / 'no-such-target')
+        diff = _untracked_files_as_diff(str(self.repo))
+        # Symlink to missing target → stat raises FileNotFoundError
+        # (OSError subclass) → marker line.
+        self.assertIn('(unreadable)', diff)
+
+
 if __name__ == '__main__':
     unittest.main()
