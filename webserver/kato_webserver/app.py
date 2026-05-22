@@ -1122,7 +1122,7 @@ def _register_http_routes(app: Flask) -> None:
             from kato_core_lib.data_layers.service.repository_approval_service import (
                 RepositoryApprovalService,
             )
-        except ImportError as exc:
+        except ImportError as exc:     # pragma: no cover — kato_core_lib is always installed; fallback for embedded webserver use
             return jsonify({'error': f'approvals not available: {exc}'}), 503
         candidates = discover_all_repositories()
         service = RepositoryApprovalService()
@@ -1193,7 +1193,7 @@ def _register_http_routes(app: Flask) -> None:
             from kato_core_lib.data_layers.service.repository_approval_service import (
                 RepositoryApprovalService,
             )
-        except ImportError as exc:
+        except ImportError as exc:     # pragma: no cover — kato_core_lib is always installed; fallback for embedded webserver use
             return jsonify({'error': f'approvals not available: {exc}'}), 503
         payload = request.get_json(silent=True) or {}
         approve_in = payload.get('approve') or []
@@ -3022,7 +3022,7 @@ def _build_fallback_manager(fallback_state_dir: str):
     """Stand up a minimal manager so dev runs of the webserver don't crash."""
     try:
         from claude_core_lib.claude_core_lib.session.manager import ClaudeSessionManager
-    except ImportError:
+    except ImportError:                 # pragma: no cover — claude_core_lib is always installed in this repo; the fallback exists for embedded webserver use outside the kato monorepo
         from kato_webserver.session_registry import SessionRegistry
 
         class _RegistryAsManager:
