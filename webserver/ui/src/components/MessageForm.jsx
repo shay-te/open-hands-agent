@@ -63,6 +63,7 @@ const MessageForm = forwardRef(function MessageForm({
   const [dragging, setDragging] = useState(false);
   const fileInputRef = useRef(null);
   const textareaRef = useRef(null);
+  const formRef = useRef(null);
   const pendingCaretRef = useRef(null);
 
   const autoResize = useCallback(() => {
@@ -78,6 +79,33 @@ const MessageForm = forwardRef(function MessageForm({
 
   // Resize on every value change (typing, draft hydration, fragment paste).
   useEffect(() => { autoResize(); }, [value, autoResize]);
+
+  // Publish the composer's CURRENT rendered height to the parent
+  // (#session-detail) as a CSS variable so #event-log can pad its
+  // bottom enough to keep the last bubble clear of the floating
+  // capsule. Without this the bottom padding is a fixed 120px sized
+  // for a single-row composer — multi-paragraph drafts grow the
+  // capsule past 120px and the last messages slip behind it.
+  //
+  // ResizeObserver fires on textarea-auto-grow, attachment add/remove,
+  // and viewport reflows. ``--composer-h`` lives on the parent so each
+  // session pane owns its own value (no cross-tab leakage).
+  useLayoutEffect(() => {
+    const form = formRef.current;
+    if (!form || typeof ResizeObserver === 'undefined') { return undefined; }
+    const target = form.parentElement;
+    if (!target) { return undefined; }
+    const publishHeight = () => {
+      target.style.setProperty('--composer-h', `${form.offsetHeight}px`);
+    };
+    publishHeight();
+    const observer = new ResizeObserver(publishHeight);
+    observer.observe(form);
+    return () => {
+      observer.disconnect();
+      target.style.removeProperty('--composer-h');
+    };
+  }, []);
 
   useLayoutEffect(() => {
     const caret = pendingCaretRef.current;
@@ -245,6 +273,7 @@ const MessageForm = forwardRef(function MessageForm({
 
   return (
     <form
+      ref={formRef}
       id="message-form"
       onSubmit={submit}
       onDragEnter={handleDragEnter}

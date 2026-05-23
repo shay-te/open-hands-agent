@@ -326,3 +326,108 @@ describe('MessageForm — model selector', () => {
     expect(onModelChange).toHaveBeenCalledWith('sonnet');
   });
 });
+
+
+describe('MessageForm — composer-height CSS variable (--composer-h)', () => {
+  // Operator-reported bug: typing a multi-paragraph message grew
+  // the composer past the chat's fixed 120px bottom padding so the
+  // last bubbles slipped behind the floating capsule. The fix
+  // publishes the composer's current rendered height onto its
+  // parent so EventLog's padding-bottom can track it via CSS calc.
+  //
+  // jsdom's ResizeObserver shim: jsdom doesn't ship ResizeObserver
+  // natively. The MessageForm guards on ``typeof ResizeObserver``
+  // and falls through to no-op when absent — so we polyfill it here
+  // with a minimal stub that lets us observe whether the variable
+  // gets published.
+
+  function withResizeObserverStub(run) {
+    const original = globalThis.ResizeObserver;
+    class Stub {
+      constructor(cb) { this._cb = cb; }
+      observe() {}
+      disconnect() {}
+    }
+    globalThis.ResizeObserver = Stub;
+    try {
+      return run();
+    } finally {
+      if (original === undefined) { delete globalThis.ResizeObserver; }
+      else { globalThis.ResizeObserver = original; }
+    }
+  }
+
+  test('writes --composer-h on the parent element on mount', () => {
+    withResizeObserverStub(() => {
+      // Render inside a real parent <div> so we can observe the
+      // CSS variable being set on it (the component writes to
+      // form.parentElement).
+      const parent = document.createElement('div');
+      document.body.appendChild(parent);
+      try {
+        render(
+          <MessageForm
+            taskId="T1" turnInFlight={false} onSubmit={vi.fn()}
+          />,
+          { container: parent },
+        );
+        // jsdom returns 0 for offsetHeight on unstyled elements,
+        // but the contract is "the property exists" — so the
+        // initial publish writes ``0px`` (still a valid value).
+        const v = parent.style.getPropertyValue('--composer-h');
+        expect(v).toMatch(/^\d+px$/);
+      } finally {
+        document.body.removeChild(parent);
+      }
+    });
+  });
+
+  test('removes --composer-h on unmount', () => {
+    withResizeObserverStub(() => {
+      const parent = document.createElement('div');
+      document.body.appendChild(parent);
+      try {
+        const { unmount } = render(
+          <MessageForm
+            taskId="T1" turnInFlight={false} onSubmit={vi.fn()}
+          />,
+          { container: parent },
+        );
+        expect(parent.style.getPropertyValue('--composer-h')).toMatch(/^\d+px$/);
+        unmount();
+        // Cleanup must remove the var so the next mount starts
+        // from a known state (and the CSS fallback re-engages).
+        expect(parent.style.getPropertyValue('--composer-h')).toBe('');
+      } finally {
+        document.body.removeChild(parent);
+      }
+    });
+  });
+
+  test('no-op gracefully when ResizeObserver is unavailable', () => {
+    // Environments without ResizeObserver (very old browsers, some
+    // jsdom configs) must not crash on mount — the CSS fallback
+    // (padding-bottom: calc(var(--composer-h, 94px) + 28px))
+    // still keeps the last bubble visible at the default sizing.
+    const original = globalThis.ResizeObserver;
+    delete globalThis.ResizeObserver;
+    try {
+      const parent = document.createElement('div');
+      document.body.appendChild(parent);
+      try {
+        // Must not throw.
+        render(
+          <MessageForm
+            taskId="T1" turnInFlight={false} onSubmit={vi.fn()}
+          />,
+          { container: parent },
+        );
+        expect(parent.style.getPropertyValue('--composer-h')).toBe('');
+      } finally {
+        document.body.removeChild(parent);
+      }
+    } finally {
+      if (original !== undefined) { globalThis.ResizeObserver = original; }
+    }
+  });
+});

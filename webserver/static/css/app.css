@@ -1549,9 +1549,14 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 #event-log {
   /* Reserve enough room at the bottom so the last entry — a bubble
    * or the trailing working indicator — isn't obscured by the
-   * floating composer. Sized for a single-row composer + attachments
-   * preview row + outer margins (24px below + ~110px capsule). */
-  padding-bottom: 120px;
+   * floating composer. ``--composer-h`` is published by MessageForm
+   * (ResizeObserver) onto its parent #session-detail and reflects
+   * the composer's CURRENT rendered height — so multi-paragraph
+   * drafts that grow the capsule past one row keep the last bubble
+   * visible instead of slipping behind it. Falls back to a single-
+   * row sentinel (94px capsule + 18px bottom offset = 112px) when
+   * the variable hasn't been set yet (first paint, no ResizeObserver). */
+  padding-bottom: calc(var(--composer-h, 94px) + 28px);
 }
 
 /* ───── chat search: bubble match / no-match states ──────────────
