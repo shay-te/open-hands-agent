@@ -90,6 +90,61 @@ class StreamingClaudeSessionTests(unittest.TestCase):
         # --resume targets the right JSONL).
         self.assertEqual(session.claude_session_id, 'live-123')
 
+    def test_allowed_additional_dirs_returns_spawn_time_paths(self) -> None:
+        # The Claude CLI bakes ``--add-dir`` into the subprocess at
+        # spawn time — there is no in-flight widening API. Callers
+        # use ``allowed_additional_dirs()`` to ask "was this path
+        # part of the original spawn?" so they can flag operators
+        # to restart the chat tab when new repos are cloned later.
+        session = StreamingClaudeSession(
+            task_id='UNA-1',
+            cwd='/wks/UNA-1/backend',
+            additional_dirs=['/wks/UNA-1/client', '/wks/UNA-1/core-lib'],
+        )
+        dirs = session.allowed_additional_dirs()
+        self.assertIsInstance(dirs, tuple)
+        self.assertEqual(
+            dirs, ('/wks/UNA-1/client', '/wks/UNA-1/core-lib'),
+        )
+
+    def test_allowed_additional_dirs_empty_when_no_extras(self) -> None:
+        # Single-repo task: no extra dirs at spawn → empty tuple,
+        # NOT None. Callers iterate the result; None would explode.
+        session = StreamingClaudeSession(
+            task_id='UNA-2',
+            cwd='/wks/UNA-2/only',
+        )
+        self.assertEqual(session.allowed_additional_dirs(), ())
+
+    def test_allowed_additional_dirs_filters_blank_entries(self) -> None:
+        # The constructor strips blanks (matches the existing
+        # normalization in __init__). Returned tuple must mirror
+        # that — the public accessor is the "truth" about what the
+        # subprocess actually got.
+        session = StreamingClaudeSession(
+            task_id='UNA-3',
+            cwd='/wks/UNA-3/only',
+            additional_dirs=['', '  ', '/wks/UNA-3/real', None],
+        )
+        self.assertEqual(
+            session.allowed_additional_dirs(),
+            ('/wks/UNA-3/real',),
+        )
+
+    def test_allowed_additional_dirs_is_immutable_snapshot(self) -> None:
+        # Returned tuple cannot be mutated to widen the sandbox
+        # post-hoc. Defends against a misguided caller that grabs
+        # the result and tries to append to it; tuples don't
+        # support .append, so the surface is structurally read-only.
+        session = StreamingClaudeSession(
+            task_id='UNA-4',
+            cwd='/wks/UNA-4/only',
+            additional_dirs=['/wks/UNA-4/extra'],
+        )
+        dirs = session.allowed_additional_dirs()
+        with self.assertRaises(AttributeError):
+            dirs.append('/etc/passwd')  # type: ignore[attr-defined]
+
     def test_start_with_additional_dirs_emits_add_dir_per_path(self) -> None:
         # Multi-repo tasks need every repo accessible to Claude, not
         # just the cwd one. Without this the chat agent sees only its

@@ -566,6 +566,15 @@ export function formatSyncResult(result) {
   }
   const added = body.added_repositories || [];
   const failed = body.failed_repositories || [];
+  // The Claude CLI bakes its --add-dir set at spawn time, so a chat
+  // tab that opened before the new clone landed CANNOT see it — the
+  // operator must close + reopen the tab for the sandbox to widen.
+  // Backend computes this flag by comparing the live session's
+  // allowed_additional_dirs() against the freshly-provisioned paths.
+  const restartNeeded = !!body.requires_session_restart;
+  const restartHint = restartNeeded
+    ? '\n⟳ Close and reopen the chat tab for Claude to see the new repo(s) — its sandbox is fixed at spawn time.'
+    : '';
   if (failed.length) {
     const errs = failed
       .map((entry) => `${entry.repository_id}: ${entry.error}`)
@@ -574,7 +583,7 @@ export function formatSyncResult(result) {
       kind: added.length ? 'warning' : 'error',
       title: added.length ? 'Sync partially succeeded' : 'Sync failed',
       message: added.length
-        ? `✓ added ${added.length} repo(s): ${added.join(', ')}\n✗ ${errs}`
+        ? `✓ added ${added.length} repo(s): ${added.join(', ')}\n✗ ${errs}${restartHint}`
         : `✗ ${errs}`,
     };
   }
@@ -586,9 +595,11 @@ export function formatSyncResult(result) {
     };
   }
   return {
-    kind: 'success',
-    title: `Added ${added.length} repository(ies)`,
-    message: `✓ cloned: ${added.join(', ')}`,
+    kind: restartNeeded ? 'warning' : 'success',
+    title: restartNeeded
+      ? `Added ${added.length} repository(ies) — restart chat tab`
+      : `Added ${added.length} repository(ies)`,
+    message: `✓ cloned: ${added.join(', ')}${restartHint}`,
   };
 }
 

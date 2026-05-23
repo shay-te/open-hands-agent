@@ -175,6 +175,99 @@ describe('formatSyncResult — toast shape for /api/sync-repositories', () => {
     expect(result.kind).toBe('success');
     expect(result.title).toMatch(/already in sync/i);
   });
+
+  // ----- requires_session_restart surfacing -----
+  // When the freshly-cloned repo lives outside the live chat's
+  // --add-dir set, the operator MUST close + reopen the tab.
+  // Without surfacing this, Claude silently refuses to write to
+  // the new repo and the operator is left to guess why.
+
+  test('added cleanly + restart needed → amber warning with restart hint', () => {
+    const result = formatSyncResult({
+      ok: true,
+      body: {
+        added_repositories: ['new'],
+        failed_repositories: [],
+        requires_session_restart: true,
+      },
+    });
+    expect(result.kind).toBe('warning');
+    expect(result.title).toContain('restart chat tab');
+    expect(result.message).toMatch(/close and reopen/i);
+    expect(result.message).toContain('new');
+  });
+
+  test('added cleanly + no restart needed → stays green success', () => {
+    // No live session OR session already had the new path → no
+    // restart hint, no kind downgrade.
+    const result = formatSyncResult({
+      ok: true,
+      body: {
+        added_repositories: ['new'],
+        failed_repositories: [],
+        requires_session_restart: false,
+      },
+    });
+    expect(result.kind).toBe('success');
+    expect(result.title).not.toMatch(/restart/i);
+    expect(result.message).not.toMatch(/close and reopen/i);
+  });
+
+  test('partial success + restart needed → restart hint appended to message', () => {
+    const result = formatSyncResult({
+      ok: true,
+      body: {
+        added_repositories: ['client'],
+        failed_repositories: [{ repository_id: 'backend', error: 'auth' }],
+        requires_session_restart: true,
+      },
+    });
+    expect(result.kind).toBe('warning');
+    expect(result.message).toContain('client');
+    expect(result.message).toContain('backend: auth');
+    expect(result.message).toMatch(/close and reopen/i);
+  });
+
+  test('all-failed + restart flag → restart hint NOT shown (nothing was actually cloned)', () => {
+    // Nothing landed → no point telling the operator to restart;
+    // there are no new repos for the restart to surface. We DO NOT
+    // render the hint even if the backend pessimistically set it.
+    const result = formatSyncResult({
+      ok: true,
+      body: {
+        added_repositories: [],
+        failed_repositories: [{ repository_id: 'r1', error: 'permission' }],
+        requires_session_restart: true,
+      },
+    });
+    expect(result.kind).toBe('error');
+    expect(result.message).not.toMatch(/close and reopen/i);
+  });
+
+  test('nothing-to-add ignores the restart flag (no work happened)', () => {
+    const result = formatSyncResult({
+      ok: true,
+      body: {
+        added_repositories: [],
+        failed_repositories: [],
+        requires_session_restart: true,
+      },
+    });
+    expect(result.kind).toBe('success');
+    expect(result.title).toMatch(/already in sync/i);
+    expect(result.message).not.toMatch(/close and reopen/i);
+  });
+
+  test('restart flag missing entirely → falsy by default', () => {
+    // Defensive: older backends or partial responses might omit
+    // the field. The renderer must NOT spuriously show "restart".
+    const result = formatSyncResult({
+      ok: true,
+      body: { added_repositories: ['r1'], failed_repositories: [] },
+    });
+    expect(result.kind).toBe('success');
+    expect(result.message).not.toMatch(/close and reopen/i);
+  });
 });
 
 

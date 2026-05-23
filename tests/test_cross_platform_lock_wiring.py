@@ -1,8 +1,6 @@
 """Cross-platform file-lock wiring tests.
 
-Honest scope: this machine is macOS, so the ``msvcrt`` branch of
-``_process_safe_write_lock`` can only be EXERCISED on Windows. What
-we CAN verify on POSIX:
+Scope on POSIX (this file's primary runtime):
 
   1. The module imports cleanly with ``fcntl`` present and
      ``msvcrt`` absent (POSIX's actual environment).
@@ -16,9 +14,12 @@ we CAN verify on POSIX:
      class (NOT MagicMock) that mirrors the ``locking`` /
      ``LK_LOCK`` / ``LK_UNLCK`` API.
 
-What this does NOT prove:
-  - Real Windows ``msvcrt.locking`` semantics (we never run it).
-  - Cross-process safety on Windows. Code-reviewed only.
+Real Windows runtime semantics — ``msvcrt.locking`` actually blocking
+a second process, mtime invalidation across processes on NTFS — were
+verified end-to-end on Windows 11 + Python 3.11 by running
+``test_repository_approval_real`` and ``test_stress_concurrent``
+under a real Windows interpreter. See ``WINDOWS_VERIFICATION.md``
+at the repo root for the run output.
 """
 
 from __future__ import annotations

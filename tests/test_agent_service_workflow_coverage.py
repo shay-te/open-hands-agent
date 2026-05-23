@@ -386,6 +386,310 @@ class SyncTaskRepositoriesTests(unittest.TestCase):
             result = service.sync_task_repositories('T1')
         self.assertTrue(result['synced'])
         self.assertEqual(result['added_repositories'], ['new-repo'])
+        # No live session manager wired → conservative False.
+        self.assertFalse(result['requires_session_restart'])
+
+
+class _RecordingSessionManager(object):
+    """Concrete stand-in: maps task_id → session-or-None.
+
+    Replaces a MagicMock so the production code paths (``getattr``
+    callable checks) hit a real object whose attributes mean exactly
+    what they look like.
+    """
+
+    def __init__(self, sessions=None) -> None:
+        self._sessions = dict(sessions or {})
+        self.lookups: list[str] = []
+
+    def get_session(self, task_id):
+        self.lookups.append(task_id)
+        return self._sessions.get(task_id)
+
+
+class _FakeLiveSession(object):
+    """Concrete stand-in for ``StreamingClaudeSession``.
+
+    Exposes only what ``_sync_requires_session_restart`` reads:
+    ``is_alive``, ``cwd``, ``allowed_additional_dirs()``.
+    """
+
+    def __init__(self, *, alive=True, cwd='', dirs=()) -> None:
+        self.is_alive = alive
+        self.cwd = cwd
+        self._dirs = tuple(dirs)
+        self.dirs_calls = 0
+
+    def allowed_additional_dirs(self):
+        self.dirs_calls += 1
+        return self._dirs
+
+
+class _BoomDirsSession(_FakeLiveSession):
+    """Live session whose ``allowed_additional_dirs`` raises.
+
+    Models a broken accessor / future refactor regression — the
+    helper must NOT propagate; it returns False (conservative).
+    """
+
+    def allowed_additional_dirs(self):
+        self.dirs_calls += 1
+        raise RuntimeError('accessor blew up')
+
+
+class SyncRequiresSessionRestartTests(unittest.TestCase):
+    """Backend signal for "live Claude subprocess can't see the new repos".
+
+    The Claude CLI bakes ``--add-dir`` into the subprocess at spawn
+    time; new clones on disk are invisible to a session that started
+    earlier. ``sync_task_repositories`` returns
+    ``requires_session_restart=True`` so the UI can prompt the
+    operator to restart the chat tab. NO MagicMock on the inputs to
+    ``_sync_requires_session_restart`` — every stand-in here is a
+    concrete class with explicit attributes.
+    """
+
+    def _service_with(self, session_manager=None):
+        return AgentService(**_kwargs(
+            session_manager=session_manager,
+            workspace_manager=MagicMock(),
+        ))
+
+    def test_no_session_manager_returns_false(self) -> None:
+        service = self._service_with(session_manager=None)
+        self.assertFalse(service._sync_requires_session_restart(
+            'T1', provisioned=[SimpleNamespace(id='r1', local_path='/x/r1')],
+            missing_repos=[SimpleNamespace(id='r1')],
+        ))
+
+    def test_empty_provisioned_returns_false(self) -> None:
+        # Nothing was actually added → no need to restart anything.
+        mgr = _RecordingSessionManager({
+            'T1': _FakeLiveSession(dirs=('/y',)),
+        })
+        service = self._service_with(session_manager=mgr)
+        self.assertFalse(service._sync_requires_session_restart(
+            'T1', provisioned=[], missing_repos=[SimpleNamespace(id='r1')],
+        ))
+        # Provisioned-empty short-circuits BEFORE looking up the session.
+        self.assertEqual(mgr.lookups, [])
+
+    def test_no_live_session_for_task_returns_false(self) -> None:
+        mgr = _RecordingSessionManager()  # empty registry
+        service = self._service_with(session_manager=mgr)
+        self.assertFalse(service._sync_requires_session_restart(
+            'T1', provisioned=[SimpleNamespace(id='r1', local_path='/x/r1')],
+            missing_repos=[SimpleNamespace(id='r1')],
+        ))
+        self.assertEqual(mgr.lookups, ['T1'])
+
+    def test_dead_session_returns_false(self) -> None:
+        # Dead subprocess → operator's next message will spawn a
+        # fresh one with the full repo set; nothing to warn about.
+        mgr = _RecordingSessionManager({
+            'T1': _FakeLiveSession(alive=False, dirs=()),
+        })
+        service = self._service_with(session_manager=mgr)
+        self.assertFalse(service._sync_requires_session_restart(
+            'T1', provisioned=[SimpleNamespace(id='r1', local_path='/x/r1')],
+            missing_repos=[SimpleNamespace(id='r1')],
+        ))
+
+    def test_session_without_accessor_returns_false(self) -> None:
+        # Older session class without ``allowed_additional_dirs`` —
+        # conservative: don't claim a restart is required because we
+        # can't actually tell.
+        class _OldSession(object):
+            is_alive = True
+            cwd = '/x'
+            # no allowed_additional_dirs method at all.
+        mgr = _RecordingSessionManager({'T1': _OldSession()})
+        service = self._service_with(session_manager=mgr)
+        self.assertFalse(service._sync_requires_session_restart(
+            'T1', provisioned=[SimpleNamespace(id='r1', local_path='/x/r1')],
+            missing_repos=[SimpleNamespace(id='r1')],
+        ))
+
+    def test_accessor_exception_returns_false(self) -> None:
+        mgr = _RecordingSessionManager({'T1': _BoomDirsSession(dirs=())})
+        service = self._service_with(session_manager=mgr)
+        self.assertFalse(service._sync_requires_session_restart(
+            'T1', provisioned=[SimpleNamespace(id='r1', local_path='/x/r1')],
+            missing_repos=[SimpleNamespace(id='r1')],
+        ))
+
+    def test_new_repo_outside_sandbox_returns_true(self) -> None:
+        # The core happy-bug-path: a freshly-cloned repo at
+        # /x/workspaces/T1/new is NOT in the live session's allowed
+        # set. Operator MUST restart the tab.
+        session = _FakeLiveSession(
+            cwd='/x/workspaces/T1/client',
+            dirs=('/x/workspaces/T1/backend',),
+        )
+        mgr = _RecordingSessionManager({'T1': session})
+        service = self._service_with(session_manager=mgr)
+        self.assertTrue(service._sync_requires_session_restart(
+            'T1',
+            provisioned=[
+                SimpleNamespace(id='client', local_path='/x/workspaces/T1/client'),
+                SimpleNamespace(id='backend', local_path='/x/workspaces/T1/backend'),
+                SimpleNamespace(id='new', local_path='/x/workspaces/T1/new'),
+            ],
+            missing_repos=[SimpleNamespace(id='new')],
+        ))
+
+    def test_new_repo_already_inside_sandbox_returns_false(self) -> None:
+        # Unusual but legal: the operator's "Sync" resulted in a path
+        # that happened to already be in the session's sandbox (e.g.
+        # the spawn passed it pre-emptively). No restart needed.
+        session = _FakeLiveSession(
+            cwd='/x/workspaces/T1/client',
+            dirs=(
+                '/x/workspaces/T1/backend',
+                '/x/workspaces/T1/new',
+            ),
+        )
+        mgr = _RecordingSessionManager({'T1': session})
+        service = self._service_with(session_manager=mgr)
+        self.assertFalse(service._sync_requires_session_restart(
+            'T1',
+            provisioned=[
+                SimpleNamespace(id='new', local_path='/x/workspaces/T1/new'),
+            ],
+            missing_repos=[SimpleNamespace(id='new')],
+        ))
+
+    def test_cwd_counts_as_sandbox_member(self) -> None:
+        # When the freshly-cloned repo path matches the session's
+        # cwd (rare but theoretically possible — operator
+        # re-syncs the cwd repo), no restart required.
+        session = _FakeLiveSession(
+            cwd='/x/workspaces/T1/client',
+            dirs=(),
+        )
+        mgr = _RecordingSessionManager({'T1': session})
+        service = self._service_with(session_manager=mgr)
+        self.assertFalse(service._sync_requires_session_restart(
+            'T1',
+            provisioned=[
+                SimpleNamespace(id='client', local_path='/x/workspaces/T1/client'),
+            ],
+            missing_repos=[SimpleNamespace(id='client')],
+        ))
+
+    def test_repo_not_in_missing_set_is_ignored(self) -> None:
+        # ``provisioned`` includes ALL task repos (the already-cloned
+        # ones plus the newly-cloned ones). Only the NEWLY-added ones
+        # should drive the signal — pre-existing repos that already
+        # live outside the sandbox would be a different bug.
+        session = _FakeLiveSession(
+            cwd='/x/workspaces/T1/client',
+            dirs=(),
+        )
+        mgr = _RecordingSessionManager({'T1': session})
+        service = self._service_with(session_manager=mgr)
+        # Backend is in provisioned but NOT in missing → ignored.
+        self.assertFalse(service._sync_requires_session_restart(
+            'T1',
+            provisioned=[
+                SimpleNamespace(id='client', local_path='/x/workspaces/T1/client'),
+                SimpleNamespace(id='backend', local_path='/x/workspaces/T1/backend'),
+            ],
+            missing_repos=[],  # nothing newly added
+        ))
+
+    def test_blank_local_path_is_skipped(self) -> None:
+        # Repo entry with no local_path can't be compared → skip it
+        # rather than blast a false "restart required" signal.
+        session = _FakeLiveSession(cwd='/x/cwd', dirs=())
+        mgr = _RecordingSessionManager({'T1': session})
+        service = self._service_with(session_manager=mgr)
+        self.assertFalse(service._sync_requires_session_restart(
+            'T1',
+            provisioned=[SimpleNamespace(id='new', local_path='')],
+            missing_repos=[SimpleNamespace(id='new')],
+        ))
+
+    def test_trailing_slash_path_normalised(self) -> None:
+        # Sandbox path has trailing slash; new repo path doesn't.
+        # Path normalization must make these compare equal.
+        session = _FakeLiveSession(
+            cwd='/x/workspaces/T1/client',
+            dirs=('/x/workspaces/T1/new/',),
+        )
+        mgr = _RecordingSessionManager({'T1': session})
+        service = self._service_with(session_manager=mgr)
+        self.assertFalse(service._sync_requires_session_restart(
+            'T1',
+            provisioned=[
+                SimpleNamespace(id='new', local_path='/x/workspaces/T1/new'),
+            ],
+            missing_repos=[SimpleNamespace(id='new')],
+        ))
+
+
+class SyncTaskRepositoriesRestartIntegrationTests(unittest.TestCase):
+    """End-to-end through ``sync_task_repositories``: signal lands in payload.
+
+    Exercises the full path: live session + provisioning + the new
+    field appearing in the response shape the UI will read.
+    """
+
+    def test_payload_includes_requires_session_restart_true_when_live_session_is_stale(self) -> None:
+        workspace = MagicMock()
+        workspace.get.return_value = SimpleNamespace(repository_ids=['existing'])
+        task = SimpleNamespace(id='T1', tags=[], description='')
+        repo = MagicMock()
+        repo.resolve_task_repositories.return_value = [
+            SimpleNamespace(id='existing'),
+            SimpleNamespace(id='added'),
+        ]
+        session = _FakeLiveSession(
+            cwd='/x/workspaces/T1/existing',
+            dirs=(),  # session was spawned with no extra dirs
+        )
+        mgr = _RecordingSessionManager({'T1': session})
+        service = AgentService(**_kwargs(
+            workspace_manager=workspace, repository_service=repo,
+            session_manager=mgr,
+        ))
+        with patch.object(service, '_lookup_task_for_sync', return_value=task), \
+             patch(
+                 'kato_core_lib.data_layers.service.workspace_provisioning_service.'
+                 'provision_task_workspace_clones',
+                 return_value=[
+                     SimpleNamespace(id='existing', local_path='/x/workspaces/T1/existing'),
+                     SimpleNamespace(id='added', local_path='/x/workspaces/T1/added'),
+                 ],
+             ):
+            result = service.sync_task_repositories('T1')
+        self.assertTrue(result['synced'])
+        self.assertEqual(result['added_repositories'], ['added'])
+        self.assertTrue(result['requires_session_restart'])
+
+    def test_payload_requires_session_restart_false_when_no_live_session(self) -> None:
+        workspace = MagicMock()
+        workspace.get.return_value = SimpleNamespace(repository_ids=[])
+        task = SimpleNamespace(id='T1', tags=[], description='')
+        repo = MagicMock()
+        repo.resolve_task_repositories.return_value = [
+            SimpleNamespace(id='added'),
+        ]
+        service = AgentService(**_kwargs(
+            workspace_manager=workspace, repository_service=repo,
+            session_manager=_RecordingSessionManager(),  # no session for T1
+        ))
+        with patch.object(service, '_lookup_task_for_sync', return_value=task), \
+             patch(
+                 'kato_core_lib.data_layers.service.workspace_provisioning_service.'
+                 'provision_task_workspace_clones',
+                 return_value=[
+                     SimpleNamespace(id='added', local_path='/x/workspaces/T1/added'),
+                 ],
+             ):
+            result = service.sync_task_repositories('T1')
+        self.assertTrue(result['synced'])
+        self.assertFalse(result['requires_session_restart'])
 
 
 class LookupTaskForSyncTests(unittest.TestCase):

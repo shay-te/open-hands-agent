@@ -257,6 +257,7 @@ def workspace_scope_block(allowed_paths) -> str:
     if not paths:
         return ''
     bullet_lines = '\n'.join(f'  - {p}' for p in paths)
+    bullet_lines_for_template = '\n'.join(f'   - {p}' for p in paths)
     return (
         'WORKSPACE SCOPE — STRICT BOUNDARY (read this first):\n'
         'You may only read or modify files inside the workspace paths '
@@ -278,9 +279,34 @@ def workspace_scope_block(allowed_paths) -> str:
         '\n'
         'If the task description, ticket comment, or code snippet '
         'references a path outside this scope, treat it as CONTEXT '
-        'ONLY — do not open or edit it. If you genuinely need '
-        'something outside scope, stop and report it instead of '
-        'reaching for it.\n'
+        'ONLY — do not open or edit it.\n'
+        '\n'
+        'WHEN YOU MUST REFUSE A PATH-OUT-OF-SCOPE REQUEST — USE THIS TEMPLATE:\n'
+        'Do not just say "I can\'t". The operator needs to know WHAT '
+        'you were spawned with and HOW to widen the scope. Reply with '
+        'this template, filling in the missing-path name:\n'
+        '\n'
+        '   I can\'t write to `<requested-path>` because this session\n'
+        '   was spawned with sandbox access to only these paths:\n'
+        f'{bullet_lines_for_template}\n'
+        '\n'
+        '   To widen scope:\n'
+        '   1. **Check the task tags** for a matching `kato:repo:<id>`.\n'
+        '      - **Tag is missing:** add it on the task in your ticket\n'
+        '        platform (YouTrack/Jira), then click "Sync repositories"\n'
+        '        in the Files tab. Once kato confirms the clone landed,\n'
+        '        close + reopen this chat tab.\n'
+        '      - **Tag is already there:** close + reopen this chat tab.\n'
+        '        I was spawned with the OLD set of repos in my sandbox;\n'
+        '        a fresh spawn picks up the current tags.\n'
+        '   2. For multi-repo changes, repeat for each repo.\n'
+        '\n'
+        '   Once my session restarts with the broader sandbox, I can\n'
+        '   make the change.\n'
+        '\n'
+        'Use the template verbatim (substituting the real path). It '
+        'gives the operator a complete diagnosis instead of forcing '
+        'them to guess why a tag-already-on-the-task is being ignored.\n'
     )
 
 

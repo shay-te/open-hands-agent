@@ -11,6 +11,7 @@
     "added_repositories": [],
     "already_present": [],
     "failed_repositories": [],
+    "requires_session_restart": false,
     "synced": true,
     "task_id": "PROJ-SYNC"
   },

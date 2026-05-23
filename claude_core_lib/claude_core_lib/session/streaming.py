@@ -217,7 +217,7 @@ class StreamingClaudeSession(object):
         # came from ``KATO_IGNORED_REPOSITORY_FOLDERS``.
         self._additional_dirs = [
             normalized_text(str(d)) for d in (additional_dirs or [])
-            if normalized_text(str(d))
+            if d is not None and normalized_text(str(d))
         ]
         # Set from ``KATO_CLAUDE_DOCKER`` at boot, threaded down through
         # the session manager. Independent of ``permission_mode``: docker
@@ -292,6 +292,19 @@ class StreamingClaudeSession(object):
     @property
     def claude_session_id(self) -> str:
         return self._claude_session_id
+
+    def allowed_additional_dirs(self) -> tuple[str, ...]:
+        """Spawn-time ``--add-dir`` paths the live subprocess was given.
+
+        The Claude CLI bakes its sandbox into the subprocess at spawn
+        time — there's no in-flight widening API. Operators who clone
+        new repos for the task after the chat tab is already open
+        need to restart the tab to pick them up. Callers
+        (``AgentService.sync_task_repositories``) compare the new
+        clone paths against this set to surface a
+        ``requires_session_restart`` signal in the sync response.
+        """
+        return tuple(self._additional_dirs)
 
     @property
     def is_alive(self) -> bool:
