@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
+from provider_client_base.provider_client_base.helpers.mention_utils import (
+    is_comment_addressed_elsewhere,
+)
 from provider_client_base.provider_client_base.helpers.text_utils import normalized_text
 from provider_client_base.provider_client_base.retrying_client_base import RetryingClientBase
 
@@ -31,6 +34,7 @@ class GitHubIssuesClient(RetryingClientBase):
         max_retries: int = 3,
         *,
         is_operational_comment: Callable[[str], bool] | None = None,
+        bot_login: str = '',
     ) -> None:
         super().__init__(base_url, token, timeout=30, max_retries=max_retries)
         self._owner = str(owner).strip()
@@ -38,6 +42,9 @@ class GitHubIssuesClient(RetryingClientBase):
         self._is_operational_comment: Callable[[str], bool] = (
             is_operational_comment or (lambda _: False)
         )
+        # See provider_client_base.helpers.mention_utils for the rule;
+        # empty value disables the @-mention filter.
+        self._bot_login = str(bot_login or '').strip()
         self.set_headers(
             {
                 'Authorization': f'Bearer {token}',
@@ -176,6 +183,12 @@ class GitHubIssuesClient(RetryingClientBase):
             extract_author=lambda c: self._safe_dict(c, GitHubCommentFields.USER).get(
                 GitHubCommentFields.LOGIN
             ),
+            # Drop comments addressed to humans other than the kato
+            # bot — see provider_client_base.helpers.mention_utils.
+            skip=lambda c: is_comment_addressed_elsewhere(
+                c.get(GitHubCommentFields.BODY, ''),
+                self._bot_login,
+            ),
         )
 
     # ----- filtering -----
@@ -289,10 +302,13 @@ class GitHubIssuesClient(RetryingClientBase):
         *,
         extract_body: Callable[[dict[str, Any]], object],
         extract_author: Callable[[dict[str, Any]], object],
+        skip: Callable[[dict[str, Any]], bool] | None = None,
     ) -> list[dict[str, str]]:
         entries: list[dict[str, str]] = []
         for comment in comments:
             if not isinstance(comment, dict):
+                continue
+            if skip is not None and skip(comment):
                 continue
             body = normalized_text(extract_body(comment))
             if not body:

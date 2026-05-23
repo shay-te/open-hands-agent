@@ -19,10 +19,15 @@ class GitHubCoreLib(CoreLib):
             github_cfg.token,
             github_cfg.max_retries,
         )
+        # ``assignee`` is the GitHub login the host scans tasks under
+        # — re-used as ``bot_login`` so the client can filter
+        # @-mentioned-elsewhere comments. Defaults to empty when the
+        # older config yaml omits the key.
         self.issue = GitHubIssuesClient(
             github_cfg.base_url,
             github_cfg.token,
             github_cfg.owner,
             repo,
             github_cfg.max_retries,
+            bot_login=str(getattr(github_cfg, 'assignee', '') or ''),
         )

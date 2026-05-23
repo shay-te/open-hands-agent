@@ -5,6 +5,9 @@ from collections.abc import Callable
 from typing import Any
 from urllib.parse import urlparse
 
+from provider_client_base.provider_client_base.helpers.mention_utils import (
+    is_comment_addressed_elsewhere,
+)
 from provider_client_base.provider_client_base.helpers.retry_utils import run_with_retry
 from provider_client_base.provider_client_base.retrying_client_base import RetryingClientBase
 
@@ -44,6 +47,16 @@ class YouTrackClientBase(RetryingClientBase):
     with any of these prefixes are excluded from the *context* section of the
     task description (they are still included in ``all_comments`` so the host
     application can read them for logic).  Defaults to ``()`` (no filtering).
+
+    ``bot_login`` — the YouTrack login of the bot user that owns this
+    client (typically the same value passed to ``get_assigned_tasks`` as
+    ``assignee``). When set, comments that contain @-mentions but none
+    of those mentions match this login are treated as "addressed to a
+    human, not the bot" and dropped from the task description / context.
+    Comments with no @-mention at all are unaffected. Empty string (or
+    the YouTrack pseudo-login ``"me"``, which is an alias, not a real
+    user) disables the filter so the host opts in by configuring a real
+    login.
     """
 
     def __init__(
@@ -53,9 +66,16 @@ class YouTrackClientBase(RetryingClientBase):
         timeout: int,
         max_retries: int = 3,
         operational_comment_prefixes: tuple[str, ...] = (),
+        bot_login: str = '',
     ) -> None:
         super().__init__(base_url, token, timeout=timeout, max_retries=max_retries)
         self._operational_comment_prefixes = tuple(operational_comment_prefixes or ())
+        normalized_login = normalized_text(str(bot_login or '')).lower()
+        # ``"me"`` is a YouTrack alias for "the calling user", not a
+        # real login — it works for issue queries but can never match
+        # a comment's literal ``@mention`` text, so treat it as
+        # "filter disabled" rather than emitting it as the bot id.
+        self._bot_login = '' if normalized_login == 'me' else normalized_login
 
     # ----- abstract interface -----
 
@@ -237,6 +257,17 @@ class YouTrackClientBase(RetryingClientBase):
             TaskCommentFields.AUTHOR: normalized_text(author) or 'unknown',
             TaskCommentFields.BODY: normalized_body,
         }
+
+    def _comment_is_addressed_elsewhere(self, body_text: object) -> bool:
+        """Thin wrapper around the shared mention filter.
+
+        Kept as an instance method so callers can pass the predicate
+        without having to thread ``self._bot_login`` through every
+        callsite. See
+        :func:`provider_client_base.helpers.mention_utils.is_comment_addressed_elsewhere`
+        for the rule.
+        """
+        return is_comment_addressed_elsewhere(body_text, self._bot_login)
 
     # ----- attachments -----
 

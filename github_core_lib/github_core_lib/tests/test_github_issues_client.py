@@ -565,6 +565,33 @@ class GitHubIssuesClientCommentEntriesTests(unittest.TestCase):
 
         self.assertEqual(entries, [])
 
+    def test_default_bot_login_disables_filter(self) -> None:
+        # Backward-compat: hosts that don't pass ``bot_login`` keep
+        # the pre-filter behavior.
+        client = _make_client()
+        self.assertEqual(client._bot_login, '')
+        comments = [
+            {GitHubCommentFields.BODY: '@alice please look',
+             GitHubCommentFields.USER: {GitHubCommentFields.LOGIN: 'op'}},
+        ]
+        self.assertEqual(len(client._task_comment_entries(comments)), 1)
+
+    def test_mention_filter_drops_addressed_to_other_humans(self) -> None:
+        # The reported bug, GitHub edition.
+        client = _make_client(bot_login='kato_bot')
+        comments = [
+            {GitHubCommentFields.BODY: '@alice can you handle this',
+             GitHubCommentFields.USER: {GitHubCommentFields.LOGIN: 'op'}},
+            {GitHubCommentFields.BODY: 'this also needs a unit test',
+             GitHubCommentFields.USER: {GitHubCommentFields.LOGIN: 'op'}},
+            {GitHubCommentFields.BODY: '@kato_bot fix the typo',
+             GitHubCommentFields.USER: {GitHubCommentFields.LOGIN: 'op'}},
+        ]
+        bodies = [e[ISSUE_COMMENT_BODY] for e in client._task_comment_entries(comments)]
+        self.assertIn('this also needs a unit test', bodies)
+        self.assertIn('@kato_bot fix the typo', bodies)
+        self.assertNotIn('@alice can you handle this', bodies)
+
 
 class GitHubIssuesClientStaticHelpersTests(unittest.TestCase):
     def test_normalized_allowed_states_lowercases(self) -> None:

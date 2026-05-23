@@ -41,6 +41,26 @@ class YouTrackClientConstructionTests(unittest.TestCase):
         client = YouTrackClient('https://youtrack.example', 'yt-token')
         self.assertEqual(client._operational_comment_prefixes, ())
 
+    def test_default_bot_login_is_empty_so_filter_is_disabled(self) -> None:
+        # Backward-compat: hosts that haven't opted in get the
+        # pre-filter behavior (no comments dropped).
+        client = YouTrackClient('https://youtrack.example', 'yt-token')
+        self.assertEqual(client._bot_login, '')
+
+    def test_bot_login_normalized_to_lowercase(self) -> None:
+        client = YouTrackClient(
+            'https://youtrack.example', 'yt-token', bot_login='Kato_Bot',
+        )
+        self.assertEqual(client._bot_login, 'kato_bot')
+
+    def test_bot_login_me_alias_treated_as_disabled(self) -> None:
+        # YouTrack's ``"me"`` is a query alias, not a real login —
+        # never matches a literal ``@mention``. Treat as filter off.
+        client = YouTrackClient(
+            'https://youtrack.example', 'yt-token', bot_login='me',
+        )
+        self.assertEqual(client._bot_login, '')
+
     def test_custom_operational_comment_prefixes_stored(self) -> None:
         prefixes = ('Agent started:', 'Agent stopped:')
         client = YouTrackClient(
@@ -1030,6 +1050,66 @@ class YouTrackClientBaseEdgeCases(unittest.TestCase):
             'https://x', attachment_name='x.txt', max_chars=100,
         )
         self.assertEqual(result, '')
+
+
+class YouTrackTaskCommentEntriesMentionFilterTests(unittest.TestCase):
+    """Wired-through check for the @-mention filter.
+
+    The shared filter rule lives in
+    ``provider_client_base.helpers.mention_utils`` and is exhaustively
+    tested there. Here we verify the filter is actually plumbed into
+    ``_task_comment_entries`` — the bug the user reported was that
+    YouTrack was passing every comment through unfiltered, so what
+    matters most is that the wiring exists.
+    """
+
+    @staticmethod
+    def _raw(text: str, *, author: str = 'someone') -> dict:
+        return {
+            YouTrackCommentFields.TEXT: text,
+            YouTrackCommentFields.AUTHOR: {
+                YouTrackCommentFields.LOGIN: author,
+                YouTrackCommentFields.NAME: author,
+            },
+        }
+
+    def test_filter_disabled_when_bot_login_empty_keeps_all_comments(self) -> None:
+        client = YouTrackClient('https://x.example', 'tk')
+        entries = client._task_comment_entries([
+            self._raw('@alice please review'),
+            self._raw('general note'),
+            self._raw('@kato_bot fix typo'),
+        ])
+        self.assertEqual(len(entries), 3)
+
+    def test_filter_drops_comments_addressed_to_other_humans(self) -> None:
+        client = YouTrackClient(
+            'https://x.example', 'tk', bot_login='kato_bot',
+        )
+        entries = client._task_comment_entries([
+            self._raw('@alice can you take a look'),       # dropped
+            self._raw('this also needs a unit test'),      # kept (no @mention)
+            self._raw('@kato_bot please fix the typo'),    # kept (for bot)
+            self._raw('@alice and @kato_bot together'),    # kept (bot included)
+            self._raw('@bob.smith handle this please'),    # dropped
+        ])
+        bodies = [e[TaskCommentFields.BODY] for e in entries]
+        self.assertIn('this also needs a unit test', bodies)
+        self.assertIn('@kato_bot please fix the typo', bodies)
+        self.assertIn('@alice and @kato_bot together', bodies)
+        self.assertNotIn('@alice can you take a look', bodies)
+        self.assertNotIn('@bob.smith handle this please', bodies)
+        self.assertEqual(len(entries), 3)
+
+    def test_me_alias_disables_filter_even_with_at_mentions(self) -> None:
+        client = YouTrackClient(
+            'https://x.example', 'tk', bot_login='me',
+        )
+        entries = client._task_comment_entries([
+            self._raw('@alice please review'),
+        ])
+        # ``"me"`` is treated as filter-disabled, so the comment is kept.
+        self.assertEqual(len(entries), 1)
 
 
 if __name__ == '__main__':

@@ -524,6 +524,33 @@ class GitLabIssuesClientCommentEntriesTests(unittest.TestCase):
 
         self.assertEqual(entries, [])
 
+    def test_default_bot_login_disables_filter(self) -> None:
+        # Backward-compat path: filter stays off when host hasn't
+        # configured ``bot_login``.
+        client = _make_client()
+        self.assertEqual(client._bot_login, '')
+        entries = client._task_comment_entries([
+            _note('@alice please look', 'op'),
+        ])
+        self.assertEqual(len(entries), 1)
+
+    def test_mention_filter_drops_addressed_to_other_humans(self) -> None:
+        # The reported bug, GitLab edition.
+        client = _make_client(bot_login='kato_bot')
+        entries = client._task_comment_entries([
+            _note('@alice can you handle this', 'op'),     # dropped
+            _note('this also needs a unit test', 'op'),    # kept
+            _note('@kato_bot fix the typo', 'op'),         # kept
+            _note('assigned to @alice', 'op', system=True),  # dropped (system)
+        ])
+        bodies = [e[ISSUE_COMMENT_BODY] for e in entries]
+        self.assertIn('this also needs a unit test', bodies)
+        self.assertIn('@kato_bot fix the typo', bodies)
+        self.assertNotIn('@alice can you handle this', bodies)
+        # system note also dropped — the @-mention filter composes
+        # with the existing system-notes skip.
+        self.assertNotIn('assigned to @alice', bodies)
+
 
 class GitLabIssuesClientStaticHelpersTests(unittest.TestCase):
     def test_normalized_allowed_states_lowercases(self) -> None:

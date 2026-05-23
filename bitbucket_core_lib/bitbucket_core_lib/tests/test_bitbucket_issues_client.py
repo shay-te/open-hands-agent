@@ -8,6 +8,7 @@ from bitbucket_core_lib.bitbucket_core_lib.data.fields import (
     ISSUE_ALL_COMMENTS,
     ISSUE_COMMENT_AUTHOR,
     ISSUE_COMMENT_BODY,
+    BitbucketIssueCommentFields,
     BitbucketIssueFields,
 )
 from bitbucket_core_lib.bitbucket_core_lib.data.issue_record import IssueRecord
@@ -681,3 +682,49 @@ class BitbucketIssuesClientDefensiveBranchTests(unittest.TestCase):
             extract_author=lambda c: c.get('author', ''),
         )
         self.assertEqual(len(result), 1)
+
+
+class BitbucketMentionFilterWiringTests(unittest.TestCase):
+    """Confirms the shared @-mention filter is plumbed into Bitbucket.
+
+    The rule itself is exhaustively tested in
+    ``provider_client_base.tests.test_mention_utils``.
+    """
+
+    def _make_client(self, **kwargs) -> BitbucketIssuesClient:
+        return BitbucketIssuesClient(
+            'https://api.bitbucket.org/2.0', 'tok',
+            'workspace', 'repo', **kwargs,
+        )
+
+    @staticmethod
+    def _raw(text: str) -> dict:
+        return {
+            BitbucketIssueCommentFields.CONTENT: {
+                BitbucketIssueCommentFields.RAW: text,
+            },
+            BitbucketIssueCommentFields.USER: {
+                BitbucketIssueCommentFields.DISPLAY_NAME: 'Operator',
+            },
+        }
+
+    def test_default_bot_login_disables_filter(self) -> None:
+        client = self._make_client()
+        self.assertEqual(client._bot_login, '')
+        entries = client._task_comment_entries([
+            self._raw('@alice please look'),
+        ])
+        self.assertEqual(len(entries), 1)
+
+    def test_mention_filter_drops_addressed_to_other_humans(self) -> None:
+        # The reported bug, Bitbucket edition.
+        client = self._make_client(bot_login='kato_bot')
+        entries = client._task_comment_entries([
+            self._raw('@alice can you handle this'),       # dropped
+            self._raw('this also needs a unit test'),      # kept
+            self._raw('@kato_bot fix the typo'),           # kept
+        ])
+        bodies = [e[ISSUE_COMMENT_BODY] for e in entries]
+        self.assertIn('this also needs a unit test', bodies)
+        self.assertIn('@kato_bot fix the typo', bodies)
+        self.assertNotIn('@alice can you handle this', bodies)

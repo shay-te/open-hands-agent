@@ -1007,3 +1007,53 @@ class JiraClientDefensiveBranchTests(unittest.TestCase):
         )
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0][ISSUE_COMMENT_AUTHOR], 'bob')
+
+
+class JiraMentionFilterWiringTests(unittest.TestCase):
+    """Confirms the shared @-mention filter is plumbed into Jira.
+
+    The rule itself is exhaustively tested in
+    ``provider_client_base.tests.test_mention_utils`` — these tests
+    only verify the wiring exists for Jira so the user-reported bug
+    (operator tags an employee, kato acts on it anyway) is blocked
+    on this platform too.
+    """
+
+    @staticmethod
+    def _adf(text: str) -> dict:
+        # Minimal ADF document Jira returns for plain-text comments.
+        return {
+            'type': 'doc', 'version': 1, 'content': [
+                {'type': 'paragraph', 'content': [
+                    {'type': 'text', 'text': text},
+                ]},
+            ],
+        }
+
+    def _raw(self, text: str) -> dict:
+        return {
+            JiraCommentFields.AUTHOR: {JiraCommentFields.DISPLAY_NAME: 'Operator'},
+            JiraCommentFields.BODY: self._adf(text),
+        }
+
+    def test_default_bot_login_is_empty_so_filter_is_disabled(self) -> None:
+        client = JiraClient('https://jira.example', 'jira-token')
+        self.assertEqual(client._bot_login, '')
+        entries = client._task_comment_entries([
+            self._raw('@alice please review'),
+        ])
+        self.assertEqual(len(entries), 1)
+
+    def test_filter_drops_addressed_to_humans_other_than_bot(self) -> None:
+        client = JiraClient(
+            'https://jira.example', 'jira-token', bot_login='kato_bot',
+        )
+        entries = client._task_comment_entries([
+            self._raw('@alice can you take a look'),       # dropped
+            self._raw('this also needs a unit test'),      # kept
+            self._raw('@kato_bot please fix the typo'),    # kept
+        ])
+        bodies = [e[ISSUE_COMMENT_BODY] for e in entries]
+        self.assertIn('this also needs a unit test', bodies)
+        self.assertIn('@kato_bot please fix the typo', bodies)
+        self.assertNotIn('@alice can you take a look', bodies)

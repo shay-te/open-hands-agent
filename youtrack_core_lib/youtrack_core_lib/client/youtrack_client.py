@@ -69,6 +69,7 @@ class YouTrackClient(YouTrackClientBase):
         max_retries: int = 3,
         *,
         operational_comment_prefixes: tuple[str, ...] = (),
+        bot_login: str = '',
     ) -> None:
         super().__init__(
             base_url,
@@ -76,6 +77,7 @@ class YouTrackClient(YouTrackClientBase):
             timeout=30,
             max_retries=max_retries,
             operational_comment_prefixes=operational_comment_prefixes,
+            bot_login=bot_login,
         )
 
     def validate_connection(self, project: str, assignee: str, states: list[str]) -> None:
@@ -435,12 +437,20 @@ class YouTrackClient(YouTrackClientBase):
             screenshot_lines=self._format_screenshot_attachments(attachments),
         )
 
-    @classmethod
-    def _task_comment_entries(cls, comments: list[dict[str, Any]]) -> list[dict[str, str]]:
-        return cls._build_comment_entries(
+    def _task_comment_entries(self, comments: list[dict[str, Any]]) -> list[dict[str, str]]:
+        return self._build_comment_entries(
             comments,
             extract_body=lambda c: text_from_mapping(c, YouTrackCommentFields.TEXT),
-            extract_author=cls._comment_author_name,
+            extract_author=self._comment_author_name,
+            # Drop comments that @-mention humans other than the kato
+            # bot — those are operator-to-employee discussions, not
+            # requests the agent should act on. Comments with no
+            # @-mention are kept (general project context). When
+            # ``bot_login`` is unset the predicate returns False on
+            # every input, preserving the pre-filter behavior.
+            skip=lambda c: self._comment_is_addressed_elsewhere(
+                text_from_mapping(c, YouTrackCommentFields.TEXT),
+            ),
         )
 
     def _format_text_attachments(self, attachments: list[dict[str, Any]]) -> list[str]:

@@ -3,6 +3,9 @@ from __future__ import annotations
 from typing import Any, Callable
 from urllib.parse import quote
 
+from provider_client_base.provider_client_base.helpers.mention_utils import (
+    is_comment_addressed_elsewhere,
+)
 from provider_client_base.provider_client_base.helpers.text_utils import normalized_text
 from provider_client_base.provider_client_base.retrying_client_base import RetryingClientBase
 
@@ -31,12 +34,16 @@ class GitLabIssuesClient(RetryingClientBase):
         max_retries: int = 3,
         *,
         is_operational_comment: Callable[[str], bool] | None = None,
+        bot_login: str = '',
     ) -> None:
         super().__init__(base_url, token, timeout=30, max_retries=max_retries)
         self._project = quote(str(project).strip(), safe='')
         self._is_operational_comment: Callable[[str], bool] = (
             is_operational_comment or (lambda _: False)
         )
+        # See provider_client_base.helpers.mention_utils for the rule;
+        # empty value disables the @-mention filter.
+        self._bot_login = str(bot_login or '').strip()
         self.set_headers({'PRIVATE-TOKEN': token})
 
     def validate_connection(self, project: str, assignee: str, states: list[str]) -> None:
@@ -167,11 +174,24 @@ class GitLabIssuesClient(RetryingClientBase):
             author = self._safe_dict(c, GitLabCommentFields.AUTHOR)
             return author.get(GitLabCommentFields.NAME) or author.get(GitLabCommentFields.USERNAME)
 
+        # Skip system notes AND comments addressed to humans other
+        # than the kato bot. The former is GitLab-specific machinery
+        # noise ("changed status to closed"); the latter is the
+        # cross-platform @-mention filter — see
+        # provider_client_base.helpers.mention_utils.
+        def skip(c: dict) -> bool:
+            if c.get(GitLabCommentFields.SYSTEM):
+                return True
+            return is_comment_addressed_elsewhere(
+                c.get(GitLabCommentFields.BODY, ''),
+                self._bot_login,
+            )
+
         return self._build_comment_entries(
             comments,
             extract_body=lambda c: str(c.get(GitLabCommentFields.BODY, '') or '').strip(),
             extract_author=extract_author,
-            skip=lambda c: bool(c.get(GitLabCommentFields.SYSTEM)),
+            skip=skip,
         )
 
     # ----- filtering -----

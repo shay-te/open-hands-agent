@@ -6,4 +6,5 @@ bitbucket_core_lib:
     api_email: ${oc.env:BITBUCKET_API_EMAIL,""}
     workspace: ${oc.env:BITBUCKET_WORKSPACE,""}
     repo_slug: ${oc.env:BITBUCKET_REPO_SLUG,""}
+    assignee: ${oc.env:BITBUCKET_ASSIGNEE,""}
     max_retries: ${oc.decode:${oc.env:BITBUCKET_CORE_LIB_MAX_RETRIES,"3"}}

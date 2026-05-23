@@ -22,6 +22,12 @@ class BitbucketCoreLib(CoreLib):
             bitbucket_cfg.max_retries,
             username=pr_username,
         )
+        # ``assignee`` is the Bitbucket login the host scans tasks
+        # under — re-used as ``bot_login`` so the client can filter
+        # @-mentioned-elsewhere comments. Falls back to ``username``
+        # for older configs where the bot's auth identity is also
+        # its scanning identity. Defaults to empty when neither key
+        # is set (filter disabled).
         self.issue = BitbucketIssuesClient(
             bitbucket_cfg.base_url,
             bitbucket_cfg.token,
@@ -29,4 +35,9 @@ class BitbucketCoreLib(CoreLib):
             bitbucket_cfg.get('repo_slug', ''),
             bitbucket_cfg.max_retries,
             username=bitbucket_cfg.get('username', ''),
+            bot_login=str(
+                bitbucket_cfg.get('assignee', '')
+                or bitbucket_cfg.get('username', '')
+                or ''
+            ),
         )

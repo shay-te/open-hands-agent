@@ -3,4 +3,5 @@ gitlab_core_lib:
     base_url: ${oc.env:GITLAB_API_BASE_URL,"https://gitlab.com/api/v4"}
     token: ${oc.env:GITLAB_API_TOKEN,""}
     project: ${oc.env:GITLAB_PROJECT,""}
+    assignee: ${oc.env:GITLAB_ASSIGNEE,""}
     max_retries: ${oc.decode:${oc.env:GITLAB_CORE_LIB_MAX_RETRIES,"3"}}

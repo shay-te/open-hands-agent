@@ -4,4 +4,5 @@ jira_core_lib:
     token: ${oc.env:JIRA_API_TOKEN,""}
     email: ${oc.env:JIRA_EMAIL,""}
     project: ${oc.env:JIRA_PROJECT,""}
+    assignee: ${oc.env:JIRA_ASSIGNEE,""}
     max_retries: ${oc.decode:${oc.env:JIRA_CORE_LIB_MAX_RETRIES,"3"}}
