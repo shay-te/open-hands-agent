@@ -289,14 +289,16 @@ describe('EventLog — server event rendering', () => {
     expect(container.querySelectorAll('.bubble').length).toBe(0);
   });
 
-  test('RESULT (success) renders "(result: success)" system bubble', () => {
-    render(<EventLog entries={[_server({
+  test('RESULT (success) renders NO bubble — the assistant message above already covers it', () => {
+    // The success-case result event is the full tool output again
+    // (file lists, summaries, etc.) — duplicates what the assistant
+    // just said. Operator complaint: "remove the result block".
+    const { container } = render(<EventLog entries={[_server({
       type: CLAUDE_EVENT.RESULT,
       is_error: false,
       result: 'done',
     })]} />);
-    expect(screen.getByText(/result: success/)).toBeInTheDocument();
-    expect(screen.getByText(/done/)).toBeInTheDocument();
+    expect(container.querySelectorAll('.bubble').length).toBe(0);
   });
 
   test('RESULT (error) renders "(result: error)" error bubble', () => {

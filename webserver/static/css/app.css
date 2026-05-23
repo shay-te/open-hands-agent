@@ -385,6 +385,12 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
    * scroll-wheel case. */
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.32) rgba(255, 255, 255, 0.04);
+  /* Vertical padding gives the active tab's drop-shadow + the
+   * pinned-tab background ring room to render before
+   * overflow-y:hidden clips them. Without ``padding-top`` the active
+   * tab's ``0 1px 8px`` shadow was chopped off at the top of the
+   * pill — the pill looked decapitated. */
+  padding-top: 4px;
   padding-bottom: 4px;
 }
 .tabs-scroller::-webkit-scrollbar { height: 8px; }
@@ -416,10 +422,13 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 .tabs-pane-top .tab {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  /* Tighter right padding so the forget-X sits snug against the
-   * text instead of floating in the rounded-cap dead zone. */
-  padding: 6px 8px 6px 12px;
+  gap: 6px;
+  /* Right padding is generous because the right edge holds TWO
+   * round buttons (pin + ×) whose hover rings would otherwise bleed
+   * past the pill's right rounded cap into the inter-tab gap (the
+   * "red X floating between tabs" regression). 14px clears both
+   * 16px discs on a ~28px-tall pill. */
+  padding: 6px 14px 6px 12px;
   border-radius: var(--radius-pill);
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.06);
@@ -474,9 +483,11 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   /* Fixed square + flex-centre so the × glyph sits dead-centre and
    * never spills past the round hover background. Equal padding (a
    * non-square box with border-radius:50% renders an ellipse the
-   * glyph pokes out of). */
-  width: 18px;
-  height: 18px;
+   * glyph pokes out of). 16px (down from 18px) so the bright red
+   * hover ring fits inside the pill's right cap without bleeding
+   * into the gap between this tab and the next. */
+  width: 16px;
+  height: 16px;
   padding: 0;
   display: inline-flex;
   align-items: center;
@@ -503,6 +514,97 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 .tabs-pane-top .tab .tab-forget-btn:hover {
   background: rgba(220, 38, 38, 0.85);
   color: #fff7ed;
+}
+
+/* ───── tab-pin button ────────────────────────────────────────────
+ *
+ * Always-visible on the active tab (matches the X behaviour) and
+ * on hover for inactive tabs. Pinned state pins the icon visibly
+ * (full opacity + brighter background) so the operator can scan
+ * which tabs are pinned at a glance. Unpinned state shows the
+ * thumbtack rotated 45° as a "tip up, not stuck" affordance. */
+.tabs-pane-top .tab .tab-pin-btn {
+  background: transparent;
+  border: none;
+  color: rgba(245, 245, 247, 0.45);
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  /* Matches .tab-forget-btn (16px) — the two discs sit next to each
+   * other so any size mismatch would read as misalignment. */
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 50%;
+  visibility: hidden;
+  transition: background 120ms ease, color 120ms ease, transform 120ms ease;
+}
+.tabs-pane-top .tab .tab-pin-btn svg {
+  width: 9px;
+  height: 9px;
+  display: block;
+  /* Unpinned default: tip-up affordance, "not stuck in" — flips
+   * to no rotation in the .is-pinned state below. */
+  transform: rotate(45deg);
+  transition: transform 120ms ease;
+}
+.tabs-pane-top .tab .tab-pin-btn.is-pinned svg { transform: rotate(0deg); }
+.tabs-pane-top .tab:hover .tab-pin-btn,
+.tabs-pane-top .tab.active .tab-pin-btn,
+.tabs-pane-top .tab .tab-pin-btn.is-pinned {
+  /* Pinned button is always visible — that's the whole point of
+   * pinning ("I want to see this stays pinned across reloads"). */
+  visibility: visible;
+  background: rgba(255, 255, 255, 0.10);
+  color: rgba(245, 245, 247, 0.75);
+}
+.tabs-pane-top .tab .tab-pin-btn.is-pinned {
+  /* Stronger fill for the "stuck" state so it reads as a toggle
+   * that's currently ON rather than just a hovered button. */
+  background: rgba(10, 132, 255, 0.40);
+  color: #f5f5f7;
+}
+.tabs-pane-top .tab .tab-pin-btn:hover {
+  background: rgba(10, 132, 255, 0.65);
+  color: #fff;
+}
+
+/* ───── pinned-tab sticky positioning ─────────────────────────────
+ *
+ * Pinned tabs sort to the LEFT of the strip (TabList does the
+ * sort) and stay glued to the left edge while the rest of the
+ * strip scrolls underneath. ``--sticky-left`` is published per-pin
+ * by a layout effect in TabList that measures each preceding
+ * pinned tab's offsetWidth + gap — so multiple pinned tabs stack
+ * horizontally instead of collapsing on top of each other at
+ * ``left: 0``. The opaque background hides scrolling content
+ * sliding behind. */
+.tabs-pane-top .tab.is-pinned {
+  position: sticky;
+  left: var(--sticky-left, 0);
+  z-index: 3;
+  /* Solid panel that mirrors the strip's gradient so scrolling
+   * tabs are obscured behind the pinned cluster instead of
+   * smearing through it. */
+  background:
+    linear-gradient(180deg,
+      rgba(36, 36, 40, 0.96) 0%,
+      rgba(24, 24, 28, 0.96) 100%);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+.tabs-pane-top .tab.is-pinned.active {
+  /* Active + pinned = the same brighter background as a normal
+   * active tab so the active-state signal isn't overwritten by the
+   * pinned-panel base. */
+  background:
+    linear-gradient(180deg,
+      rgba(56, 56, 60, 0.98) 0%,
+      rgba(40, 40, 46, 0.98) 100%);
+  border-color: rgba(255, 255, 255, 0.26);
 }
 .tabs-pane-top .tab.needs-attention {
   background: rgba(249, 115, 22, 0.22);
@@ -1240,12 +1342,17 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
  * + remark-gfm). Tight vertical rhythm so a long answer with
  * headings + lists doesn't double the bubble's height vs the old
  * plain-text rendering. Fenced code blocks own a header strip with
- * the language label + a copy-to-clipboard button. */
+ * the language label + a copy-to-clipboard button.
+ *
+ * Compact spacing: ``line-height: 1.4`` and 4-6px block margins
+ * because Claude's long answers (the "what changed" summaries with
+ * dense inline-code spans on every line) doubled the bubble height
+ * at the previous 1.5/8px values — see the operator screenshot. */
 .bubble.assistant .bubble-content > :first-child { margin-top: 0; }
 .bubble.assistant .bubble-content > :last-child { margin-bottom: 0; }
 .bubble.assistant .bubble-content p {
-  margin: 0 0 8px;
-  line-height: 1.5;
+  margin: 0 0 4px;
+  line-height: 1.4;
 }
 .bubble.assistant .bubble-content h1,
 .bubble.assistant .bubble-content h2,
@@ -1253,10 +1360,10 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 .bubble.assistant .bubble-content h4,
 .bubble.assistant .bubble-content h5,
 .bubble.assistant .bubble-content h6 {
-  margin: 14px 0 6px;
+  margin: 10px 0 3px;
   font-weight: 600;
   color: #f5f5f5;
-  line-height: 1.3;
+  line-height: 1.25;
 }
 .bubble.assistant .bubble-content h1 { font-size: 18px; }
 .bubble.assistant .bubble-content h2 { font-size: 16px; }
@@ -1266,18 +1373,25 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 .bubble.assistant .bubble-content h6 { font-size: 14px; }
 .bubble.assistant .bubble-content ul,
 .bubble.assistant .bubble-content ol {
-  margin: 0 0 8px;
-  padding-left: 22px;
+  margin: 0 0 4px;
+  padding-left: 20px;
 }
 .bubble.assistant .bubble-content li {
-  margin: 2px 0;
-  line-height: 1.5;
+  /* No inter-item margin — line-height already provides breathing
+   * room. Bullets/numbers stay visually paired with their text. */
+  margin: 0;
+  line-height: 1.4;
+}
+.bubble.assistant .bubble-content li + li {
+  /* Hair gap between adjacent siblings — keeps multi-line entries
+   * distinguishable without bloating short single-line lists. */
+  margin-top: 2px;
 }
 .bubble.assistant .bubble-content li > p {
   margin: 0;
 }
 .bubble.assistant .bubble-content blockquote {
-  margin: 0 0 8px;
+  margin: 0 0 4px;
   padding: 4px 12px;
   border-left: 3px solid #404040;
   color: #a3a3a3;
@@ -1312,7 +1426,12 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 .bubble.assistant .bubble-content .md-inline-code {
   font-family: ui-monospace, monospace;
   font-size: 12.5px;
-  padding: 1px 5px;
+  /* Zero vertical padding — the border still gives the chip a clean
+   * outline, but the previous 1px+1px+border added 4px per line and
+   * doubled the gap between rows in lists studded with inline code
+   * (the operator-screenshot scenario: every list item had 3-5
+   * ``code`` chips per line). */
+  padding: 0 5px;
   background: #050505;
   border: 1px solid #1f1f1f;
   border-radius: 3px;

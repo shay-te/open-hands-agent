@@ -35,6 +35,7 @@ import {
   faArrowUpRightFromSquare,
   faComment,
   faCopy,
+  faThumbtack,
 } from '@fortawesome/free-solid-svg-icons';
 
 const ICONS = {
@@ -83,6 +84,10 @@ const ICONS = {
   'external-link': faArrowUpRightFromSquare,
   // Copy-to-clipboard glyph for the markdown code-block copy button.
   'copy': faCopy,
+  // Pin glyph for the task-tab pin button. The unpinned state
+  // renders this rotated 45° via CSS (.tab-pin-btn — see app.css)
+  // so a single icon does both states without a second asset.
+  'pin': faThumbtack,
 };
 
 export default function Icon({ name, className = '', spin = false }) {

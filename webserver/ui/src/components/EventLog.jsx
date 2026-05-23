@@ -471,14 +471,19 @@ function StickyPrompt({ text }) {
 
 function resultBubbles(raw, index) {
   const ok = !raw.is_error;
-  const summary = raw.result || (ok ? 'completed' : 'failed');
-  const bubbleKind = ok ? BUBBLE_KIND.SYSTEM : BUBBLE_KIND.ERROR;
-  const resultLabel = ok ? 'success' : 'error';
-  const resultText = `(result: ${resultLabel}) ${summary}`;
+  // Success-case result events are pure noise: the assistant bubble
+  // immediately above already says "I did X". The redundant
+  // ``(result: success) <full output>`` block is what the operator
+  // sees in the screenshot complaint — drop it. Errors still
+  // render — they carry diagnostic info (rate-limit notices,
+  // tool-failure summaries) the assistant bubble doesn't repeat.
+  if (ok) { return []; }
+  const summary = raw.result || 'failed';
+  const resultText = `(result: error) ${summary}`;
   return [
     <Bubble
       key={keyOf(raw, index, 'result')}
-      kind={bubbleKind}
+      kind={BUBBLE_KIND.ERROR}
     >
       {resultText}
     </Bubble>,

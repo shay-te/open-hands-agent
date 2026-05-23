@@ -9,7 +9,10 @@ import TabTooltip from './TabTooltip.jsx';
 // tab it passes over.
 const HOVER_DELAY_MS = 350;
 
-export default function Tab({ session, active, needsAttention, onSelect, onForget }) {
+export default function Tab({
+  session, active, needsAttention, pinned = false,
+  onSelect, onForget, onTogglePin,
+}) {
   const baseStatus = deriveTabStatus(session);
   const status = resolveTabStatus(session, needsAttention);
   const isLoading = baseStatus === TAB_STATUS.PROVISIONING;
@@ -17,6 +20,7 @@ export default function Tab({ session, active, needsAttention, onSelect, onForge
     'tab',
     active ? 'active' : '',
     needsAttention ? 'needs-attention' : '',
+    pinned ? 'is-pinned' : '',
   ].filter(Boolean).join(' ');
   const idleAlive = status === TAB_STATUS.ACTIVE && session?.working === false;
   const dotClass = [
@@ -59,6 +63,12 @@ export default function Tab({ session, active, needsAttention, onSelect, onForge
     // the operator must explicitly approve it in that dialog.
     onForget(session.task_id);
   }
+  function handleTogglePin(event) {
+    event.stopPropagation();
+    closeTooltip();
+    if (typeof onTogglePin !== 'function') { return; }
+    onTogglePin(session.task_id);
+  }
 
   const hasChangesPending = !!session.has_changes_pending;
   const changesIndicator = hasChangesPending && (
@@ -87,6 +97,16 @@ export default function Tab({ session, active, needsAttention, onSelect, onForge
         <span className={dotClass} />
         <strong>{session.task_id}</strong>
         {changesIndicator}
+        <button
+          type="button"
+          className={`tab-pin-btn ${pinned ? 'is-pinned' : ''}`.trim()}
+          aria-label={pinned ? 'Unpin this task' : 'Pin this task'}
+          aria-pressed={pinned}
+          title={pinned ? 'Unpin tab' : 'Pin tab to the left'}
+          onClick={handleTogglePin}
+        >
+          <Icon name="pin" />
+        </button>
         <button
           type="button"
           className="tab-forget-btn"

@@ -178,3 +178,59 @@ describe('Tab', () => {
     }
   });
 });
+
+
+describe('Tab — pin button', () => {
+
+  test('renders the pin button on every tab', () => {
+    render(<Tab session={_session()} onSelect={() => {}} />);
+    expect(screen.getByRole('button', { name: /pin this task/i })).toBeInTheDocument();
+  });
+
+  test('unpinned state advertises "Pin" + aria-pressed=false', () => {
+    render(<Tab session={_session()} onSelect={() => {}} />);
+    const btn = screen.getByRole('button', { name: /pin this task/i });
+    expect(btn).toHaveAttribute('aria-pressed', 'false');
+    expect(btn).not.toHaveClass('is-pinned');
+  });
+
+  test('pinned state advertises "Unpin" + aria-pressed=true + is-pinned class', () => {
+    render(<Tab session={_session()} pinned={true} onSelect={() => {}} />);
+    const btn = screen.getByRole('button', { name: /unpin this task/i });
+    expect(btn).toHaveAttribute('aria-pressed', 'true');
+    expect(btn).toHaveClass('is-pinned');
+  });
+
+  test('pinned prop adds is-pinned class to the <li>', () => {
+    const { container } = render(
+      <Tab session={_session()} pinned={true} onSelect={() => {}} />,
+    );
+    expect(container.querySelector('li')).toHaveClass('is-pinned');
+  });
+
+  test('clicking the pin button fires onTogglePin with the task id', () => {
+    const onTogglePin = vi.fn();
+    const onSelect = vi.fn();
+    render(
+      <Tab
+        session={_session()}
+        onSelect={onSelect}
+        onTogglePin={onTogglePin}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /pin this task/i }));
+    expect(onTogglePin).toHaveBeenCalledWith('KATO-123');
+    // Must NOT also fire onSelect — pin button is its own action,
+    // not a tab-activation click.
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  test('pin click without an onTogglePin handler is a safe no-op', () => {
+    // Don't crash when the host forgets to wire the handler — just
+    // swallow the click.
+    render(<Tab session={_session()} onSelect={() => {}} />);
+    expect(() => {
+      fireEvent.click(screen.getByRole('button', { name: /pin this task/i }));
+    }).not.toThrow();
+  });
+});

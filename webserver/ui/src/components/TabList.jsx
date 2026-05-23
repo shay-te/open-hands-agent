@@ -1,6 +1,17 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import Icon from './Icon.jsx';
 import Tab from './Tab.jsx';
+import {
+  orderByPinned,
+  readPinnedIds,
+  togglePinned,
+  writePinnedIds,
+} from '../utils/pinnedTabs.js';
+
+// Gap between segments in the strip — matches the CSS ``gap: 6px``
+// rule on #tab-list. Kept in sync here so the sticky-left offsets
+// for pinned tabs include the inter-tab spacing.
+const TAB_GAP_PX = 6;
 
 /**
  * iOS-style segmented controller at the top of the app.
@@ -26,10 +37,29 @@ export default function TabList({
   scanPending,
 }) {
   const scrollRef = useRef(null);
+  const listRef = useRef(null);
   const [scrollState, setScrollState] = useState({
     canScrollLeft: false,
     canScrollRight: false,
   });
+  // Pinned tab ids (in pin order). localStorage-backed so the
+  // operator's preference survives reloads. Read lazily on mount;
+  // every toggle re-persists. See utils/pinnedTabs.js for the rules.
+  const [pinnedIds, setPinnedIds] = useState(() => readPinnedIds());
+  const handleTogglePin = useCallback((taskId) => {
+    setPinnedIds((prev) => {
+      const next = togglePinned(taskId, prev);
+      writePinnedIds(next);
+      return next;
+    });
+  }, []);
+  // ``orderByPinned`` is a pure sort; memoise on the inputs so we
+  // don't reshuffle the list on unrelated re-renders.
+  const orderedSessions = useMemo(
+    () => orderByPinned(sessions, pinnedIds),
+    [sessions, pinnedIds],
+  );
+  const pinnedSet = useMemo(() => new Set(pinnedIds), [pinnedIds]);
 
   // Recompute "can I scroll?" any time the scroller's size or
   // content changes — that drives whether the chevron nav buttons
@@ -194,7 +224,7 @@ export default function TabList({
     };
   }
 
-  const tabs = (sessions || []).map((session) => {
+  const tabs = orderedSessions.map((session) => {
     const isActive = session.task_id === activeTaskId;
     const needsAttention = !!attentionTaskIds && attentionTaskIds.has(session.task_id);
     return (
@@ -203,11 +233,43 @@ export default function TabList({
         session={session}
         active={isActive}
         needsAttention={needsAttention}
+        pinned={pinnedSet.has(session.task_id)}
         onSelect={onSelect}
         onForget={onForget}
+        onTogglePin={handleTogglePin}
       />
     );
   });
+
+  // Compute and publish each pinned tab's sticky-left offset so the
+  // pinned group stacks horizontally as the rest of the strip
+  // scrolls underneath. Without this, every pinned ``.is-pinned``
+  // tab would stick to ``left: 0`` and overlap the others — only
+  // the last would be visible. We measure widths on every layout
+  // (sessions added/removed, pinned set changes, viewport resize)
+  // and write ``--sticky-left`` per-tab.
+  useLayoutEffect(() => {
+    const list = listRef.current;
+    if (!list) { return undefined; }
+    const apply = () => {
+      const pinned = list.querySelectorAll(':scope > .tab.is-pinned');
+      let offset = 0;
+      pinned.forEach((el) => {
+        el.style.setProperty('--sticky-left', `${offset}px`);
+        offset += el.offsetWidth + TAB_GAP_PX;
+      });
+    };
+    apply();
+    if (typeof ResizeObserver === 'undefined') { return undefined; }
+    // Re-measure when any pinned tab's own size changes (font load,
+    // changes-indicator showing/hiding, etc.) so offsets stay
+    // correct without manual ticks.
+    const observer = new ResizeObserver(apply);
+    list.querySelectorAll(':scope > .tab.is-pinned').forEach(
+      (el) => observer.observe(el),
+    );
+    return () => observer.disconnect();
+  }, [orderedSessions, pinnedSet]);
 
   // Trailing actions live in their own pill so they stay visually
   // separated from the segments (and don't get swallowed by the
@@ -265,7 +327,7 @@ export default function TabList({
         <Icon name="chevron-left" />
       </button>
       <div className="tabs-scroller" ref={scrollRef}>
-        <ul id="tab-list">
+        <ul id="tab-list" ref={listRef}>
           {tabs}
         </ul>
       </div>
