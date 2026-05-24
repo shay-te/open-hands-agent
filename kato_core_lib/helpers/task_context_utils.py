@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from agent_core_lib.agent_core_lib.helpers.session_id_utils import fix_session_id
 from kato_core_lib.data_layers.data.task import Task
 from kato_core_lib.data_layers.data.fields import ImplementationFields
 from kato_core_lib.helpers.text_utils import normalized_text, text_from_attr, text_from_mapping
@@ -53,7 +54,7 @@ def repository_branch_text(repository_branches: dict[str, str]) -> str:
 
 
 def session_suffix(payload: dict[str, str | bool]) -> str:
-    session_id = text_from_mapping(payload, ImplementationFields.SESSION_ID)
+    session_id = fix_session_id(payload.get(ImplementationFields.AGENT_SESSION_ID))
     return f' (session {session_id})' if session_id else ''
 
 

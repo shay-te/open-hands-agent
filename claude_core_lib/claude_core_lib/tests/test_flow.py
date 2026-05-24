@@ -148,7 +148,7 @@ class ClaudeCliClientLifecycleFlowTest(unittest.TestCase):
         # Step 2: implement_task
         impl_result = self._run_with_mock(self.client.implement_task, task)
         self.assertTrue(impl_result[ImplementationFields.SUCCESS])
-        session_id = impl_result.get(ImplementationFields.SESSION_ID, '')
+        session_id = impl_result.get(ImplementationFields.AGENT_SESSION_ID, '')
 
         # Step 3: fix_review_comment (reuses session_id from impl)
         review_result = self._run_with_mock(
@@ -173,7 +173,7 @@ class ClaudeCliClientLifecycleFlowTest(unittest.TestCase):
         ):
             result = self.client.implement_task(task)
 
-        self.assertEqual(result[ImplementationFields.SESSION_ID], 'flow-sess-1')
+        self.assertEqual(result[ImplementationFields.AGENT_SESSION_ID], 'flow-sess-1')
 
     def test_fix_review_passes_session_id_to_resume(self) -> None:
         with patch(
@@ -445,7 +445,7 @@ class HelperChainFlowTest(unittest.TestCase):
             summary_fallback='Fix the auth bug',
         )
         self.assertTrue(result['success'])
-        self.assertEqual(result['session_id'], 'oh-sess-1')
+        self.assertEqual(result[ImplementationFields.AGENT_SESSION_ID], 'oh-sess-1')
         self.assertEqual(result['commit_message'], 'fix: resolve auth issue')
         self.assertEqual(result['branch_name'], 'feature/proj-8')
 

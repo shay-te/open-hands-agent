@@ -195,7 +195,7 @@ class ServiceRoutingTests(unittest.TestCase):
         # answer-mode publish reads that as the reply body.
         implementation_service.fix_review_comments.return_value = {
             ImplementationFields.SUCCESS: True,
-            ImplementationFields.SESSION_ID: 'sess-1',
+            ImplementationFields.AGENT_SESSION_ID: 'sess-1',
             'message': agent_message,
         }
 

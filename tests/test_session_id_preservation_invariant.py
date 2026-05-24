@@ -141,7 +141,6 @@ class _RestartPreservesIdTests(unittest.TestCase):
             agent_session_id=_ORIGINAL_ID,
             cwd='/x/wks/PROJ-1/repo',
             expected_branch='feature/proj-1',
-            previous_agent_session_id='',
         )
         restored = PlanningSessionRecord.from_dict(original.to_dict())
         self.assertEqual(restored.agent_session_id, _ORIGINAL_ID)
@@ -171,8 +170,6 @@ class _RestartPreservesIdTests(unittest.TestCase):
             manager.start_session(task_id='PROJ-1')
             record = manager.get_record('PROJ-1')
             self.assertEqual(record.agent_session_id, _ORIGINAL_ID)
-            # No recovery-slot move happened.
-            self.assertEqual(record.previous_agent_session_id, '')
 
     def test_large_transcript_still_keeps_session_id(self):
         # Regression: the JSONL size gate used to skip --resume for
@@ -207,7 +204,6 @@ class _RestartPreservesIdTests(unittest.TestCase):
                 record = manager.get_record('PROJ-1')
 
             self.assertEqual(record.agent_session_id, _ORIGINAL_ID)
-            self.assertEqual(record.previous_agent_session_id, '')
 
     def test_live_session_reporting_fresh_id_does_not_overwrite_original(self):
         # Regression: correction/refresh helpers must not let a live
@@ -232,7 +228,6 @@ class _RestartPreservesIdTests(unittest.TestCase):
             record = manager.get_record('PROJ-1')
 
             self.assertEqual(record.agent_session_id, _ORIGINAL_ID)
-            self.assertEqual(record.previous_agent_session_id, '')
 
 
 class _SyncRepositoriesPreservesIdTests(unittest.TestCase):
@@ -390,7 +385,6 @@ class _StaleResumeIdStaysPinnedTests(unittest.TestCase):
             )
             self.assertEqual(resume_id, _ORIGINAL_ID)
             self.assertEqual(previous_record.agent_session_id, _ORIGINAL_ID)
-            self.assertEqual(previous_record.previous_agent_session_id, '')
 
     def test_stale_resume_during_spawn_refuses_fresh_session(self):
         # If the first spawn rejects --resume, fail loud and leave the
@@ -427,7 +421,6 @@ class _StaleResumeIdStaysPinnedTests(unittest.TestCase):
                     manager.start_session(task_id='PROJ-1')
             record = manager.get_record('PROJ-1')
             self.assertEqual(record.agent_session_id, _ORIGINAL_ID)
-            self.assertEqual(record.previous_agent_session_id, '')
             self.assertEqual(len(factory_calls), 1)
 
 

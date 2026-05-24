@@ -1,3 +1,4 @@
+from agent_core_lib.agent_core_lib.data.fields import ImplementationFields
 from provider_client_base.provider_client_base.data.fields import (
     PullRequestFields,
     ReviewCommentFields,
@@ -8,13 +9,6 @@ class TaskCommentFields(object):
     AUTHOR = 'author'
     BODY = 'body'
     ALL_COMMENTS = 'all_comments'
-
-
-class ImplementationFields(object):
-    COMMIT_MESSAGE = 'commit_message'
-    MESSAGE = 'message'
-    SESSION_ID = 'session_id'
-    SUCCESS = 'success'
 
 
 class StatusFields(object):

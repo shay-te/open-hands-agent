@@ -3,6 +3,7 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
+from agent_core_lib.agent_core_lib.helpers.session_id_utils import AGENT_SESSION_ID
 from kato_webserver.app import (
     _advance_task_comments_after_result,
     _complete_in_progress_task_comments,
@@ -130,7 +131,7 @@ class WebserverAppTests(unittest.TestCase):
         records = response.get_json()
         self.assertEqual(len(records), 1)
         self.assertEqual(records[0]['task_id'], 'PROJ-1')
-        self.assertEqual(records[0]['agent_session_id'], 'abc')
+        self.assertEqual(records[0][AGENT_SESSION_ID], 'abc')
 
     def test_session_detail_endpoint_includes_recent_events_when_session_alive(self):
         live_session = MagicMock()
@@ -187,7 +188,7 @@ class WebserverAppTests(unittest.TestCase):
         payload = response.get_json()
         self.assertEqual(len(payload['sessions']), 1)
         row = payload['sessions'][0]
-        self.assertEqual(row['session_id'], 'sess-1')
+        self.assertEqual(row[AGENT_SESSION_ID], 'sess-1')
         self.assertEqual(row['cwd'], '/Users/dev/myproj')
         self.assertEqual(row['first_user_message'], 'help with auth')
         # No kato task has adopted this session id.
@@ -239,18 +240,18 @@ class WebserverAppTests(unittest.TestCase):
         app = create_app(session_manager=manager)
         response = app.test_client().post(
             '/api/sessions/PROJ-7/adopt-agent-session',
-            json={'agent_session_id': 'imported-sess-id'},
+            json={AGENT_SESSION_ID: 'imported-sess-id'},
         )
         self.assertEqual(response.status_code, 200)
         payload = response.get_json()
         self.assertEqual(payload['task_id'], 'PROJ-7')
-        self.assertEqual(payload['agent_session_id'], 'imported-sess-id')
+        self.assertEqual(payload[AGENT_SESSION_ID], 'imported-sess-id')
         self.assertEqual(adopted, [('PROJ-7', 'imported-sess-id')])
 
     def test_adopt_claude_session_endpoint_rejects_empty_id(self):
         response = self.client.post(
             '/api/sessions/PROJ-1/adopt-agent-session',
-            json={'agent_session_id': '   '},
+            json={AGENT_SESSION_ID: '   '},
         )
         self.assertEqual(response.status_code, 400)
 
@@ -265,7 +266,7 @@ class WebserverAppTests(unittest.TestCase):
         app = create_app(session_manager=_PinnedManager())
         response = app.test_client().post(
             '/api/sessions/PROJ-1/adopt-agent-session',
-            json={'agent_session_id': 'new'},
+            json={AGENT_SESSION_ID: 'new'},
         )
         self.assertEqual(response.status_code, 409)
         self.assertIn('already pinned', response.get_json()['error'])
@@ -319,7 +320,7 @@ class WebserverAppTests(unittest.TestCase):
                 app = create_app(session_manager=manager)
                 response = app.test_client().post(
                     '/api/sessions/PROJ-9/adopt-agent-session',
-                    json={'agent_session_id': 'sess-imported'},
+                    json={AGENT_SESSION_ID: 'sess-imported'},
                 )
             self.assertEqual(response.status_code, 200)
             # The JSONL has been copied into the kato cwd's project dir.
@@ -430,7 +431,7 @@ class WebserverAppTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(sent, ['hi'])
 
-    def test_post_message_respawns_when_live_session_id_drifted(self):
+    def test_post_message_respawns_when_live_agent_session_id_drifted(self):
         import tempfile
         from claude_core_lib.claude_core_lib.session.manager import (
             ClaudeSessionManager,
@@ -500,7 +501,7 @@ class WebserverAppTests(unittest.TestCase):
         app = create_app(session_manager=manager)
         response = app.test_client().post(
             '/api/sessions/PROJ-1/adopt-agent-session',
-            json={'agent_session_id': 'new'},
+            json={AGENT_SESSION_ID: 'new'},
         )
         self.assertEqual(response.status_code, 409)
 

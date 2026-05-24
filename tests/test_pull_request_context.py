@@ -17,7 +17,7 @@ class PullRequestContextTests(unittest.TestCase):
         context = build_pull_request_context(
             ' client ',
             ' feature/proj-1 ',
-            ' conversation-1 ',
+            ' conversation-1\n',
             ' PROJ-1 ',
             ' fix it already ',
         )
@@ -27,7 +27,7 @@ class PullRequestContextTests(unittest.TestCase):
             {
                 PullRequestFields.REPOSITORY_ID: 'client',
                 'branch_name': 'feature/proj-1',
-                ImplementationFields.SESSION_ID: 'conversation-1',
+                ImplementationFields.AGENT_SESSION_ID: 'conversation-1',
                 TaskFields.ID: 'PROJ-1',
                 TaskFields.SUMMARY: 'fix it already',
             },

@@ -132,7 +132,7 @@ class PlanningSessionRunnerTests(unittest.TestCase):
         self.assertEqual(manager.statuses, [SESSION_STATUS_REVIEW])
 
         self.assertTrue(result[ImplementationFields.SUCCESS])
-        self.assertEqual(result[ImplementationFields.SESSION_ID], 'fake-session-id')
+        self.assertEqual(result[ImplementationFields.AGENT_SESSION_ID], 'fake-session-id')
         self.assertEqual(result[ImplementationFields.MESSAGE], 'shipped it')
 
     def test_implement_task_returns_normalized_session_id(self) -> None:
@@ -145,7 +145,7 @@ class PlanningSessionRunnerTests(unittest.TestCase):
 
         result = runner.implement_task(build_task(), prepared_task=prepared)
 
-        self.assertEqual(result[ImplementationFields.SESSION_ID], 'fake-session-id')
+        self.assertEqual(result[ImplementationFields.AGENT_SESSION_ID], 'fake-session-id')
 
     def test_implement_task_prompt_marks_ignored_repositories_out_of_bounds(self) -> None:
         manager = _FakeManager(_terminal(result='shipped it'))

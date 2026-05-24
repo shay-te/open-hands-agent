@@ -1,5 +1,6 @@
 from __future__ import annotations
 from agent_core_lib.agent_core_lib.helpers.text_utils import text_from_mapping
+from agent_core_lib.agent_core_lib.helpers.session_id_utils import fix_session_id
 
 import re
 from dataclasses import dataclass
@@ -415,7 +416,7 @@ def review_fix_context_from_mapping(context: dict[str, str]) -> ReviewFixContext
     return ReviewFixContext(
         repository_id=text_from_mapping(context, PullRequestFields.REPOSITORY_ID),
         branch_name=text_from_mapping(context, Task.branch_name.key),
-        session_id=text_from_mapping(context, ImplementationFields.SESSION_ID),
+        session_id=fix_session_id(context.get(ImplementationFields.AGENT_SESSION_ID)),
         task_id=text_from_mapping(context, TaskFields.ID),
         task_summary=text_from_mapping(context, TaskFields.SUMMARY),
         pull_request_title=text_from_mapping(context, PullRequestFields.TITLE),

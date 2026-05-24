@@ -127,7 +127,7 @@ class ClaudeCliClientTests(unittest.TestCase):
                 {
                     'is_error': False,
                     'result': 'done',
-                    'session_id': 'sess-123',
+                    'session_id': '  sess-123\n',
                 }
             )
         )
@@ -138,7 +138,7 @@ class ClaudeCliClientTests(unittest.TestCase):
             result = client.implement_task(build_task(), prepared_task=prepared)
 
         self.assertTrue(result[ImplementationFields.SUCCESS])
-        self.assertEqual(result[ImplementationFields.SESSION_ID], 'sess-123')
+        self.assertEqual(result[ImplementationFields.AGENT_SESSION_ID], 'sess-123')
         self.assertEqual(result[ImplementationFields.MESSAGE], 'done')
         # Verify the prompt was supplied via stdin and the command shape
         kwargs = mock_run.call_args.kwargs
@@ -238,13 +238,14 @@ class ClaudeCliClientTests(unittest.TestCase):
             result = client.fix_review_comment(
                 build_review_comment(),
                 'feature/proj-1',
-                session_id='sess-1',
+                session_id='  sess-1\n',
             )
 
         self.assertTrue(result[ImplementationFields.SUCCESS])
         cmd = mock_run.call_args.args[0]
         self.assertIn('--resume', cmd)
         self.assertIn('sess-1', cmd)
+        self.assertNotIn('  sess-1\n', cmd)
 
     def test_test_task_uses_testing_prompt(self) -> None:
         client = ClaudeCliClient(binary='claude', repository_root_path='/tmp/x')
@@ -276,7 +277,10 @@ class ClaudeCliClientTests(unittest.TestCase):
             disallowed_tools='Bash',
             bypass_permissions=False,
         )
-        cmd = client._build_command(additional_dirs=['/tmp/extra'], session_id='abc')
+        cmd = client._build_command(
+            additional_dirs=['/tmp/extra'],
+            session_id='  abc\n',
+        )
         self.assertEqual(cmd[0], 'claude')
         self.assertIn('--max-turns', cmd)
         self.assertIn('5', cmd)
@@ -293,6 +297,7 @@ class ClaudeCliClientTests(unittest.TestCase):
         self.assertIn('/tmp/extra', cmd)
         self.assertIn('--resume', cmd)
         self.assertIn('abc', cmd)
+        self.assertNotIn('  abc\n', cmd)
 
     def test_default_safe_mode_uses_acceptEdits_and_default_allowlist(self) -> None:
         client = ClaudeCliClient(binary='claude')

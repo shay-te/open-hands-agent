@@ -64,8 +64,8 @@ class AgentStateRegistryDefensiveTests(unittest.TestCase):
         )
         registry, _ = self._registry()
         registry.pull_request_context_map['pr-1'] = [
-            {TaskFields.ID: 'OTHER-1', ImplementationFields.SESSION_ID: 'x'},
-            {TaskFields.ID: 'PROJ-1', ImplementationFields.SESSION_ID: 's1'},
+            {TaskFields.ID: 'OTHER-1', ImplementationFields.AGENT_SESSION_ID: 'x'},
+            {TaskFields.ID: 'PROJ-1', ImplementationFields.AGENT_SESSION_ID: 's1'},
         ]
         # Only the PROJ-1 session is surfaced.
         self.assertEqual(registry.session_ids_for_task('PROJ-1'), ['s1'])

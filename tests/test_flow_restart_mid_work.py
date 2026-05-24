@@ -32,6 +32,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from agent_core_lib.agent_core_lib.helpers.session_id_utils import AGENT_SESSION_ID
 
 # ---------------------------------------------------------------------------
 # Shared stub session for the session-manager surface.
@@ -187,7 +188,7 @@ class FlowRestartMidWorkTests(unittest.TestCase):
             record_path.write_text(json.dumps({
                 'task_id': 'T1',
                 'task_summary': 'crashed mid-work',
-                'agent_session_id': 'stale-but-real',
+                AGENT_SESSION_ID: 'stale-but-real',
                 'status': SESSION_STATUS_ACTIVE,
                 'created_at_epoch': 1000.0,
                 'updated_at_epoch': 1000.0,
@@ -222,7 +223,7 @@ class FlowRestartMidWorkTests(unittest.TestCase):
             # Healthy record.
             (Path(state_dir) / 'T2.json').write_text(json.dumps({
                 'task_id': 'T2',
-                'agent_session_id': 'healthy-id',
+                AGENT_SESSION_ID: 'healthy-id',
                 'status': 'terminated',
             }), encoding='utf-8')
 
@@ -263,7 +264,7 @@ class FlowRestartMidWorkTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as state_dir:
             (Path(state_dir) / 'orphan.json').write_text(json.dumps({
                 'task_id': '',
-                'agent_session_id': 'leaked-id',
+                AGENT_SESSION_ID: 'leaked-id',
                 'status': 'terminated',
             }), encoding='utf-8')
             mgr = ClaudeSessionManager(
@@ -423,7 +424,7 @@ class FlowRestartMidWorkTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as state_dir:
             (Path(state_dir) / 'T1.json').write_text(json.dumps({
                 'task_id': 'T1',
-                'agent_session_id': 'real-id',
+                AGENT_SESSION_ID: 'real-id',
                 'status': 'terminated',
             }), encoding='utf-8')
             mgr = ClaudeSessionManager(
@@ -449,7 +450,7 @@ class FlowRestartMultiTaskTests(unittest.TestCase):
             for task_id, sid in (('T1', 'sid-1'), ('T2', 'sid-2'), ('T3', 'sid-3')):
                 (Path(state_dir) / f'{task_id}.json').write_text(json.dumps({
                     'task_id': task_id,
-                    'agent_session_id': sid,
+                    AGENT_SESSION_ID: sid,
                     'status': 'terminated',
                 }), encoding='utf-8')
             mgr = ClaudeSessionManager(
@@ -471,12 +472,12 @@ class FlowRestartMultiTaskTests(unittest.TestCase):
             )
             (Path(state_dir) / 'T2.json').write_text(json.dumps({
                 'task_id': 'T2',
-                'agent_session_id': 'survivor',
+                AGENT_SESSION_ID: 'survivor',
                 'status': 'terminated',
             }), encoding='utf-8')
             (Path(state_dir) / 'T3.json').write_text(json.dumps({
                 'task_id': 'T3',
-                'agent_session_id': 'also-survivor',
+                AGENT_SESSION_ID: 'also-survivor',
                 'status': 'terminated',
             }), encoding='utf-8')
             mgr = ClaudeSessionManager(

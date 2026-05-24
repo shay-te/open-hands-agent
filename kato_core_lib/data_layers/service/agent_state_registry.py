@@ -150,7 +150,7 @@ class AgentStateRegistry(object):
             for context in contexts:
                 if str(context.get(TaskFields.ID, '') or '').strip() != normalized:
                     continue
-                session_id = fix_session_id(context.get(ImplementationFields.SESSION_ID))
+                session_id = fix_session_id(context.get(ImplementationFields.AGENT_SESSION_ID))
                 if session_id and session_id not in seen:
                     seen.add(session_id)
                     session_ids.append(session_id)

@@ -472,7 +472,7 @@ class PlanningSessionRunner(object):
                 ImplementationFields.SUCCESS: True,
                 'summary': result_text,
                 ImplementationFields.MESSAGE: result_text,
-                ImplementationFields.SESSION_ID: sid,
+                ImplementationFields.AGENT_SESSION_ID: sid,
             },
             branch_name=branch_name,
             default_commit_message=default_commit_message,

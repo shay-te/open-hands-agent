@@ -30,6 +30,7 @@ from agent_core_lib.agent_core_lib.helpers.session_id_utils import (
     fix_session_id,
     has_session_id,
     read_session_id_from,
+    read_session_id_from_mapping,
     same_session_id,
 )
 from agent_core_lib.agent_core_lib.helpers.text_utils import (
@@ -80,10 +81,6 @@ class PlanningSessionRecord(object):
     # the send is rejected. Empty string disables the check (wait-planning
     # tabs that aren't owned by the orchestrator).
     expected_branch: str = ''
-    # Recovery slot for older records that already drifted before
-    # strict session-id preservation was enforced.
-    previous_agent_session_id: str = ''
-
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
 
@@ -92,13 +89,12 @@ class PlanningSessionRecord(object):
         return cls(
             task_id=text_from_mapping(payload, 'task_id'),
             task_summary=str(payload.get('task_summary', '') or ''),
-            agent_session_id=fix_session_id(payload.get(AGENT_SESSION_ID)),
+            agent_session_id=read_session_id_from_mapping(payload),
             status=str(payload.get('status', SESSION_STATUS_ACTIVE) or SESSION_STATUS_ACTIVE),
             created_at_epoch=float(payload.get('created_at_epoch', time.time()) or time.time()),
             updated_at_epoch=float(payload.get('updated_at_epoch', time.time()) or time.time()),
             cwd=text_from_mapping(payload, 'cwd'),
             expected_branch=str(payload.get('expected_branch', '') or ''),
-            previous_agent_session_id=fix_session_id(payload.get('previous_agent_session_id')),
         )
 
 
@@ -664,10 +660,6 @@ class ClaudeSessionManager(object):
         resume_session_id: str,
     ) -> None:
         """Build and persist the on-disk record for the just-spawned session."""
-        previous_id = fix_session_id(
-            previous_record.previous_agent_session_id
-            if previous_record else '',
-        )
         active_id = (
             fix_session_id(resume_session_id)
             or read_session_id_from(session)
@@ -690,7 +682,6 @@ class ClaudeSessionManager(object):
             # a real branch. Falling back to the persisted value would
             # silently re-arm a stale lock from a prior buggy run.
             expected_branch=normalized_text(expected_branch),
-            previous_agent_session_id=previous_id,
         )
         self._records[self._lookup_key(normalized_task_id)] = record
         self._persist_record(record)

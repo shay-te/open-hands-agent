@@ -36,6 +36,7 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 
+from agent_core_lib.agent_core_lib.helpers.session_id_utils import AGENT_SESSION_ID
 
 # ---------------------------------------------------------------------------
 # Helpers — different stub shapes for the various detection paths.
@@ -335,7 +336,7 @@ class FlowStaleResumePersistenceTests(unittest.TestCase):
                 (Path(state_dir) / 't1.json').read_text(encoding='utf-8'),
             )
             self.assertEqual(
-                persisted['agent_session_id'], 'dead-id',
+                persisted[AGENT_SESSION_ID], 'dead-id',
                 'on-disk record lost the pinned session id',
             )
 

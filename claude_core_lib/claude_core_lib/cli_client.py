@@ -12,6 +12,7 @@ from agent_core_lib.agent_core_lib.helpers import agent_prompt_utils
 from agent_core_lib.agent_core_lib.helpers.architecture_doc_utils import read_architecture_doc
 from agent_core_lib.agent_core_lib.helpers.logging_utils import configure_logger
 from agent_core_lib.agent_core_lib.helpers.result_utils import build_openhands_result
+from agent_core_lib.agent_core_lib.helpers.session_id_utils import fix_session_id
 from agent_core_lib.agent_core_lib.helpers.text_utils import (
     condensed_text,
     normalized_text,
@@ -921,7 +922,7 @@ class ClaudeCliClient(object):
             )
             if appended_system_prompt:
                 command.extend(['--append-system-prompt', appended_system_prompt])
-        normalized_session_id = normalized_text(session_id)
+        normalized_session_id = fix_session_id(session_id)
         if normalized_session_id:
             command.extend(['--resume', normalized_session_id])
         for directory in additional_dirs:
@@ -1012,7 +1013,7 @@ class ClaudeCliClient(object):
         is_error = bool(payload.get('is_error', False))
         success = completed.returncode == 0 and not is_error
         result_text = normalized_text(payload.get('result', ''))
-        session_id_value = normalized_text(payload.get('session_id', ''))
+        session_id_value = fix_session_id(payload.get('session_id', ''))
 
         if completed.returncode != 0:
             detail = stderr or condensed_text(stdout) or 'no output'
@@ -1044,7 +1045,7 @@ class ClaudeCliClient(object):
         if result_text:
             result[ImplementationFields.MESSAGE] = result_text
         if session_id_value:
-            result[ImplementationFields.SESSION_ID] = session_id_value
+            result[ImplementationFields.AGENT_SESSION_ID] = session_id_value
         return result
 
     def _scan_response_for_credentials(

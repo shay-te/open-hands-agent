@@ -368,8 +368,8 @@ class OpenhandsResultBuilderDefensiveTests(unittest.TestCase):
 
     def test_build_result_skips_session_id_when_absent(self) -> None:
         # The ``if session_id:`` branch — when neither
-        # ImplementationFields.SESSION_ID nor 'conversation_id' is
-        # present, the SESSION_ID key must NOT appear in the result.
+        # ImplementationFields.AGENT_SESSION_ID nor 'conversation_id' is
+        # present, the AGENT_SESSION_ID key must NOT appear in the result.
         from kato_core_lib.data_layers.data.fields import ImplementationFields
         from kato_core_lib.helpers.kato_result_utils import (
             build_openhands_result,
@@ -377,7 +377,7 @@ class OpenhandsResultBuilderDefensiveTests(unittest.TestCase):
         result = build_openhands_result(
             {ImplementationFields.SUCCESS: True},
         )
-        self.assertNotIn(ImplementationFields.SESSION_ID, result)
+        self.assertNotIn(ImplementationFields.AGENT_SESSION_ID, result)
 
 
 # --------------------------------------------------------------------------

@@ -131,7 +131,7 @@ class TestAgentEndToEndIntegration(unittest.TestCase):
             implement_task=Mock(
                 return_value={
                     ImplementationFields.SUCCESS: True,
-                    ImplementationFields.SESSION_ID: 'conversation-1',
+                    ImplementationFields.AGENT_SESSION_ID: 'conversation-1',
                     ImplementationFields.COMMIT_MESSAGE: 'Implement PROJ-1',
                     Task.summary.key: 'Implemented checkout flow',
                 }
@@ -279,7 +279,7 @@ class TestAgentEndToEndIntegration(unittest.TestCase):
             implement_task=Mock(
                 return_value={
                     ImplementationFields.SUCCESS: True,
-                    ImplementationFields.SESSION_ID: 'conversation-1',
+                    ImplementationFields.AGENT_SESSION_ID: 'conversation-1',
                     ImplementationFields.COMMIT_MESSAGE: 'Implement PROJ-1',
                     Task.summary.key: 'Implemented checkout flow',
                 }

@@ -107,7 +107,7 @@ class AgentServiceUtilsTests(unittest.TestCase):
     def test_session_suffix_and_started_comment_cover_empty_and_repository_scopes(self) -> None:
         self.assertEqual(session_suffix({}), '')
         self.assertEqual(
-            session_suffix({ImplementationFields.SESSION_ID: 'conversation-1'}),
+            session_suffix({ImplementationFields.AGENT_SESSION_ID: ' conversation-1\n'}),
             ' (session conversation-1)',
         )
 
@@ -169,7 +169,7 @@ class AgentServiceUtilsTests(unittest.TestCase):
             {
                 PullRequestFields.REPOSITORY_ID: ' client ',
                 'branch_name': ' feature/proj-1/client ',
-                ImplementationFields.SESSION_ID: ' conversation-1 ',
+                ImplementationFields.AGENT_SESSION_ID: ' conversation-1\n',
                 TaskFields.ID: ' PROJ-1 ',
                 TaskFields.SUMMARY: ' fix it already ',
             }

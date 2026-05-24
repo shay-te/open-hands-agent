@@ -59,7 +59,7 @@ class TaskPublisherTests(unittest.TestCase):
         )
         execution = {
             ImplementationFields.SUCCESS: True,
-            ImplementationFields.SESSION_ID: 'conversation-1',
+            ImplementationFields.AGENT_SESSION_ID: ' conversation-1\n',
             Task.summary.key: 'Files changed:\n- client/app.ts\n  Updated the client flow.',
             ImplementationFields.MESSAGE: 'Validation report:\n- verified the implementation.',
         }
@@ -106,6 +106,10 @@ class TaskPublisherTests(unittest.TestCase):
             self.task_service.add_comment.call_args.args[1],
         )
         self.state_registry.remember_pull_request_context.assert_called()
+        first_context_call = (
+            self.state_registry.remember_pull_request_context.call_args_list[0]
+        )
+        self.assertEqual(first_context_call.args[2], 'conversation-1')
 
     def test_publish_task_execution_partial_failure_reports_failure(self) -> None:
         task = build_task(description='whats wrong with you please fix it')
@@ -121,7 +125,7 @@ class TaskPublisherTests(unittest.TestCase):
         )
         execution = {
             ImplementationFields.SUCCESS: True,
-            ImplementationFields.SESSION_ID: 'conversation-1',
+            ImplementationFields.AGENT_SESSION_ID: 'conversation-1',
             Task.summary.key: 'Files changed:\n- client/app.ts',
             ImplementationFields.MESSAGE: 'Validation report:\n- verified the implementation.',
         }
@@ -166,7 +170,7 @@ class TaskPublisherTests(unittest.TestCase):
         )
         execution = {
             ImplementationFields.SUCCESS: True,
-            ImplementationFields.SESSION_ID: 'conversation-1',
+            ImplementationFields.AGENT_SESSION_ID: 'conversation-1',
             Task.summary.key: 'Files changed:\n- client/app.ts',
             ImplementationFields.MESSAGE: 'Validation report:\n- verified the implementation.',
         }
@@ -225,7 +229,7 @@ class TaskPublisherTests(unittest.TestCase):
         )
         execution = {
             ImplementationFields.SUCCESS: True,
-            ImplementationFields.SESSION_ID: 'conversation-1',
+            ImplementationFields.AGENT_SESSION_ID: 'conversation-1',
             ImplementationFields.MESSAGE: 'Validation report:\n- looked at shared.',
         }
         self.repository_service.create_pull_request.side_effect = [
@@ -290,7 +294,7 @@ class TaskPublisherTests(unittest.TestCase):
         )
         execution = {
             ImplementationFields.SUCCESS: True,
-            ImplementationFields.SESSION_ID: 'conversation-1',
+            ImplementationFields.AGENT_SESSION_ID: 'conversation-1',
         }
         self.repository_service.create_pull_request.side_effect = [
             RepositoryHasNoChangesError('branch X has no task changes ahead of master'),
@@ -480,7 +484,7 @@ class TaskPublisherTests(unittest.TestCase):
         )
         execution = {
             ImplementationFields.SUCCESS: True,
-            ImplementationFields.SESSION_ID: 'conversation-1',
+            ImplementationFields.AGENT_SESSION_ID: 'conversation-1',
         }
         self.repository_service.create_pull_request.side_effect = [
             {

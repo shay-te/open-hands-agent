@@ -5,6 +5,7 @@ from typing import Callable, TypeVar
 
 from core_lib.data_layers.service.service import Service
 
+from agent_core_lib.agent_core_lib.helpers.session_id_utils import fix_session_id
 from kato_core_lib.data_layers.data.fields import (
     ImplementationFields,
     PullRequestFields,
@@ -187,7 +188,7 @@ class TaskPublisher(Service):
         failed_repositories: list[tuple[str, str]] = []
         unchanged_repositories: list[str] = []
         description = pull_request_description(task, execution)
-        session_id = text_from_mapping(execution, ImplementationFields.SESSION_ID)
+        session_id = fix_session_id(execution.get(ImplementationFields.AGENT_SESSION_ID))
         commit_message = self._task_commit_message(task)
         for repository in prepared_task.repositories or []:
             outcome = self._create_pull_request_for_repository(

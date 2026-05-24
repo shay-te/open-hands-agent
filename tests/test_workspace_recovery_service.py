@@ -9,6 +9,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
+from agent_core_lib.agent_core_lib.helpers.session_id_utils import AGENT_SESSION_ID
 from kato_core_lib.data_layers.service.workspace_manager import (
     WORKSPACE_STATUS_ACTIVE,
 )
@@ -148,7 +149,7 @@ class WorkspaceRecoveryServiceTests(unittest.TestCase):
 
         self.assertEqual(len(adopted), 1)
         meta = json.loads((orphan_dir / '.kato-meta.json').read_text())
-        self.assertEqual(meta['agent_session_id'], 'claude-sess-recovered')
+        self.assertEqual(meta[AGENT_SESSION_ID], 'claude-sess-recovered')
         self.assertEqual(meta['cwd'], str(repo_dir))
 
     def test_recovery_writes_empty_session_id_when_no_match_found(self) -> None:
@@ -162,7 +163,7 @@ class WorkspaceRecoveryServiceTests(unittest.TestCase):
 
         self.assertEqual(len(adopted), 1)
         meta = json.loads((orphan_dir / '.kato-meta.json').read_text())
-        self.assertEqual(meta.get('agent_session_id', ''), '')
+        self.assertEqual(meta.get(AGENT_SESSION_ID, ''), '')
 
     def test_recovery_warns_when_live_task_list_is_empty(self) -> None:
         # When both API calls fail, recovery can't match orphans to

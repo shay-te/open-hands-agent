@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
+from agent_core_lib.agent_core_lib.helpers.session_id_utils import fix_session_id
 from kato_core_lib.data_layers.data.fields import ImplementationFields
 from kato_core_lib.data_layers.data.task import Task
 from kato_core_lib.helpers.text_utils import normalized_text, text_from_mapping
@@ -25,8 +26,8 @@ def openhands_success_flag(
 
 
 def openhands_session_id(payload: Mapping[object, object] | None) -> str:
-    for key in (ImplementationFields.SESSION_ID, 'conversation_id'):
-        value = text_from_mapping(payload, key)
+    for key in (ImplementationFields.AGENT_SESSION_ID, 'session_id', 'conversation_id'):
+        value = fix_session_id(payload.get(key) if isinstance(payload, Mapping) else '')
         if value:
             return value
     return ''
@@ -63,5 +64,5 @@ def build_openhands_result(
 
     session_id = openhands_session_id(payload)
     if session_id:
-        result[ImplementationFields.SESSION_ID] = session_id
+        result[ImplementationFields.AGENT_SESSION_ID] = session_id
     return result

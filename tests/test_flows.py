@@ -279,7 +279,7 @@ class TaskFixFlowTests(unittest.TestCase):
             call_order.append('implement_task')
             return {
                 ImplementationFields.SUCCESS: True,
-                ImplementationFields.SESSION_ID: 'conv-1',
+                ImplementationFields.AGENT_SESSION_ID: 'conv-1',
                 ImplementationFields.COMMIT_MESSAGE: 'Implement PROJ-1',
                 'summary': 'Files changed:\n- client/app.ts\n  Updated the flow.',
             }
@@ -989,7 +989,7 @@ class ReviewCommentFixFlowTests(unittest.TestCase):
         # Patch the PR context to carry the implementation session ID
         pr_context = state_registry.pull_request_context('17', repository.id)
         self.assertIsNotNone(pr_context)
-        pr_context[ImplementationFields.SESSION_ID] = 'impl-session-xyz'
+        pr_context[ImplementationFields.AGENT_SESSION_ID] = 'impl-session-xyz'
 
         # Process the comment
         review_service.process_review_comment(new_comments[0])

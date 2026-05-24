@@ -9,9 +9,11 @@ from __future__ import annotations
 import unittest
 
 from agent_core_lib.agent_core_lib.helpers.session_id_utils import (
+    AGENT_SESSION_ID,
     fix_session_id,
     has_session_id,
     read_session_id_from,
+    read_session_id_from_mapping,
     same_session_id,
 )
 
@@ -73,22 +75,22 @@ class FixSessionIdTests(unittest.TestCase):
 
     def test_works_with_getattr_pattern(self) -> None:
         # The most common call shape across the codebase.
-        record = type('R', (), {'agent_session_id': '  abc  '})()
+        record = type('R', (), {AGENT_SESSION_ID: '  abc  '})()
         self.assertEqual(
-            fix_session_id(getattr(record, 'agent_session_id', '')),
+            fix_session_id(getattr(record, AGENT_SESSION_ID, '')),
             'abc',
         )
 
     def test_works_with_missing_attribute_pattern(self) -> None:
         record = type('R', (), {})()
         self.assertEqual(
-            fix_session_id(getattr(record, 'agent_session_id', None)),
+            fix_session_id(getattr(record, AGENT_SESSION_ID, None)),
             '',
         )
 
     def test_works_with_dict_get_pattern(self) -> None:
-        payload = {'agent_session_id': '  abc  '}
-        self.assertEqual(fix_session_id(payload.get('agent_session_id')), 'abc')
+        payload = {AGENT_SESSION_ID: '  abc  '}
+        self.assertEqual(fix_session_id(payload.get(AGENT_SESSION_ID)), 'abc')
         self.assertEqual(fix_session_id(payload.get('missing')), '')
 
 
@@ -132,15 +134,15 @@ class ReadSessionIdFromTests(unittest.TestCase):
         self.assertEqual(read_session_id_from(None), '')
 
     def test_reads_agent_session_id_from_record_like_object(self) -> None:
-        record = type('R', (), {'agent_session_id': 'sess-abc'})()
+        record = type('R', (), {AGENT_SESSION_ID: 'sess-abc'})()
         self.assertEqual(read_session_id_from(record), 'sess-abc')
 
     def test_strips_whitespace_via_fix_session_id(self) -> None:
-        record = type('R', (), {'agent_session_id': '  sess-abc\n'})()
+        record = type('R', (), {AGENT_SESSION_ID: '  sess-abc\n'})()
         self.assertEqual(read_session_id_from(record), 'sess-abc')
 
     def test_reads_agent_session_id_from_streaming_session(self) -> None:
-        session = type('S', (), {'agent_session_id': 'live-id'})()
+        session = type('S', (), {AGENT_SESSION_ID: 'live-id'})()
         self.assertEqual(read_session_id_from(session), 'live-id')
 
     def test_object_with_no_attribute_returns_empty(self) -> None:
@@ -148,8 +150,53 @@ class ReadSessionIdFromTests(unittest.TestCase):
         self.assertEqual(read_session_id_from(obj), '')
 
     def test_blank_record_returns_empty(self) -> None:
-        record = type('R', (), {'agent_session_id': '   '})()
+        record = type('R', (), {AGENT_SESSION_ID: '   '})()
         self.assertEqual(read_session_id_from(record), '')
+
+    def test_falls_back_to_legacy_claude_session_id_attribute(self) -> None:
+        record = type('R', (), {'claude_session_id': ' legacy-id\n'})()
+        self.assertEqual(read_session_id_from(record), 'legacy-id')
+
+    def test_agent_session_id_wins_over_legacy_attribute(self) -> None:
+        record = type(
+            'R',
+            (),
+            {
+                AGENT_SESSION_ID: 'agent-id',
+                'claude_session_id': 'legacy-id',
+            },
+        )()
+        self.assertEqual(read_session_id_from(record), 'agent-id')
+
+
+class ReadSessionIdFromMappingTests(unittest.TestCase):
+
+    def test_reads_canonical_key(self) -> None:
+        self.assertEqual(
+            read_session_id_from_mapping({AGENT_SESSION_ID: ' agent-id\n'}),
+            'agent-id',
+        )
+
+    def test_falls_back_to_legacy_key(self) -> None:
+        self.assertEqual(
+            read_session_id_from_mapping({'claude_session_id': ' legacy-id\n'}),
+            'legacy-id',
+        )
+
+    def test_canonical_key_wins_over_legacy_key(self) -> None:
+        self.assertEqual(
+            read_session_id_from_mapping(
+                {
+                    AGENT_SESSION_ID: 'agent-id',
+                    'claude_session_id': 'legacy-id',
+                },
+            ),
+            'agent-id',
+        )
+
+    def test_non_mapping_returns_empty(self) -> None:
+        self.assertEqual(read_session_id_from_mapping(None), '')
+        self.assertEqual(read_session_id_from_mapping(['bad']), '')
 
 
 if __name__ == '__main__':

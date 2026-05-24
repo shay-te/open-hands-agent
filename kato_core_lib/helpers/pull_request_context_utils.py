@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from agent_core_lib.agent_core_lib.helpers.session_id_utils import fix_session_id
 from kato_core_lib.data_layers.data.task import Task
 from kato_core_lib.data_layers.data.fields import (
     ImplementationFields,
@@ -21,12 +22,12 @@ def build_pull_request_context(
         PullRequestFields.REPOSITORY_ID: normalized_text(repository_id),
         Task.branch_name.key: normalized_text(branch_name),
     }
-    normalized_session_id = normalized_text(session_id)
+    normalized_session_id = fix_session_id(session_id)
     normalized_task_id = normalized_text(task_id)
     normalized_task_summary = normalized_text(task_summary)
     normalized_pull_request_title = normalized_text(pull_request_title)
     if normalized_session_id:
-        context[ImplementationFields.SESSION_ID] = normalized_session_id
+        context[ImplementationFields.AGENT_SESSION_ID] = normalized_session_id
     if normalized_task_id:
         context[TaskFields.ID] = normalized_task_id
     if normalized_task_summary:

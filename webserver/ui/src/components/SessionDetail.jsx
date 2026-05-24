@@ -11,6 +11,7 @@ import WorkingIndicator from './WorkingIndicator.jsx';
 import { BUBBLE_KIND } from '../constants/bubbleKind.js';
 import { CLAUDE_EVENT, CLAUDE_SYSTEM_SUBTYPE } from '../constants/claudeEvent.js';
 import { ENTRY_SOURCE } from '../constants/entrySource.js';
+import { AGENT_SESSION_ID } from '../constants/sessionFields.js';
 import { useSessionStream, SESSION_LIFECYCLE } from '../hooks/useSessionStream.js';
 import { useToolMemory } from '../hooks/useToolMemory.js';
 import { fetchModels, fetchSessionModel, postChatMessage, postSession, setSessionModel } from '../api.js';
@@ -323,7 +324,7 @@ export default function SessionDetail({
   // coming back still shows "session attached" until the next
   // server-side history replay overwrites the picture.
   function onSessionAdopted(adopted) {
-    const sessionId = String(adopted?.session_id || '').trim();
+    const sessionId = String(adopted?.[AGENT_SESSION_ID] || '').trim();
     const cwd = String(adopted?.cwd || '').trim();
     const idShort = sessionId ? `${sessionId.slice(0, 8)}…` : '(unknown)';
     const cwdLine = cwd ? `\ncwd: ${cwd}` : '';

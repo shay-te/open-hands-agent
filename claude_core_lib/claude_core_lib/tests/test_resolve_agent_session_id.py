@@ -136,6 +136,20 @@ class ResolveAgentSessionIdTests(unittest.TestCase):
             'from-workspace',
         )
 
+    def test_reads_legacy_claude_session_id_from_workspace(self) -> None:
+        class _SessionMgr:
+            def get_record(self, task_id):
+                return None
+
+        class _Ws:
+            def get(self, task_id):
+                return SimpleNamespace(claude_session_id=' legacy-id\n')
+
+        self.assertEqual(
+            resolve_agent_session_id(_SessionMgr(), _Ws(), 'T1'),
+            'legacy-id',
+        )
+
     def test_missing_workspace_yields_empty_string(self) -> None:
         class _SessionMgr:
             def get_record(self, task_id):

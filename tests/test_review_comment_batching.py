@@ -214,11 +214,11 @@ class ServiceBatchFlowTests(unittest.TestCase):
         implementation_service = MagicMock()
         implementation_service.fix_review_comments.return_value = {
             ImplementationFields.SUCCESS: fix_success,
-            ImplementationFields.SESSION_ID: 'sess-1',
+            ImplementationFields.AGENT_SESSION_ID: 'sess-1',
         }
         implementation_service.fix_review_comment.return_value = {
             ImplementationFields.SUCCESS: fix_success,
-            ImplementationFields.SESSION_ID: 'sess-1',
+            ImplementationFields.AGENT_SESSION_ID: 'sess-1',
         }
 
         task_service = MagicMock()
@@ -324,7 +324,7 @@ class ImplementationServiceFanoutTests(unittest.TestCase):
         client = SimpleNamespace(
             fix_review_comment=MagicMock(return_value={
                 ImplementationFields.SUCCESS: True,
-                ImplementationFields.SESSION_ID: 's',
+                ImplementationFields.AGENT_SESSION_ID: 's',
             }),
         )
         service = ImplementationService(client)

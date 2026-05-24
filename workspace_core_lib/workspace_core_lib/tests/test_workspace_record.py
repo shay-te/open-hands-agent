@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import unittest
 
+from agent_core_lib.agent_core_lib.helpers.session_id_utils import AGENT_SESSION_ID
 from workspace_core_lib.workspace_core_lib.data_layers.data.workspace_record import (
     SUPPORTED_WORKSPACE_STATUSES,
     WORKSPACE_STATUS_ACTIVE,
@@ -35,18 +36,35 @@ class WorkspaceRecordTests(unittest.TestCase):
     def test_from_dict_strips_session_id_and_cwd(self) -> None:
         record = WorkspaceRecord.from_dict({
             'task_id': 'PROJ-1',
-            'agent_session_id': '  sess-uuid\n',
+            AGENT_SESSION_ID: '  sess-uuid\n',
             'cwd': '  /tmp/work  ',
         })
         self.assertEqual(record.agent_session_id, 'sess-uuid')
         self.assertEqual(record.cwd, '/tmp/work')
+
+    def test_from_dict_accepts_legacy_claude_session_id_key(self) -> None:
+        record = WorkspaceRecord.from_dict({
+            'task_id': 'PROJ-1',
+            'claude_session_id': '  legacy-sess\n',
+        })
+
+        self.assertEqual(record.agent_session_id, 'legacy-sess')
+
+    def test_from_dict_prefers_agent_session_id_over_legacy_key(self) -> None:
+        record = WorkspaceRecord.from_dict({
+            'task_id': 'PROJ-1',
+            AGENT_SESSION_ID: 'agent-sess',
+            'claude_session_id': 'legacy-sess',
+        })
+
+        self.assertEqual(record.agent_session_id, 'agent-sess')
 
     def test_to_dict_uses_canonical_agent_session_id_key(self) -> None:
         record = WorkspaceRecord(
             task_id='PROJ-1', agent_session_id='abc',
         )
         payload = record.to_dict()
-        self.assertIn('agent_session_id', payload)
+        self.assertIn(AGENT_SESSION_ID, payload)
         self.assertNotIn('claude_session_id', payload)
 
     def test_from_dict_tolerates_missing_optional_fields(self) -> None:

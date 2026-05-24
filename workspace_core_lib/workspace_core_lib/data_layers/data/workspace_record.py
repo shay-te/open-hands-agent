@@ -16,8 +16,7 @@ import time
 from dataclasses import asdict, dataclass, field
 
 from agent_core_lib.agent_core_lib.helpers.session_id_utils import (
-    AGENT_SESSION_ID,
-    fix_session_id,
+    read_session_id_from_mapping,
 )
 from agent_core_lib.agent_core_lib.helpers.text_utils import text_from_mapping
 
@@ -90,7 +89,7 @@ class WorkspaceRecord(object):
             if isinstance(repository_ids_raw, list)
             else []
         )
-        agent_session_id = fix_session_id(payload.get(AGENT_SESSION_ID))
+        agent_session_id = read_session_id_from_mapping(payload)
         return cls(
             task_id=str(payload.get('task_id', '') or ''),
             task_summary=str(payload.get('task_summary', '') or ''),

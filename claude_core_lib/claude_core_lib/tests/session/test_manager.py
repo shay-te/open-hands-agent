@@ -9,6 +9,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+from agent_core_lib.agent_core_lib.helpers.session_id_utils import AGENT_SESSION_ID
 from claude_core_lib.claude_core_lib.session.manager import (
     SESSION_STATUS_ACTIVE,
     SESSION_STATUS_DONE,
@@ -88,7 +89,7 @@ class ClaudeSessionManagerTests(unittest.TestCase):
         # persisted as JSON next to the manager
         persisted = json.loads((self.state_dir / 'PROJ-1.json').read_text())
         self.assertEqual(persisted['task_id'], 'PROJ-1')
-        self.assertEqual(persisted['agent_session_id'], session.agent_session_id)
+        self.assertEqual(persisted[AGENT_SESSION_ID], session.agent_session_id)
         self.assertEqual(persisted['status'], SESSION_STATUS_ACTIVE)
 
     def test_start_session_normalizes_session_id_before_persisting(self) -> None:
@@ -107,7 +108,7 @@ class ClaudeSessionManagerTests(unittest.TestCase):
         record = manager.get_record('PROJ-TRIM')
         persisted = json.loads((self.state_dir / 'PROJ-TRIM.json').read_text())
         self.assertEqual(record.agent_session_id, 'generated-id')
-        self.assertEqual(persisted['agent_session_id'], 'generated-id')
+        self.assertEqual(persisted[AGENT_SESSION_ID], 'generated-id')
 
     def test_start_session_returns_existing_live_session(self) -> None:
         first = self.manager.start_session(task_id='PROJ-1')
@@ -188,7 +189,7 @@ class ClaudeSessionManagerTests(unittest.TestCase):
         legacy = self.state_dir / 'UNA-1201.json'
         legacy.write_text(json.dumps({
             'task_id': 'UNA-1201', 'status': 'active',
-            'agent_session_id': '', 'cwd': '',
+            AGENT_SESSION_ID: '', 'cwd': '',
         }), encoding='utf-8')
         self.manager.terminate_session('UNA-1201', remove_record=True)
         self.assertFalse(
@@ -388,15 +389,21 @@ class PlanningSessionRecordTests(unittest.TestCase):
     def test_from_dict_trims_persisted_session_fields(self) -> None:
         restored = PlanningSessionRecord.from_dict({
             'task_id': '  PROJ-1  ',
-            'agent_session_id': '  sess-1\n',
-            'previous_agent_session_id': '  old-sess  ',
+            AGENT_SESSION_ID: '  sess-1\n',
             'cwd': '  /tmp/repo  ',
         })
 
         self.assertEqual(restored.task_id, 'PROJ-1')
         self.assertEqual(restored.agent_session_id, 'sess-1')
-        self.assertEqual(restored.previous_agent_session_id, 'old-sess')
         self.assertEqual(restored.cwd, '/tmp/repo')
+
+    def test_from_dict_reads_legacy_claude_session_fields(self) -> None:
+        restored = PlanningSessionRecord.from_dict({
+            'task_id': 'PROJ-1',
+            'claude_session_id': '  legacy-sess\n',
+        })
+
+        self.assertEqual(restored.agent_session_id, 'legacy-sess')
 
 
 class _StaleResumeFakeSession(_FakeStreamingSession):
@@ -600,43 +607,6 @@ class StaleResumeIdStrictPreservationTests(unittest.TestCase):
 
         record = manager.get_record('PROJ-1')
         self.assertEqual(record.agent_session_id, 'original-uuid')
-        self.assertEqual(record.previous_agent_session_id, '')
-
-    def test_self_heal_preserved_id_survives_persist_roundtrip(self) -> None:
-        # The ``previous_agent_session_id`` field must round-trip
-        # through to_dict / from_dict so it survives a kato restart.
-        # Otherwise the operator-recovery path silently breaks across
-        # process boundaries.
-        record = PlanningSessionRecord(
-            task_id='PROJ-1',
-            agent_session_id='fresh-uuid',
-            previous_agent_session_id='original-uuid',
-        )
-        restored = PlanningSessionRecord.from_dict(record.to_dict())
-        self.assertEqual(restored.previous_agent_session_id, 'original-uuid')
-
-    def test_successful_resume_inherits_preserved_previous_id(self) -> None:
-        # A SUCCESSFUL resume must NOT wipe a
-        # previously-preserved ``previous_agent_session_id``. Without
-        # this, one healthy resume after old drift recovery would silently
-        # erase the operator's recovery handle.
-        manager = self._build_manager_with_stale_marker(False)
-        manager._records[manager._lookup_key('PROJ-1')] = PlanningSessionRecord(
-            task_id='PROJ-1',
-            agent_session_id='current-uuid',
-            previous_agent_session_id='old-original-uuid',
-        )
-        manager._persist_record(
-            manager._records[manager._lookup_key('PROJ-1')]
-        )
-
-        manager.start_session(task_id='PROJ-1')
-
-        record = manager.get_record('PROJ-1')
-        # Preserved id survives a healthy resume.
-        self.assertEqual(
-            record.previous_agent_session_id, 'old-original-uuid',
-        )
 
 
 class WorkspaceSeedingTests(unittest.TestCase):
@@ -678,12 +648,11 @@ class WorkspaceSeedingTests(unittest.TestCase):
         self.assertEqual(record.agent_session_id, 'ws-session-id')
         self.assertEqual(record.cwd, '/wks/A')
 
-    def test_seeds_from_legacy_agent_session_id_attribute(self) -> None:
-        # Older workspaces still surface ``agent_session_id``.
+    def test_seeds_from_legacy_claude_session_id_attribute(self) -> None:
         ws = SimpleNamespace(
             task_id='PROJ-B',
             task_summary='legacy',
-            agent_session_id='legacy-id',
+            claude_session_id='legacy-id',
             cwd='/wks/B',
         )
         workspace_manager = SimpleNamespace(
@@ -980,7 +949,7 @@ class LoadPersistedRecordsErrorPaths(unittest.TestCase):
     def test_record_without_task_id_is_skipped(self) -> None:
         # Line 718: record.task_id blank → skip.
         (self.state_dir / 'no_id.json').write_text(
-            json.dumps({'task_id': '', 'agent_session_id': 'abc'}),
+            json.dumps({'task_id': '', AGENT_SESSION_ID: 'abc'}),
         )
         manager = ClaudeSessionManager(
             state_dir=self.state_dir,
@@ -1320,7 +1289,7 @@ class LoadPersistedRecordsOsErrorTests(unittest.TestCase):
         # Create a valid record file but make read_text raise.
         path = self.state_dir / 'PROJ-1.json'
         path.write_text(json.dumps({
-            'task_id': 'PROJ-1', 'agent_session_id': 'abc',
+            'task_id': 'PROJ-1', AGENT_SESSION_ID: 'abc',
         }))
 
         real_read = Path.read_text
@@ -1669,7 +1638,7 @@ class CorrectSessionIdInRecordTests(unittest.TestCase):
 
         persisted = json.loads((self.state_dir / 'PROJ-B.json').read_text())
         self.assertEqual(self.manager._records[key].agent_session_id, 'same-id')
-        self.assertEqual(persisted['agent_session_id'], 'same-id')
+        self.assertEqual(persisted[AGENT_SESSION_ID], 'same-id')
 
     def test_different_id_updates_empty_record_and_persists(self) -> None:
         key = self.manager._lookup_key('PROJ-C')

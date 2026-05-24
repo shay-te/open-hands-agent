@@ -10,6 +10,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+from agent_core_lib.agent_core_lib.helpers.session_id_utils import AGENT_SESSION_ID
+
 
 class OneShotUtilsTests(unittest.TestCase):
     """Coverage for ``helpers/one_shot_utils.py`` (lines 14-84)."""
@@ -242,7 +244,7 @@ class SessionManagerLoadPersistedRecordsTests(unittest.TestCase):
                 'task_id': 'T1',
                 'task_summary': 'fix bug',
                 'cwd': '/tmp',
-                'agent_session_id': 'sess-1',
+                AGENT_SESSION_ID: 'sess-1',
                 'status': SESSION_STATUS_ACTIVE,
                 'updated_at_epoch': 1000.0,
                 'created_at_epoch': 1000.0,

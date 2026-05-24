@@ -55,7 +55,7 @@ class AgentStateRegistryTests(unittest.TestCase):
                 PullRequestFields.REPOSITORY_ID: 'client',
                 PullRequestFields.TITLE: 'PROJ-1 fix it already',
                 'branch_name': 'feature/proj-1/client',
-                'session_id': 'conversation-1',
+                ImplementationFields.AGENT_SESSION_ID: 'conversation-1',
                 'task_id': 'PROJ-1',
                 'task_summary': 'fix it already',
             },
@@ -122,11 +122,11 @@ class AgentStateRegistryTests(unittest.TestCase):
         self.registry.pull_request_context_map['17'] = [
             {
                 TaskFields.ID: 'PROJ-1',
-                ImplementationFields.SESSION_ID: '  conversation-1\n',
+                ImplementationFields.AGENT_SESSION_ID: '  conversation-1\n',
             },
             {
                 TaskFields.ID: 'PROJ-1',
-                ImplementationFields.SESSION_ID: 'conversation-1',
+                ImplementationFields.AGENT_SESSION_ID: 'conversation-1',
             },
         ]
 

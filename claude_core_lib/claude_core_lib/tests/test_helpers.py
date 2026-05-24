@@ -15,6 +15,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from agent_core_lib.agent_core_lib.data.fields import ImplementationFields
 from agent_core_lib.agent_core_lib.helpers.text_utils import (
     condensed_text,
     normalized_text,
@@ -396,11 +397,11 @@ class BuildOpenhandsResultTests(unittest.TestCase):
 
     def test_session_id_from_payload(self) -> None:
         result = build_openhands_result({'session_id': 'sess-1'})
-        self.assertEqual(result['session_id'], 'sess-1')
+        self.assertEqual(result[ImplementationFields.AGENT_SESSION_ID], 'sess-1')
 
     def test_session_id_omitted_when_missing(self) -> None:
         result = build_openhands_result({})
-        self.assertNotIn('session_id', result)
+        self.assertNotIn(ImplementationFields.AGENT_SESSION_ID, result)
 
     def test_none_payload_uses_defaults(self) -> None:
         result = build_openhands_result(None, default_success=True)

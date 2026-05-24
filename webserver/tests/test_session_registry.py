@@ -5,6 +5,7 @@ from __future__ import annotations
 import threading
 import unittest
 
+from agent_core_lib.agent_core_lib.helpers.session_id_utils import AGENT_SESSION_ID
 from webserver.kato_webserver.session_registry import (
     PlanningSession,
     SessionRegistry,
@@ -24,7 +25,7 @@ class PlanningSessionTests(unittest.TestCase):
         self.assertEqual(d['task_id'], 'T1')
         self.assertEqual(d['task_summary'], 'do work')
         self.assertEqual(d['status'], 'active')
-        self.assertEqual(d['agent_session_id'], 'sess-1')
+        self.assertEqual(d[AGENT_SESSION_ID], 'sess-1')
         self.assertIn('created_at_epoch', d)
 
     def test_default_status_is_waiting(self) -> None:

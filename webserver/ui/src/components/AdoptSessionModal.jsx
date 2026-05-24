@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { adoptAgentSession, fetchClaudeSessions } from '../api.js';
+import { AGENT_SESSION_ID } from '../constants/sessionFields.js';
 import { toast } from '../stores/toastStore.js';
 import { formatRelativeTime } from '../utils/relativeTime.js';
 
@@ -38,12 +39,13 @@ export default function AdoptSessionModal({ taskId, onClose, onAdopted }) {
   }, [query]);
 
   const nowSeconds = useMemo(() => Date.now() / 1000, [sessions]);
-  const selectedSession = sessions.find((s) => s.session_id === selectedId);
+  const selectedSession = sessions.find((s) => s[AGENT_SESSION_ID] === selectedId);
 
   async function onAdopt() {
     if (!selectedSession || adopting) { return; }
     setAdopting(true);
-    const result = await adoptAgentSession(taskId, selectedSession.session_id);
+    const selectedSessionId = selectedSession[AGENT_SESSION_ID];
+    const result = await adoptAgentSession(taskId, selectedSessionId);
     setAdopting(false);
     if (!result.ok) {
       const message = (result.body && result.body.error)
@@ -61,7 +63,7 @@ export default function AdoptSessionModal({ taskId, onClose, onAdopted }) {
       kind: 'success',
       title: 'Session adopted',
       message: (
-        `kato will resume Claude session ${selectedSession.session_id.slice(0, 8)}… `
+        `kato will resume Claude session ${selectedSessionId.slice(0, 8)}… `
         + `for ${taskId} on the next message.`
       ),
       durationMs: 7000,
@@ -126,7 +128,8 @@ export default function AdoptSessionModal({ taskId, onClose, onAdopted }) {
             </div>
           )}
           {!loading && !error && sessions.map((session) => {
-            const isSelected = session.session_id === selectedId;
+            const sessionId = session[AGENT_SESSION_ID];
+            const isSelected = sessionId === selectedId;
             const isInUse = (
               nowSeconds - session.last_modified_epoch
             ) < RECENT_ACTIVITY_SECONDS;
@@ -134,12 +137,12 @@ export default function AdoptSessionModal({ taskId, onClose, onAdopted }) {
             return (
               <button
                 type="button"
-                key={session.session_id}
+                key={sessionId}
                 className={[
                   'adopt-session-row',
                   isSelected ? 'is-selected' : '',
                 ].filter(Boolean).join(' ')}
-                onClick={() => setSelectedId(session.session_id)}
+                onClick={() => setSelectedId(sessionId)}
               >
                 <div className="adopt-session-row-top">
                   <span className="adopt-session-cwd">
@@ -158,15 +161,15 @@ export default function AdoptSessionModal({ taskId, onClose, onAdopted }) {
                 </div>
                 <div
                   className="adopt-session-id"
-                  title={`Full session id: ${session.session_id}\nMatches Claude Code /status output. Click to copy.`}
+                  title={`Full session id: ${sessionId}\nMatches Claude Code /status output. Click to copy.`}
                   onClick={(e) => {
                     e.stopPropagation();
                     if (navigator.clipboard) {
-                      navigator.clipboard.writeText(session.session_id);
+                      navigator.clipboard.writeText(sessionId);
                     }
                   }}
                 >
-                  id: {session.session_id}
+                  id: {sessionId}
                 </div>
                 <div className="adopt-session-badges">
                   {isInUse && (
@@ -212,4 +215,3 @@ export default function AdoptSessionModal({ taskId, onClose, onAdopted }) {
     </div>
   );
 }
-

@@ -764,7 +764,12 @@ def _register_http_routes(app: Flask) -> None:
         return jsonify({
             'sessions': [
                 {
-                    **row.to_dict(),
+                    **{
+                        key: value
+                        for key, value in row.to_dict().items()
+                        if key != 'session_id'
+                    },
+                    AGENT_SESSION_ID: row.session_id,
                     'adopted_by_task_id': adopted_by.get(row.session_id, ''),
                 }
                 for row in rows

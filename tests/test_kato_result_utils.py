@@ -15,11 +15,11 @@ class KatoResultUtilsTests(unittest.TestCase):
 
     def test_openhands_session_id_reads_session_and_conversation_keys(self) -> None:
         self.assertEqual(
-            openhands_session_id({ImplementationFields.SESSION_ID: 'conversation-1'}),
+            openhands_session_id({ImplementationFields.AGENT_SESSION_ID: ' conversation-1\n'}),
             'conversation-1',
         )
         self.assertEqual(
-            openhands_session_id({'conversation_id': 'conversation-2'}),
+            openhands_session_id({'conversation_id': ' conversation-2\n'}),
             'conversation-2',
         )
 
@@ -28,7 +28,7 @@ class KatoResultUtilsTests(unittest.TestCase):
             {
                 'summary': 'Implemented task',
                 ImplementationFields.MESSAGE: 'Validation report: no tests were defined.',
-                ImplementationFields.SESSION_ID: 'conversation-3',
+                ImplementationFields.AGENT_SESSION_ID: ' conversation-3\n',
             },
             branch_name='feature/proj-1',
             default_commit_message='Implement PROJ-1',
@@ -42,7 +42,7 @@ class KatoResultUtilsTests(unittest.TestCase):
                 ImplementationFields.COMMIT_MESSAGE: 'Implement PROJ-1',
                 ImplementationFields.MESSAGE: 'Validation report: no tests were defined.',
                 ImplementationFields.SUCCESS: False,
-                ImplementationFields.SESSION_ID: 'conversation-3',
+                ImplementationFields.AGENT_SESSION_ID: 'conversation-3',
             },
         )
 

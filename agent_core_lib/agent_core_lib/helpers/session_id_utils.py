@@ -24,6 +24,8 @@ through ``fix_session_id`` now; every comparison through
 """
 from __future__ import annotations
 
+from collections.abc import Mapping
+
 
 # Canonical key name for the agent's session id across every code
 # surface kato exposes (JSON payloads on disk, API request/response
@@ -82,4 +84,17 @@ def read_session_id_from(obj: object) -> str:
     """
     if obj is None:
         return ''
-    return fix_session_id(getattr(obj, AGENT_SESSION_ID, ''))
+    return (
+        fix_session_id(getattr(obj, AGENT_SESSION_ID, ''))
+        or fix_session_id(getattr(obj, 'claude_session_id', ''))
+    )
+
+
+def read_session_id_from_mapping(payload: object) -> str:
+    """Return the canonical session id from mapping payloads."""
+    if not isinstance(payload, Mapping):
+        return ''
+    return (
+        fix_session_id(payload.get(AGENT_SESSION_ID))
+        or fix_session_id(payload.get('claude_session_id'))
+    )

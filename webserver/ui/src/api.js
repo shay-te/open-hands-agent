@@ -1,3 +1,5 @@
+import { AGENT_SESSION_ID } from './constants/sessionFields.js';
+
 async function fetchJson(url) {
   const response = await fetch(url, { cache: 'no-store' });
   if (!response.ok) {
@@ -652,7 +654,7 @@ export async function adoptAgentSession(taskId, agentSessionId) {
       {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ agent_session_id: agentSessionId }),
+        body: JSON.stringify({ [AGENT_SESSION_ID]: agentSessionId }),
       },
     );
     const body = await response.json().catch(() => ({}));

@@ -75,7 +75,7 @@ class FlowFalseSuccessGuardTests(unittest.TestCase):
     def _make_execution(self):
         return {
             ImplementationFields.SUCCESS: True,
-            ImplementationFields.SESSION_ID: 'sess-1',
+            ImplementationFields.AGENT_SESSION_ID: 'sess-1',
             ImplementationFields.MESSAGE: 'ran but no changes',
         }
 

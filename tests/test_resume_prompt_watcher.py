@@ -12,6 +12,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from agent_core_lib.agent_core_lib.helpers.session_id_utils import AGENT_SESSION_ID
 from kato_core_lib.data_layers.service.resume_prompt_watcher import (
     ResumePromptWatcher,
 )
@@ -44,7 +45,7 @@ class _FakeRecord(object):
         self.task_id = task_id
         self.task_summary = kwargs.get('task_summary', '')
         self.expected_branch = kwargs.get('expected_branch', '')
-        self.agent_session_id = kwargs.get('agent_session_id', '')
+        self.agent_session_id = kwargs.get(AGENT_SESSION_ID, '')
 
 
 class _FakeSessionManager(object):

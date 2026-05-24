@@ -59,7 +59,7 @@ class AgentServiceTests(unittest.TestCase):
             implement_task=Mock(
                 return_value={
                     ImplementationFields.SUCCESS: True,
-                    ImplementationFields.SESSION_ID: 'conversation-1',
+                    ImplementationFields.AGENT_SESSION_ID: 'conversation-1',
                     ImplementationFields.COMMIT_MESSAGE: 'Implement PROJ-1',
                     ImplementationFields.MESSAGE: 'Implementation notes: updated the client and backend flows.',
                     'summary': self.pr_description,
@@ -293,7 +293,7 @@ class AgentServiceTests(unittest.TestCase):
                         PullRequestFields.REPOSITORY_ID: 'client',
                         PullRequestFields.TITLE: 'PROJ-1: fix it already',
                         'branch_name': 'feature/proj-1/client',
-                        ImplementationFields.SESSION_ID: 'conversation-1',
+                        ImplementationFields.AGENT_SESSION_ID: 'conversation-1',
                         TaskFields.ID: 'PROJ-1',
                         TaskFields.SUMMARY: 'fix it already',
                     }
@@ -303,7 +303,7 @@ class AgentServiceTests(unittest.TestCase):
                         PullRequestFields.REPOSITORY_ID: 'backend',
                         PullRequestFields.TITLE: 'PROJ-1: fix it already',
                         'branch_name': 'feature/proj-1/backend',
-                        ImplementationFields.SESSION_ID: 'conversation-1',
+                        ImplementationFields.AGENT_SESSION_ID: 'conversation-1',
                         TaskFields.ID: 'PROJ-1',
                         TaskFields.SUMMARY: 'fix it already',
                     }
@@ -347,7 +347,7 @@ class AgentServiceTests(unittest.TestCase):
         )
         self.kato_client.implement_task.return_value = {
             ImplementationFields.SUCCESS: True,
-            ImplementationFields.SESSION_ID: 'conversation-1',
+            ImplementationFields.AGENT_SESSION_ID: 'conversation-1',
             ImplementationFields.COMMIT_MESSAGE: 'Implement PROJ-1',
             ImplementationFields.MESSAGE: 'Implementation note from OpenHands',
             'summary': self.pr_description,
@@ -1256,7 +1256,7 @@ class AgentServiceTests(unittest.TestCase):
             {
                 PullRequestFields.REPOSITORY_ID: 'client',
                 'branch_name': 'feature/proj-1/client',
-                ImplementationFields.SESSION_ID: 'conversation-1',
+                ImplementationFields.AGENT_SESSION_ID: 'conversation-1',
                 TaskFields.ID: 'PROJ-1',
                 TaskFields.SUMMARY: 'fix it already',
             }

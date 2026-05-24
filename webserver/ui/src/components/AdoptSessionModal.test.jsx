@@ -30,7 +30,7 @@ import { toast } from '../stores/toastStore.js';
 
 function _session(id, extra = {}) {
   return {
-    session_id: id,
+    agent_session_id: id,
     cwd: extra.cwd || `/home/dev/${id}`,
     last_modified_epoch: extra.last_modified_epoch
       ?? (Date.now() / 1000 - 600),  // 10 minutes ago

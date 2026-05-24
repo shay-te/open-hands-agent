@@ -37,6 +37,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+from agent_core_lib.agent_core_lib.helpers.session_id_utils import AGENT_SESSION_ID
 from kato_core_lib.data_layers.service.workspace_recovery_service import (
     WorkspaceRecoveryService,
 )
@@ -110,7 +111,7 @@ class FlowOrphanRecoveryHappyPathTests(unittest.TestCase):
             workspace_mgr.update_agent_session.assert_called_once()
             # Adopted call included the recovered session id.
             call = workspace_mgr.update_agent_session.call_args
-            self.assertEqual(call.kwargs.get('agent_session_id'), 'sess-abc')
+            self.assertEqual(call.kwargs.get(AGENT_SESSION_ID), 'sess-abc')
 
     def test_flow_orphan_recovery_works_without_finding_session_id(self) -> None:
         # Recovery must NOT depend on Claude's projects dir being

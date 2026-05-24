@@ -27,7 +27,7 @@ def openhands_success_flag(
 
 
 def openhands_session_id(payload: Mapping[object, object] | None) -> str:
-    for key in (ImplementationFields.SESSION_ID, 'conversation_id'):
+    for key in (ImplementationFields.AGENT_SESSION_ID, 'session_id', 'conversation_id'):
         value = text_from_mapping(payload, key)
         if value:
             return value
@@ -65,5 +65,5 @@ def build_openhands_result(
 
     session_id = openhands_session_id(payload)
     if session_id:
-        result[ImplementationFields.SESSION_ID] = session_id
+        result[ImplementationFields.AGENT_SESSION_ID] = session_id
     return result

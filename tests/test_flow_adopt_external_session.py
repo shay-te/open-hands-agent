@@ -40,6 +40,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock
 
+from agent_core_lib.agent_core_lib.helpers.session_id_utils import AGENT_SESSION_ID
+
 
 # ---------------------------------------------------------------------------
 # Validation: adoption rejects empty / whitespace ids.
@@ -118,7 +120,7 @@ class FlowAdoptPersistenceTests(unittest.TestCase):
                 (Path(state_dir) / 'T1.json').read_text(encoding='utf-8'),
             )
             self.assertEqual(
-                persisted['agent_session_id'], 'adopted-id-from-vscode',
+                persisted[AGENT_SESSION_ID], 'adopted-id-from-vscode',
                 'adoption did not persist — restart will lose the adoption',
             )
 
@@ -157,7 +159,7 @@ class FlowAdoptPersistenceTests(unittest.TestCase):
             persisted = json.loads(
                 (Path(state_dir) / 'T1.json').read_text(encoding='utf-8'),
             )
-            self.assertEqual(persisted['agent_session_id'], 'first-id')
+            self.assertEqual(persisted[AGENT_SESSION_ID], 'first-id')
 
     def test_flow_adopt_allows_idempotent_re_adopt(self) -> None:
         from claude_core_lib.claude_core_lib.session.manager import (
@@ -256,7 +258,7 @@ class FlowAdoptWorkspaceMirrorTests(unittest.TestCase):
             )
             # Every mirror call carried the adopted id.
             for call in workspace_mgr.update_agent_session.call_args_list:
-                forwarded = call.kwargs.get('agent_session_id') or (
+                forwarded = call.kwargs.get(AGENT_SESSION_ID) or (
                     call.args[1] if len(call.args) > 1 else None
                 )
                 self.assertEqual(forwarded, 'adopted-id')

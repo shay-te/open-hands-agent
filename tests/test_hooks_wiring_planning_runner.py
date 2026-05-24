@@ -11,6 +11,7 @@ from __future__ import annotations
 import unittest
 from unittest.mock import MagicMock
 
+from agent_core_lib.agent_core_lib.helpers.session_id_utils import AGENT_SESSION_ID
 from claude_core_lib.claude_core_lib.session.streaming import SessionEvent
 from kato_core_lib.data_layers.service.planning_session_runner import (
     PlanningSessionRunner,
@@ -124,7 +125,7 @@ class HooksWiringResumeChatTests(unittest.TestCase):
         # can correlate with on-disk JSONL.
         ss_event = hook_runner.fire.call_args_list[1].args[1]
         self.assertEqual(ss_event['task_id'], 'T-1')
-        self.assertEqual(ss_event['agent_session_id'], 'fake-session-id')
+        self.assertEqual(ss_event[AGENT_SESSION_ID], 'fake-session-id')
 
     def test_resume_chat_hook_failure_does_not_kill_caller(self) -> None:
         # Defensive: a misbehaving hook runner must not bring down
@@ -159,7 +160,7 @@ class HooksWiringRunToTerminalTests(unittest.TestCase):
         )
         end_event = hook_runner.fire.call_args_list[-1].args[1]
         self.assertEqual(end_event['reason'], 'completed')
-        self.assertEqual(end_event['agent_session_id'], 'fake-session-id')
+        self.assertEqual(end_event[AGENT_SESSION_ID], 'fake-session-id')
 
     def test_terminal_with_error_fires_session_end_with_reason_error(self) -> None:
         manager = _FakeManager(_error_event())
