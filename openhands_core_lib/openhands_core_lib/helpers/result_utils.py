@@ -27,12 +27,13 @@ def openhands_success_flag(
 
 
 def openhands_session_id(payload: Mapping[object, object] | None) -> str:
-    # ``payload`` here is OpenHands' raw API response (wire format),
-    # not kato's internal dict — the OpenHands API emits ``session_id``
-    # (and the older ``conversation_id`` alias on some endpoints). Kato
-    # normalizes that to ``AGENT_SESSION_ID`` upstream in
-    # ``build_openhands_result``.
-    for key in ('session_id', 'conversation_id'):
+    # ``payload`` may be either OpenHands' raw API response (wire
+    # format — keys ``session_id`` / ``conversation_id``) or a payload
+    # that the OpenHands client has already enriched with kato's
+    # internal ``AGENT_SESSION_ID`` key (see
+    # ``OpenHandsClient._run_prompt``). Check all three so the helper
+    # works at both layers.
+    for key in ('session_id', 'conversation_id', ImplementationFields.AGENT_SESSION_ID):
         value = text_from_mapping(payload, key)
         if value:
             return value

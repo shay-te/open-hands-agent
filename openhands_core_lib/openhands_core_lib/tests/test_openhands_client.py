@@ -1533,7 +1533,9 @@ class ResultUtilsTests(unittest.TestCase):
         self.assertTrue(openhands_success_flag(None, default=True))
 
     def test_openhands_session_id_reads_session_id_key(self) -> None:
-        self.assertEqual(openhands_session_id({'agent_session_id': 'conv-1'}), 'conv-1')
+        # OpenHands' API response uses the wire key ``session_id`` —
+        # kato normalizes to ``agent_session_id`` after this helper.
+        self.assertEqual(openhands_session_id({'session_id': 'conv-1'}), 'conv-1')
 
     def test_openhands_session_id_reads_conversation_id_fallback(self) -> None:
         self.assertEqual(openhands_session_id({'conversation_id': 'conv-2'}), 'conv-2')

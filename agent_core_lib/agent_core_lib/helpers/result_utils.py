@@ -27,7 +27,12 @@ def openhands_success_flag(
 
 
 def openhands_session_id(payload: Mapping[object, object] | None) -> str:
-    for key in (ImplementationFields.AGENT_SESSION_ID, 'agent_session_id', 'conversation_id'):
+    # ``payload`` here is kato's INTERNAL result dict (built by each
+    # backend's ``_parse_completed_process``), keyed by
+    # ``AGENT_SESSION_ID``. Wire-format reads from external CLIs
+    # happen one layer down in each backend's own parser before
+    # ``build_openhands_result`` is called.
+    for key in (ImplementationFields.AGENT_SESSION_ID, 'conversation_id'):
         value = text_from_mapping(payload, key)
         if value:
             return value

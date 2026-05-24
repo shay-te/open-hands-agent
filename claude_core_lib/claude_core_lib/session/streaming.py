@@ -1096,7 +1096,7 @@ class StreamingClaudeSession(object):
         return SessionEvent(raw=payload)
 
     def _maybe_capture_session_id(self, event: SessionEvent) -> None:
-        candidate = fix_session_id(event.get('session_id', ''))
+        candidate = fix_session_id(event.raw.get('session_id', ''))
         if not candidate:
             return
         if not self._agent_session_id:

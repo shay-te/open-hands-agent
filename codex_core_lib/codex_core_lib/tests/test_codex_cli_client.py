@@ -393,7 +393,7 @@ class ImplementTaskTests(unittest.TestCase):
         # Primary source for the result text is the file codex writes
         # via ``--output-last-message``, NOT the JSONL stdout stream.
         client = CodexCliClient(binary='codex')
-        jsonl_stdout = '{"type": "session_start", "agent_session_id": "sess-1"}\n'
+        jsonl_stdout = '{"type": "session_start", "session_id": "sess-1"}\n'
         with self._mock_run(stdout=jsonl_stdout, last_message='all done'):
             result = client.implement_task(_task())
         self.assertTrue(result[ImplementationFields.SUCCESS])
@@ -515,9 +515,11 @@ class JsonlParsingTests(unittest.TestCase):
         self.assertEqual(payload['agent_session_id'], 'first')
 
     def test_forward_compat_session_id_key_also_recognised(self) -> None:
-        # If a future codex version starts emitting ``agent_session_id``
-        # directly, the parser should still pick it up.
-        stream = '{"type":"thread.started","agent_session_id":"fwd-compat-id"}\n'
+        # If a future codex version starts emitting ``session_id``
+        # directly (its wire-format key — kato normalizes to
+        # ``agent_session_id`` internally), the parser should still
+        # pick it up.
+        stream = '{"type":"thread.started","session_id":"fwd-compat-id"}\n'
         payload = CodexCliClient(binary='codex')._parse_jsonl_payload(stream)
         self.assertEqual(payload['agent_session_id'], 'fwd-compat-id')
 
