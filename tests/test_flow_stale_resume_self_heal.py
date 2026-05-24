@@ -1,4 +1,4 @@
-"""Flow #10 — Claude rejects ``--resume <id>`` and kato self-heals.
+"""Flow #10 — Claude rejects ``--resume <id>`` and kato refuses drift.
 
 A-Z scenario:
 
@@ -8,16 +8,12 @@ A-Z scenario:
     3. Operator sends a message → kato spawns ``claude --resume dead-id``.
     4. Claude exits ~immediately with
        ``No conversation found with session ID: dead-id``.
-    5. kato detects the stale-resume failure during a short poll window,
-       terminates the dead subprocess, clears the stale id from the
-       persisted record, and respawns FRESH (no ``--resume`` flag).
-    6. Operator sees a fresh session — a single conversation, not a loop.
+    5. kato detects the stale-resume failure during a short poll window
+       and terminates the dead subprocess.
+    6. kato raises loudly and keeps the persisted id unchanged.
 
-Why this matters: without the self-heal, every scan cycle would
-respawn against the dead id, every spawn would die the same way,
-and the tab would loop indefinitely or burn tokens forever. This is
-a *silent* failure mode — the operator might not even notice token
-burn until a bill arrives.
+Why this matters: silently starting fresh violates the operator's
+session-id invariant. A loud failure is better than hidden drift.
 
 Three detection contracts have to hold together:
     A) ``_died_with_stale_resume_id`` recognizes the marker in stderr.
@@ -27,9 +23,8 @@ Three detection contracts have to hold together:
        so kato doesn't hang waiting for healthy spawns.
 
 Plus a persistence contract:
-    D) ``_resume_id_for_spawn`` clears the stale id from the on-disk
-       record BEFORE the next spawn, so the next scan doesn't repeat
-       the doomed --resume.
+    D) ``_resume_id_for_spawn`` keeps the stale id active so kato never
+       silently replaces a known session id with a fresh one.
 """
 
 from __future__ import annotations
@@ -113,7 +108,7 @@ class FlowStaleResumeDetectionTests(unittest.TestCase):
         ])
         self.assertTrue(
             ClaudeSessionManager._died_with_stale_resume_id(session, 'bad-id'),
-            'detection missed the marker line — self-heal would never fire',
+            'detection missed the marker line — stale-resume guard would never fire',
         )
 
     def test_flow_stale_resume_detected_from_terminal_event_when_no_stderr(self) -> None:
@@ -135,7 +130,7 @@ class FlowStaleResumeDetectionTests(unittest.TestCase):
     def test_flow_stale_resume_negative_when_terminal_is_not_error(self) -> None:
         # The terminal event may quote the marker for unrelated reasons
         # (e.g., debug logs). The detector MUST require ``is_error`` =
-        # True before parsing the result text. Otherwise self-heal fires
+        # True before parsing the result text. Otherwise stale-resume handling fires
         # on a perfectly-healthy session.
         from claude_core_lib.claude_core_lib.session.manager import (
             ClaudeSessionManager,
@@ -168,7 +163,7 @@ class FlowStaleResumeDetectionTests(unittest.TestCase):
         # The marker has to match the exact resume id we passed.
         # A leftover marker from a DIFFERENT session id (e.g., the CLI
         # printed about session 'X' but kato passed 'Y') must NOT
-        # trigger self-heal — that would cascade-fail healthy sessions.
+        # trigger stale-resume handling — that would cascade-fail healthy sessions.
         from claude_core_lib.claude_core_lib.session.manager import (
             ClaudeSessionManager,
         )
@@ -182,7 +177,7 @@ class FlowStaleResumeDetectionTests(unittest.TestCase):
 
     def test_flow_stale_resume_negative_on_clean_exit(self) -> None:
         # A normal session that finished its turn and exited (no marker
-        # anywhere) must NOT trigger self-heal — that would force a
+        # anywhere) must NOT trigger stale-resume handling — that would force a
         # spurious respawn.
         from claude_core_lib.claude_core_lib.session.manager import (
             ClaudeSessionManager,
@@ -296,16 +291,16 @@ class FlowStaleResumePollingTests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
-# Persistence contract (D): blank the stale id BEFORE next spawn.
+# Persistence contract (D): keep the stale id pinned before next spawn.
 # ---------------------------------------------------------------------------
 
 
 class FlowStaleResumePersistenceTests(unittest.TestCase):
 
-    def test_flow_stale_resume_blanks_id_on_record_before_returning(self) -> None:
-        # ``_resume_id_for_spawn`` is called BEFORE spawn. If self-heal
-        # fires here, the record MUST be persisted with a blank id so
-        # the next scan doesn't repeat the doomed --resume.
+    def test_flow_stale_resume_keeps_id_on_record_before_returning(self) -> None:
+        # ``_resume_id_for_spawn`` is called BEFORE spawn. If the
+        # previous process rejected --resume, the active id still stays
+        # pinned; fresh-session fallback is not allowed.
         from claude_core_lib.claude_core_lib.session.manager import (
             ClaudeSessionManager, PlanningSessionRecord,
             SESSION_STATUS_TERMINATED,
@@ -321,33 +316,32 @@ class FlowStaleResumePersistenceTests(unittest.TestCase):
             )
             with mgr._lock:
                 mgr._records['T1'] = record
+                mgr._persist_record(record)
 
             # Existing-session stub: dead, with the marker in stderr.
             existing = _stub_session_with_stderr([
                 'No conversation found with session ID: dead-id',
             ])
 
-            # Trigger the self-heal decision path.
+            # Trigger the stale-resume decision path.
             result_id = mgr._resume_id_for_spawn('T1', record, existing)
 
             self.assertEqual(
-                result_id, '',
-                'self-heal did not clear the resume id — next spawn '
-                'will try the dead id again and loop',
+                result_id, 'dead-id',
+                'stale-resume handling changed the active session id',
             )
-            # Disk-side: record was persisted with the blank.
+            # Disk-side: record still carries the same active id.
             persisted = json.loads(
-                (Path(state_dir) / 'T1.json').read_text(encoding='utf-8'),
+                (Path(state_dir) / 't1.json').read_text(encoding='utf-8'),
             )
             self.assertEqual(
-                persisted['claude_session_id'], '',
-                'on-disk record still carries the dead id — kato restart '
-                'will respawn against it forever',
+                persisted['claude_session_id'], 'dead-id',
+                'on-disk record lost the pinned session id',
             )
 
     def test_flow_stale_resume_no_persist_on_healthy_session(self) -> None:
         # Negative case: healthy existing session, no marker, no
-        # self-heal. The resume id must come back unchanged.
+        # stale-resume handling. The resume id must come back unchanged.
         from claude_core_lib.claude_core_lib.session.manager import (
             ClaudeSessionManager, PlanningSessionRecord,
             SESSION_STATUS_TERMINATED,
@@ -375,7 +369,7 @@ class FlowStaleResumePersistenceTests(unittest.TestCase):
 
     def test_flow_stale_resume_with_no_previous_record_returns_empty(self) -> None:
         # First-ever spawn: no previous record. Resume id is empty by
-        # definition; the self-heal short-circuit must skip.
+        # definition; the stale-resume short-circuit must skip.
         from claude_core_lib.claude_core_lib.session.manager import (
             ClaudeSessionManager,
         )
@@ -390,7 +384,7 @@ class FlowStaleResumePersistenceTests(unittest.TestCase):
     def test_flow_stale_resume_with_no_existing_session_uses_record_id(self) -> None:
         # Record has an id, but there's no existing session to inspect
         # (terminate happened cleanly). Without an existing session,
-        # self-heal can't fire — return the id as-is and let the SPAWN
+        # stale-resume handling can't fire — return the id as-is and let the SPAWN
         # path detect a runtime failure.
         from claude_core_lib.claude_core_lib.session.manager import (
             ClaudeSessionManager, PlanningSessionRecord,
@@ -412,23 +406,21 @@ class FlowStaleResumePersistenceTests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
-# Full A-Z: end-to-end via start_session with a self-healing factory.
+# Full A-Z: end-to-end via start_session with a stale-resume factory.
 # ---------------------------------------------------------------------------
 
 
 class FlowStaleResumeEndToEndTests(unittest.TestCase):
 
-    def test_flow_stale_resume_end_to_end_dead_id_yields_fresh_session(self) -> None:
+    def test_flow_stale_resume_end_to_end_dead_id_raises_no_fresh_session(self) -> None:
         # The full flow inside ``_spawn_with_resume_self_heal``: spawn
-        # with stale id → marker detected → terminate → respawn fresh
-        # → return the fresh session.
+        # with stale id → marker detected → terminate → raise.
         from claude_core_lib.claude_core_lib.session.manager import (
             ClaudeSessionManager,
         )
 
-        # Factory returns a session that "dies" immediately with the
-        # stale-resume marker on the FIRST call (the spawn with --resume),
-        # and a healthy session on the SECOND call (the fresh respawn).
+        # Factory returns a session that dies immediately with the
+        # stale-resume marker. A second fresh spawn must never happen.
         spawn_calls = []
 
         def factory(**kwargs):
@@ -453,38 +445,22 @@ class FlowStaleResumeEndToEndTests(unittest.TestCase):
 
                 return _Dead()
 
-            # Second spawn: fresh, healthy.
-            class _Fresh:
-                is_alive = True
-                terminal_event = None
-
-                @property
-                def claude_session_id(self): return 'brand-new-uuid'
-
-                def start(self, *, initial_prompt=''): pass
-
-                def stderr_snapshot(self): return []
-
-                def terminate(self): pass
-
-            return _Fresh()
+            raise AssertionError('fresh fallback spawn is not allowed')
 
         with tempfile.TemporaryDirectory() as state_dir:
             mgr = ClaudeSessionManager(
                 state_dir=state_dir, session_factory=factory,
             )
-            session = mgr._spawn_with_resume_self_heal(
-                normalized_task_id='T1',
-                factory_kwargs={'task_id': 'T1'},
-                initial_prompt='go',
-                resume_session_id='dead-id',
-            )
-            # Two spawns happened: stale, then fresh.
-            self.assertEqual(len(spawn_calls), 2)
+            with self.assertRaises(RuntimeError):
+                mgr._spawn_with_resume_self_heal(
+                    normalized_task_id='T1',
+                    factory_kwargs={'task_id': 'T1'},
+                    initial_prompt='go',
+                    resume_session_id='dead-id',
+                )
+            # One spawn happened: the stale resume only.
+            self.assertEqual(len(spawn_calls), 1)
             self.assertEqual(spawn_calls[0].get('resume_session_id'), 'dead-id')
-            self.assertEqual(spawn_calls[1].get('resume_session_id'), '')
-            # Returned session is the fresh one.
-            self.assertEqual(session.claude_session_id, 'brand-new-uuid')
 
     def test_flow_stale_resume_end_to_end_healthy_resume_no_respawn(self) -> None:
         # Negative end-to-end: a healthy resume must NOT respawn.

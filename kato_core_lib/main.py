@@ -23,6 +23,7 @@ from sandbox_core_lib.sandbox_core_lib.tls_pin import (
     TlsPinError,
     validate_anthropic_tls_pin_or_refuse,
 )
+from claude_core_lib.claude_core_lib.session.session_id_utils import fix_session_id
 from kato_core_lib.validate_env import validate_environment
 from sandbox_core_lib.sandbox_core_lib.bypass_permissions_validator import (
     BypassPermissionsRefused,
@@ -415,6 +416,9 @@ def _resume_streaming_sessions(app) -> None:
     runner = getattr(app, 'planning_session_runner', None)
     if session_manager is None or workspace_manager is None:
         return
+    attach = getattr(session_manager, 'attach_workspace_manager', None)
+    if callable(attach):
+        attach(workspace_manager)
     try:
         from kato_core_lib.data_layers.service.workspace_manager import (
             WORKSPACE_STATUS_ACTIVE,
@@ -771,7 +775,7 @@ def _log_known_session_ids(app) -> None:
     lines = []
     for record in records:
         task_id = str(getattr(record, 'task_id', '') or '').strip()
-        sid = str(getattr(record, 'claude_session_id', '') or '').strip()
+        sid = fix_session_id(getattr(record, 'claude_session_id', ''))
         if task_id and sid:
             lines.append(f'  task {task_id}: session id {sid}')
     if lines:

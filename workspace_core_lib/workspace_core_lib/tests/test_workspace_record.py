@@ -52,6 +52,24 @@ class WorkspaceRecordTests(unittest.TestCase):
         record = WorkspaceRecord.from_dict(payload)
         self.assertEqual(record.agent_session_id, 'new-id')
 
+    def test_from_dict_falls_back_when_new_key_is_whitespace(self) -> None:
+        payload = {
+            'task_id': 'PROJ-1',
+            'agent_session_id': '   ',
+            'claude_session_id': 'legacy-id',
+        }
+        record = WorkspaceRecord.from_dict(payload)
+        self.assertEqual(record.agent_session_id, 'legacy-id')
+
+    def test_from_dict_strips_session_id_and_cwd(self) -> None:
+        record = WorkspaceRecord.from_dict({
+            'task_id': 'PROJ-1',
+            'agent_session_id': '  sess-uuid\n',
+            'cwd': '  /tmp/work  ',
+        })
+        self.assertEqual(record.agent_session_id, 'sess-uuid')
+        self.assertEqual(record.cwd, '/tmp/work')
+
     def test_to_dict_uses_new_key_only(self) -> None:
         # Write-side: every persisted record uses the canonical name.
         # No ``claude_session_id`` gets written ever; legacy callers

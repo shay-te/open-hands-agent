@@ -306,6 +306,7 @@ class MainTests(unittest.TestCase):
                     ]
                 ),
                 repository_path=Mock(return_value=workspace_root),
+                update_agent_session=Mock(),
             )
             app = types.SimpleNamespace(
                 logger=Mock(),
@@ -322,13 +323,8 @@ class MainTests(unittest.TestCase):
             self.assertEqual(len(second_fakes), 1)
             self.assertEqual(second_fakes[0].resume_session_id, persisted_session_id)
 
-    def test_resume_streaming_sessions_picks_up_latest_session_id_when_overwritten(self) -> None:
-        """If a task gets a new session_id mid-flight (e.g. operator
-        re-prompted, old session expired), the post-restart resume must
-        use the *latest* persisted id — not a stale one. Locks the
-        contract that the on-disk file is the source of truth and the
-        manager re-reads it on cold boot.
-        """
+    def test_resume_streaming_sessions_keeps_original_id_when_re_adopt_is_attempted(self) -> None:
+        """Restart resume must use the first pinned session id."""
         from claude_core_lib.claude_core_lib.session.manager import ClaudeSessionManager
         from claude_core_lib.claude_core_lib.tests.session.test_manager import _FakeStreamingSession
 
@@ -342,21 +338,22 @@ class MainTests(unittest.TestCase):
                 session_factory=lambda **kw: fakes_1.append(_FakeStreamingSession(**kw)) or fakes_1[-1],
             )
             mgr_1.start_session(task_id='PROJ-1', task_summary='first run')
+            persisted_session_id = mgr_1.get_record('PROJ-1').claude_session_id
             mgr_1.terminate_session('PROJ-1')
 
-            # Manager 2 (simulated restart 1): session re-spawned, new id
+            # Manager 2 (simulated restart 1): a different adoption is refused.
             fakes_2: list = []
             mgr_2 = ClaudeSessionManager(
                 state_dir=state_dir,
                 session_factory=lambda **kw: fakes_2.append(_FakeStreamingSession(**kw)) or fakes_2[-1],
             )
-            # Force a new session_id by adopting one (overrides the prior persisted id).
-            mgr_2.adopt_session_id('PROJ-1', claude_session_id='newer-session-uuid')
+            with self.assertRaises(RuntimeError):
+                mgr_2.adopt_session_id('PROJ-1', claude_session_id='newer-session-uuid')
             latest_session_id = mgr_2.get_record('PROJ-1').claude_session_id
-            self.assertEqual(latest_session_id, 'newer-session-uuid')
+            self.assertEqual(latest_session_id, persisted_session_id)
 
             # Manager 3 (simulated restart 2): _resume_streaming_sessions
-            # MUST pick up 'newer-session-uuid', not the original.
+            # MUST pick up the original pinned id, not the rejected id.
             fakes_3: list = []
             mgr_3 = ClaudeSessionManager(
                 state_dir=state_dir,
@@ -374,6 +371,7 @@ class MainTests(unittest.TestCase):
                         )
                     ]
                 ),
+                update_agent_session=Mock(),
             )
             app = types.SimpleNamespace(
                 logger=Mock(),
@@ -385,7 +383,52 @@ class MainTests(unittest.TestCase):
             _resume_streaming_sessions(app)
 
             self.assertEqual(len(fakes_3), 1)
-            self.assertEqual(fakes_3[0].resume_session_id, 'newer-session-uuid')
+            self.assertEqual(fakes_3[0].resume_session_id, persisted_session_id)
+
+    def test_resume_streaming_sessions_seeds_from_workspace_metadata_before_spawn(self) -> None:
+        """Empty manager state still resumes the id stored on workspace metadata."""
+        from claude_core_lib.claude_core_lib.session.manager import ClaudeSessionManager
+        from claude_core_lib.claude_core_lib.tests.session.test_manager import _FakeStreamingSession
+
+        with tempfile.TemporaryDirectory() as tmp:
+            fakes: list = []
+
+            def factory(**kwargs):
+                session = _FakeStreamingSession(**kwargs)
+                fakes.append(session)
+                return session
+
+            manager = ClaudeSessionManager(
+                state_dir=Path(tmp),
+                session_factory=factory,
+            )
+            workspace_record = types.SimpleNamespace(
+                task_id='PROJ-1',
+                task_summary='from workspace',
+                status='active',
+                cwd='/repo',
+                repository_ids=['client'],
+                agent_session_id='workspace-session-id',
+            )
+            workspace_manager = types.SimpleNamespace(
+                list_workspaces=Mock(return_value=[workspace_record]),
+                update_agent_session=Mock(),
+            )
+            app = types.SimpleNamespace(
+                logger=Mock(),
+                session_manager=manager,
+                workspace_manager=workspace_manager,
+                planning_session_runner=None,
+            )
+
+            _resume_streaming_sessions(app)
+
+            self.assertEqual(len(fakes), 1)
+            self.assertEqual(fakes[0].resume_session_id, 'workspace-session-id')
+            self.assertEqual(
+                manager.get_record('PROJ-1').claude_session_id,
+                'workspace-session-id',
+            )
 
     def test_main_returns_one_without_traceback_when_startup_validation_fails(self) -> None:
         configured_logger = Mock()

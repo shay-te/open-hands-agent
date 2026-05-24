@@ -90,8 +90,8 @@ class WorkspaceRecord(object):
             else []
         )
         agent_session_id = (
-            str(payload.get('agent_session_id', '') or '')
-            or str(payload.get('claude_session_id', '') or '')
+            str(payload.get('agent_session_id', '') or '').strip()
+            or str(payload.get('claude_session_id', '') or '').strip()
         )
         return cls(
             task_id=str(payload.get('task_id', '') or ''),
@@ -102,7 +102,7 @@ class WorkspaceRecord(object):
             ),
             repository_ids=repository_ids,
             agent_session_id=agent_session_id,
-            cwd=str(payload.get('cwd', '') or ''),
+            cwd=str(payload.get('cwd', '') or '').strip(),
             resume_on_startup=bool(payload.get('resume_on_startup', True)),
             created_at_epoch=float(
                 payload.get('created_at_epoch', time.time()) or time.time(),

@@ -18,6 +18,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from claude_core_lib.claude_core_lib.cli_client import ClaudeCliClient
+from claude_core_lib.claude_core_lib.session.session_id_utils import fix_session_id
 from claude_core_lib.claude_core_lib.session.manager import (
     SESSION_STATUS_REVIEW,
     SESSION_STATUS_TERMINATED,
@@ -205,7 +206,7 @@ class PlanningSessionRunner(object):
             else None
         )
         resume_session_id = (
-            str(getattr(existing_record, 'claude_session_id', '') or '').strip()
+            fix_session_id(getattr(existing_record, 'claude_session_id', ''))
             if existing_record is not None
             else ''
         )
@@ -246,7 +247,7 @@ class PlanningSessionRunner(object):
             docker_mode_on=self._defaults.docker_mode_on,
             additional_dirs=additional_dirs,
         )
-        sid = str(getattr(session, 'claude_session_id', '') or '')
+        sid = fix_session_id(getattr(session, 'claude_session_id', ''))
         self.logger.info(
             'task %s: chat session started — %s session id %s',
             normalized_task_id,
@@ -402,7 +403,7 @@ class PlanningSessionRunner(object):
             cwd=cwd,
             branch_name=branch_name,
         )
-        sid = str(getattr(session, 'claude_session_id', '') or '')
+        sid = fix_session_id(getattr(session, 'claude_session_id', ''))
         self.logger.info(
             'task %s: %s started — fresh session id %s',
             task_id, log_label, sid or '(unknown)',
@@ -462,8 +463,8 @@ class PlanningSessionRunner(object):
             'task_id': task_id,
             'reason': 'completed',
             'log_label': log_label,
-            'claude_session_id': str(
-                getattr(session, 'claude_session_id', '') or '',
+            'claude_session_id': fix_session_id(
+                getattr(session, 'claude_session_id', ''),
             ),
         })
 

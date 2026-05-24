@@ -56,6 +56,7 @@ from flask import (
     url_for,
 )
 
+from claude_core_lib.claude_core_lib.session.session_id_utils import fix_session_id
 from claude_core_lib.claude_core_lib.session.wire_protocol import (
     CLAUDE_EVENT_CONTROL_REQUEST,
     CLAUDE_EVENT_PERMISSION_REQUEST,
@@ -749,7 +750,7 @@ def _register_http_routes(app: Flask) -> None:
         adopted_by: dict[str, str] = {}
         try:
             for record in manager.list_records():
-                sid = str(getattr(record, 'claude_session_id', '') or '').strip()
+                sid = fix_session_id(getattr(record, 'claude_session_id', ''))
                 if sid and sid not in adopted_by:
                     adopted_by[sid] = record.task_id
         except Exception:  # pragma: no cover — defensive
@@ -775,7 +776,7 @@ def _register_http_routes(app: Flask) -> None:
         it first to avoid two writers on the same record.
         """
         payload = request.get_json(silent=True) or {}
-        claude_session_id = str(payload.get('claude_session_id', '') or '').strip()
+        claude_session_id = fix_session_id(payload.get('claude_session_id'))
         if not claude_session_id:
             return jsonify({'error': 'claude_session_id is required'}), 400
         manager = app.config['SESSION_MANAGER']
@@ -794,6 +795,8 @@ def _register_http_routes(app: Flask) -> None:
             )
         except ValueError as exc:
             return jsonify({'error': str(exc)}), 400
+        except RuntimeError as exc:
+            return jsonify({'error': str(exc)}), 409
         # Migrate the source JSONL into kato's per-task workspace
         # cwd so ``claude --resume <id>`` can find it. Kato spawns
         # Claude at its own workspace clone — NOT the source
@@ -2857,9 +2860,11 @@ def _session_ids_by_task(session_manager) -> dict[str, str]:
     except Exception:
         return {}
     return {
-        str(record.task_id): str(getattr(record, 'claude_session_id', '') or '')
+        str(record.task_id): fix_session_id(
+            getattr(record, 'claude_session_id', ''),
+        )
         for record in records
-        if getattr(record, 'claude_session_id', '')
+        if fix_session_id(getattr(record, 'claude_session_id', ''))
     }
 
 

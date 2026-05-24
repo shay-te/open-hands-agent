@@ -43,6 +43,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from claude_core_lib.claude_core_lib.session.session_id_utils import fix_session_id
 from kato_core_lib.helpers.atomic_text_utils import atomic_write_text
 from kato_core_lib.helpers.logging_utils import configure_logger
 
@@ -82,7 +83,7 @@ def render_resume_prompt(inputs: ResumePromptInputs) -> str:
     ]
     last_user = _trim(inputs.last_user_text or '', 800)
     last_assistant = _trim(inputs.last_assistant_text or '', 1600)
-    claude_session_id = (inputs.claude_session_id or '').strip()
+    claude_session_id = fix_session_id(inputs.claude_session_id)
 
     lines: list[str] = []
     lines.append(f'# Resume prompt for {task_id}')

@@ -275,12 +275,13 @@ class SessionManagerAdoptionTests(unittest.TestCase):
         self.assertEqual(record.claude_session_id, 'abc-def')
         self.assertEqual(record.status, SESSION_STATUS_TERMINATED)
 
-    def test_adopt_overwrites_existing_session_id(self) -> None:
+    def test_adopt_refuses_to_change_existing_session_id(self) -> None:
         self.manager.adopt_session_id('PROJ-1', claude_session_id='first')
-        self.manager.adopt_session_id('PROJ-1', claude_session_id='second')
+        with self.assertRaisesRegex(RuntimeError, 'already pinned'):
+            self.manager.adopt_session_id('PROJ-1', claude_session_id='second')
         self.assertEqual(
             self.manager.get_record('PROJ-1').claude_session_id,
-            'second',
+            'first',
         )
 
     def test_adopt_persists_record_to_disk(self) -> None:
@@ -318,8 +319,8 @@ class SessionManagerAdoptionTests(unittest.TestCase):
         # Pre-set a cwd as if a previous spawn populated it.
         first = self.manager.adopt_session_id('PROJ-1', claude_session_id='abc-def')
         first.cwd = '/wks/PROJ-1/admin-backend'
-        # Re-adopt — record.cwd must be untouched by the adoption.
-        self.manager.adopt_session_id('PROJ-1', claude_session_id='ghi-jkl')
+        # Idempotent re-adopt — record.cwd must be untouched.
+        self.manager.adopt_session_id('PROJ-1', claude_session_id='abc-def')
         self.assertEqual(
             self.manager.get_record('PROJ-1').cwd,
             '/wks/PROJ-1/admin-backend',
@@ -331,7 +332,7 @@ class SessionManagerAdoptionTests(unittest.TestCase):
             task_summary='first summary',
         )
         self.manager.adopt_session_id(
-            'PROJ-1', claude_session_id='second',
+            'PROJ-1', claude_session_id='first',
             task_summary='second summary',
         )
         record = self.manager.get_record('PROJ-1')

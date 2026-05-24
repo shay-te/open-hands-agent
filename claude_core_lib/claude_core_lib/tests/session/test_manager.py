@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -366,6 +367,19 @@ class PlanningSessionRecordTests(unittest.TestCase):
         round_tripped = PlanningSessionRecord.from_dict(original.to_dict())
         self.assertEqual(round_tripped, original)
 
+    def test_from_dict_trims_persisted_session_fields(self) -> None:
+        restored = PlanningSessionRecord.from_dict({
+            'task_id': '  PROJ-1  ',
+            'claude_session_id': '  sess-1\n',
+            'previous_claude_session_id': '  old-sess  ',
+            'cwd': '  /tmp/repo  ',
+        })
+
+        self.assertEqual(restored.task_id, 'PROJ-1')
+        self.assertEqual(restored.claude_session_id, 'sess-1')
+        self.assertEqual(restored.previous_claude_session_id, 'old-sess')
+        self.assertEqual(restored.cwd, '/tmp/repo')
+
 
 class _StaleResumeFakeSession(_FakeStreamingSession):
     """Fake session that simulates the Claude CLI rejecting a resume id.
@@ -691,6 +705,28 @@ class WorkspaceSeedingTests(unittest.TestCase):
             original_id,
         )
 
+    def test_workspace_seed_replaces_whitespace_only_existing_id(self) -> None:
+        self.manager._records[self.manager._lookup_key('PROJ-W')] = (
+            PlanningSessionRecord(
+                task_id='PROJ-W',
+                claude_session_id='   ',
+                cwd='',
+            )
+        )
+        ws = SimpleNamespace(
+            task_id='PROJ-W', agent_session_id='workspace-good-id', cwd='/wks/W',
+        )
+        workspace_manager = SimpleNamespace(
+            list_workspaces=lambda: [ws],
+            update_agent_session=lambda *a, **kw: None,
+        )
+
+        self.manager.attach_workspace_manager(workspace_manager)
+
+        record = self.manager.get_record('PROJ-W')
+        self.assertEqual(record.claude_session_id, 'workspace-good-id')
+        self.assertEqual(record.cwd, '/wks/W')
+
     def test_handles_list_workspaces_exception(self) -> None:
         def broken_list():
             raise RuntimeError('workspace manager dead')
@@ -980,7 +1016,7 @@ class WithRefreshedSessionIdTests(unittest.TestCase):
         refreshed = self.manager._with_refreshed_session_id(record)
         self.assertEqual(refreshed.claude_session_id, 'old-id')
 
-    def test_fresh_session_can_replace_generated_id(self) -> None:
+    def test_refresh_does_not_replace_generated_id_without_callback(self) -> None:
         record = PlanningSessionRecord(
             task_id='PROJ-1', claude_session_id='generated-id',
         )
@@ -992,7 +1028,7 @@ class WithRefreshedSessionIdTests(unittest.TestCase):
         )
 
         refreshed = self.manager._with_refreshed_session_id(record)
-        self.assertEqual(refreshed.claude_session_id, 'actual-id')
+        self.assertEqual(refreshed.claude_session_id, 'generated-id')
 
     def test_returns_record_unchanged_when_no_live_session(self) -> None:
         record = PlanningSessionRecord(
@@ -1289,11 +1325,69 @@ class AdoptSessionIdTaskSummaryTests(unittest.TestCase):
             task_id='PROJ-X', claude_session_id='old', task_summary='',
         )
         manager.adopt_session_id(
-            'PROJ-X', claude_session_id='new', task_summary='added later',
+            'PROJ-X', claude_session_id='old', task_summary='added later',
         )
         self.assertEqual(
             manager.get_record('PROJ-X').task_summary, 'added later',
         )
+
+
+class AdoptSessionIdSpawnRaceTests(unittest.TestCase):
+    """Adoption cannot race a same-task spawn metadata write."""
+
+    def test_adopt_waits_for_same_task_spawn_and_refuses_live_session(self) -> None:
+        started = threading.Event()
+        release = threading.Event()
+        errors: list[BaseException] = []
+
+        class _BlockingSession(_FakeStreamingSession):
+            def __init__(self, **kwargs) -> None:
+                super().__init__(**kwargs)
+                self._claude_session_id = 'fresh-race-id'
+
+            def start(self, initial_prompt: str = '') -> None:
+                started.set()
+                release.wait(timeout=5)
+                super().start(initial_prompt=initial_prompt)
+
+        with tempfile.TemporaryDirectory() as state_dir:
+            manager = ClaudeSessionManager(
+                state_dir=state_dir,
+                session_factory=lambda **kw: _BlockingSession(**kw),
+            )
+
+            def start_session() -> None:
+                manager.start_session(task_id='PROJ-RACE')
+
+            def adopt_session() -> None:
+                try:
+                    manager.adopt_session_id(
+                        'PROJ-RACE',
+                        claude_session_id='adopted-race-id',
+                    )
+                except BaseException as exc:
+                    errors.append(exc)
+
+            start_thread = threading.Thread(target=start_session)
+            start_thread.start()
+            self.assertTrue(started.wait(timeout=5))
+
+            adopt_thread = threading.Thread(target=adopt_session)
+            adopt_thread.start()
+            self.assertFalse(errors)
+
+            release.set()
+            start_thread.join(timeout=5)
+            adopt_thread.join(timeout=5)
+            self.assertFalse(start_thread.is_alive())
+            self.assertFalse(adopt_thread.is_alive())
+            self.assertEqual(len(errors), 1)
+            self.assertIsInstance(errors[0], RuntimeError)
+            self.assertIn('live Claude subprocess', str(errors[0]))
+            self.assertEqual(
+                manager.get_record('PROJ-RACE').claude_session_id,
+                'fresh-race-id',
+            )
 
 
 class LoadPersistedRecordsMissingDirTests(unittest.TestCase):

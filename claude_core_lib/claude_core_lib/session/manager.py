@@ -26,6 +26,7 @@ from pathlib import Path
 from agent_core_lib.agent_core_lib.helpers.atomic_write import atomic_write_json
 from agent_core_lib.agent_core_lib.helpers.logging_utils import configure_logger
 from agent_core_lib.agent_core_lib.helpers.text_utils import normalized_text
+from claude_core_lib.claude_core_lib.session.session_id_utils import fix_session_id
 from claude_core_lib.claude_core_lib.session.streaming import StreamingClaudeSession
 
 
@@ -77,16 +78,16 @@ class PlanningSessionRecord(object):
     @classmethod
     def from_dict(cls, payload: dict[str, object]) -> 'PlanningSessionRecord':
         return cls(
-            task_id=str(payload.get('task_id', '') or ''),
+            task_id=str(payload.get('task_id', '') or '').strip(),
             task_summary=str(payload.get('task_summary', '') or ''),
-            claude_session_id=str(payload.get('claude_session_id', '') or ''),
+            claude_session_id=fix_session_id(payload.get('claude_session_id')),
             status=str(payload.get('status', SESSION_STATUS_ACTIVE) or SESSION_STATUS_ACTIVE),
             created_at_epoch=float(payload.get('created_at_epoch', time.time()) or time.time()),
             updated_at_epoch=float(payload.get('updated_at_epoch', time.time()) or time.time()),
-            cwd=str(payload.get('cwd', '') or ''),
+            cwd=str(payload.get('cwd', '') or '').strip(),
             expected_branch=str(payload.get('expected_branch', '') or ''),
-            previous_claude_session_id=str(
-                payload.get('previous_claude_session_id', '') or '',
+            previous_claude_session_id=fix_session_id(
+                payload.get('previous_claude_session_id'),
             ),
         )
 
@@ -188,16 +189,18 @@ class ClaudeSessionManager(object):
                 # still surface the legacy ``claude_session_id`` attribute
                 # on workspace records that haven't been rewritten yet —
                 # accept either.
-                session_id = str(
-                    getattr(workspace, 'agent_session_id', '')
-                    or getattr(workspace, 'claude_session_id', '')
-                    or ''
-                ).strip()
+                session_id = (
+                    fix_session_id(getattr(workspace, 'agent_session_id', ''))
+                    or fix_session_id(getattr(workspace, 'claude_session_id', ''))
+                )
                 if not session_id:
                     continue
                 lookup_key = self._lookup_key(workspace.task_id)
                 existing = self._records.get(lookup_key)
-                if existing is not None and existing.claude_session_id:
+                existing_id = fix_session_id(
+                    getattr(existing, 'claude_session_id', ''),
+                )
+                if existing is not None and existing_id:
                     continue
                 record = existing or PlanningSessionRecord(
                     task_id=workspace.task_id,
@@ -724,47 +727,54 @@ class ClaudeSessionManager(object):
         subprocess on its own (that would be a confusing implicit
         side-effect).
         """
-        new_id = str(claude_session_id or '').strip()
+        new_id = fix_session_id(claude_session_id)
         if not new_id:
             raise ValueError('claude_session_id must be non-empty')
         normalized_task_id = self._normalize_task_id(task_id)
         lookup_key = self._lookup_key(task_id)
-        now = time.time()
         with self._lock:
-            # Refuse adoption when a live subprocess is still running
-            # for this task. The next ``start_session`` would reuse the
-            # live session (the one-per-task invariant short-circuits at
-            # ``is_alive``) which silently discards the adoption — the
-            # operator's intent (continue from external session) gets
-            # dropped. Force the caller to terminate first so the
-            # lifecycle change is explicit.
-            existing_session = self._sessions.get(lookup_key)
-            if existing_session is not None and getattr(
-                existing_session, 'is_alive', False,
-            ):
-                raise RuntimeError(
-                    f'cannot adopt session id for task {normalized_task_id}: '
-                    f'a live Claude subprocess is still running for this '
-                    f'task. Terminate the live session first '
-                    f'(``terminate_session(task_id)``) before adopting; '
-                    f'otherwise the next message would silently reuse the '
-                    f'running subprocess instead of resuming the adopted id.'
-                )
-            record = self._records.get(lookup_key)
-            if record is None:
-                record = PlanningSessionRecord(
-                    task_id=normalized_task_id,
-                    task_summary=str(task_summary or ''),
-                    status=SESSION_STATUS_TERMINATED,
-                )
-                self._records[lookup_key] = record
-            record.claude_session_id = new_id
-            if task_summary and not record.task_summary:
-                record.task_summary = str(task_summary)
-            record.updated_at_epoch = now
-            self._persist_record(record)
-            self._mirror_to_workspace_metadata(record)
-            return record
+            spawn_lock = self._spawn_locks.setdefault(
+                lookup_key, threading.Lock(),
+            )
+        with spawn_lock:
+            now = time.time()
+            with self._lock:
+                # Share the start_session lock so adoption cannot slip
+                # between spawn and metadata persistence for this task.
+                existing_session = self._sessions.get(lookup_key)
+                if existing_session is not None and getattr(
+                    existing_session, 'is_alive', False,
+                ):
+                    raise RuntimeError(
+                        f'cannot adopt session id for task {normalized_task_id}: '
+                        f'a live Claude subprocess is still running for this '
+                        f'task. Terminate the live session first '
+                        f'(``terminate_session(task_id)``) before adopting; '
+                        f'otherwise the next message would silently reuse the '
+                        f'running subprocess instead of resuming the adopted id.'
+                    )
+                record = self._records.get(lookup_key)
+                if record is None:
+                    record = PlanningSessionRecord(
+                        task_id=normalized_task_id,
+                        task_summary=str(task_summary or ''),
+                        status=SESSION_STATUS_TERMINATED,
+                    )
+                    self._records[lookup_key] = record
+                existing_id = fix_session_id(record.claude_session_id)
+                if existing_id and existing_id != new_id:
+                    raise RuntimeError(
+                        f'cannot adopt session id {new_id} for task '
+                        f'{normalized_task_id}: existing session id '
+                        f'{existing_id} is already pinned'
+                    )
+                record.claude_session_id = new_id
+                if task_summary and not record.task_summary:
+                    record.task_summary = str(task_summary)
+                record.updated_at_epoch = now
+                self._persist_record(record)
+                self._mirror_to_workspace_metadata(record)
+                return record
 
     def update_status(self, task_id: str, status: str) -> None:
         if status not in SUPPORTED_SESSION_STATUSES:
@@ -944,9 +954,9 @@ class ClaudeSessionManager(object):
         accumulate forever. Best-effort — a unlink failure must not
         break ``terminate_session``.
         """
-        claude_session_id = str(
-            getattr(record, 'claude_session_id', '') or '',
-        ).strip()
+        claude_session_id = fix_session_id(
+            getattr(record, 'claude_session_id', ''),
+        )
         if not claude_session_id:
             return
         try:
@@ -1041,13 +1051,7 @@ class ClaudeSessionManager(object):
             return record
         live_id = session.claude_session_id
         if live_id and live_id != record.claude_session_id:
-            resumed_id = str(getattr(session, '_resume_session_id', '') or '').strip()
             if record.claude_session_id:
-                if not resumed_id:
-                    record.claude_session_id = live_id
-                    record.updated_at_epoch = time.time()
-                    self._persist_record(record)
-                    return record
                 self.logger.warning(
                     'task %s: live Claude reports session id %s, but '
                     'record is pinned to %s; keeping the persisted id',

@@ -184,8 +184,8 @@ class StreamingClaudeSessionTests(unittest.TestCase):
         # ``claude --resume <id>`` keeps the same session id by default
         # (forking is opt-in via ``--fork-session``), so we don't pass
         # ``--session-id`` alongside it — Claude rejects the duplicate
-        # and the spawn would fall back to fresh-session self-heal,
-        # losing the adoption. The resumed id is captured synchronously
+        # and the spawn would fail before the adopted session can run.
+        # The resumed id is captured synchronously
         # so the UI can show the right chip before the system_init
         # event arrives.
         fake_proc = _FakeProc()

@@ -326,12 +326,8 @@ class Bug2ResumePassesSameSessionIdTests(unittest.TestCase):
             # rather than reusing the existing live session.
             manager.terminate_session('T1')
 
-            # Manually adopt a session id (mirrors what the init event
-            # captures during a normal run, then persists).
-            manager.adopt_session_id(
-                'T1', claude_session_id='persisted-abc-123',
-                task_summary='do work',
-            )
+            persisted_id = manager.get_record('T1').claude_session_id
+            self.assertEqual(persisted_id, 'fresh-id')
 
             # Second spawn: kato now has a record with a persisted id.
             recorded.clear()
@@ -345,7 +341,7 @@ class Bug2ResumePassesSameSessionIdTests(unittest.TestCase):
             # --resume <id> threaded through to the streaming session.
             self.assertEqual(
                 second_kwargs.get('resume_session_id'),
-                'persisted-abc-123',
+                persisted_id,
             )
 
     def test_streaming_session_command_includes_resume_flag(self) -> None:
@@ -471,16 +467,9 @@ class Bug2ResumePassesSameSessionIdTests(unittest.TestCase):
                 initial_prompt='first message',
                 cwd='/tmp/T1',
             )
-            # adopt_session_id refuses while a live subprocess exists
-            # for this task (so the next start_session won't silently
-            # reuse the live session and discard the adopted id).
-            # Terminate FIRST, then adopt — mirrors what the planning
-            # UI does on the adoption path.
             manager_run1.terminate_session('T1')
-            manager_run1.adopt_session_id(
-                'T1', claude_session_id='surviving-id-xyz',
-                task_summary='do work',
-            )
+            persisted_id = manager_run1.get_record('T1').claude_session_id
+            self.assertEqual(persisted_id, 'fresh-id')
             del manager_run1  # operator stops kato
 
             # ---- kato run #2 ----
@@ -500,7 +489,7 @@ class Bug2ResumePassesSameSessionIdTests(unittest.TestCase):
                 'manager rebuilt against same state_dir failed to '
                 'hydrate per-task record — restart will start fresh',
             )
-            self.assertEqual(record.claude_session_id, 'surviving-id-xyz')
+            self.assertEqual(record.claude_session_id, persisted_id)
 
             # First message in the new run: must --resume the saved id.
             manager_run2.start_session(
@@ -511,7 +500,7 @@ class Bug2ResumePassesSameSessionIdTests(unittest.TestCase):
             )
             self.assertEqual(
                 recorded_run2['kwargs'].get('resume_session_id'),
-                'surviving-id-xyz',
+                persisted_id,
                 'fresh manager did not pass --resume to the spawn — '
                 'kato restart will start a brand-new Claude session',
             )

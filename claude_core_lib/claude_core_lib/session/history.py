@@ -16,6 +16,8 @@ import os
 from pathlib import Path
 from typing import Iterable
 
+from claude_core_lib.claude_core_lib.session.session_id_utils import fix_session_id
+
 
 _DEFAULT_PROJECTS_ROOT = Path.home() / '.claude' / 'projects'
 # Match claude_session_index — both modules walk the same store, so they
@@ -42,7 +44,7 @@ def find_session_file(
     become ``-``), so reconstructing it deterministically is brittle —
     globbing is the simplest robust strategy.
     """
-    session_id = (claude_session_id or '').strip()
+    session_id = fix_session_id(claude_session_id)
     if not session_id:
         return None
     root = Path(projects_root) if projects_root else _default_projects_root()
@@ -317,8 +319,12 @@ def resolve_claude_session_id(manager, workspace_manager, task_id: str) -> str:
             record = manager.get_record(task_id)
         except Exception:
             record = None
-        if record is not None and getattr(record, 'claude_session_id', ''):
-            return str(record.claude_session_id)
+        if record is not None:
+            record_id = fix_session_id(
+                getattr(record, 'claude_session_id', ''),
+            )
+            if record_id:
+                return record_id
     if workspace_manager is not None:
         try:
             workspace = workspace_manager.get(task_id)
@@ -326,10 +332,9 @@ def resolve_claude_session_id(manager, workspace_manager, task_id: str) -> str:
             workspace = None
         if workspace is not None:
             agent_id = (
-                getattr(workspace, 'agent_session_id', '')
-                or getattr(workspace, 'claude_session_id', '')
-                or ''
+                fix_session_id(getattr(workspace, 'agent_session_id', ''))
+                or fix_session_id(getattr(workspace, 'claude_session_id', ''))
             )
             if agent_id:
-                return str(agent_id)
+                return agent_id
     return ''

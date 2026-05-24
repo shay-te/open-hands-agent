@@ -141,9 +141,9 @@ class FlowAdoptPersistenceTests(unittest.TestCase):
                 persisted.get('task_summary'), 'migrated from VS Code',
             )
 
-    def test_flow_adopt_overwrites_previous_session_id(self) -> None:
-        # Adopting twice in a row replaces the id — operator might
-        # adopt session A, realize they meant session B, re-adopt.
+    def test_flow_adopt_rejects_changing_existing_session_id(self) -> None:
+        # Once a task has a session id, adoption is idempotent-only.
+        # A different id would violate the same-session invariant.
         from claude_core_lib.claude_core_lib.session.manager import (
             ClaudeSessionManager,
         )
@@ -152,11 +152,24 @@ class FlowAdoptPersistenceTests(unittest.TestCase):
                 state_dir=state_dir, session_factory=lambda **_: None,
             )
             mgr.adopt_session_id('T1', claude_session_id='first-id')
-            mgr.adopt_session_id('T1', claude_session_id='second-id')
+            with self.assertRaises(RuntimeError):
+                mgr.adopt_session_id('T1', claude_session_id='second-id')
             persisted = json.loads(
                 (Path(state_dir) / 'T1.json').read_text(encoding='utf-8'),
             )
-            self.assertEqual(persisted['claude_session_id'], 'second-id')
+            self.assertEqual(persisted['claude_session_id'], 'first-id')
+
+    def test_flow_adopt_allows_idempotent_re_adopt(self) -> None:
+        from claude_core_lib.claude_core_lib.session.manager import (
+            ClaudeSessionManager,
+        )
+        with tempfile.TemporaryDirectory() as state_dir:
+            mgr = ClaudeSessionManager(
+                state_dir=state_dir, session_factory=lambda **_: None,
+            )
+            mgr.adopt_session_id('T1', claude_session_id='same-id')
+            mgr.adopt_session_id('T1', claude_session_id='same-id')
+            self.assertEqual(mgr.get_record('T1').claude_session_id, 'same-id')
 
     def test_flow_adopt_with_no_existing_record_creates_one(self) -> None:
         # First-ever interaction with this task may be the adoption

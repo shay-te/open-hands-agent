@@ -254,6 +254,22 @@ class WebserverAppTests(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 400)
 
+    def test_adopt_claude_session_endpoint_rejects_pinned_id_change(self):
+        class _PinnedManager(_FakeManager):
+            def adopt_session_id(self, task_id, *, claude_session_id, task_summary=''):
+                raise RuntimeError(
+                    'cannot adopt session id new for task PROJ-1: '
+                    'existing session id old is already pinned'
+                )
+
+        app = create_app(session_manager=_PinnedManager())
+        response = app.test_client().post(
+            '/api/sessions/PROJ-1/adopt-claude-session',
+            json={'claude_session_id': 'new'},
+        )
+        self.assertEqual(response.status_code, 409)
+        self.assertIn('already pinned', response.get_json()['error'])
+
     def test_adopt_claude_session_endpoint_migrates_jsonl_into_target_cwd(self):
         # End-to-end: adopt + migrate. Source JSONL lives under the
         # dev's checkout cwd; after adoption, a copy must exist under

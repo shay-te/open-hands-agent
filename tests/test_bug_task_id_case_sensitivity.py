@@ -77,7 +77,8 @@ class BugTaskIdCaseSensitivityTests(unittest.TestCase):
                 state_dir=state_dir, session_factory=lambda **_: None,
             )
             mgr.adopt_session_id('PROJ-1', claude_session_id='id-A')
-            mgr.adopt_session_id('proj-1', claude_session_id='id-B')
+            with self.assertRaises(RuntimeError):
+                mgr.adopt_session_id('proj-1', claude_session_id='id-B')
 
             files = sorted(Path(state_dir).glob('*.json'))
             self.assertEqual(
@@ -85,8 +86,7 @@ class BugTaskIdCaseSensitivityTests(unittest.TestCase):
                 f'state_dir accumulated {len(files)} files for the '
                 f'same logical task: {[f.name for f in files]}',
             )
-            # The second adopt overwrites; lookup confirms id-B won.
-            self.assertEqual(mgr.get_record('PROJ-1').claude_session_id, 'id-B')
+            self.assertEqual(mgr.get_record('PROJ-1').claude_session_id, 'id-A')
 
     def test_terminate_session_handles_case_mismatched_call(self) -> None:
         # The terminate path uses the lookup key too — caller can

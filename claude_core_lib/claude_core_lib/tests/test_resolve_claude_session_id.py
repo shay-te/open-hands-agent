@@ -110,6 +110,34 @@ class ResolveClaudeSessionIdTests(unittest.TestCase):
             'from-workspace',
         )
 
+    def test_whitespace_session_id_field_falls_through_to_workspace(self) -> None:
+        class _Mgr:
+            def get_record(self, task_id):
+                return SimpleNamespace(claude_session_id='   ')
+
+        class _Ws:
+            def get(self, task_id):
+                return SimpleNamespace(agent_session_id='from-workspace')
+
+        self.assertEqual(
+            resolve_claude_session_id(_Mgr(), _Ws(), 'T1'),
+            'from-workspace',
+        )
+
+    def test_strips_workspace_session_id_before_returning(self) -> None:
+        class _SessionMgr:
+            def get_record(self, task_id):
+                return None
+
+        class _Ws:
+            def get(self, task_id):
+                return SimpleNamespace(agent_session_id='  from-workspace\n')
+
+        self.assertEqual(
+            resolve_claude_session_id(_SessionMgr(), _Ws(), 'T1'),
+            'from-workspace',
+        )
+
     def test_missing_workspace_yields_empty_string(self) -> None:
         class _SessionMgr:
             def get_record(self, task_id):
