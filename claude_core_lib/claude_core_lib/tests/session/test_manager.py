@@ -394,8 +394,8 @@ class _StaleResumeFakeSession(_FakeStreamingSession):
         return []
 
 
-class StaleResumeIdSelfHealTests(unittest.TestCase):
-    """The self-heal path that recovers from a missing-resume failure."""
+class StaleResumeIdStrictPreservationTests(unittest.TestCase):
+    """Stale resume failures must not replace the active session id."""
 
     def setUp(self) -> None:
         self._tempdir = tempfile.TemporaryDirectory()
@@ -454,10 +454,10 @@ class StaleResumeIdSelfHealTests(unittest.TestCase):
             )
         )
 
-    def test_resume_id_blanked_when_previous_session_died_with_stale_id(self) -> None:
+    def test_resume_id_kept_when_previous_session_died_with_stale_id(self) -> None:
         # When Claude died because --resume referenced a missing session,
-        # _resume_id_for_spawn must return '' (fresh spawn) AND clear the
-        # persisted session id so the next call doesn't loop on the dead id.
+        # keep retrying that id. Silent fresh-session drift is worse
+        # than a loud failure.
         manager = self._build_manager_with_stale_marker(False)
         previous_record = PlanningSessionRecord(
             task_id='PROJ-1',
@@ -476,9 +476,8 @@ class StaleResumeIdSelfHealTests(unittest.TestCase):
         resume_id = manager._resume_id_for_spawn(
             'PROJ-1', previous_record, dead_session,
         )
-        self.assertEqual(resume_id, '')
-        # Same record object was mutated in place.
-        self.assertEqual(previous_record.claude_session_id, '')
+        self.assertEqual(resume_id, 'dead-session-uuid')
+        self.assertEqual(previous_record.claude_session_id, 'dead-session-uuid')
 
     def test_resume_id_kept_when_previous_session_is_healthy(self) -> None:
         # Healthy session → resume id should pass through unchanged.
@@ -496,6 +495,17 @@ class StaleResumeIdSelfHealTests(unittest.TestCase):
         self.assertEqual(
             manager._resume_id_for_spawn('PROJ-1', None, None), '',
         )
+
+    def test_resume_id_for_spawn_normalizes_whitespace_id(self) -> None:
+        manager = self._build_manager_with_stale_marker(False)
+        record = PlanningSessionRecord(task_id='PROJ-1', claude_session_id='   ')
+        manager._records[manager._lookup_key('PROJ-1')] = record
+        manager._persist_record(record)
+
+        resume_id = manager._resume_id_for_spawn('PROJ-1', record, None)
+
+        self.assertEqual(resume_id, '')
+        self.assertEqual(record.claude_session_id, '')
 
     def test_resume_id_for_spawn_no_existing_session_returns_persisted(self) -> None:
         # First boot after restart: no existing session yet, but a
@@ -536,6 +546,64 @@ class StaleResumeIdSelfHealTests(unittest.TestCase):
                 max_wait_seconds=1,
                 poll_interval_seconds=0,
             )
+        )
+
+    def test_stale_resume_rejection_keeps_original_session_id_on_record(self) -> None:
+        # Operator invariant: after stop + restart, Claude rejecting
+        # --resume must fail loud instead of replacing the session id.
+        manager = self._build_manager_with_stale_marker(True)
+        manager._records[manager._lookup_key('PROJ-1')] = PlanningSessionRecord(
+            task_id='PROJ-1', claude_session_id='original-uuid',
+        )
+        manager._persist_record(
+            manager._records[manager._lookup_key('PROJ-1')]
+        )
+
+        with patch.object(
+            ClaudeSessionManager, '_wait_for_stale_resume_failure',
+            return_value=True,
+        ):
+            with self.assertRaises(RuntimeError):
+                manager.start_session(task_id='PROJ-1')
+
+        record = manager.get_record('PROJ-1')
+        self.assertEqual(record.claude_session_id, 'original-uuid')
+        self.assertEqual(record.previous_claude_session_id, '')
+
+    def test_self_heal_preserved_id_survives_persist_roundtrip(self) -> None:
+        # The ``previous_claude_session_id`` field must round-trip
+        # through to_dict / from_dict so it survives a kato restart.
+        # Otherwise the operator-recovery path silently breaks across
+        # process boundaries.
+        record = PlanningSessionRecord(
+            task_id='PROJ-1',
+            claude_session_id='fresh-uuid',
+            previous_claude_session_id='original-uuid',
+        )
+        restored = PlanningSessionRecord.from_dict(record.to_dict())
+        self.assertEqual(restored.previous_claude_session_id, 'original-uuid')
+
+    def test_successful_resume_inherits_preserved_previous_id(self) -> None:
+        # A SUCCESSFUL resume must NOT wipe a
+        # previously-preserved ``previous_claude_session_id``. Without
+        # this, one healthy resume after old drift recovery would silently
+        # erase the operator's recovery handle.
+        manager = self._build_manager_with_stale_marker(False)
+        manager._records[manager._lookup_key('PROJ-1')] = PlanningSessionRecord(
+            task_id='PROJ-1',
+            claude_session_id='current-uuid',
+            previous_claude_session_id='old-original-uuid',
+        )
+        manager._persist_record(
+            manager._records[manager._lookup_key('PROJ-1')]
+        )
+
+        manager.start_session(task_id='PROJ-1')
+
+        record = manager.get_record('PROJ-1')
+        # Preserved id survives a healthy resume.
+        self.assertEqual(
+            record.previous_claude_session_id, 'old-original-uuid',
         )
 
 
@@ -868,8 +936,7 @@ class LoadPersistedRecordsErrorPaths(unittest.TestCase):
 
 
 class WithRefreshedSessionIdTests(unittest.TestCase):
-    """Lines 739-741: ``_with_refreshed_session_id`` updates record when
-    the live session reports a different id than the persisted one.
+    """``_with_refreshed_session_id`` captures only missing ids.
 
     The method takes only ``record`` — the session is looked up from
     ``self._sessions`` by task_id.
@@ -887,18 +954,45 @@ class WithRefreshedSessionIdTests(unittest.TestCase):
     def test_returns_none_when_record_is_none(self) -> None:
         self.assertIsNone(self.manager._with_refreshed_session_id(None))
 
-    def test_refreshes_when_live_session_id_differs(self) -> None:
+    def test_refreshes_when_record_has_no_session_id(self) -> None:
         record = PlanningSessionRecord(
-            task_id='PROJ-1', claude_session_id='old-id',
+            task_id='PROJ-1', claude_session_id='',
         )
         lookup_key = self.manager._lookup_key('PROJ-1')
         self.manager._records[lookup_key] = record
-        # Plant a fake session with a NEW id under the same task_id.
         live = SimpleNamespace(claude_session_id='new-id')
         self.manager._sessions[lookup_key] = live
 
         refreshed = self.manager._with_refreshed_session_id(record)
         self.assertEqual(refreshed.claude_session_id, 'new-id')
+
+    def test_does_not_overwrite_pinned_session_id(self) -> None:
+        record = PlanningSessionRecord(
+            task_id='PROJ-1', claude_session_id='old-id',
+        )
+        lookup_key = self.manager._lookup_key('PROJ-1')
+        self.manager._records[lookup_key] = record
+        self.manager._sessions[lookup_key] = SimpleNamespace(
+            claude_session_id='new-id',
+            _resume_session_id='old-id',
+        )
+
+        refreshed = self.manager._with_refreshed_session_id(record)
+        self.assertEqual(refreshed.claude_session_id, 'old-id')
+
+    def test_fresh_session_can_replace_generated_id(self) -> None:
+        record = PlanningSessionRecord(
+            task_id='PROJ-1', claude_session_id='generated-id',
+        )
+        lookup_key = self.manager._lookup_key('PROJ-1')
+        self.manager._records[lookup_key] = record
+        self.manager._sessions[lookup_key] = SimpleNamespace(
+            claude_session_id='actual-id',
+            _resume_session_id='',
+        )
+
+        refreshed = self.manager._with_refreshed_session_id(record)
+        self.assertEqual(refreshed.claude_session_id, 'actual-id')
 
     def test_returns_record_unchanged_when_no_live_session(self) -> None:
         record = PlanningSessionRecord(
@@ -1011,19 +1105,15 @@ class EnsureResumeJsonlBranches(unittest.TestCase):
             logger.exception.assert_called_once()
 
 
-class SpawnWithResumeSelfHealRetryTests(unittest.TestCase):
-    """Lines 429-443: ``_spawn_with_resume_self_heal`` retry path.
-
-    First spawn dies because the resume id is stale → terminate + respawn
-    with empty resume id. The chat continues without manual intervention.
-    """
+class SpawnWithResumeStrictPreservationTests(unittest.TestCase):
+    """Stale resume rejection fails loud instead of spawning fresh."""
 
     def setUp(self) -> None:
         self._tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self._tmp.cleanup)
         self.state_dir = Path(self._tmp.name)
 
-    def test_terminates_and_respawns_when_first_session_dies_with_stale_id(self) -> None:
+    def test_terminates_and_raises_when_first_session_dies_with_stale_id(self) -> None:
         spawn_kwargs: list[dict] = []
         terminate_calls: list[int] = []
 
@@ -1050,21 +1140,19 @@ class SpawnWithResumeSelfHealRetryTests(unittest.TestCase):
             ClaudeSessionManager, '_wait_for_stale_resume_failure',
             return_value=True,
         ):
-            session = manager._spawn_with_resume_self_heal(
-                normalized_task_id='PROJ-1',
-                factory_kwargs={'task_id': 'PROJ-1', 'cwd': '/wks'},
-                initial_prompt='',
-                resume_session_id='dead-id',
-            )
-        # Two factory calls: first with the stale id, second with ''.
-        self.assertEqual(len(spawn_kwargs), 2)
+            with self.assertRaises(RuntimeError):
+                manager._spawn_with_resume_self_heal(
+                    normalized_task_id='PROJ-1',
+                    factory_kwargs={'task_id': 'PROJ-1', 'cwd': '/wks'},
+                    initial_prompt='',
+                    resume_session_id='dead-id',
+                )
+        # One factory call only: no fresh-session retry is allowed.
+        self.assertEqual(len(spawn_kwargs), 1)
         self.assertEqual(spawn_kwargs[0]['resume_session_id'], 'dead-id')
-        self.assertEqual(spawn_kwargs[1]['resume_session_id'], '')
-        # First session was terminated before respawn.
         self.assertEqual(len(terminate_calls), 1)
 
     def test_first_session_terminate_failure_is_swallowed(self) -> None:
-        # Lines 436-438: terminate() raises → ignored, retry continues.
         spawn_count = [0]
 
         def factory(**kwargs):
@@ -1083,14 +1171,14 @@ class SpawnWithResumeSelfHealRetryTests(unittest.TestCase):
             ClaudeSessionManager, '_wait_for_stale_resume_failure',
             return_value=True,
         ):
-            # Must not raise — the second spawn still happens.
-            manager._spawn_with_resume_self_heal(
-                normalized_task_id='PROJ-1',
-                factory_kwargs={'task_id': 'PROJ-1', 'cwd': '/wks'},
-                initial_prompt='',
-                resume_session_id='dead-id',
-            )
-        self.assertEqual(spawn_count[0], 2)
+            with self.assertRaises(RuntimeError):
+                manager._spawn_with_resume_self_heal(
+                    normalized_task_id='PROJ-1',
+                    factory_kwargs={'task_id': 'PROJ-1', 'cwd': '/wks'},
+                    initial_prompt='',
+                    resume_session_id='dead-id',
+                )
+        self.assertEqual(spawn_count[0], 1)
 
 
 class LoadPersistedRecordsOsErrorTests(unittest.TestCase):
@@ -1272,7 +1360,7 @@ class PersistedRecordHelperTests(unittest.TestCase):
 
 
 class GateResumeByJsonlSizeTests(unittest.TestCase):
-    """_gate_resume_by_jsonl_size returns '' when JSONL exceeds the limit."""
+    """_gate_resume_by_jsonl_size warns but preserves the resume id."""
 
     def _make_manager(self):
         with tempfile.TemporaryDirectory() as state_dir:
@@ -1307,7 +1395,7 @@ class GateResumeByJsonlSizeTests(unittest.TestCase):
             result = mgr._gate_resume_by_jsonl_size('TASK-1', 'abc-123')
         self.assertEqual(result, 'abc-123')
 
-    def test_returns_empty_when_file_exceeds_limit(self) -> None:
+    def test_returns_id_when_file_exceeds_limit(self) -> None:
         mgr = self._make_manager()
         mock_path = MagicMock()
         mock_path.stat.return_value.st_size = 2_000_000  # 2 MB, over limit
@@ -1318,7 +1406,7 @@ class GateResumeByJsonlSizeTests(unittest.TestCase):
             with patch.object(mgr, 'logger', MagicMock()) as mock_logger:
                 result = mgr._gate_resume_by_jsonl_size('TASK-1', 'abc-123')
                 mock_logger.warning.assert_called_once()
-        self.assertEqual(result, '')
+        self.assertEqual(result, 'abc-123')
 
     def test_returns_id_when_find_raises(self) -> None:
         mgr = self._make_manager()
@@ -1342,10 +1430,8 @@ class GateResumeByJsonlSizeTests(unittest.TestCase):
 
 
 class CorrectSessionIdInRecordTests(unittest.TestCase):
-    """Lines 529-542: when Claude reports a different session id than
-    kato's expected UUID, ``_correct_session_id_in_record`` updates
-    the in-memory + persisted record so the next ``--resume`` targets
-    Claude's actual JSONL."""
+    """Correction callback records missing ids but does not overwrite
+    an already-pinned operator session id."""
 
     def setUp(self) -> None:
         self._tmp = tempfile.TemporaryDirectory()
@@ -1388,9 +1474,19 @@ class CorrectSessionIdInRecordTests(unittest.TestCase):
             self.manager._correct_session_id_in_record(key, 'PROJ-B', 'same-id')
         persist.assert_not_called()
 
-    def test_different_id_updates_record_and_persists(self) -> None:
-        # The real correction path: record had 'old', Claude reports
-        # 'new' — record is updated and persisted.
+    def test_different_id_updates_empty_record_and_persists(self) -> None:
+        key = self.manager._lookup_key('PROJ-C')
+        self.manager._records[key] = PlanningSessionRecord(
+            task_id='PROJ-C', claude_session_id='',
+        )
+        with patch.object(self.manager, '_persist_record') as persist:
+            self.manager._correct_session_id_in_record(key, 'PROJ-C', 'new-id')
+        self.assertEqual(
+            self.manager._records[key].claude_session_id, 'new-id',
+        )
+        persist.assert_called_once()
+
+    def test_different_id_does_not_overwrite_pinned_record(self) -> None:
         key = self.manager._lookup_key('PROJ-C')
         self.manager._records[key] = PlanningSessionRecord(
             task_id='PROJ-C', claude_session_id='old-id',
@@ -1398,7 +1494,23 @@ class CorrectSessionIdInRecordTests(unittest.TestCase):
         with patch.object(self.manager, '_persist_record') as persist:
             self.manager._correct_session_id_in_record(key, 'PROJ-C', 'new-id')
         self.assertEqual(
-            self.manager._records[key].claude_session_id, 'new-id',
+            self.manager._records[key].claude_session_id, 'old-id',
+        )
+        persist.assert_not_called()
+
+    def test_fresh_spawn_can_replace_expected_generated_id(self) -> None:
+        key = self.manager._lookup_key('PROJ-C')
+        self.manager._records[key] = PlanningSessionRecord(
+            task_id='PROJ-C', claude_session_id='generated-id',
+        )
+        with patch.object(self.manager, '_persist_record') as persist:
+            self.manager._correct_session_id_in_record(
+                key, 'PROJ-C', 'actual-id',
+                expected_existing_id='generated-id',
+                can_replace_existing=True,
+            )
+        self.assertEqual(
+            self.manager._records[key].claude_session_id, 'actual-id',
         )
         persist.assert_called_once()
 

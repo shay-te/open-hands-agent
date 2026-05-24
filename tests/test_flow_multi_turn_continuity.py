@@ -269,10 +269,12 @@ class FlowMultiTurnContinuityTests(unittest.TestCase):
             task_id='T1', message=operator_msg, cwd='/tmp/T1',
         )
         prompt = recorded['starts'][0]
+        spawn = recorded['all_spawns'][0]
         self.assertGreater(
             len(prompt), len(operator_msg) + 50,
             'whitespace-only session id was treated as a real resume id',
         )
+        self.assertEqual(spawn.get('resume_session_id'), '')
 
     def test_flow_multi_turn_rejects_empty_task_id(self) -> None:
         # Defensive: the runner validates inputs. Empty task id =>

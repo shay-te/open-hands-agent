@@ -179,19 +179,53 @@ class WorkspaceDataAccess(DataAccess):
 
         Idempotent: deleting a missing workspace is a no-op. Logs but
         doesn't raise on filesystem errors so a permission glitch on
-        one task can't block cleanup of others.
+        one task can't block cleanup of others — the caller verifies
+        ``workspace_dir.exists()`` after to detect partial failures.
+
+        Windows-specific: file locks on .git/index, .pack files, and
+        any file held by a recently-killed process can cause
+        ``rmtree`` to fail with PermissionError. ``onerror`` flips
+        read-only bits and retries once; a short post-delete retry
+        catches the case where the OS is slow to release a handle
+        after we just terminated the subprocess.
         """
         import shutil
+        import stat
+        import time
         workspace_dir = self.workspace_dir(task_id)
         if not workspace_dir.exists():
             return
-        try:
-            shutil.rmtree(workspace_dir)
-        except OSError as exc:
-            self._logger.warning(
-                'failed to delete workspace for task %s at %s: %s',
-                task_id, workspace_dir, exc,
-            )
+
+        def _on_rm_error(func, path, exc_info):
+            # Most Windows rmtree failures are read-only files (git
+            # pack files, .git/index lock). Flip the bit and retry
+            # the operation that failed.
+            try:
+                os.chmod(path, stat.S_IWRITE)
+                func(path)
+            except OSError:
+                # Re-raise the ORIGINAL exception so the outer
+                # try/except sees a meaningful trace.
+                raise exc_info[1]
+
+        for attempt in range(3):
+            try:
+                shutil.rmtree(workspace_dir, onerror=_on_rm_error)
+                return
+            except OSError as exc:
+                if attempt == 2:
+                    self._logger.warning(
+                        'failed to delete workspace for task %s at %s '
+                        'after 3 attempts: %s '
+                        '(likely a file lock — close any process with '
+                        'open handles in this clone)',
+                        task_id, workspace_dir, exc,
+                    )
+                    return
+                # Brief pause lets the OS release handles from a
+                # subprocess we just terminated (Windows is slow to
+                # propagate the close).
+                time.sleep(0.5)
 
     # ----- internals -----
 

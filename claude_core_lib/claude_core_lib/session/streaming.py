@@ -1094,13 +1094,7 @@ class StreamingClaudeSession(object):
         if not self._claude_session_id:
             self._claude_session_id = candidate
             return
-        # Assignment behaviour is unchanged above (only set when
-        # empty — the stale-resume self-heal path depends on that).
-        # Below is verification-only and scoped to Claude's own
-        # ``system{subtype:init}`` announcement — the one authoritative
-        # place the CLI declares which session it actually ran. Other
-        # events (result/assistant/...) also echo ``session_id`` but
-        # comparing those would false-positive on fixtures/edge cases.
+        # Only init is authoritative; later events can echo fixture ids.
         is_init = (
             event.raw.get('type') == CLAUDE_EVENT_SYSTEM
             and event.raw.get('subtype') == 'init'
@@ -1117,19 +1111,26 @@ class StreamingClaudeSession(object):
                 )
                 self._session_id_confirmed = True
         elif not self._session_id_mismatch_logged:
+            mode = 'resume' if self._resume_session_id else 'fresh'
+            action = (
+                'keeping the requested resume id'
+                if self._resume_session_id
+                else 'adopting claude\'s actual id'
+            )
             self.logger.warning(
                 'task %s: claude reported session id %s but kato '
-                'expected %s (%s) — adopting claude\'s actual id so '
-                'the next spawn can resume from the correct JSONL',
+                'expected %s (%s) — %s',
                 self._task_id,
                 candidate,
                 self._claude_session_id,
-                'resume' if self._resume_session_id else 'fresh',
+                mode,
+                action,
             )
             self._session_id_mismatch_logged = True
             self._session_id_confirmed = True  # suppress duplicate "confirmed" on next call
-            # Adopt Claude's actual session id so future --resume calls
-            # target the JSONL file that Claude actually wrote to.
+            if self._resume_session_id:
+                return
+            # Fresh spawn: adopt the id Claude actually wrote to.
             self._claude_session_id = candidate
             if callable(self._session_id_correction_callback):
                 try:

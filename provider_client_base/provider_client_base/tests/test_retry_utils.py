@@ -205,12 +205,58 @@ class RetryDelaySecondsTests(unittest.TestCase):
             delay = _retry_delay_seconds(2)
         m.assert_called_once_with(4.0, 8.0)
 
-    def test_retry_after_header_takes_precedence(self):
+    def test_retry_after_header_taken_as_minimum_with_bounded_jitter(self):
+        # Honoring ``Retry-After`` is the load-bearing behavior; the
+        # tiny jitter on top spreads parallel clients so they don't
+        # all wake at the same instant and re-hit the same window.
+        # Jitter is bounded at min(25% of base, 10s) so an
+        # ``Retry-After: 45`` lands in [45, 45 + 10].
         r = _mock_response(429, headers={'Retry-After': '45'})
-        delay = _retry_delay_seconds(0, r)
-        self.assertEqual(delay, 45.0)
+        with patch('provider_client_base.provider_client_base.helpers.retry_utils.random.uniform', side_effect=lambda lo, hi: hi) as m:
+            delay = _retry_delay_seconds(0, r)
+        # Jitter cap is min(45 * 0.25, 10) = 10.
+        m.assert_called_once_with(0.0, 10.0)
+        self.assertEqual(delay, 55.0)
 
-    def test_non_429_response_uses_exponential_backoff(self):
+    def test_retry_after_header_jitter_capped_by_fraction_when_small(self):
+        # ``Retry-After: 4`` → 25% jitter = 1s, which is below the
+        # 10s ceiling; jitter range is therefore [0, 1].
+        r = _mock_response(429, headers={'Retry-After': '4'})
+        with patch('provider_client_base.provider_client_base.helpers.retry_utils.random.uniform', side_effect=lambda lo, hi: hi) as m:
+            delay = _retry_delay_seconds(0, r)
+        m.assert_called_once_with(0.0, 1.0)
+        self.assertEqual(delay, 5.0)
+
+    def test_429_without_retry_after_uses_long_backoff(self):
+        # The bug the user reported: 1/2/4s exponential never escapes
+        # a real rate-limit window. 429 without ``Retry-After`` now
+        # gets the dedicated 15s / 30s / 60s schedule (with jitter
+        # x1.0-1.5).
+        r = _mock_response(429)
+        with patch(
+            'provider_client_base.provider_client_base.helpers.retry_utils.random.uniform',
+            side_effect=lambda lo, hi: lo,
+        ) as m:
+            delay_0 = _retry_delay_seconds(0, r)
+            delay_1 = _retry_delay_seconds(1, r)
+            delay_2 = _retry_delay_seconds(2, r)
+            # Capped at 120s; attempt 3 and beyond also stay at 120.
+            delay_3 = _retry_delay_seconds(3, r)
+            delay_huge = _retry_delay_seconds(10, r)
+        # attempt 0: base 15, range [15, 22.5]
+        self.assertEqual(delay_0, 15.0)
+        # attempt 1: base 30, range [30, 45]
+        self.assertEqual(delay_1, 30.0)
+        # attempt 2: base 60, range [60, 90]
+        self.assertEqual(delay_2, 60.0)
+        # attempts 3+: capped at 120.
+        self.assertEqual(delay_3, 120.0)
+        self.assertEqual(delay_huge, 120.0)
+        self.assertEqual(m.call_count, 5)
+
+    def test_non_429_response_uses_short_exponential_backoff(self):
+        # 5xx blips still use the fast 1/2/4s schedule — they're
+        # usually transient node failures that recover quickly.
         r = _mock_response(503)
         with patch('provider_client_base.provider_client_base.helpers.retry_utils.random.uniform', return_value=1.5):
             delay = _retry_delay_seconds(0, r)
@@ -425,9 +471,20 @@ class RunWithRetrySuccessTests(unittest.TestCase):
             calls[0] += 1
             return bad if calls[0] == 1 else good
 
-        with patch('provider_client_base.provider_client_base.helpers.retry_utils.time.sleep') as mock_sleep:
+        # Pin the jitter so the assertion is deterministic — real
+        # ``run_with_retry`` adds 0-to-25%-of-base jitter on top of
+        # the server's ``Retry-After`` (capped at 10s) so parallel
+        # clients don't all wake at the same instant. Force the
+        # jitter to its upper bound here so the test is exact.
+        with patch(
+            'provider_client_base.provider_client_base.helpers.retry_utils.time.sleep',
+        ) as mock_sleep, patch(
+            'provider_client_base.provider_client_base.helpers.retry_utils.random.uniform',
+            side_effect=lambda lo, hi: hi,
+        ):
             result = run_with_retry(op, max_retries=3)
-        mock_sleep.assert_called_once_with(5.0)
+        # ``Retry-After: 5`` + jitter cap of min(5 * 0.25, 10) = 1.25.
+        mock_sleep.assert_called_once_with(5.0 + 1.25)
         self.assertIs(result, good)
 
     def test_max_retries_one_returns_first_response(self):
@@ -502,7 +559,16 @@ class RunWithRetryFlowTests(unittest.TestCase):
                 return bad
             return good
 
-        with patch('provider_client_base.provider_client_base.helpers.retry_utils.time.sleep') as mock_sleep:
+        # ``run_with_retry`` adds bounded jitter on top of the server's
+        # ``Retry-After`` so parallel clients don't all wake at the
+        # same instant. Force the jitter mock to its lower bound (0)
+        # so each sleep call is exactly ``Retry-After`` seconds.
+        with patch(
+            'provider_client_base.provider_client_base.helpers.retry_utils.time.sleep',
+        ) as mock_sleep, patch(
+            'provider_client_base.provider_client_base.helpers.retry_utils.random.uniform',
+            side_effect=lambda lo, hi: lo,
+        ):
             result = run_with_retry(op, max_retries=3)
         self.assertIs(result, good)
         self.assertEqual(mock_sleep.call_count, 2)

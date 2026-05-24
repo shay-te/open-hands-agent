@@ -684,7 +684,11 @@ def _prompt_openhands_core_values(
         'OPENHANDS_TASK_SCAN_INTERVAL_SECONDS': _default_str(
             defaults,
             'OPENHANDS_TASK_SCAN_INTERVAL_SECONDS',
-            fallback='60',
+            # 180s (3 min) matches the yaml default: slow enough that
+            # parallel PR-lookups don't trip provider rate limits;
+            # fast enough that review-comment pickup feels responsive.
+            # Operator can set ``0`` to disable auto-scan entirely.
+            fallback='180',
         ),
         'OPENHANDS_MODEL_SMOKE_TEST_ENABLED': _bool_to_env(
             _default_str(

@@ -180,7 +180,17 @@ kato:
     lessons_path: ${oc.env:KATO_LESSONS_PATH,""}
   task_scan:
     startup_delay_seconds: ${oc.decode:${oc.env:OPENHANDS_TASK_SCAN_STARTUP_DELAY_SECONDS,"5"}}
-    scan_interval_seconds: ${oc.decode:${oc.env:OPENHANDS_TASK_SCAN_INTERVAL_SECONDS,"60"}}
+    # 180s (3 min) is the sweet spot for the autonomous scan: slow
+    # enough that the per-(task × repo) PR-lookups don't trip
+    # Bitbucket/GitHub/GitLab per-IP rate windows (the 30s default
+    # used to issue 16+ parallel requests every tick = 1920+/hour,
+    # well over Bitbucket's ~1000/hour); fast enough that
+    # review-comment / status-change pickup still feels responsive.
+    # The longer 429 backoff (15s/30s/60s, in retry_utils.py) is the
+    # safety net for the rare cases we DO trip a limit. Set ``0`` to
+    # disable the autonomous loop entirely (manual UI sync only) or
+    # any other positive value to override the cadence.
+    scan_interval_seconds: ${oc.decode:${oc.env:OPENHANDS_TASK_SCAN_INTERVAL_SECONDS,"180"}}
   task_publish:
     # Retries for the publish step (per-repo PR creation + the
     # YouTrack/Jira move-to-review call). Implementation work is NOT

@@ -4,6 +4,7 @@ import ChatSearch from './ChatSearch.jsx';
 import EventLog from './EventLog.jsx';
 import MessageForm from './MessageForm.jsx';
 import PermissionDecisionContainer from './PermissionDecisionContainer.jsx';
+import QueuedMessageList from './QueuedMessageList.jsx';
 import RightPaneResizer from './RightPaneResizer.jsx';
 import SessionHeader, { SessionHeaderPlaceholder } from './SessionHeader.jsx';
 import WorkingIndicator from './WorkingIndicator.jsx';
@@ -54,18 +55,28 @@ export default function SessionDetail({
   }, []);
 
   // Outgoing message queue. While Claude is mid-turn the operator's
-  // messages are HELD (not steered into the live turn) and flushed
-  // one-at-a-time as the turn finishes — see ``onSendMessage`` and
-  // the flush effect below. A ref, not state: nothing renders the
-  // queue (the operator gets a "queued" system bubble instead), and
-  // the flush effect must read the latest queue without re-subscribing.
+  // messages are HELD by default and flushed one at a time as each
+  // turn ends (see ``onSendMessage`` + the flush effect). The queue
+  // is now **state** (not a ref) so the floating <QueuedMessageList>
+  // above the composer can render the pending items and let the
+  // operator remove, reorder mentally, or "Steer" — i.e. deliver
+  // immediately without waiting for the current turn to finish.
+  //
+  // ``queuedMessagesRef`` mirrors the state so the turn-end flush
+  // effect can read the latest list without re-subscribing on every
+  // queue mutation (the effect depends only on ``turnInFlight``).
+  const [queuedMessages, setQueuedMessages] = useState([]);
   const queuedMessagesRef = useRef([]);
+  useEffect(() => {
+    queuedMessagesRef.current = queuedMessages;
+  }, [queuedMessages]);
   const prevTurnInFlightRef = useRef(false);
   // The queue belongs to the task it was typed for. SessionDetail is
   // reused across tabs (not remounted per task), so drop anything
   // pending when the bound task changes — never deliver task A's
   // queued text into task B.
   useEffect(() => {
+    setQueuedMessages([]);
     queuedMessagesRef.current = [];
     prevTurnInFlightRef.current = stream.turnInFlight;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -208,32 +219,64 @@ export default function SessionDetail({
 
   // Composer entry point. While Claude is mid-turn, HOLD the message
   // in the queue and let it fly when the turn finishes (the flush
-  // effect below) — the operator's input no longer steers/interrupts
-  // the live turn. When Claude is idle, deliver immediately.
+  // effect below). When Claude is idle, deliver immediately.
+  //
+  // The queue is visible above the composer via <QueuedMessageList>;
+  // the operator can remove individual items or click "Steer" to
+  // promote a queued item to fire immediately mid-turn (overrides
+  // the default hold-until-idle behavior).
   async function onSendMessage(text, images = []) {
     if (stream.turnInFlight) {
-      queuedMessagesRef.current.push({ text, images });
-      stream.appendLocalEvent({
-        source: ENTRY_SOURCE.LOCAL,
-        kind: BUBBLE_KIND.SYSTEM,
-        text: '⏳ queued — will send when Claude is free',
-      });
+      setQueuedMessages((prev) => [
+        ...prev,
+        { id: _newQueuedId(), text, images, queuedAt: Date.now() },
+      ]);
       // Truthy → MessageForm accepts it and clears the draft.
+      // The visible queue list (and the queued tooltip on the send
+      // button) replace the earlier transient "queued" bubble.
       return true;
     }
     return deliverMessage(text, images);
   }
 
+  // Operator clicked the trash icon on a queued row → forget it
+  // entirely. Safe whether the turn is in-flight or not.
+  function removeQueuedMessage(id) {
+    setQueuedMessages((prev) => prev.filter((item) => item.id !== id));
+  }
+
+  // Operator clicked "Steer" on a queued row → deliver it NOW even
+  // if Claude is mid-turn. The Claude CLI accepts mid-turn
+  // ``send_user_message`` envelopes (the streaming session writes
+  // straight to stdin) so the agent will read it on the next pump.
+  // We drop the item from the queue regardless of whether the
+  // delivery succeeds — operators who want to retry can retype.
+  //
+  // Reads the target via ``queuedMessagesRef`` (not via a setState
+  // callback) because React batches state-update callbacks and they
+  // run AFTER our early-return check would; the ref is the
+  // synchronously-current snapshot of what's queued right now.
+  async function steerQueuedMessage(id) {
+    const target = (queuedMessagesRef.current || []).find(
+      (item) => item.id === id,
+    );
+    if (!target) { return; }
+    setQueuedMessages((prev) => prev.filter((item) => item.id !== id));
+    await deliverMessage(target.text, target.images);
+  }
+
   // Flush the queue one message at a time as each turn ends.
   // Delivering a queued message re-enters the busy state, so the
   // next one waits for the turn after — messages stay strictly
-  // ordered without ever interrupting Claude.
+  // ordered without ever interrupting Claude (unless the operator
+  // explicitly steers).
   useEffect(() => {
     const wasInFlight = prevTurnInFlightRef.current;
     prevTurnInFlightRef.current = stream.turnInFlight;
     if (wasInFlight && !stream.turnInFlight
         && queuedMessagesRef.current.length > 0) {
-      const next = queuedMessagesRef.current.shift();
+      const next = queuedMessagesRef.current[0];
+      setQueuedMessages((prev) => prev.filter((item) => item.id !== next.id));
       deliverMessage(next.text, next.images);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -396,6 +439,11 @@ export default function SessionDetail({
             />
           }
         />
+        <QueuedMessageList
+          items={queuedMessages}
+          onSteer={steerQueuedMessage}
+          onRemove={removeQueuedMessage}
+        />
         <MessageForm
           ref={composerRef}
           taskId={taskId}
@@ -419,6 +467,17 @@ export default function SessionDetail({
     </main>
   );
 }
+
+// Monotonic id for queued messages — used as the stable React key
+// on the floating <QueuedMessageList> rows. Date.now() alone isn't
+// enough: rapid Enter-Enter-Enter would mint duplicates within the
+// same ms.
+let _queuedIdCounter = 0;
+function _newQueuedId() {
+  _queuedIdCounter += 1;
+  return `q-${Date.now()}-${_queuedIdCounter}`;
+}
+
 
 function canSend(lifecycle, session) {
   // Only block when the server has no record at all. CLOSED/IDLE still

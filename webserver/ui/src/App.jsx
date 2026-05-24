@@ -13,6 +13,7 @@ import SettingsDrawer from './components/SettingsDrawer.jsx';
 import TabList from './components/TabList.jsx';
 import ToastContainer from './components/ToastContainer.jsx';
 import { forgetTaskWorkspace, triggerScan } from './api.js';
+import { toast } from './stores/toastStore.js';
 import { ChatComposerContext } from './contexts/ChatComposerContext.jsx';
 import { useNotifications } from './hooks/useNotifications.js';
 import { useNotificationRouting } from './hooks/useNotificationRouting.js';
@@ -145,13 +146,39 @@ export default function App() {
 
   const doForgetTask = useCallback(async (taskId) => {
     if (!taskId) { return; }
-    await forgetTaskWorkspace(taskId);
+    // Show the operator what's happening — silently failing was the
+    // original bug. Backend now returns 500 with a concrete error
+    // message when the workspace dir can't be removed (live process
+    // file locks, antivirus, etc.).
+    const result = await forgetTaskWorkspace(taskId);
+    if (!result.ok) {
+      const message = (
+        result.body?.error || result.error
+        || 'unknown error — see kato logs for details'
+      );
+      toast.show({
+        kind: 'error',
+        title: `Couldn't forget ${taskId}`,
+        message,
+        durationMs: 12000,
+      });
+      // Refresh anyway so the operator sees the current state — a
+      // partial cleanup (session record gone, workspace dir still
+      // there) should still cause the tab to flicker its dot.
+      refresh();
+      return;
+    }
     clearTaskStreamCache(taskId);
     if (activeTaskId === taskId) {
       setActiveTaskIdState('');
       userPickedTabRef.current = false;
     }
     refresh();
+    toast.show({
+      kind: 'success',
+      title: `Forgot ${taskId}`,
+      message: 'Workspace clone and Claude session removed.',
+    });
   }, [activeTaskId, refresh]);
 
   const confirmForgetTask = useCallback(() => {

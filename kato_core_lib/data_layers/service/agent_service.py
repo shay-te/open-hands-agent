@@ -2312,12 +2312,47 @@ class AgentService(Service):
                 {'repository_id': str(getattr(r, 'id', '') or ''), 'error': str(exc)}
                 for r in missing_repos
             ]
+        # Critical: the freshly-cloned repos land on the remote's
+        # default branch (master / main), NOT the task branch. Without
+        # this preparation step the new repo's clone stays on master,
+        # Claude commits to master locally, and ``push_task`` /
+        # ``create_pull_request_for_task`` BOTH silently skip the new
+        # repo because ``branch_needs_push(repo, feature/<task>)``
+        # returns False (no commits on a branch that doesn't even
+        # exist yet). The operator's symptom: changes appear in the
+        # clone but never become a PR. Run ``prepare_task_branches``
+        # on the newly-provisioned ones so they end up on the task
+        # branch and behave like the original repos.
+        added_set = {str(getattr(r, 'id', '') or '').lower() for r in missing_repos}
+        newly_provisioned = [
+            r for r in provisioned
+            if str(getattr(r, 'id', '') or '').lower() in added_set
+        ]
+        branch_prep_failures: list[dict[str, str]] = []
+        if newly_provisioned:
+            repository_branches = {
+                repo.id: self._repository_service.build_branch_name(task_obj, repo)
+                for repo in newly_provisioned
+            }
+            try:
+                self._repository_service.prepare_task_branches(
+                    newly_provisioned, repository_branches,
+                )
+            except Exception as exc:
+                self.logger.exception(
+                    'failed to prepare task branches for newly-synced '
+                    'repositories on task %s', normalized,
+                )
+                branch_prep_failures = [{
+                    'repository_id': str(getattr(r, 'id', '') or ''),
+                    'error': f'branch prep: {exc}',
+                } for r in newly_provisioned]
         return {
-            'synced': bool(added) and not failed,
+            'synced': bool(added) and not failed and not branch_prep_failures,
             'task_id': normalized,
             'added_repositories': added,
             'already_present': already_present,
-            'failed_repositories': failed,
+            'failed_repositories': failed + branch_prep_failures,
             'requires_session_restart': self._sync_requires_session_restart(
                 normalized, provisioned, missing_repos,
             ),

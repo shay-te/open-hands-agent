@@ -78,12 +78,46 @@ def run_with_retry(operation, max_retries: int, *, operation_name: str = 'reques
     return last_response
 
 
+# 429 (rate-limit) responses need a MUCH longer backoff than 5xx
+# blips. A 5xx is usually a momentary node failure that recovers in
+# seconds; a 429 means we hit a quota window measured in minutes
+# (Bitbucket, GitHub, GitLab all use 60-3600s windows). With the
+# 1/2/4s exponential the 5xx path uses, three retries totalled ~7s
+# of waiting and never escaped the window — the operator-reported
+# "PR lookup failed" errors. This schedule is sized for real
+# provider quota windows.
+_RATE_LIMIT_BASE_DELAY_SECONDS = 15.0
+_RATE_LIMIT_MAX_DELAY_SECONDS = 120.0
+# Add up to ~25% jitter (capped at 10s) on top of any wait. When
+# several parallel clients all hit 429 at once and the server tells
+# every one of them "wait 60s", they would otherwise all wake at the
+# same instant and immediately re-hit the limit. The jitter spreads
+# the herd across a small window so the recovery sticks.
+_JITTER_FRACTION = 0.25
+_JITTER_MAX_SECONDS = 10.0
+
+
 def _retry_delay_seconds(attempt: int, response: object | None = None) -> float:
     retry_after = _retry_after_seconds(response)
     if retry_after is not None:
-        return retry_after
+        return retry_after + _bounded_jitter(retry_after)
+    if getattr(response, 'status_code', None) == 429:
+        # 429 without a Retry-After hint — pick a sensible default
+        # for "wait long enough that the quota window can clear".
+        base_delay = min(
+            _RATE_LIMIT_BASE_DELAY_SECONDS * (2 ** attempt),
+            _RATE_LIMIT_MAX_DELAY_SECONDS,
+        )
+        return random.uniform(base_delay, base_delay * 1.5)
     base_delay = float(2 ** attempt)
     return random.uniform(base_delay, base_delay * 2.0)
+
+
+def _bounded_jitter(base_seconds: float) -> float:
+    upper = min(base_seconds * _JITTER_FRACTION, _JITTER_MAX_SECONDS)
+    if upper <= 0:
+        return 0.0
+    return random.uniform(0.0, upper)
 
 
 def _retry_after_seconds(response: object | None) -> float | None:

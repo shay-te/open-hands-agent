@@ -1846,6 +1846,124 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   padding: 4px 0 0;
 }
 
+/* ───── queued-message floating list ─────────────────────────────
+ *
+ * Pinned just above the composer capsule. While Claude is mid-turn
+ * each message the operator types lands here as a row; the row's
+ * Steer button delivers it immediately (mid-turn injection) and
+ * the trash button drops it without sending. Empty list renders
+ * nothing so the composer hugs the bottom of the chat when there's
+ * no pending traffic. The capsule's bottom is anchored 18px above
+ * the viewport edge (#message-form), so we anchor this list
+ * relative to that: ~94px (single-row composer) + 18px (offset)
+ * + 8px breathing room ≈ 120px above the viewport. */
+.queued-message-list {
+  position: absolute;
+  /* Same width / centring as the composer below — reads as a
+   * stacked pair. */
+  left: 50%;
+  bottom: calc(var(--composer-h, 94px) + 26px);
+  transform: translateX(-50%);
+  width: min(720px, calc(100% - 32px));
+  list-style: none;
+  margin: 0;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg,
+      rgba(28, 28, 30, 0.62) 0%,
+      rgba(20, 20, 22, 0.55) 100%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  backdrop-filter: blur(28px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.40),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  z-index: 9;
+  max-height: 240px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.32) transparent;
+}
+.queued-message-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  color: rgba(245, 245, 247, 0.85);
+  font-size: 13px;
+}
+.queued-message-row:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.10);
+}
+.queued-message-glyph {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(245, 245, 247, 0.55);
+}
+.queued-message-glyph svg { width: 12px; height: 12px; }
+.queued-message-text {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.queued-message-steer {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  color: rgba(245, 245, 247, 0.85);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+.queued-message-steer:hover {
+  background: rgba(10, 132, 255, 0.40);
+  border-color: rgba(10, 132, 255, 0.55);
+  color: #fff;
+}
+.queued-message-steer svg { width: 9px; height: 9px; }
+.queued-message-steer-label { letter-spacing: 0.02em; }
+.queued-message-remove {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  color: rgba(245, 245, 247, 0.55);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+.queued-message-remove:hover {
+  background: rgba(220, 38, 38, 0.75);
+  color: #fff7ed;
+}
+.queued-message-remove svg { width: 10px; height: 10px; }
+
+
 #message-form {
   /* The capsule itself — absolute-positioned over the chat. */
   position: absolute;

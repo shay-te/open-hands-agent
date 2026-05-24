@@ -4,6 +4,7 @@ import {
   mergeDefaultBranch,
   postChatMessage,
   postSession,
+  triggerScan,
   updateTaskSource,
 } from '../api.js';
 import { TAB_STATUS } from '../constants/tabStatus.js';
@@ -36,6 +37,37 @@ export default function SessionHeader({
   const [updatingSource, setUpdatingSource] = useState(false);
   const [mergingDefault, setMergingDefault] = useState(false);
   const [adoptModalOpen, setAdoptModalOpen] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+
+  // Manual scan trigger — fires the autonomous scan job NOW so the
+  // operator doesn't have to wait for the 3-minute auto-tick.
+  // Refreshes review comments + task status for THIS task (and
+  // every other live task as a side effect — the underlying job
+  // iterates all assigned + review tasks). Keeps the operator in
+  // control of when provider APIs (Bitbucket / GitHub / GitLab)
+  // get hit, instead of the old 30s firehose.
+  async function onSyncNow() {
+    if (syncing) { return; }
+    setSyncing(true);
+    try {
+      const result = await triggerScan();
+      if (result.ok) {
+        toast.show({
+          kind: 'success',
+          title: 'Scan triggered',
+          message: 'Kato is checking for new tasks, status changes, and review comments.',
+        });
+      } else {
+        toast.show({
+          kind: 'error',
+          title: 'Scan failed',
+          message: result.error || result.body?.error || 'unknown error',
+        });
+      }
+    } finally {
+      setSyncing(false);
+    }
+  }
   const pushApproval = usePushApproval(session?.task_id || '');
   const taskPublish = useTaskPublish(session?.task_id || '');
   if (!session) { return null; }
@@ -340,7 +372,16 @@ export default function SessionHeader({
       className="session-action tooltip-below is-danger"
       data-tooltip="Stop the live Claude subprocess for this task. The chat history is preserved; you can resume from this header when the subprocess has ended."
       onClick={onStop}
-      disabled={stopping || baseStatus !== TAB_STATUS.ACTIVE}
+      // Enabled whenever this Stop variant is rendered. The
+      // ``isResumable`` branch above already swapped to Resume when
+      // the subprocess isn't live — so if we're rendering Stop, the
+      // subprocess IS alive and stoppable. The previous
+      // ``baseStatus !== ACTIVE`` guard silently DISABLED Stop while
+      // Claude was WORKING (the exact moment operators want to use
+      // it) because ``deriveTabStatus`` flips to ``WORKING`` while
+      // ``session.working === true`` — the bug the operator
+      // reported as "stop button doesn't stop the work".
+      disabled={stopping}
       aria-label={stopLabel}
     >
       <Icon name={stopping ? 'spinner' : 'stop'} spin={stopping} />
@@ -473,6 +514,17 @@ export default function SessionHeader({
             <Icon name={finishing ? 'spinner' : 'check'} spin={finishing} />
           </button>
           <button
+            id="session-sync"
+            type="button"
+            className="session-action tooltip-below"
+            data-tooltip="Sync now — run a scan immediately to pick up new review comments, status changes, and PR updates without waiting for the next 3-minute auto-tick."
+            onClick={onSyncNow}
+            disabled={syncing}
+            aria-label={syncing ? 'Syncing…' : 'Sync now'}
+          >
+            <Icon name={syncing ? 'spinner' : 'history'} spin={syncing} />
+          </button>
+          <button
             id="session-adopt-claude"
             type="button"
             className="session-action tooltip-below"
@@ -506,6 +558,7 @@ export function SessionHeaderPlaceholder() {
     { icon: 'external-link', label: 'Open pull request in a new tab' },
     { icon: 'refresh', label: 'Update source' },
     { icon: 'check', label: 'Finish', primary: true },
+    { icon: 'history', label: 'Sync now' },
     { icon: 'link', label: 'Adopt session' },
     { icon: 'stop', label: 'Stop' },
   ];

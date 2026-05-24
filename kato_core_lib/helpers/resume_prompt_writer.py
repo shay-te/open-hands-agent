@@ -1,0 +1,315 @@
+"""Auto-updated ``resume_prompt.md`` per task workspace.
+
+Writes a Cursor-ready snapshot to ``<workspace>/resume_prompt.md`` so
+the operator can hand a task off to another AI (Cursor, ChatGPT,
+another Claude tab) without losing context. The file is rewritten
+after every Claude turn (the ``ResumePromptWatcher`` polls live
+sessions and detects new ``result`` events) so it always reflects
+the current state.
+
+Render contract: the output is pure markdown, paste-it-into-an-AI
+ready. Structure:
+
+  # Resume prompt for <task id>
+
+  **Task**: <summary>
+  **Branch**: <branch>
+  **Workspace**: <abs path>
+
+  ## Repositories in scope
+  - ...
+
+  ## What's been done so far
+  - <bulletised summary of recent assistant turns>
+
+  ## Last user message
+  > ...
+
+  ## Last assistant message
+  ...
+
+  ---
+
+  ## Continue this task
+
+  <ready-to-paste prompt for another agent>
+
+Pure functions only — no thread/lock work, no I/O beyond the atomic
+write helper. The watcher (``ResumePromptWatcher``) handles cadence
+and lifecycle.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+
+from kato_core_lib.helpers.atomic_text_utils import atomic_write_text
+from kato_core_lib.helpers.logging_utils import configure_logger
+
+
+RESUME_PROMPT_FILENAME = 'resume_prompt.md'
+
+
+@dataclass
+class ResumePromptInputs(object):
+    """Everything the renderer needs to write one snapshot.
+
+    Kept as a plain dataclass so the watcher can build it from
+    whatever live state it sees and tests can construct it directly.
+    """
+
+    task_id: str
+    task_summary: str
+    branch_name: str
+    workspace_path: str
+    repository_paths: list[str]
+    recent_assistant_texts: list[str]
+    last_user_text: str
+    last_assistant_text: str
+    claude_session_id: str = ''
+
+
+def render_resume_prompt(inputs: ResumePromptInputs) -> str:
+    """Render the markdown body for one snapshot. Pure function."""
+    task_id = (inputs.task_id or '').strip() or '(unknown)'
+    summary = (inputs.task_summary or '').strip() or '(no summary)'
+    branch = (inputs.branch_name or '').strip() or '(no branch)'
+    workspace = (inputs.workspace_path or '').strip() or '(no workspace)'
+    repos = [p for p in (inputs.repository_paths or []) if p]
+    recents = [
+        _trim(text, 600) for text in (inputs.recent_assistant_texts or [])
+        if _trim(text, 600)
+    ]
+    last_user = _trim(inputs.last_user_text or '', 800)
+    last_assistant = _trim(inputs.last_assistant_text or '', 1600)
+    claude_session_id = (inputs.claude_session_id or '').strip()
+
+    lines: list[str] = []
+    lines.append(f'# Resume prompt for {task_id}')
+    lines.append('')
+    lines.append(f'**Task**: {summary}')
+    lines.append(f'**Branch**: `{branch}`')
+    lines.append(f'**Workspace**: `{workspace}`')
+    if claude_session_id:
+        lines.append(f'**Claude session id**: `{claude_session_id}`')
+    lines.append('')
+
+    if repos:
+        lines.append('## Repositories in scope')
+        for path in repos:
+            lines.append(f'- `{path}`')
+        lines.append('')
+
+    if recents:
+        lines.append('## What\'s been done so far')
+        lines.append('')
+        lines.append(
+            'Most recent assistant turns (newest last; truncated at 600 '
+            'chars each):'
+        )
+        lines.append('')
+        for text in recents:
+            lines.append(f'- {_one_line_preview(text)}')
+        lines.append('')
+
+    if last_user:
+        lines.append('## Last user message')
+        lines.append('')
+        lines.append('> ' + last_user.replace('\n', '\n> '))
+        lines.append('')
+
+    if last_assistant:
+        lines.append('## Last assistant message')
+        lines.append('')
+        lines.append(last_assistant)
+        lines.append('')
+
+    lines.append('---')
+    lines.append('')
+    lines.append('## Continue this task')
+    lines.append('')
+    lines.append(
+        'Paste the block below into your AI agent (Cursor, ChatGPT, '
+        'another Claude tab) to pick up where the previous session '
+        'left off. Edit the closing instruction to say what you want '
+        'next.'
+    )
+    lines.append('')
+    lines.append('```')
+    lines.append(_continuation_prompt(
+        task_id=task_id,
+        summary=summary,
+        branch=branch,
+        workspace=workspace,
+        repos=repos,
+        last_assistant=last_assistant,
+        last_user=last_user,
+    ))
+    lines.append('```')
+    lines.append('')
+    return '\n'.join(lines)
+
+
+def _continuation_prompt(
+    *,
+    task_id: str,
+    summary: str,
+    branch: str,
+    workspace: str,
+    repos: list[str],
+    last_assistant: str,
+    last_user: str,
+) -> str:
+    repo_lines = '\n'.join(f'  - {p}' for p in repos) if repos else '  (none)'
+    last_text = _one_line_preview(last_assistant or last_user or '(no prior turn)')
+    return (
+        f'You are picking up task {task_id} from another AI session.\n'
+        f'\n'
+        f'Task: {summary}\n'
+        f'Branch: {branch}\n'
+        f'Workspace root: {workspace}\n'
+        f'Repos in scope:\n{repo_lines}\n'
+        f'\n'
+        f'Last action / state from the previous session:\n'
+        f'  {last_text}\n'
+        f'\n'
+        f'Please continue. Start by reading the workspace to confirm '
+        f'the file state, then proceed with whatever the next step is. '
+        f'When you make changes, stay on the existing branch — do not '
+        f'create a new one.'
+    )
+
+
+def _trim(text: str, max_chars: int) -> str:
+    s = str(text or '').strip()
+    if len(s) <= max_chars:
+        return s
+    return s[: max_chars - 1].rstrip() + '…'
+
+
+def _one_line_preview(text: str, max_chars: int = 200) -> str:
+    """Flatten ``text`` to a single line, truncated."""
+    s = ' '.join(str(text or '').split())
+    if len(s) <= max_chars:
+        return s
+    return s[: max_chars - 1].rstrip() + '…'
+
+
+def write_resume_prompt(
+    workspace_path: Path | str,
+    content: str,
+    *,
+    logger=None,
+) -> bool:
+    """Write ``content`` to ``<workspace>/resume_prompt.md`` atomically.
+
+    Returns True on success, False on any I/O failure (logged at
+    warning by the underlying helper). The file is created with
+    ``parents=True`` if the workspace dir is missing — the operator
+    might invoke the writer for a never-provisioned task.
+    """
+    if not workspace_path:
+        return False
+    target = Path(str(workspace_path)) / RESUME_PROMPT_FILENAME
+    return atomic_write_text(
+        target,
+        content,
+        logger=logger or configure_logger(__name__),
+        label='resume_prompt.md',
+    )
+
+
+def build_inputs_from_session(
+    *,
+    task_id: str,
+    task_summary: str,
+    branch_name: str,
+    workspace_path: str,
+    repository_paths: list[str],
+    recent_events: list,
+    claude_session_id: str = '',
+    max_recent_assistant: int = 6,
+) -> ResumePromptInputs:
+    """Adapter: turn a session's ``recent_events()`` snapshot into renderer inputs.
+
+    The streaming session exposes ``recent_events()`` (a list of
+    :class:`SessionEvent`-shaped objects with ``raw`` payloads). This
+    helper distills them into the small set of strings the renderer
+    needs — newest few assistant texts, the last user message, and
+    the last assistant message — without the renderer having to know
+    Claude event schemas.
+    """
+    assistant_texts: list[str] = []
+    last_user = ''
+    last_assistant = ''
+    for event in (recent_events or []):
+        event_type = getattr(event, 'event_type', '') or ''
+        raw = getattr(event, 'raw', {}) or {}
+        if event_type == 'assistant':
+            text = _extract_assistant_text(raw)
+            if text:
+                assistant_texts.append(text)
+                last_assistant = text
+        elif event_type == 'user':
+            text = _extract_user_text(raw)
+            if text:
+                last_user = text
+    recent_assistant_texts = assistant_texts[-max_recent_assistant:]
+    return ResumePromptInputs(
+        task_id=task_id,
+        task_summary=task_summary,
+        branch_name=branch_name,
+        workspace_path=workspace_path,
+        repository_paths=list(repository_paths or []),
+        recent_assistant_texts=recent_assistant_texts,
+        last_user_text=last_user,
+        last_assistant_text=last_assistant,
+        claude_session_id=claude_session_id,
+    )
+
+
+def _extract_assistant_text(raw: dict) -> str:
+    """Flatten an ``assistant`` event's content blocks into one string."""
+    message = raw.get('message') if isinstance(raw, dict) else None
+    if not isinstance(message, dict):
+        return ''
+    content = message.get('content')
+    if not isinstance(content, list):
+        return ''
+    parts: list[str] = []
+    for block in content:
+        if not isinstance(block, dict):
+            continue
+        if block.get('type') == 'text':
+            text = str(block.get('text', '') or '').strip()
+            if text:
+                parts.append(text)
+    return '\n\n'.join(parts).strip()
+
+
+def _extract_user_text(raw: dict) -> str:
+    """Pull the user-side text from a Claude user envelope.
+
+    User messages have shape ``{message: {role: 'user', content: ...}}``
+    where content is either a string OR a list of blocks. Tool-result
+    envelopes also use this shape but their content blocks are
+    ``tool_result`` — we ignore those (they're tool plumbing, not
+    operator-sent text).
+    """
+    message = raw.get('message') if isinstance(raw, dict) else None
+    if not isinstance(message, dict):
+        return ''
+    content = message.get('content')
+    if isinstance(content, str):
+        return content.strip()
+    if not isinstance(content, list):
+        return ''
+    parts: list[str] = []
+    for block in content:
+        if not isinstance(block, dict):
+            continue
+        if block.get('type') == 'text':
+            text = str(block.get('text', '') or '').strip()
+            if text:
+                parts.append(text)
+    return '\n\n'.join(parts).strip()

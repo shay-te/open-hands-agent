@@ -2015,24 +2015,71 @@ def _register_http_routes(app: Flask) -> None:
 
     @app.delete('/api/sessions/<task_id>/workspace')
     def forget_task_workspace(task_id: str):
-        """Manual escape hatch: wipe ``~/.kato/workspaces/<task_id>/``.
+        """Manual escape hatch: wipe everything for ``task_id``.
 
-        Used by the "Forget this task" button on a task tab when kato's
-        cleanup loop hasn't run yet (e.g. the ticket is still in the
-        watched states but the operator knows the task is done).
+        Operator-reported regression: clicking the tab × showed a
+        red dot, the tab stayed in the strip, and ``~/.kato/
+        workspaces/<task_id>/`` was still on disk. Causes:
+          1. The live Claude subprocess wasn't terminated, so its
+             open file handles in the clone blocked ``shutil.rmtree``
+             on Windows (file-lock semantics).
+          2. The session record (``~/.kato/sessions/<task_id>.json``)
+             was never removed, so the tab kept reappearing on the
+             next ``/api/sessions`` poll.
+          3. ``workspace_manager.delete()`` swallows ``OSError``
+             internally — the rmtree failure was logged at warning
+             level but never surfaced to the UI.
+
+        Fix order: terminate session FIRST (kills subprocess +
+        removes record + deletes Claude transcript), THEN delete
+        the workspace clone, THEN VERIFY the directory is actually
+        gone before returning 200. If anything's left, the operator
+        gets a concrete error message they can act on.
         """
         workspace_manager = app.config.get('WORKSPACE_MANAGER')
         if workspace_manager is None:
             return jsonify({'error': 'workspace manager not wired'}), 503
+        errors: list[str] = []
+        # 1. Kill the live subprocess + wipe the session record /
+        #    Claude JSONL transcript. Best-effort: a missing session
+        #    or terminate failure shouldn't block the workspace
+        #    cleanup that's right after.
+        session_manager = app.config.get('SESSION_MANAGER')
+        if session_manager is not None:
+            try:
+                session_manager.terminate_session(
+                    task_id, remove_record=True,
+                )
+            except Exception as exc:
+                errors.append(f'terminate_session: {exc}')
+        # 2. Wipe the per-task workspace clone(s). ``delete``
+        #    silently swallows ``OSError``; we VERIFY after.
         try:
             workspace_manager.delete(task_id)
-            return jsonify({'forgotten': True, 'task_id': task_id})
         except Exception as exc:
+            errors.append(f'workspace.delete: {exc}')
+        # 3. Verify nothing's left behind. The only reason a
+        #    well-formed delete would leave the dir is a file lock
+        #    (Windows antivirus, another process with handles open,
+        #    a clone with read-only files). Surfacing this to the
+        #    UI is the operator's escape hatch.
+        try:
+            workspace_dir = workspace_manager.workspace_path(task_id)
+        except Exception:
+            workspace_dir = None
+        if workspace_dir is not None and workspace_dir.exists():
+            errors.append(
+                f'workspace directory still exists at {workspace_dir} '
+                '(likely a file lock — close any process with files '
+                'open in this clone and try again)'
+            )
+        if errors:
             return jsonify({
                 'forgotten': False,
                 'task_id': task_id,
-                'error': str(exc),
+                'error': '; '.join(errors),
             }), 500
+        return jsonify({'forgotten': True, 'task_id': task_id})
 
 
 # ----- live status feed (SSE) -----

@@ -67,6 +67,9 @@ class PlanningSessionRecord(object):
     # the send is rejected. Empty string disables the check (wait-planning
     # tabs that aren't owned by the orchestrator).
     expected_branch: str = ''
+    # Recovery slot for older records that already drifted before
+    # strict session-id preservation was enforced.
+    previous_claude_session_id: str = ''
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -82,6 +85,9 @@ class PlanningSessionRecord(object):
             updated_at_epoch=float(payload.get('updated_at_epoch', time.time()) or time.time()),
             cwd=str(payload.get('cwd', '') or ''),
             expected_branch=str(payload.get('expected_branch', '') or ''),
+            previous_claude_session_id=str(
+                payload.get('previous_claude_session_id', '') or '',
+            ),
         )
 
 
@@ -274,16 +280,8 @@ class ClaudeSessionManager(object):
                 resume_session_id = self._resume_id_for_spawn(
                     normalized_task_id, previous_record, existing,
                 )
-            # Session JSONL size gate: if the transcript has grown past the
-            # threshold (~1 MB), skip --resume and start fresh.  A large JSONL
-            # means Claude has to load hundreds-of-thousands of tokens of
-            # context before responding — in practice this causes 10–15 minute
-            # startup delays because the full history must be sent to the API
-            # and fit within the 200 K-token context window.  A fresh spawn
-            # responds in seconds; the user loses older conversation history
-            # but gains a responsive session.  The persisted session-id stays
-            # on disk so a future manual /compact or session-adoption can still
-            # reach the old transcript.
+            # Warn on huge transcripts, but never trade away the user's
+            # session id. A slow resume is better than silent session drift.
             resume_session_id = self._gate_resume_by_jsonl_size(
                 normalized_task_id, resume_session_id,
             )
@@ -295,7 +293,7 @@ class ClaudeSessionManager(object):
             # when kato switches cwds across spawns (workspace clone vs
             # source repo, sibling repos in a multi-repo task) the
             # resume previously failed with "No conversation found" and
-            # self-heal blanked the id, ending the conversation. The
+            # stale-resume handling blanked the id, ending the conversation. The
             # JSONL itself is a plain file: we copy it to the new cwd's
             # project dir and Claude resumes natively. Free in tokens
             # and idempotent.
@@ -311,16 +309,19 @@ class ClaudeSessionManager(object):
                 initial_prompt=initial_prompt,
                 resume_session_id=resume_session_id,
             )
-            # Register a correction callback so that if Claude reports a
-            # different session_id in its init event (e.g. --session-id is
-            # ignored by the CLI version, or --resume silently switched ids),
-            # we immediately update our persisted record to match.  Without
-            # this the next spawn would --resume the wrong id, fail to find
-            # the JSONL, self-heal into yet another fresh session, and the
-            # session id would drift on every respawn.
+            # Capture a first-spawn id, but never let a live process
+            # replace an already-pinned operator session id.
+            correction_expected_id = session.claude_session_id
+            correction_can_replace = not bool(resume_session_id)
             session._session_id_correction_callback = (
-                lambda sid, k=lookup_key, t=normalized_task_id: (
-                    self._correct_session_id_in_record(k, t, sid)
+                lambda sid, k=lookup_key, t=normalized_task_id,
+                expected=correction_expected_id,
+                can_replace=correction_can_replace: (
+                    self._correct_session_id_in_record(
+                        k, t, sid,
+                        expected_existing_id=expected,
+                        can_replace_existing=can_replace,
+                    )
                 )
             )
             with self._lock:
@@ -389,15 +390,39 @@ class ClaudeSessionManager(object):
         # forensics; orphan cleanup, if ever wanted, is a separate
         # housekeeping concern.
         try:
-            migrate_session_to_workspace(
+            copied = migrate_session_to_workspace(
                 transcript_path=str(source),
                 target_cwd=target_cwd,
             )
         except Exception:
             self.logger.exception(
-                'failed to copy resume transcript for session %s into %s',
+                'failed to copy resume transcript for session %s into %s '
+                '(--resume will likely fail; fresh-session drift is refused)',
                 resume_session_id,
                 target_cwd,
+            )
+            return
+        if copied is None:
+            # Copy quietly failed (best-effort path inside
+            # migrate_session_to_workspace). Log at warning so the
+            # next failed --resume is traceable.
+            self.logger.warning(
+                'task transcript migration returned None; resume id %s '
+                'expected at %s — Claude will likely reject --resume '
+                'and Kato will refuse a fresh fallback',
+                resume_session_id,
+                target_dir,
+            )
+            return
+        # Verify the file landed where Claude will look for it.
+        # Without this guard, an unexpected filesystem outcome (race,
+        # symlink, permission anomaly) would still fall through to
+        # the spawn and waste 4-5s before refusing the fresh fallback.
+        if not Path(copied).is_file():
+            self.logger.warning(
+                'migrated JSONL not present at %s after copy; --resume '
+                'will reject and Kato will refuse a fresh fallback',
+                copied,
             )
 
     # Sessions whose JSONL transcript exceeds this byte count are NOT
@@ -413,14 +438,7 @@ class ClaudeSessionManager(object):
         normalized_task_id: str,
         resume_session_id: str,
     ) -> str:
-        """Return '' when the JSONL transcript is too large to resume quickly.
-
-        A no-op when there is no session id, the file doesn't exist, or
-        the file is small enough.  When the file is large, logs a warning
-        and returns '' so the caller spawns a fresh session instead.  The
-        persisted record is NOT updated here — the old transcript stays on
-        disk for forensics and a future manual /compact can still reach it.
-        """
+        """Warn when a transcript is huge, but always keep the resume id."""
         if not resume_session_id:
             return resume_session_id
         try:
@@ -438,13 +456,13 @@ class ClaudeSessionManager(object):
             return resume_session_id
         self.logger.warning(
             'task %s: session JSONL is %.0f KB (limit %d KB); '
-            'skipping --resume to avoid context-window startup delay — '
-            'starting a fresh session',
+            'resume may be slow, but keeping --resume to preserve the '
+            'operator session id',
             normalized_task_id,
             size / 1024,
             self._RESUME_JSONL_SIZE_LIMIT_BYTES // 1024,
         )
-        return ''
+        return resume_session_id
 
     def _resume_id_for_spawn(
         self,
@@ -454,27 +472,26 @@ class ClaudeSessionManager(object):
     ) -> str:
         """Return the resume id to pass to the next spawn (or '' for fresh).
 
-        Self-heal: if the previous spawn for this task already died because
-        Claude rejected the persisted resume id (e.g., the conversation
-        was never persisted to ``~/.claude``, or the user wiped that
-        directory), blank the stale id so the new spawn starts a fresh
-        conversation. Without this we'd respawn against the dead id every
-        scan cycle.
+        Even when a previous live process rejected the id, keep returning
+        it. Kato must fail loud rather than silently drift to a fresh
+        Claude session id.
         """
-        resume_session_id = previous_record.claude_session_id if previous_record else ''
+        raw_resume_id = previous_record.claude_session_id if previous_record else ''
+        resume_session_id = str(raw_resume_id or '').strip()
+        if previous_record is not None and raw_resume_id != resume_session_id:
+            previous_record.claude_session_id = resume_session_id
+            self._persist_record(previous_record)
         if not resume_session_id or existing_session is None:
             return resume_session_id
         if not self._died_with_stale_resume_id(existing_session, resume_session_id):
             return resume_session_id
         self.logger.warning(
-            'task %s: claude rejected resume id %s; starting a fresh session',
+            'task %s: claude rejected resume id %s; keeping it pinned '
+            'and retrying because session id preservation is required',
             normalized_task_id,
             resume_session_id,
         )
-        if previous_record is not None:
-            previous_record.claude_session_id = ''
-            self._persist_record(previous_record)
-        return ''
+        return resume_session_id
 
     def _spawn_with_resume_self_heal(
         self,
@@ -484,13 +501,16 @@ class ClaudeSessionManager(object):
         initial_prompt: str,
         resume_session_id: str,
     ) -> StreamingClaudeSession:
-        """Spawn the subprocess, retrying once if a stale resume id rejects.
-
-        Claude exits within ~1s when ``--resume`` references a missing
-        session, so a short polling window catches the failure before the
-        first user-visible turn. On a hit, we terminate, drop the resume
-        id, and respawn fresh.
-        """
+        """Spawn the subprocess, refusing to drift when a resume id rejects."""
+        # Diagnostic: log where Claude will look for the JSONL so a
+        # future "resume silently spawned fresh" report has the path
+        # information without needing to attach a debugger.
+        if resume_session_id:
+            self._log_resume_jsonl_state(
+                normalized_task_id=normalized_task_id,
+                resume_session_id=resume_session_id,
+                target_cwd=factory_kwargs.get('cwd', ''),
+            )
         session = self._session_factory(
             resume_session_id=resume_session_id, **factory_kwargs,
         )
@@ -501,7 +521,8 @@ class ClaudeSessionManager(object):
             return session
         self.logger.warning(
             'task %s: claude rejected resume id %s on first spawn; '
-            'retrying with a fresh session',
+            'refusing to start a fresh session because session id '
+            'preservation is required',
             normalized_task_id,
             resume_session_id,
         )
@@ -509,14 +530,68 @@ class ClaudeSessionManager(object):
             session.terminate()
         except Exception:
             pass
-        session = self._session_factory(
-            resume_session_id='', **factory_kwargs,
+        raise RuntimeError(
+            f'Claude rejected resume id {resume_session_id} for task '
+            f'{normalized_task_id}; refusing to start a fresh session.'
         )
-        session.start(initial_prompt=initial_prompt)
-        return session
+
+    def _log_resume_jsonl_state(
+        self,
+        *,
+        normalized_task_id: str,
+        resume_session_id: str,
+        target_cwd: str,
+    ) -> None:
+        """Emit pre-spawn diagnostics for ``--resume`` so future failures are debuggable.
+
+        Reports (1) where the JSONL transcript actually lives on
+        disk (via the cwd-agnostic glob lookup) and (2) where the
+        spawn's cwd would make Claude look for it. A mismatch means
+        ``--resume`` will fail unless
+        ``_ensure_resume_jsonl_at_target_cwd`` copies the JSONL.
+        """
+        try:
+            from claude_core_lib.claude_core_lib.session.history import (
+                find_session_file,
+            )
+            from claude_core_lib.claude_core_lib.session.index import (
+                claude_project_dir_for_cwd,
+            )
+        except ImportError:
+            return
+        try:
+            source = find_session_file(resume_session_id)
+        except Exception:
+            self.logger.exception(
+                'task %s: failed to locate JSONL for resume id %s',
+                normalized_task_id, resume_session_id,
+            )
+            return
+        try:
+            target_dir = claude_project_dir_for_cwd(target_cwd) if target_cwd else None
+        except Exception:
+            target_dir = None
+        source_dir = str(source.parent) if source is not None else '(not found)'
+        target_text = str(target_dir) if target_dir is not None else '(no cwd)'
+        matches = (
+            target_dir is not None
+            and source is not None
+            and source.parent.resolve() == target_dir.resolve()
+        )
+        self.logger.info(
+            'task %s: --resume %s; JSONL at %s; spawn cwd dir %s; aligned=%s',
+            normalized_task_id,
+            resume_session_id,
+            source_dir,
+            target_text,
+            matches,
+        )
 
     def _correct_session_id_in_record(
         self, lookup_key: str, task_id: str, actual_id: str,
+        *,
+        expected_existing_id: str = '',
+        can_replace_existing: bool = False,
     ) -> None:
         """Update the persisted record when Claude reports a different session id.
 
@@ -533,10 +608,29 @@ class ClaudeSessionManager(object):
             record = self._records.get(lookup_key)
             if record is None or record.claude_session_id == actual_id:
                 return
-            self.logger.info(
-                'task %s: correcting stored claude_session_id %s → %s',
-                task_id, record.claude_session_id, actual_id,
-            )
+            if record.claude_session_id:
+                can_replace = (
+                    can_replace_existing
+                    and str(expected_existing_id or '').strip()
+                    == record.claude_session_id
+                )
+                if not can_replace:
+                    self.logger.warning(
+                        'task %s: live Claude reported session id %s, but '
+                        'record is pinned to %s; keeping the persisted id',
+                        task_id, actual_id, record.claude_session_id,
+                    )
+                    return
+                self.logger.warning(
+                    'task %s: fresh spawn reported actual session id %s '
+                    'instead of requested %s; recording actual id',
+                    task_id, actual_id, record.claude_session_id,
+                )
+            else:
+                self.logger.info(
+                    'task %s: recording live claude_session_id %s',
+                    task_id, actual_id,
+                )
             record.claude_session_id = actual_id
             record.updated_at_epoch = time.time()
             self._persist_record(record)
@@ -552,11 +646,16 @@ class ClaudeSessionManager(object):
         resume_session_id: str,
     ) -> None:
         """Build and persist the on-disk record for the just-spawned session."""
+        previous_id = (
+            previous_record.previous_claude_session_id
+            if previous_record else ''
+        )
+        active_id = resume_session_id or session.claude_session_id
         record = PlanningSessionRecord(
             task_id=normalized_task_id,
             task_summary=normalized_text(task_summary)
             or (previous_record.task_summary if previous_record else ''),
-            claude_session_id=session.claude_session_id or resume_session_id,
+            claude_session_id=active_id,
             status=SESSION_STATUS_ACTIVE,
             created_at_epoch=(
                 previous_record.created_at_epoch
@@ -570,6 +669,7 @@ class ClaudeSessionManager(object):
             # a real branch. Falling back to the persisted value would
             # silently re-arm a stale lock from a prior buggy run.
             expected_branch=normalized_text(expected_branch),
+            previous_claude_session_id=previous_id,
         )
         self._records[self._lookup_key(normalized_task_id)] = record
         self._persist_record(record)
@@ -731,8 +831,7 @@ class ClaudeSessionManager(object):
         Claude exits within a second or two when ``--resume`` references
         a missing session, so a short wait here is enough to catch the
         common case without delaying healthy spawns. Returns False on
-        timeout (let the orchestrator carry on and self-heal on the
-        next scan if the failure shows up later).
+        timeout and lets the normal session path continue.
         """
         deadline = time.monotonic() + max(0.0, float(max_wait_seconds))
         while time.monotonic() < deadline:
@@ -749,16 +848,13 @@ class ClaudeSessionManager(object):
 
         We detect this from the captured stderr (where the CLI prints
         ``No conversation found with session ID: ...``) and from the
-        terminal result text. The check is conservative — false positives
-        only cost us a fresh session, but a missed positive would loop
-        forever.
+        terminal result text. The check is conservative because a false
+        positive blocks a spawn that might have been healthy.
 
         The function REQUIRES the subprocess to have actually exited.
         An alive subprocess whose stderr happens to contain the marker
         text (e.g., a log line from Claude or a tool that echoes the
-        session id for diagnostics) MUST NOT trigger the self-heal
-        path. Without this gate, healthy sessions get spuriously torn
-        down and respawned fresh, burning tokens and losing context.
+        session id for diagnostics) MUST NOT trigger stale-resume handling.
         """
         # Only an exited subprocess can be "died with stale resume id".
         # A still-alive session that happens to surface the marker in
@@ -945,6 +1041,19 @@ class ClaudeSessionManager(object):
             return record
         live_id = session.claude_session_id
         if live_id and live_id != record.claude_session_id:
+            resumed_id = str(getattr(session, '_resume_session_id', '') or '').strip()
+            if record.claude_session_id:
+                if not resumed_id:
+                    record.claude_session_id = live_id
+                    record.updated_at_epoch = time.time()
+                    self._persist_record(record)
+                    return record
+                self.logger.warning(
+                    'task %s: live Claude reports session id %s, but '
+                    'record is pinned to %s; keeping the persisted id',
+                    record.task_id, live_id, record.claude_session_id,
+                )
+                return record
             record.claude_session_id = live_id
             record.updated_at_epoch = time.time()
             self._persist_record(record)

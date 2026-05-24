@@ -452,12 +452,17 @@ class WarmUpRepositoryInventoryTests(unittest.TestCase):
 
 class TaskScanSettingsTests(unittest.TestCase):
     def test_reads_settings_with_defaults(self) -> None:
+        # Default ``scan_interval_seconds=180`` (3 min): slow enough
+        # that parallel PR-lookups don't trip provider rate limits,
+        # fast enough that review-comment pickup stays responsive.
+        # See ``_run_task_scan_loop`` for the guard that treats
+        # ``<=0`` as "manual-only" mode.
         cfg = SimpleNamespace(kato=SimpleNamespace(
             get=lambda key, default=None: default,
         ))
         startup, scan = main_module._task_scan_settings(cfg)
         self.assertEqual(startup, 5.0)
-        self.assertEqual(scan, 30.0)
+        self.assertEqual(scan, 180.0)
 
     def test_reads_settings_from_config(self) -> None:
         cfg = SimpleNamespace(kato=SimpleNamespace(
@@ -471,6 +476,10 @@ class TaskScanSettingsTests(unittest.TestCase):
 
 
 class RunTaskScanLoopTests(unittest.TestCase):
+    # ``scan_interval_seconds=0.01`` (any positive value) keeps the
+    # loop running — ``<=0`` is now a sentinel meaning "manual-only
+    # mode, don't enter the loop at all" (see _run_task_scan_loop).
+
     def test_runs_max_cycles_and_exits(self) -> None:
         # Cover the scan loop with bounded cycles.
         app = MagicMock()
@@ -483,7 +492,7 @@ class RunTaskScanLoopTests(unittest.TestCase):
             main_module._run_task_scan_loop(
                 app,
                 startup_delay_seconds=0,
-                scan_interval_seconds=0,
+                scan_interval_seconds=0.01,
                 sleep_fn=lambda _s: None,
                 max_cycles=2,
             )
@@ -501,7 +510,7 @@ class RunTaskScanLoopTests(unittest.TestCase):
             main_module._run_task_scan_loop(
                 app,
                 startup_delay_seconds=2.0,
-                scan_interval_seconds=0,
+                scan_interval_seconds=0.01,
                 sleep_fn=sleeper,
                 max_cycles=1,
             )
@@ -519,11 +528,30 @@ class RunTaskScanLoopTests(unittest.TestCase):
             main_module._run_task_scan_loop(
                 app,
                 startup_delay_seconds=0,
-                scan_interval_seconds=0,
+                scan_interval_seconds=0.01,
                 sleep_fn=lambda _s: None,
                 max_cycles=1,
             )
         app.logger.warning.assert_called()
+
+    def test_zero_interval_disables_loop_entirely(self) -> None:
+        # ``scan_interval_seconds=0`` is the "manual-only" sentinel:
+        # the loop exits immediately, never invokes the job. Operator
+        # has to trigger scans via the UI / /api/scan/trigger.
+        app = MagicMock()
+        app.logger = MagicMock()
+        with patch.object(main_module, 'ProcessAssignedTasksJob') as job_cls:
+            job = MagicMock()
+            job_cls.return_value = job
+            main_module._run_task_scan_loop(
+                app,
+                startup_delay_seconds=0,
+                scan_interval_seconds=0,
+                sleep_fn=lambda _s: None,
+                max_cycles=5,  # ignored — guard short-circuits
+            )
+        job.run.assert_not_called()
+        app.logger.info.assert_called()
 
 
 class IdleWithHeartbeatTests(unittest.TestCase):
@@ -1164,6 +1192,8 @@ class ScanLoopExitConditionTests(unittest.TestCase):
     """Line 684: force_scan_event.clear() inside the loop."""
 
     def test_force_scan_event_clear_called_each_cycle(self) -> None:
+        # ``scan_interval_seconds=0.01`` keeps the loop alive — ``<=0``
+        # is now the "manual-only" sentinel that skips the loop.
         event = threading.Event()
         event.set()
         app = MagicMock()
@@ -1175,7 +1205,7 @@ class ScanLoopExitConditionTests(unittest.TestCase):
             main_module._run_task_scan_loop(
                 app,
                 startup_delay_seconds=0,
-                scan_interval_seconds=0,
+                scan_interval_seconds=0.01,
                 sleep_fn=lambda _s: None,
                 max_cycles=1,
                 force_scan_event=event,

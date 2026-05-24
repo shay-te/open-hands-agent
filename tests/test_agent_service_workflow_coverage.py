@@ -374,6 +374,7 @@ class SyncTaskRepositoriesTests(unittest.TestCase):
         repo.resolve_task_repositories.return_value = [
             SimpleNamespace(id='new-repo'),
         ]
+        repo.build_branch_name.return_value = 'feature/T1'
         service = AgentService(**_kwargs(
             workspace_manager=workspace, repository_service=repo,
         ))
@@ -388,6 +389,77 @@ class SyncTaskRepositoriesTests(unittest.TestCase):
         self.assertEqual(result['added_repositories'], ['new-repo'])
         # No live session manager wired → conservative False.
         self.assertFalse(result['requires_session_restart'])
+
+    def test_success_path_checks_out_task_branch_on_new_repos(self) -> None:
+        # Operator-reported regression: after adding a repo to a
+        # running task, Claude's edits land in the clone but no PR
+        # ever opens because the new clone is on master (not the
+        # task branch). ``prepare_task_branches`` must run on every
+        # newly-provisioned repo so the rest of the publish flow
+        # (push_task, create_pull_request_for_task) sees a real
+        # branch with commits.
+        workspace = MagicMock()
+        workspace.get.return_value = SimpleNamespace(repository_ids=[])
+        task = SimpleNamespace(id='T1', tags=[], description='')
+        repo = MagicMock()
+        repo.resolve_task_repositories.return_value = [
+            SimpleNamespace(id='new-repo'),
+        ]
+        repo.build_branch_name.return_value = 'feature/T1'
+        service = AgentService(**_kwargs(
+            workspace_manager=workspace, repository_service=repo,
+        ))
+        with patch.object(service, '_lookup_task_for_sync', return_value=task), \
+             patch(
+                 'kato_core_lib.data_layers.service.workspace_provisioning_service.'
+                 'provision_task_workspace_clones',
+                 return_value=[SimpleNamespace(id='new-repo')],
+             ):
+            service.sync_task_repositories('T1')
+        # ``prepare_task_branches`` was called with the newly-added
+        # repos AND the task branch mapping for each.
+        repo.prepare_task_branches.assert_called_once()
+        args, _kwargs_call = repo.prepare_task_branches.call_args
+        repos_arg, branches_arg = args
+        self.assertEqual([r.id for r in repos_arg], ['new-repo'])
+        self.assertEqual(branches_arg, {'new-repo': 'feature/T1'})
+
+    def test_branch_prep_failure_surfaces_in_failed_repositories(self) -> None:
+        # If ``prepare_task_branches`` raises (e.g. fetch failed),
+        # the sync response must NOT report ``synced=True`` and must
+        # surface the repo in ``failed_repositories`` so the UI
+        # toast tells the operator what happened.
+        workspace = MagicMock()
+        workspace.get.return_value = SimpleNamespace(repository_ids=[])
+        task = SimpleNamespace(id='T1', tags=[], description='')
+        repo = MagicMock()
+        repo.resolve_task_repositories.return_value = [
+            SimpleNamespace(id='broken-repo'),
+        ]
+        repo.build_branch_name.return_value = 'feature/T1'
+        repo.prepare_task_branches.side_effect = RuntimeError(
+            'fetch denied',
+        )
+        service = AgentService(**_kwargs(
+            workspace_manager=workspace, repository_service=repo,
+        ))
+        service.logger = MagicMock()
+        with patch.object(service, '_lookup_task_for_sync', return_value=task), \
+             patch(
+                 'kato_core_lib.data_layers.service.workspace_provisioning_service.'
+                 'provision_task_workspace_clones',
+                 return_value=[SimpleNamespace(id='broken-repo')],
+             ):
+            result = service.sync_task_repositories('T1')
+        self.assertFalse(result['synced'])
+        self.assertTrue(any(
+            'broken-repo' in entry['repository_id']
+            for entry in result['failed_repositories']
+        ))
+        self.assertTrue(any(
+            'fetch denied' in entry['error']
+            for entry in result['failed_repositories']
+        ))
 
 
 class _RecordingSessionManager(object):

@@ -628,7 +628,26 @@ class StreamingClaudeSessionPureMethodTests(unittest.TestCase):
         self.assertIn('confirmed', session.logger.info.call_args.args[0])
         session.logger.warning.assert_not_called()
 
-    def test_capture_warns_once_on_session_id_mismatch(self) -> None:
+    def test_capture_warns_once_on_fresh_session_id_mismatch(self) -> None:
+        session = self._build_session(resume_session_id='')
+        session._claude_session_id = 'generated-id'
+        session.logger = MagicMock()
+        corrections: list[str] = []
+        session._session_id_correction_callback = corrections.append
+        ev = SessionEvent(raw={
+            'type': 'system', 'subtype': 'init', 'session_id': 'actual-id',
+        })
+        session._maybe_capture_session_id(ev)
+        session._maybe_capture_session_id(ev)  # only one warning, one correction
+        self.assertEqual(session.claude_session_id, 'actual-id')
+        self.assertEqual(corrections, ['actual-id'])
+        session.logger.warning.assert_called_once()
+        self.assertIn(
+            'adopting', session.logger.warning.call_args.args[-1],
+        )
+        session.logger.info.assert_not_called()
+
+    def test_capture_warns_once_on_resumed_session_id_mismatch(self) -> None:
         session = self._build_session(resume_session_id='sess-abc')
         session._claude_session_id = 'sess-abc'
         session.logger = MagicMock()
@@ -639,13 +658,11 @@ class StreamingClaudeSessionPureMethodTests(unittest.TestCase):
         })
         session._maybe_capture_session_id(ev)
         session._maybe_capture_session_id(ev)  # only one warning, one correction
-        # On mismatch claude_session_id is updated to Claude's actual id so
-        # the next --resume targets the right JSONL file.
-        self.assertEqual(session.claude_session_id, 'sess-zzz')
-        self.assertEqual(corrections, ['sess-zzz'])  # callback fired exactly once
+        self.assertEqual(session.claude_session_id, 'sess-abc')
+        self.assertEqual(corrections, [])
         session.logger.warning.assert_called_once()
         self.assertIn(
-            'adopting', session.logger.warning.call_args.args[0],
+            'keeping', session.logger.warning.call_args.args[-1],
         )
         session.logger.info.assert_not_called()
 
@@ -654,8 +671,8 @@ class StreamingClaudeSessionPureMethodTests(unittest.TestCase):
         # can't persist the corrected id because the state dir went
         # read-only), the streaming session must NOT crash mid-event.
         # The exception is logged and the stream continues.
-        session = self._build_session(resume_session_id='sess-abc')
-        session._claude_session_id = 'sess-abc'
+        session = self._build_session(resume_session_id='')
+        session._claude_session_id = 'generated-id'
         session.logger = MagicMock()
 
         def broken_callback(_actual_id):
@@ -663,7 +680,7 @@ class StreamingClaudeSessionPureMethodTests(unittest.TestCase):
 
         session._session_id_correction_callback = broken_callback
         ev = SessionEvent(raw={
-            'type': 'system', 'subtype': 'init', 'session_id': 'sess-zzz',
+            'type': 'system', 'subtype': 'init', 'session_id': 'actual-id',
         })
         # Must NOT raise.
         session._maybe_capture_session_id(ev)
@@ -671,8 +688,7 @@ class StreamingClaudeSessionPureMethodTests(unittest.TestCase):
         session.logger.exception.assert_called_once()
         msg = session.logger.exception.call_args.args[0]
         self.assertIn('session_id_correction_callback raised', msg)
-        # The corrected id is still adopted on the session itself.
-        self.assertEqual(session.claude_session_id, 'sess-zzz')
+        self.assertEqual(session.claude_session_id, 'actual-id')
 
     def test_maybe_fire_done_sentinel_fires_callback_once(self) -> None:
         callback_calls: list = []

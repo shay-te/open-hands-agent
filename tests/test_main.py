@@ -128,7 +128,9 @@ class MainTests(unittest.TestCase):
             _run_task_scan_loop(
                 app,
                 startup_delay_seconds=30.0,
-                scan_interval_seconds=0.0,
+                # Any positive value keeps the loop running — ``<=0``
+                # is the manual-only sentinel that short-circuits.
+                scan_interval_seconds=0.01,
                 max_cycles=1,
             )
 

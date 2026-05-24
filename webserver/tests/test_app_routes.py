@@ -46,12 +46,15 @@ class _FakeManager:
     """Minimal stand-in for ``ClaudeSessionManager``.
 
     Only the surface the routes touch is implemented: ``list_records``,
-    ``get_record`` and ``get_session``. Override on a per-test basis when
-    a specific method needs to behave a certain way.
+    ``get_record``, ``get_session``, and ``terminate_session`` (the
+    forget-task route calls it to kill subprocess + drop the record).
+    Override on a per-test basis when a specific method needs to
+    behave a certain way.
     """
 
     def __init__(self, records=None):
         self._records = records or []
+        self.terminated: list[tuple[str, bool]] = []
 
     def list_records(self):
         return list(self._records)
@@ -64,6 +67,17 @@ class _FakeManager:
 
     def get_session(self, task_id):  # noqa: ARG002
         return None
+
+    def terminate_session(self, task_id, *, remove_record=False):
+        # Mirror the real manager's idempotent shape: a missing
+        # session / record is a no-op. We record the call so tests
+        # that need to verify the wiring can assert on it.
+        self.terminated.append((task_id, remove_record))
+        if remove_record:
+            self._records = [
+                r for r in self._records
+                if getattr(r, 'task_id', '') != task_id
+            ]
 
 
 class _FakeWorkspaceRecord:
@@ -1042,6 +1056,73 @@ class FinishAndForgetWorkspaceTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.get_json()['forgotten'])
         self.assertEqual(workspace.deleted, ['T-9'])
+
+    def test_forget_workspace_terminates_session_BEFORE_deleting(self):
+        # Operator-reported regression: Windows file locks held by
+        # the live Claude subprocess blocked rmtree, so the workspace
+        # dir survived the click. The route must kill the subprocess
+        # + drop the session record FIRST, then delete the clone.
+        manager = _FakeManager()
+        workspace = _FakeWorkspaceManager()
+        app = create_app(
+            session_manager=manager,
+            workspace_manager=workspace,
+        )
+        response = app.test_client().delete('/api/sessions/T-9/workspace')
+        self.assertEqual(response.status_code, 200)
+        # terminate_session was called with remove_record=True.
+        self.assertEqual(manager.terminated, [('T-9', True)])
+        # delete was called AFTER terminate.
+        self.assertEqual(workspace.deleted, ['T-9'])
+
+    def test_forget_workspace_500_when_dir_still_exists_after_delete(self):
+        # The new verification step: if ``delete`` silently failed
+        # (it swallows OSError) and the directory is still on disk,
+        # the route surfaces that to the operator as a 500 with a
+        # concrete recovery hint instead of returning a misleading
+        # 200.
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as td:
+            blocker = Path(td) / 'still-here'
+            blocker.mkdir()
+            workspace = _FakeWorkspaceManager(
+                workspace_path_for={'T-7': str(blocker)},
+            )
+            # Make ``delete`` a quiet no-op so the dir survives.
+            workspace.delete = lambda _: None
+            app = create_app(
+                session_manager=_FakeManager(),
+                workspace_manager=workspace,
+            )
+            response = app.test_client().delete(
+                '/api/sessions/T-7/workspace',
+            )
+        self.assertEqual(response.status_code, 500)
+        payload = response.get_json()
+        self.assertFalse(payload['forgotten'])
+        self.assertIn('still exists', payload['error'])
+
+    def test_forget_workspace_continues_when_terminate_session_raises(self):
+        # The two cleanup steps are independent: a terminate failure
+        # (e.g. subprocess already dead) must not abort the rmtree
+        # path. The operator sees both errors aggregated in the 500
+        # body but the rmtree still runs.
+        manager = _FakeManager()
+        def boom(_, **__):
+            raise RuntimeError('subprocess gone')
+        manager.terminate_session = boom
+        workspace = _FakeWorkspaceManager()
+        app = create_app(
+            session_manager=manager,
+            workspace_manager=workspace,
+        )
+        response = app.test_client().delete('/api/sessions/T-6/workspace')
+        # terminate failure surfaces as 500 with the error AND the
+        # rmtree still ran.
+        self.assertEqual(response.status_code, 500)
+        self.assertIn('subprocess gone', response.get_json()['error'])
+        self.assertEqual(workspace.deleted, ['T-6'])
 
 
 # ---------------------------------------------------------------------------

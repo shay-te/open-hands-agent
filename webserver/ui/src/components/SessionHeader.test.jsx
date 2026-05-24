@@ -9,6 +9,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 vi.mock('../api.js', () => ({
   finishTask: vi.fn().mockResolvedValue({ ok: true, body: { finished: true } }),
   postSession: vi.fn().mockResolvedValue({ ok: true }),
+  triggerScan: vi.fn().mockResolvedValue({ ok: true, body: {} }),
   updateTaskSource: vi.fn().mockResolvedValue({
     ok: true,
     body: { updated_repositories: [], failed_repositories: [], warnings: [] },
@@ -25,7 +26,7 @@ vi.mock('../stores/toastStore.js', () => ({
   toast: { show: vi.fn() },
 }));
 
-import { postSession } from '../api.js';
+import { postSession, triggerScan } from '../api.js';
 import { usePushApproval } from '../hooks/usePushApproval.js';
 import { useTaskPublish } from '../hooks/useTaskPublish.js';
 import { toast } from '../stores/toastStore.js';
@@ -215,6 +216,44 @@ describe('SessionHeader — Stop vs Resume button', () => {
     await waitFor(() => {
       expect(postSession).toHaveBeenCalledWith('PROJ-1', 'stop');
     });
+  });
+
+  test('Stop is enabled WHILE Claude is working (the bug fix)', async () => {
+    // Regression: ``deriveTabStatus`` flips to ``WORKING`` when
+    // ``session.working === true``. The previous Stop-disabled guard
+    // (``baseStatus !== ACTIVE``) silently disabled the button mid-
+    // turn — the exact moment operators want to bail. Stop must
+    // remain clickable while the subprocess is alive, regardless of
+    // turn state.
+    render(
+      <SessionHeader
+        session={_session({ working: true })}
+        streamLifecycle={SESSION_LIFECYCLE.STREAMING}
+        onStopped={vi.fn()}
+      />,
+    );
+    const stopBtn = screen.getByRole('button', { name: /^stop/i });
+    expect(stopBtn).not.toBeDisabled();
+    fireEvent.click(stopBtn);
+    await waitFor(() => {
+      expect(postSession).toHaveBeenCalledWith('PROJ-1', 'stop');
+    });
+  });
+
+  test('Stop is enabled when Claude is paused on a permission request', async () => {
+    // ATTENTION state also blocked the previous Stop guard. Operator
+    // must be able to terminate a session that's parked waiting for
+    // a permission decision they don't want to grant.
+    render(
+      <SessionHeader
+        session={_session({ has_pending_permission: true })}
+        streamLifecycle={SESSION_LIFECYCLE.STREAMING}
+        needsAttention={true}
+        onStopped={vi.fn()}
+      />,
+    );
+    const stopBtn = screen.getByRole('button', { name: /^stop/i });
+    expect(stopBtn).not.toBeDisabled();
   });
 
   test('clicking Resume calls the onResume callback', async () => {
@@ -482,5 +521,59 @@ describe('SessionHeaderPlaceholder — persistent no-task bar', () => {
       expect(b).toBeDisabled();
       expect(b).toHaveAttribute('tabindex', '-1');
     });
+  });
+});
+
+
+describe('SessionHeader — manual Sync button', () => {
+  // The autonomous scan loop now ticks every 3 min (was 30s) so
+  // provider APIs don't get hammered. The Sync button lets the
+  // operator pull review-comment / status updates immediately
+  // without waiting for the next auto-tick.
+
+  test('renders the Sync button alongside the other actions', () => {
+    render(
+      <SessionHeader
+        session={_session()}
+        streamLifecycle={SESSION_LIFECYCLE.STREAMING}
+      />,
+    );
+    expect(screen.getByRole('button', { name: /sync now/i })).toBeInTheDocument();
+  });
+
+  test('clicking Sync calls triggerScan and shows a success toast', async () => {
+    triggerScan.mockClear();
+    triggerScan.mockResolvedValueOnce({ ok: true, body: {} });
+    render(
+      <SessionHeader
+        session={_session()}
+        streamLifecycle={SESSION_LIFECYCLE.STREAMING}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /sync now/i }));
+    await waitFor(() => {
+      expect(triggerScan).toHaveBeenCalled();
+    });
+    expect(toast.show).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'success' }),
+    );
+  });
+
+  test('Sync failure surfaces an error toast', async () => {
+    triggerScan.mockClear();
+    triggerScan.mockResolvedValueOnce({ ok: false, error: 'auth' });
+    render(
+      <SessionHeader
+        session={_session()}
+        streamLifecycle={SESSION_LIFECYCLE.STREAMING}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /sync now/i }));
+    await waitFor(() => {
+      expect(triggerScan).toHaveBeenCalled();
+    });
+    expect(toast.show).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'error', message: 'auth' }),
+    );
   });
 });

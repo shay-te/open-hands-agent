@@ -384,12 +384,52 @@ describe('SessionDetail — outgoing message queue', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'mock-send' }));
 
-    // Held — no POST while Claude is working …
+    // Held — no POST while Claude is working.
     expect(postChatMessage).not.toHaveBeenCalled();
-    // … and the operator gets a "queued" confirmation bubble.
-    expect(stream.appendLocalEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ text: expect.stringContaining('queued') }),
-    );
+    // The queued item shows up in the persistent floating list
+    // above the composer (replaces the earlier transient "⏳
+    // queued" system bubble). Operator can see what's stacked up
+    // and click Steer / Remove on each.
+    expect(screen.getByText('hello')).toBeInTheDocument();
+    expect(screen.getByRole('list', { name: /queued messages/i }))
+      .toBeInTheDocument();
+  });
+
+  test('clicking Remove drops a queued message without sending it', async () => {
+    postChatMessage.mockClear();
+    const stream = _stream({ turnInFlight: true });
+    useSessionStream.mockReturnValue(stream);
+    render(<SessionDetail session={{ task_id: 'T1' }} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'mock-send' }));
+    expect(screen.getByText('hello')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /remove queued/i }));
+    // Row gone; no POST happened.
+    expect(screen.queryByText('hello')).not.toBeInTheDocument();
+    expect(postChatMessage).not.toHaveBeenCalled();
+  });
+
+  test('clicking Steer delivers the queued message IMMEDIATELY mid-turn', async () => {
+    // The "steer" affordance: even though Claude is in-flight, the
+    // operator can promote a queued item to fire right now (instead
+    // of waiting for the current turn to end). Useful for
+    // course-correction without manual stop+restart.
+    postChatMessage.mockClear();
+    const stream = _stream({ turnInFlight: true });
+    useSessionStream.mockReturnValue(stream);
+    render(<SessionDetail session={{ task_id: 'T1' }} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'mock-send' }));
+    expect(postChatMessage).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: /steer/i }));
+
+    await waitFor(() => {
+      expect(postChatMessage).toHaveBeenCalledWith('T1', 'hello', []);
+    });
+    // Steered item is removed from the queue (one-shot).
+    expect(screen.queryByText('hello')).not.toBeInTheDocument();
   });
 
   test('the queued message flushes when the turn finishes', async () => {

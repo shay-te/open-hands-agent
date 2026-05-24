@@ -182,6 +182,7 @@ def main(cfg: DictConfig) -> int:
     # Claude was starting over.
     _start_planning_webserver_if_enabled(app)
     _start_pending_comment_work_after_ui(app)
+    _start_resume_prompt_watcher(app)
     _register_shutdown_hook(app)
     startup_delay_seconds, scan_interval_seconds = _task_scan_settings(cfg)
     _warm_up_repository_inventory(app)
@@ -689,6 +690,14 @@ def _open_browser_when_ready(url: str, logger) -> None:
 def _register_shutdown_hook(app) -> None:
     def _shutdown(signum, frame):
         app.logger.info('shutting down kato agent (signal %s)', signum)
+        watcher = getattr(app, 'resume_prompt_watcher', None)
+        if watcher is not None:
+            try:
+                watcher.stop()
+            except Exception:
+                app.logger.exception(
+                    'error stopping resume_prompt watcher',
+                )
         try:
             app.service.shutdown()
         except Exception:
@@ -850,11 +859,54 @@ def _warm_up_repository_inventory(app) -> None:
         warm_up()
 
 
+def _start_resume_prompt_watcher(app) -> None:
+    """Background writer for per-task ``<workspace>/resume_prompt.md``.
+
+    Polls live sessions every few seconds; whenever a Claude turn
+    ends (a fresh ``result`` event lands in the session's recent-
+    events buffer) it rewrites the markdown snapshot. The file is
+    paste-into-Cursor-ready, so the operator can hand off the task
+    to another agent without losing context.
+
+    Best-effort: failure to start the watcher logs but doesn't
+    block kato boot — kato runs fine without resume_prompt.md.
+    """
+    session_manager = getattr(app, 'session_manager', None)
+    workspace_manager = getattr(app, 'workspace_manager', None)
+    if session_manager is None or workspace_manager is None:
+        app.logger.info(
+            'resume_prompt watcher not started: session or workspace '
+            'manager is not wired (headless / partial init)',
+        )
+        return
+    try:
+        from kato_core_lib.data_layers.service.resume_prompt_watcher import (
+            build_and_start_resume_prompt_watcher,
+        )
+        watcher = build_and_start_resume_prompt_watcher(
+            session_manager=session_manager,
+            workspace_manager=workspace_manager,
+        )
+    except Exception:
+        app.logger.exception(
+            'failed to start resume_prompt watcher; kato will continue '
+            'without auto-updated resume_prompt.md files',
+        )
+        return
+    # Stash on the app so the shutdown hook can stop it cleanly.
+    app.resume_prompt_watcher = watcher
+
+
 def _task_scan_settings(cfg: DictConfig) -> tuple[float, float]:
     task_scan_cfg = cfg.kato.get('task_scan', {}) or {}
     return (
         float(task_scan_cfg.get('startup_delay_seconds', 5.0)),
-        float(task_scan_cfg.get('scan_interval_seconds', 30.0)),
+        # Default 180s (3 min) matches the yaml. Slow enough that
+        # parallel PR-lookups across (task × repo) don't trip
+        # Bitbucket / GitHub / GitLab rate limits; fast enough that
+        # review-comment pickup feels responsive. ``0`` disables the
+        # autonomous loop (operator must manually trigger scans).
+        float(task_scan_cfg.get('scan_interval_seconds', 180.0)),
     )
 
 
@@ -869,6 +921,30 @@ def _run_task_scan_loop(
 ) -> None:
     job = ProcessAssignedTasksJob()
     job.initialized(app)
+    # Manual-scan mode: ``scan_interval_seconds <= 0`` means "no
+    # auto-poll". Kato stays alive and serves the webserver, but
+    # no autonomous scan ever runs — every task pickup / review-
+    # comment check has to be triggered by the operator via the
+    # UI ("Scan now" in the tab strip, "Sync" on a task header,
+    # or POST /api/scan/trigger). This is the default: the auto-
+    # poll was hammering Bitbucket / GitHub / GitLab every 30s
+    # with N parallel PR-lookups per (task × repo) and tripping
+    # rate limits on multi-repo accounts. The operator can opt
+    # the loop back in by setting ``scan_interval_seconds > 0``
+    # in config or via the ``KATO_SCAN_INTERVAL_SECONDS`` env.
+    #
+    # The force-scan path (POST /api/scan/trigger) still works
+    # without the loop because the webserver invokes
+    # ``ProcessAssignedTasksJob.run()`` directly on the request
+    # thread — see ``_register_scan_trigger_route``.
+    if scan_interval_seconds <= 0:
+        app.logger.info(
+            'Autonomous scan loop disabled (scan_interval_seconds=%s). '
+            'Use the UI "Scan now" / "Sync" buttons or '
+            'POST /api/scan/trigger to run a scan on demand.',
+            scan_interval_seconds,
+        )
+        return
     if startup_delay_seconds > 0:
         if supports_inline_status():
             sleep_with_warmup_countdown(
@@ -902,13 +978,12 @@ def _run_task_scan_loop(
         cycles += 1
         if max_cycles is not None and cycles >= max_cycles:
             return
-        if scan_interval_seconds > 0:
-            _idle_with_heartbeat(
-                scan_interval_seconds,
-                logger=app.logger,
-                sleep_fn=sleep_fn,
-                force_scan_event=force_scan_event,
-            )
+        _idle_with_heartbeat(
+            scan_interval_seconds,
+            logger=app.logger,
+            sleep_fn=sleep_fn,
+            force_scan_event=force_scan_event,
+        )
 
 
 def _idle_with_heartbeat(
