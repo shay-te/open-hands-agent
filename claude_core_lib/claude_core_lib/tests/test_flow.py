@@ -101,7 +101,7 @@ def _completed(stdout: str, stderr: str = '', returncode: int = 0) -> subprocess
 
 
 def _ok_json(**extra) -> subprocess.CompletedProcess:
-    payload = {'is_error': False, 'result': 'Done', 'agent_session_id': 'sess-abc', **extra}
+    payload = {'is_error': False, 'result': 'Done', 'session_id': 'sess-abc', **extra}
     return _completed(json.dumps(payload))
 
 
@@ -168,7 +168,7 @@ class ClaudeCliClientLifecycleFlowTest(unittest.TestCase):
         with patch(
             'claude_core_lib.claude_core_lib.cli_client.subprocess.run',
             return_value=_completed(
-                json.dumps({'is_error': False, 'result': 'ok', 'agent_session_id': 'flow-sess-1'})
+                json.dumps({'is_error': False, 'result': 'ok', 'session_id': 'flow-sess-1'})
             ),
         ):
             result = self.client.implement_task(task)
@@ -190,7 +190,7 @@ class ClaudeCliClientLifecycleFlowTest(unittest.TestCase):
 
     def test_implement_raises_on_api_error(self) -> None:
         task = _task()
-        error_payload = {'is_error': True, 'result': 'rate limited', 'agent_session_id': ''}
+        error_payload = {'is_error': True, 'result': 'rate limited', 'session_id': ''}
         with patch(
             'claude_core_lib.claude_core_lib.cli_client.subprocess.run',
             return_value=_completed(json.dumps(error_payload)),
@@ -435,7 +435,7 @@ class HelperChainFlowTest(unittest.TestCase):
     def test_openhands_result_integrated_with_prompt_builder(self) -> None:
         payload = {
             'success': True,
-            'agent_session_id': 'oh-sess-1',
+            'session_id': 'oh-sess-1',
             'message': 'Task done.',
             'commit_message': 'fix: resolve auth issue',
         }

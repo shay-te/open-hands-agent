@@ -1013,7 +1013,10 @@ class ClaudeCliClient(object):
         is_error = bool(payload.get('is_error', False))
         success = completed.returncode == 0 and not is_error
         result_text = normalized_text(payload.get('result', ''))
-        session_id_value = fix_session_id(payload.get('agent_session_id', ''))
+        # ``payload`` is Claude CLI's terminal ``result`` event (wire
+        # format) — Claude emits ``session_id``, kato normalizes
+        # to ``AGENT_SESSION_ID`` downstream.
+        session_id_value = fix_session_id(payload.get('session_id', ''))
 
         if completed.returncode != 0:
             detail = stderr or condensed_text(stdout) or 'no output'
