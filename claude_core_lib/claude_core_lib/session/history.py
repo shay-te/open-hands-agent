@@ -16,7 +16,11 @@ import os
 from pathlib import Path
 from typing import Iterable
 
-from claude_core_lib.claude_core_lib.session.session_id_utils import fix_session_id
+from agent_core_lib.agent_core_lib.helpers.session_id_utils import (
+    fix_session_id,
+    read_session_id_from,
+)
+from agent_core_lib.agent_core_lib.helpers.text_utils import text_from_mapping
 
 
 _DEFAULT_PROJECTS_ROOT = Path.home() / '.claude' / 'projects'
@@ -33,18 +37,18 @@ def _default_projects_root() -> Path:
 
 
 def find_session_file(
-    claude_session_id: str,
+    agent_session_id: str,
     *,
     projects_root: Path | str | None = None,
 ) -> Path | None:
-    """Locate the JSONL transcript for ``claude_session_id``.
+    """Locate the JSONL transcript for ``agent_session_id``.
 
     Walks every ``~/.claude/projects/*/`` directory; Claude's per-project
     folder name is a lossy encoding of cwd (``/``, ``_`` and ``.`` all
     become ``-``), so reconstructing it deterministically is brittle —
     globbing is the simplest robust strategy.
     """
-    session_id = fix_session_id(claude_session_id)
+    session_id = fix_session_id(agent_session_id)
     if not session_id:
         return None
     root = Path(projects_root) if projects_root else _default_projects_root()
@@ -58,11 +62,11 @@ def find_session_file(
 
 
 def delete_session_file(
-    claude_session_id: str,
+    agent_session_id: str,
     *,
     projects_root: Path | str | None = None,
 ) -> bool:
-    """Delete the JSONL transcript for ``claude_session_id``.
+    """Delete the JSONL transcript for ``agent_session_id``.
 
     Used when a task is permanently forgotten (reviewer marked it
     done / closed, or the operator hit "Forget task"): the workspace
@@ -76,7 +80,7 @@ def delete_session_file(
     is a disk-space nuisance, not a reason to blow up the
     done-cleanup loop.
     """
-    path = find_session_file(claude_session_id, projects_root=projects_root)
+    path = find_session_file(agent_session_id, projects_root=projects_root)
     if path is None:
         return False
     try:
@@ -148,8 +152,8 @@ def _peek_session_metadata(path: Path) -> tuple[str, str]:
                     continue
                 if not isinstance(payload, dict):
                     continue
-                cwd = str(payload.get('cwd', '') or '').strip()
-                session_id = str(payload.get('sessionId', '') or '').strip()
+                cwd = text_from_mapping(payload, 'cwd')
+                session_id = fix_session_id(payload.get('sessionId'))
                 if cwd and session_id:
                     return cwd, session_id
     except OSError:
@@ -167,7 +171,7 @@ def _paths_equivalent(left: str, right: str) -> bool:
 
 
 def load_history_events(
-    claude_session_id: str,
+    agent_session_id: str,
     *,
     projects_root: Path | str | None = None,
     max_events: int = 5000,
@@ -179,7 +183,7 @@ def load_history_events(
     returned dict has the same shape kato emits over the live stream:
     ``{'type': 'user'|'assistant'|'system'|..., 'message': {...}, ...}``.
     """
-    path = find_session_file(claude_session_id, projects_root=projects_root)
+    path = find_session_file(agent_session_id, projects_root=projects_root)
     if path is None:
         return []
     events: list[dict] = []
@@ -299,19 +303,18 @@ def iter_event_paths(
             yield path
 
 
-def resolve_claude_session_id(manager, workspace_manager, task_id: str) -> str:
-    """Return the Claude session id bound to ``task_id``, or ``''``.
+def resolve_agent_session_id(manager, workspace_manager, task_id: str) -> str:
+    """Return the agent session id bound to ``task_id``, or ``''``.
 
-    Tries the live session manager's record first (its ``claude_session_id``
+    Tries the live session manager's record first (its ``agent_session_id``
     field is set when kato spawned the agent in-process), then falls back
-    to the workspace metadata's ``agent_session_id`` (generic field name)
-    or ``claude_session_id`` (legacy pre-rename records). The fallback
-    chain lets a freshly-booted webserver attach to an orphan workspace
-    on disk even before the scan loop re-establishes the live record.
+    to the workspace metadata's ``agent_session_id``. The fallback chain
+    lets a freshly-booted webserver attach to an orphan workspace on
+    disk even before the scan loop re-establishes the live record.
 
-    Lives in ``claude_core_lib`` because the field name + the downstream
-    consumer (Claude's JSONL transcript replay) are Claude-specific.
-    Other backends (OpenHands, Codex) don't have an equivalent webserver
+    Lives in ``claude_core_lib`` because the downstream consumer
+    (Claude's JSONL transcript replay) is Claude-specific. Other
+    backends (OpenHands, Codex) don't have an equivalent webserver
     SSE history-replay path, so they don't need an analogue.
     """
     if manager is not None:
@@ -320,9 +323,7 @@ def resolve_claude_session_id(manager, workspace_manager, task_id: str) -> str:
         except Exception:
             record = None
         if record is not None:
-            record_id = fix_session_id(
-                getattr(record, 'claude_session_id', ''),
-            )
+            record_id = read_session_id_from(record)
             if record_id:
                 return record_id
     if workspace_manager is not None:
@@ -331,10 +332,7 @@ def resolve_claude_session_id(manager, workspace_manager, task_id: str) -> str:
         except Exception:
             workspace = None
         if workspace is not None:
-            agent_id = (
-                fix_session_id(getattr(workspace, 'agent_session_id', ''))
-                or fix_session_id(getattr(workspace, 'claude_session_id', ''))
-            )
+            agent_id = read_session_id_from(workspace)
             if agent_id:
                 return agent_id
     return ''

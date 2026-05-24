@@ -15,6 +15,12 @@ from __future__ import annotations
 import time
 from dataclasses import asdict, dataclass, field
 
+from agent_core_lib.agent_core_lib.helpers.session_id_utils import (
+    AGENT_SESSION_ID,
+    fix_session_id,
+)
+from agent_core_lib.agent_core_lib.helpers.text_utils import text_from_mapping
+
 
 WORKSPACE_STATUS_PROVISIONING = 'provisioning'
 WORKSPACE_STATUS_ACTIVE = 'active'
@@ -73,15 +79,10 @@ class WorkspaceRecord(object):
 
     @classmethod
     def from_dict(cls, payload: dict[str, object]) -> 'WorkspaceRecord':
-        """Deserialize a record. Tolerant of legacy and partial payloads.
+        """Deserialize a record. Tolerant of partial payloads.
 
-        Backwards-compat: pre-rename deployments persisted the agent
-        session id under ``claude_session_id`` (kato shipped that name
-        before the field went generic). We accept either key on read,
-        but always serialize the new name on write — so a record gets
-        rewritten in the canonical form on its first update after
-        upgrade. Pass an empty / missing field for graceful boot when
-        an out-of-band tool wrote a partial JSON.
+        Pass an empty / missing ``agent_session_id`` for graceful
+        boot when an out-of-band tool wrote a partial JSON.
         """
         repository_ids_raw = payload.get('repository_ids') or []
         repository_ids = (
@@ -89,10 +90,7 @@ class WorkspaceRecord(object):
             if isinstance(repository_ids_raw, list)
             else []
         )
-        agent_session_id = (
-            str(payload.get('agent_session_id', '') or '').strip()
-            or str(payload.get('claude_session_id', '') or '').strip()
-        )
+        agent_session_id = fix_session_id(payload.get(AGENT_SESSION_ID))
         return cls(
             task_id=str(payload.get('task_id', '') or ''),
             task_summary=str(payload.get('task_summary', '') or ''),
@@ -102,7 +100,7 @@ class WorkspaceRecord(object):
             ),
             repository_ids=repository_ids,
             agent_session_id=agent_session_id,
-            cwd=str(payload.get('cwd', '') or '').strip(),
+            cwd=text_from_mapping(payload, 'cwd'),
             resume_on_startup=bool(payload.get('resume_on_startup', True)),
             created_at_epoch=float(
                 payload.get('created_at_epoch', time.time()) or time.time(),

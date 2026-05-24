@@ -98,7 +98,7 @@ def _assert_has_context(test, prompt: str) -> None:
 
 # ---------------------------------------------------------------------------
 # Entry point 1: Operator types in the chat composer (FIRST message of a
-# fresh task or a resumed session with no claude_session_id on record).
+# fresh task or a resumed session with no agent_session_id on record).
 # Route: webserver → planning_session_runner.resume_session_for_chat →
 # prepend_chat_workspace_context → start_session.
 # ---------------------------------------------------------------------------

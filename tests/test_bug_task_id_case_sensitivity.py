@@ -42,12 +42,12 @@ class BugTaskIdCaseSensitivityTests(unittest.TestCase):
                 state_dir=state_dir, session_factory=lambda **_: None,
             )
             mgr.adopt_session_id(
-                'PROJ-1', claude_session_id='session-id-X',
+                'PROJ-1', agent_session_id='session-id-X',
             )
             # Lookup under lower-case must hit the same record.
             record = mgr.get_record('proj-1')
             self.assertIsNotNone(record)
-            self.assertEqual(record.claude_session_id, 'session-id-X')
+            self.assertEqual(record.agent_session_id, 'session-id-X')
 
     def test_original_case_preserved_in_record_task_id(self) -> None:
         # Display contract: the operator's "PROJ-1" stays visible
@@ -60,7 +60,7 @@ class BugTaskIdCaseSensitivityTests(unittest.TestCase):
                 state_dir=state_dir, session_factory=lambda **_: None,
             )
             record = mgr.adopt_session_id(
-                'PROJ-1', claude_session_id='sid',
+                'PROJ-1', agent_session_id='sid',
             )
             self.assertEqual(record.task_id, 'PROJ-1')
             # Cross-case lookup also returns the original-cased value.
@@ -76,9 +76,9 @@ class BugTaskIdCaseSensitivityTests(unittest.TestCase):
             mgr = ClaudeSessionManager(
                 state_dir=state_dir, session_factory=lambda **_: None,
             )
-            mgr.adopt_session_id('PROJ-1', claude_session_id='id-A')
+            mgr.adopt_session_id('PROJ-1', agent_session_id='id-A')
             with self.assertRaises(RuntimeError):
-                mgr.adopt_session_id('proj-1', claude_session_id='id-B')
+                mgr.adopt_session_id('proj-1', agent_session_id='id-B')
 
             files = sorted(Path(state_dir).glob('*.json'))
             self.assertEqual(
@@ -86,7 +86,7 @@ class BugTaskIdCaseSensitivityTests(unittest.TestCase):
                 f'state_dir accumulated {len(files)} files for the '
                 f'same logical task: {[f.name for f in files]}',
             )
-            self.assertEqual(mgr.get_record('PROJ-1').claude_session_id, 'id-A')
+            self.assertEqual(mgr.get_record('PROJ-1').agent_session_id, 'id-A')
 
     def test_terminate_session_handles_case_mismatched_call(self) -> None:
         # The terminate path uses the lookup key too — caller can
@@ -99,7 +99,7 @@ class BugTaskIdCaseSensitivityTests(unittest.TestCase):
             mgr = ClaudeSessionManager(
                 state_dir=state_dir, session_factory=lambda **_: None,
             )
-            mgr.adopt_session_id('PROJ-1', claude_session_id='sid')
+            mgr.adopt_session_id('PROJ-1', agent_session_id='sid')
             # Mark active first via update_status, then terminate via
             # different case. The status transition should land.
             mgr.update_status('PROJ-1', SESSION_STATUS_TERMINATED)

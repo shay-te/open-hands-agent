@@ -32,35 +32,6 @@ class WorkspaceRecordTests(unittest.TestCase):
         round_trip = WorkspaceRecord.from_dict(original.to_dict())
         self.assertEqual(round_trip, original)
 
-    def test_from_dict_accepts_legacy_claude_session_id_key(self) -> None:
-        # Pre-rename deployments persisted the agent session id under
-        # ``claude_session_id``. Read-side compat: we accept that key
-        # so existing on-disk data loads without a migration script.
-        legacy_payload = {
-            'task_id': 'PROJ-1',
-            'claude_session_id': 'legacy-sess-id',
-        }
-        record = WorkspaceRecord.from_dict(legacy_payload)
-        self.assertEqual(record.agent_session_id, 'legacy-sess-id')
-
-    def test_from_dict_prefers_new_key_when_both_present(self) -> None:
-        payload = {
-            'task_id': 'PROJ-1',
-            'agent_session_id': 'new-id',
-            'claude_session_id': 'legacy-id',
-        }
-        record = WorkspaceRecord.from_dict(payload)
-        self.assertEqual(record.agent_session_id, 'new-id')
-
-    def test_from_dict_falls_back_when_new_key_is_whitespace(self) -> None:
-        payload = {
-            'task_id': 'PROJ-1',
-            'agent_session_id': '   ',
-            'claude_session_id': 'legacy-id',
-        }
-        record = WorkspaceRecord.from_dict(payload)
-        self.assertEqual(record.agent_session_id, 'legacy-id')
-
     def test_from_dict_strips_session_id_and_cwd(self) -> None:
         record = WorkspaceRecord.from_dict({
             'task_id': 'PROJ-1',
@@ -70,10 +41,7 @@ class WorkspaceRecordTests(unittest.TestCase):
         self.assertEqual(record.agent_session_id, 'sess-uuid')
         self.assertEqual(record.cwd, '/tmp/work')
 
-    def test_to_dict_uses_new_key_only(self) -> None:
-        # Write-side: every persisted record uses the canonical name.
-        # No ``claude_session_id`` gets written ever; legacy callers
-        # are expected to migrate over time.
+    def test_to_dict_uses_canonical_agent_session_id_key(self) -> None:
         record = WorkspaceRecord(
             task_id='PROJ-1', agent_session_id='abc',
         )

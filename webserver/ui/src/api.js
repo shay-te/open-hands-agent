@@ -641,18 +641,18 @@ export function fetchClaudeSessions(query = '') {
   return fetchJson(`/api/claude/sessions${qs}`);
 }
 
-export async function adoptClaudeSession(taskId, claudeSessionId) {
+export async function adoptAgentSession(taskId, agentSessionId) {
   if (!taskId) { return { ok: false, error: 'no task id' }; }
-  if (!claudeSessionId) {
-    return { ok: false, error: 'no claude session id' };
+  if (!agentSessionId) {
+    return { ok: false, error: 'no agent session id' };
   }
   try {
     const response = await fetch(
-      `/api/sessions/${encodeURIComponent(taskId)}/adopt-claude-session`,
+      `/api/sessions/${encodeURIComponent(taskId)}/adopt-agent-session`,
       {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ claude_session_id: claudeSessionId }),
+        body: JSON.stringify({ agent_session_id: agentSessionId }),
       },
     );
     const body = await response.json().catch(() => ({}));

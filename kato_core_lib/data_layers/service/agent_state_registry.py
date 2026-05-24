@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from agent_core_lib.agent_core_lib.helpers.session_id_utils import fix_session_id
 from kato_core_lib.data_layers.data.fields import ImplementationFields, PullRequestFields, StatusFields, TaskFields
 from kato_core_lib.helpers.pull_request_context_utils import (
     build_pull_request_context,
@@ -149,7 +150,7 @@ class AgentStateRegistry(object):
             for context in contexts:
                 if str(context.get(TaskFields.ID, '') or '').strip() != normalized:
                     continue
-                session_id = str(context.get(ImplementationFields.SESSION_ID, '') or '').strip()
+                session_id = fix_session_id(context.get(ImplementationFields.SESSION_ID))
                 if session_id and session_id not in seen:
                     seen.add(session_id)
                     session_ids.append(session_id)

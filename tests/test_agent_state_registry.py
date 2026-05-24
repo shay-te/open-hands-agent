@@ -1,6 +1,12 @@
 import unittest
 
-from kato_core_lib.data_layers.data.fields import PullRequestFields, ReviewCommentFields, StatusFields
+from kato_core_lib.data_layers.data.fields import (
+    ImplementationFields,
+    PullRequestFields,
+    ReviewCommentFields,
+    StatusFields,
+    TaskFields,
+)
 from kato_core_lib.data_layers.service.agent_state_registry import AgentStateRegistry
 
 
@@ -111,6 +117,23 @@ class AgentStateRegistryTests(unittest.TestCase):
 
     def test_task_id_for_pull_request_returns_empty_string_when_unknown(self) -> None:
         self.assertEqual(self.registry.task_id_for_pull_request('17', 'client'), '')
+
+    def test_session_ids_for_task_normalizes_stored_session_ids(self) -> None:
+        self.registry.pull_request_context_map['17'] = [
+            {
+                TaskFields.ID: 'PROJ-1',
+                ImplementationFields.SESSION_ID: '  conversation-1\n',
+            },
+            {
+                TaskFields.ID: 'PROJ-1',
+                ImplementationFields.SESSION_ID: 'conversation-1',
+            },
+        ]
+
+        self.assertEqual(
+            self.registry.session_ids_for_task('PROJ-1'),
+            ['conversation-1'],
+        )
 
     def test_review_comment_processed_round_trip(self) -> None:
         self.assertFalse(self.registry.is_review_comment_processed('client', '17', '99'))

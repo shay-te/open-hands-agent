@@ -231,7 +231,7 @@ class _FakeSession:
         return self._cwd
 
     @property
-    def claude_session_id(self) -> str:
+    def agent_session_id(self) -> str:
         return self._session_id
 
     @property
@@ -312,7 +312,7 @@ class SessionManagerLifecycleFlowTest(unittest.TestCase):
 
     def test_restart_resumes_persisted_session_id(self) -> None:
         self.manager.start_session(task_id='FLOW-3')
-        original_session_id = self._fakes[0].claude_session_id
+        original_session_id = self._fakes[0].agent_session_id
         self.manager.terminate_session('FLOW-3')
 
         new_fakes: list[_FakeSession] = []
@@ -331,7 +331,7 @@ class SessionManagerLifecycleFlowTest(unittest.TestCase):
 
     def test_adopt_then_start_uses_adopted_id(self) -> None:
         # Adopt an external session id
-        self.manager.adopt_session_id('FLOW-4', claude_session_id='external-sess')
+        self.manager.adopt_session_id('FLOW-4', agent_session_id='external-sess')
 
         # Next start should resume that session id
         self.manager.start_session(task_id='FLOW-4')
@@ -362,7 +362,7 @@ class SessionManagerLifecycleFlowTest(unittest.TestCase):
         original = PlanningSessionRecord(
             task_id='PROJ-RT-1',
             task_summary='summary',
-            claude_session_id='sess-rt',
+            agent_session_id='sess-rt',
             status='review',
             created_at_epoch=1000.0,
             updated_at_epoch=2000.0,

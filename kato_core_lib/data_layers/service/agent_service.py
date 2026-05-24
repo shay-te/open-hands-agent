@@ -1,4 +1,5 @@
 from __future__ import annotations
+from agent_core_lib.agent_core_lib.helpers.text_utils import text_from_mapping
 
 import copy
 import logging
@@ -59,8 +60,6 @@ from kato_core_lib.helpers.task_execution_utils import (
     testing_failed_result,
     testing_succeeded,
 )
-
-
 # ``RepositoryHasNoChangesError`` is the "no work to publish" outcome
 # from the publish path. With the per-repo ``branch_needs_push``
 # pre-filter in ``push_task`` we shouldn't trip it normally, but a
@@ -1698,9 +1697,9 @@ class AgentService(Service):
             for context in contexts:
                 if not isinstance(context, dict):
                     continue
-                ctx_task = str(context.get('task_id') or '').strip()
-                ctx_repo = str(context.get('repository_id') or '').strip()
-                ctx_pr = str(context.get('pull_request_id') or '').strip()
+                ctx_task = text_from_mapping(context, 'task_id')
+                ctx_repo = text_from_mapping(context, 'repository_id')
+                ctx_pr = text_from_mapping(context, 'pull_request_id')
                 if ctx_task == normalized_task_id and ctx_repo == normalized_repo_id and ctx_pr:
                     return ctx_pr
         # 2. Live find_pull_requests fallback. Compute the task
@@ -1845,7 +1844,7 @@ class AgentService(Service):
                     source_repo, branch_name,
                 ) or {}
                 updated_repositories.append(repository.id)
-                warning = str(update_result.get('warning', '') or '').strip()
+                warning = text_from_mapping(update_result, 'warning')
                 if warning:
                     warnings_per_repo.append({
                         'repository_id': repository.id,

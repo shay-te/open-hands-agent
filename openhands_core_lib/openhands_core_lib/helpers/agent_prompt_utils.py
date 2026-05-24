@@ -1,4 +1,5 @@
 from __future__ import annotations
+from agent_core_lib.agent_core_lib.helpers.text_utils import text_from_mapping
 
 import os
 
@@ -7,7 +8,6 @@ from openhands_core_lib.openhands_core_lib.helpers.text_utils import (
     normalized_text,
     text_from_attr,
 )
-
 IGNORED_REPOSITORY_FOLDERS_ENV = 'AGENT_IGNORED_REPOSITORY_FOLDERS'
 
 
@@ -270,8 +270,8 @@ def review_comment_context_text(comment) -> str:
     for item in all_comments:
         if not isinstance(item, dict):
             continue
-        author = str(item.get('author', '') or '').strip()
-        body = str(item.get('body', '') or '').strip()
+        author = text_from_mapping(item, 'author')
+        body = text_from_mapping(item, 'body')
         if not body:
             continue
         label = author if author else 'reviewer'

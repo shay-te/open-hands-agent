@@ -29,7 +29,7 @@ def _inputs(**overrides) -> ResumePromptInputs:
         recent_assistant_texts=['I edited line 12'],
         last_user_text='please fix it',
         last_assistant_text='Done — edited line 12 in foo.py',
-        claude_session_id='abc12345',
+        agent_session_id='abc12345',
     )
     defaults.update(overrides)
     return ResumePromptInputs(**defaults)
@@ -44,13 +44,13 @@ class RenderResumePromptTests(unittest.TestCase):
         self.assertIn('**Branch**: `feature/proj-1`', out)
         self.assertIn('**Workspace**: `/x/workspaces/PROJ-1`', out)
 
-    def test_claude_session_id_rendered_when_present(self) -> None:
-        out = render_resume_prompt(_inputs(claude_session_id='abc12345'))
-        self.assertIn('**Claude session id**: `abc12345`', out)
+    def test_agent_session_id_rendered_when_present(self) -> None:
+        out = render_resume_prompt(_inputs(agent_session_id='abc12345'))
+        self.assertIn('**Agent session id**: `abc12345`', out)
 
-    def test_claude_session_id_omitted_when_empty(self) -> None:
-        out = render_resume_prompt(_inputs(claude_session_id=''))
-        self.assertNotIn('Claude session id', out)
+    def test_agent_session_id_omitted_when_empty(self) -> None:
+        out = render_resume_prompt(_inputs(agent_session_id=''))
+        self.assertNotIn('Agent session id', out)
 
     def test_repositories_section_lists_every_path(self) -> None:
         out = render_resume_prompt(_inputs(repository_paths=[

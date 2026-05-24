@@ -943,7 +943,7 @@ class PlanningSessionRunnerTests(unittest.TestCase):
         manager = MagicMock()
         # Existing record with a persisted session id.
         manager.get_record.return_value = SimpleNamespace(
-            claude_session_id='abc-123',
+            agent_session_id='abc-123',
         )
         runner = PlanningSessionRunner(
             session_manager=manager, defaults=StreamingSessionDefaults(),
@@ -1013,7 +1013,7 @@ class PlanningSessionRunnerTests(unittest.TestCase):
             PlanningSessionRunner, StreamingSessionDefaults,
         )
         manager = MagicMock()
-        manager.get_session.return_value = SimpleNamespace(claude_session_id='old')
+        manager.get_session.return_value = SimpleNamespace(agent_session_id='old')
         runner = PlanningSessionRunner(
             session_manager=manager,
             defaults=StreamingSessionDefaults(),

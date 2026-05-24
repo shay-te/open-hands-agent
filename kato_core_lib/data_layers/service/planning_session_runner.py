@@ -17,8 +17,11 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from agent_core_lib.agent_core_lib.helpers.session_id_utils import (
+    AGENT_SESSION_ID,
+    read_session_id_from,
+)
 from claude_core_lib.claude_core_lib.cli_client import ClaudeCliClient
-from claude_core_lib.claude_core_lib.session.session_id_utils import fix_session_id
 from claude_core_lib.claude_core_lib.session.manager import (
     SESSION_STATUS_REVIEW,
     SESSION_STATUS_TERMINATED,
@@ -205,11 +208,7 @@ class PlanningSessionRunner(object):
             if self._session_manager is not None
             else None
         )
-        resume_session_id = (
-            fix_session_id(getattr(existing_record, 'claude_session_id', ''))
-            if existing_record is not None
-            else ''
-        )
+        resume_session_id = read_session_id_from(existing_record)
         if resume_session_id:
             initial_prompt = normalized_message
         else:
@@ -247,7 +246,7 @@ class PlanningSessionRunner(object):
             docker_mode_on=self._defaults.docker_mode_on,
             additional_dirs=additional_dirs,
         )
-        sid = fix_session_id(getattr(session, 'claude_session_id', ''))
+        sid = read_session_id_from(session)
         self.logger.info(
             'task %s: chat session started — %s session id %s',
             normalized_task_id,
@@ -261,7 +260,7 @@ class PlanningSessionRunner(object):
             'task_id': normalized_task_id,
             'cwd': normalized_text(cwd),
             'resumed': bool(resume_session_id),
-            'claude_session_id': sid,
+            AGENT_SESSION_ID: sid,
         })
         return session
 
@@ -403,7 +402,7 @@ class PlanningSessionRunner(object):
             cwd=cwd,
             branch_name=branch_name,
         )
-        sid = fix_session_id(getattr(session, 'claude_session_id', ''))
+        sid = read_session_id_from(session)
         self.logger.info(
             'task %s: %s started — fresh session id %s',
             task_id, log_label, sid or '(unknown)',
@@ -416,7 +415,7 @@ class PlanningSessionRunner(object):
             'cwd': cwd,
             'resumed': False,
             'log_label': log_label,
-            'claude_session_id': sid,
+            AGENT_SESSION_ID: sid,
         })
         terminal = self._wait_for_terminal_event(session, task_id=task_id)
         if terminal is None:
@@ -463,9 +462,7 @@ class PlanningSessionRunner(object):
             'task_id': task_id,
             'reason': 'completed',
             'log_label': log_label,
-            'claude_session_id': fix_session_id(
-                getattr(session, 'claude_session_id', ''),
-            ),
+            AGENT_SESSION_ID: read_session_id_from(session),
         })
 
         # Tab back to blue while the orchestrator publishes / waits for review.
@@ -475,7 +472,7 @@ class PlanningSessionRunner(object):
                 ImplementationFields.SUCCESS: True,
                 'summary': result_text,
                 ImplementationFields.MESSAGE: result_text,
-                ImplementationFields.SESSION_ID: session.claude_session_id,
+                ImplementationFields.SESSION_ID: sid,
             },
             branch_name=branch_name,
             default_commit_message=default_commit_message,

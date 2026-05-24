@@ -21,12 +21,11 @@ successful tasks" — the operator approves explicitly, every time.
 """
 
 from __future__ import annotations
+from agent_core_lib.agent_core_lib.helpers.text_utils import text_from_mapping
 
 import time
 from dataclasses import asdict, dataclass, field
 from enum import Enum
-
-
 class ApprovalMode(str, Enum):
     """Run-mode flag attached to an approval record.
 
@@ -74,8 +73,8 @@ class RepositoryApproval:
     @classmethod
     def from_dict(cls, payload: dict) -> RepositoryApproval:
         return cls(
-            repository_id=str(payload.get('repository_id', '') or '').strip().lower(),
-            remote_url=str(payload.get('remote_url', '') or '').strip(),
+            repository_id=text_from_mapping(payload, 'repository_id').lower(),
+            remote_url=text_from_mapping(payload, 'remote_url'),
             approved_at_epoch=float(payload.get('approved_at_epoch', 0.0) or 0.0),
             approved_by=str(payload.get('approved_by', '') or ''),
             approval_mode=ApprovalMode.from_string(payload.get('approval_mode')),

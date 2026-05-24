@@ -24,7 +24,9 @@ import threading
 import time
 from typing import Callable
 
-from claude_core_lib.claude_core_lib.session.session_id_utils import fix_session_id
+from agent_core_lib.agent_core_lib.helpers.session_id_utils import (
+    read_session_id_from,
+)
 from kato_core_lib.helpers.logging_utils import configure_logger
 from kato_core_lib.helpers.resume_prompt_writer import (
     build_inputs_from_session,
@@ -143,9 +145,7 @@ class ResumePromptWatcher(object):
                 workspace_path=str(workspace_path),
                 repository_paths=self._repository_paths(task_id),
                 recent_events=events,
-                claude_session_id=fix_session_id(
-                    getattr(record, 'claude_session_id', '') if record else '',
-                ),
+                agent_session_id=read_session_id_from(record),
             )
             content = render_resume_prompt(inputs)
             if write_resume_prompt(workspace_path, content, logger=self.logger):

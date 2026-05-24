@@ -12,7 +12,6 @@ F3   Concurrent creates for different tasks — all records persisted
 F4   Preflight log round-trip with real epoch values
 F5   Custom metadata filename end-to-end (legacy deployment scenario)
 F6   Custom preflight log filename end-to-end
-F7   Backwards compat: legacy ``claude_session_id`` on disk loads correctly
 F8   Idempotent create: second call preserves created_at and merges fields
 F9   Partial update chain — multiple updates accumulate correctly
 F10  Errored workspace (folder without metadata) visible in list
@@ -221,46 +220,6 @@ class F6CustomPreflightLogFilenameTest(unittest.TestCase):
         self.assertTrue((self.root / 'CL-1' / '.progress.log').is_file())
         entries = lib.workspaces.read_preflight_log('CL-1')
         self.assertEqual([m for _, m in entries], ['hello'])
-
-
-class F7BackwardsCompatTest(unittest.TestCase):
-    def setUp(self) -> None:
-        self._tmp = tempfile.TemporaryDirectory()
-        self.addCleanup(self._tmp.cleanup)
-        self.root = Path(self._tmp.name)
-        self.lib = WorkspaceCoreLib(root=self.root)
-
-    def test_legacy_claude_session_id_on_disk_loads_as_agent_session_id(self) -> None:
-        (self.root / 'LEGACY').mkdir()
-        (self.root / 'LEGACY' / DEFAULT_METADATA_FILENAME).write_text(
-            json.dumps({
-                'task_id': 'LEGACY',
-                'status': WORKSPACE_STATUS_ACTIVE,
-                'claude_session_id': 'old-uuid',
-            }),
-            encoding='utf-8',
-        )
-        record = self.lib.workspaces.get('LEGACY')
-        assert record is not None
-        self.assertEqual(record.agent_session_id, 'old-uuid')
-        self.assertEqual(record.status, WORKSPACE_STATUS_ACTIVE)
-
-    def test_update_rewrites_legacy_key_with_new_key(self) -> None:
-        (self.root / 'LEGACY2').mkdir()
-        (self.root / 'LEGACY2' / DEFAULT_METADATA_FILENAME).write_text(
-            json.dumps({
-                'task_id': 'LEGACY2',
-                'status': WORKSPACE_STATUS_ACTIVE,
-                'claude_session_id': 'old-uuid',
-            }),
-            encoding='utf-8',
-        )
-        self.lib.workspaces.update_status('LEGACY2', WORKSPACE_STATUS_DONE)
-        raw = json.loads(
-            (self.root / 'LEGACY2' / DEFAULT_METADATA_FILENAME).read_text(),
-        )
-        self.assertIn('agent_session_id', raw)
-        self.assertNotIn('claude_session_id', raw)
 
 
 class F8IdempotentCreateTest(unittest.TestCase):

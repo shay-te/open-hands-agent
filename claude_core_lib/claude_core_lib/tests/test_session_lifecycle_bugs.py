@@ -26,7 +26,7 @@ Bug 2 (every follow-up message spawns a session that re-does work):
 
     Lock that ``StreamingClaudeSession`` puts ``--resume <id>`` in the
     spawn argv when ``resume_session_id`` is set AND that the live
-    ``claude_session_id`` is adopted synchronously (so the next respawn
+    ``agent_session_id`` is adopted synchronously (so the next respawn
     finds the same JSONL).
 
 Bug 3 (draft input lost on tab switch):
@@ -54,7 +54,7 @@ class Bug1HistoryReplayFromDiskTests(unittest.TestCase):
     """``load_history_events`` is the on-restart history pipe.
 
     When the operator opens a chat tab after kato restart, the webserver
-    SSE endpoint calls ``load_history_events(claude_session_id)`` and
+    SSE endpoint calls ``load_history_events(agent_session_id)`` and
     pushes every returned event to the browser as a
     ``session_history_event``. That's what populates the scroll-back.
     """
@@ -232,7 +232,7 @@ class Bug2ResumePassesSameSessionIdTests(unittest.TestCase):
     an exited subprocess, the next spawn:
 
     1. passes ``--resume <persisted_id>`` to the ``claude`` CLI, AND
-    2. advertises that same id on ``session.claude_session_id`` BEFORE
+    2. advertises that same id on ``session.agent_session_id`` BEFORE
        the first stream-json event arrives.
 
     Without (1), Claude starts a brand-new conversation and the JSONL
@@ -245,7 +245,7 @@ class Bug2ResumePassesSameSessionIdTests(unittest.TestCase):
     def _stub_session_class(self, recorded):
         """Build a stub ``StreamingClaudeSession`` class that records
         the kwargs it was constructed with and exposes the same
-        ``claude_session_id`` / ``cwd`` / ``is_alive`` surface the
+        ``agent_session_id`` / ``cwd`` / ``is_alive`` surface the
         real session does. The session manager treats this as the
         real factory via the ``session_factory=`` constructor arg."""
 
@@ -260,7 +260,7 @@ class Bug2ResumePassesSameSessionIdTests(unittest.TestCase):
                 # ``--resume <id>`` adopts the id BEFORE the first
                 # stream event arrives. The real implementation does
                 # this in ``_build_command``.
-                self._claude_session_id = kwargs.get('resume_session_id', '') or 'fresh-id'
+                self._agent_session_id = kwargs.get('resume_session_id', '') or 'fresh-id'
                 self._alive = True
 
             @property
@@ -270,7 +270,7 @@ class Bug2ResumePassesSameSessionIdTests(unittest.TestCase):
             def cwd(self): return self._cwd
 
             @property
-            def claude_session_id(self): return self._claude_session_id
+            def agent_session_id(self): return self._agent_session_id
 
             @property
             def is_alive(self): return self._alive
@@ -326,7 +326,7 @@ class Bug2ResumePassesSameSessionIdTests(unittest.TestCase):
             # rather than reusing the existing live session.
             manager.terminate_session('T1')
 
-            persisted_id = manager.get_record('T1').claude_session_id
+            persisted_id = manager.get_record('T1').agent_session_id
             self.assertEqual(persisted_id, 'fresh-id')
 
             # Second spawn: kato now has a record with a persisted id.
@@ -416,7 +416,7 @@ class Bug2ResumePassesSameSessionIdTests(unittest.TestCase):
             # record with the live session's id. Real kato code calls
             # this on every UI poll + before the next start_session.
             record = manager.get_record('T1')
-            self.assertEqual(record.claude_session_id, 'fresh-id')
+            self.assertEqual(record.agent_session_id, 'fresh-id')
 
             # Subprocess exits (Claude finished its turn, idle timeout
             # fired, etc).
@@ -468,7 +468,7 @@ class Bug2ResumePassesSameSessionIdTests(unittest.TestCase):
                 cwd='/tmp/T1',
             )
             manager_run1.terminate_session('T1')
-            persisted_id = manager_run1.get_record('T1').claude_session_id
+            persisted_id = manager_run1.get_record('T1').agent_session_id
             self.assertEqual(persisted_id, 'fresh-id')
             del manager_run1  # operator stops kato
 
@@ -489,7 +489,7 @@ class Bug2ResumePassesSameSessionIdTests(unittest.TestCase):
                 'manager rebuilt against same state_dir failed to '
                 'hydrate per-task record — restart will start fresh',
             )
-            self.assertEqual(record.claude_session_id, persisted_id)
+            self.assertEqual(record.agent_session_id, persisted_id)
 
             # First message in the new run: must --resume the saved id.
             manager_run2.start_session(
@@ -505,7 +505,7 @@ class Bug2ResumePassesSameSessionIdTests(unittest.TestCase):
                 'kato restart will start a brand-new Claude session',
             )
 
-    def test_claude_session_id_adopted_before_first_event_arrives(self) -> None:
+    def test_agent_session_id_adopted_before_first_event_arrives(self) -> None:
         # The webserver SSE handler resolves the session id from the
         # live session BEFORE any event has been streamed. The session
         # must therefore advertise the resume id synchronously inside
@@ -521,10 +521,10 @@ class Bug2ResumePassesSameSessionIdTests(unittest.TestCase):
                 resume_session_id='persisted-id-abc',
             )
             # Pre-flight: blank.
-            self.assertEqual(session.claude_session_id, '')
+            self.assertEqual(session.agent_session_id, '')
             session._build_command()
         # Post-build: id is adopted synchronously.
-        self.assertEqual(session.claude_session_id, 'persisted-id-abc')
+        self.assertEqual(session.agent_session_id, 'persisted-id-abc')
 
 
 # --------------------------------------------------------------------------

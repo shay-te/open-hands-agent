@@ -18,7 +18,7 @@ function _session(overrides = {}) {
     working: true,
     has_changes_pending: false,
     live: true,
-    claude_session_id: 'sess-1',
+    agent_session_id: 'sess-1',
     ...overrides,
   };
 }

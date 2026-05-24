@@ -16,7 +16,7 @@ export function deriveTabStatus(session) {
   }
   if (status === TAB_STATUS.ACTIVE
       && session?.live === false
-      && !session?.claude_session_id) {
+      && !session?.agent_session_id) {
     return TAB_STATUS.IDLE;
   }
   return status;

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test, { afterEach } from 'node:test';
 
 import {
-  adoptClaudeSession,
+  adoptAgentSession,
   fetchBaseFileContent,
   fetchClaudeSessions,
   postChatMessage,
@@ -108,62 +108,62 @@ test('fetchBaseFileContent keeps the base-file error when fallback is unavailabl
   );
 });
 
-test('adoptClaudeSession posts the session id as JSON', async function () {
+test('adoptAgentSession posts the session id as JSON', async function () {
   const calls = _stubFetch({
     ok: true,
     status: 200,
-    json: () => Promise.resolve({ task_id: 'PROJ-1', claude_session_id: 'sess-1' }),
+    json: () => Promise.resolve({ task_id: 'PROJ-1', agent_session_id: 'sess-1' }),
   });
-  const result = await adoptClaudeSession('PROJ-1', 'sess-1');
+  const result = await adoptAgentSession('PROJ-1', 'sess-1');
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].url, '/api/sessions/PROJ-1/adopt-claude-session');
+  assert.equal(calls[0].url, '/api/sessions/PROJ-1/adopt-agent-session');
   assert.equal(calls[0].init.method, 'POST');
   assert.equal(calls[0].init.headers['content-type'], 'application/json');
-  assert.deepEqual(JSON.parse(calls[0].init.body), { claude_session_id: 'sess-1' });
+  assert.deepEqual(JSON.parse(calls[0].init.body), { agent_session_id: 'sess-1' });
   assert.equal(result.ok, true);
-  assert.equal(result.body.claude_session_id, 'sess-1');
+  assert.equal(result.body.agent_session_id, 'sess-1');
 });
 
-test('adoptClaudeSession returns ok=false without calling fetch when task_id is empty', async function () {
+test('adoptAgentSession returns ok=false without calling fetch when task_id is empty', async function () {
   const calls = _stubFetch({
     ok: true,
     json: () => Promise.resolve({}),
   });
-  const result = await adoptClaudeSession('', 'sess-1');
+  const result = await adoptAgentSession('', 'sess-1');
   assert.equal(result.ok, false);
   assert.equal(calls.length, 0);
 });
 
-test('adoptClaudeSession returns ok=false without calling fetch when session id is empty', async function () {
+test('adoptAgentSession returns ok=false without calling fetch when session id is empty', async function () {
   const calls = _stubFetch({
     ok: true,
     json: () => Promise.resolve({}),
   });
-  const result = await adoptClaudeSession('PROJ-1', '');
+  const result = await adoptAgentSession('PROJ-1', '');
   assert.equal(result.ok, false);
   assert.equal(calls.length, 0);
 });
 
-test('adoptClaudeSession surfaces backend error body when status is non-2xx', async function () {
+test('adoptAgentSession surfaces backend error body when status is non-2xx', async function () {
   _stubFetch({
     ok: false,
     status: 409,
     json: () => Promise.resolve({ error: 'live session running' }),
   });
-  const result = await adoptClaudeSession('PROJ-1', 'sess-1');
+  const result = await adoptAgentSession('PROJ-1', 'sess-1');
   assert.equal(result.ok, false);
   assert.equal(result.status, 409);
   assert.equal(result.body.error, 'live session running');
 });
 
-test('adoptClaudeSession URL-encodes the task id', async function () {
+test('adoptAgentSession URL-encodes the task id', async function () {
   const calls = _stubFetch({
     ok: true,
     status: 200,
     json: () => Promise.resolve({}),
   });
-  await adoptClaudeSession('PROJ/1', 'sess-1');
-  assert.equal(calls[0].url, '/api/sessions/PROJ%2F1/adopt-claude-session');
+  await adoptAgentSession('PROJ/1', 'sess-1');
+  assert.equal(calls[0].url, '/api/sessions/PROJ%2F1/adopt-agent-session');
 });
 
 

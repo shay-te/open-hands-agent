@@ -83,12 +83,12 @@ class StreamingClaudeSessionTests(unittest.TestCase):
         self.assertIn('--input-format', cmd)
         # A session-id is pinned up front so a restart can resume it.
         self.assertIn('--session-id', cmd)
-        # After the init event arrives, claude_session_id adopts the id
+        # After the init event arrives, agent_session_id adopts the id
         # Claude actually confirmed in its init event (not necessarily the
         # pinned UUID kato passed via --session-id; if Claude reports a
         # different id the session corrects to that actual id so the next
         # --resume targets the right JSONL).
-        self.assertEqual(session.claude_session_id, 'live-123')
+        self.assertEqual(session.agent_session_id, 'live-123')
 
     def test_allowed_additional_dirs_returns_spawn_time_paths(self) -> None:
         # The Claude CLI bakes ``--add-dir`` into the subprocess at
@@ -198,11 +198,11 @@ class StreamingClaudeSessionTests(unittest.TestCase):
         ):
             session = StreamingClaudeSession(
                 task_id='PROJ-1',
-                resume_session_id='earlier-session-uuid',
+                resume_session_id='  earlier-session-uuid\n',
             )
             session.start()
         cmd = mock_popen.call_args.args[0]
-        self.assertEqual(session.claude_session_id, 'earlier-session-uuid')
+        self.assertEqual(session.agent_session_id, 'earlier-session-uuid')
         self.assertIn('--resume', cmd)
         self.assertEqual(
             cmd[cmd.index('--resume') + 1],
@@ -231,7 +231,7 @@ class StreamingClaudeSessionTests(unittest.TestCase):
                 session.start()
         joined = ' '.join(cm.output)
         self.assertIn('fresh session id', joined)
-        self.assertIn(session.claude_session_id, joined)
+        self.assertIn(session.agent_session_id, joined)
         self.assertNotIn('resuming session id', joined)
 
     def test_spawn_log_prints_resuming_session_id(self) -> None:
@@ -599,38 +599,38 @@ class StreamingClaudeSessionPureMethodTests(unittest.TestCase):
         session._maybe_capture_session_id(SessionEvent(raw={
             'type': 'system', 'subtype': 'init', 'session_id': 'first',
         }))
-        self.assertEqual(session.claude_session_id, 'first')
+        self.assertEqual(session.agent_session_id, 'first')
         # Subsequent events with different ids must not overwrite.
         session._maybe_capture_session_id(SessionEvent(raw={
             'type': 'system', 'session_id': 'second',
         }))
-        self.assertEqual(session.claude_session_id, 'first')
+        self.assertEqual(session.agent_session_id, 'first')
 
     def test_maybe_capture_session_id_ignores_empty_candidate(self) -> None:
         session = self._build_session()
         session._maybe_capture_session_id(SessionEvent(raw={
             'type': 'system', 'session_id': '',
         }))
-        self.assertEqual(session.claude_session_id, '')
+        self.assertEqual(session.agent_session_id, '')
 
     def test_capture_confirms_matching_resumed_id_once(self) -> None:
         session = self._build_session(resume_session_id='sess-abc')
         # Production: id is pinned in _build_command before any event.
-        session._claude_session_id = 'sess-abc'
+        session._agent_session_id = 'sess-abc'
         session.logger = MagicMock()
         ev = SessionEvent(raw={
             'type': 'system', 'subtype': 'init', 'session_id': 'sess-abc',
         })
         session._maybe_capture_session_id(ev)
         session._maybe_capture_session_id(ev)  # second init: no dup log
-        self.assertEqual(session.claude_session_id, 'sess-abc')
+        self.assertEqual(session.agent_session_id, 'sess-abc')
         session.logger.info.assert_called_once()
         self.assertIn('confirmed', session.logger.info.call_args.args[0])
         session.logger.warning.assert_not_called()
 
     def test_capture_warns_once_on_fresh_session_id_mismatch(self) -> None:
         session = self._build_session(resume_session_id='')
-        session._claude_session_id = 'generated-id'
+        session._agent_session_id = 'generated-id'
         session.logger = MagicMock()
         corrections: list[str] = []
         session._session_id_correction_callback = corrections.append
@@ -639,7 +639,7 @@ class StreamingClaudeSessionPureMethodTests(unittest.TestCase):
         })
         session._maybe_capture_session_id(ev)
         session._maybe_capture_session_id(ev)  # only one warning, one correction
-        self.assertEqual(session.claude_session_id, 'actual-id')
+        self.assertEqual(session.agent_session_id, 'actual-id')
         self.assertEqual(corrections, ['actual-id'])
         session.logger.warning.assert_called_once()
         self.assertIn(
@@ -649,7 +649,7 @@ class StreamingClaudeSessionPureMethodTests(unittest.TestCase):
 
     def test_capture_warns_once_on_resumed_session_id_mismatch(self) -> None:
         session = self._build_session(resume_session_id='sess-abc')
-        session._claude_session_id = 'sess-abc'
+        session._agent_session_id = 'sess-abc'
         session.logger = MagicMock()
         corrections: list[str] = []
         session._session_id_correction_callback = corrections.append
@@ -658,7 +658,7 @@ class StreamingClaudeSessionPureMethodTests(unittest.TestCase):
         })
         session._maybe_capture_session_id(ev)
         session._maybe_capture_session_id(ev)  # only one warning, one correction
-        self.assertEqual(session.claude_session_id, 'sess-abc')
+        self.assertEqual(session.agent_session_id, 'sess-abc')
         self.assertEqual(corrections, [])
         session.logger.warning.assert_called_once()
         self.assertIn(
@@ -672,7 +672,7 @@ class StreamingClaudeSessionPureMethodTests(unittest.TestCase):
         # read-only), the streaming session must NOT crash mid-event.
         # The exception is logged and the stream continues.
         session = self._build_session(resume_session_id='')
-        session._claude_session_id = 'generated-id'
+        session._agent_session_id = 'generated-id'
         session.logger = MagicMock()
 
         def broken_callback(_actual_id):
@@ -688,7 +688,7 @@ class StreamingClaudeSessionPureMethodTests(unittest.TestCase):
         session.logger.exception.assert_called_once()
         msg = session.logger.exception.call_args.args[0]
         self.assertIn('session_id_correction_callback raised', msg)
-        self.assertEqual(session.claude_session_id, 'actual-id')
+        self.assertEqual(session.agent_session_id, 'actual-id')
 
     def test_maybe_fire_done_sentinel_fires_callback_once(self) -> None:
         callback_calls: list = []
@@ -1467,7 +1467,7 @@ class StreamingClaudeSessionPureMethodTests(unittest.TestCase):
         # Terminal event captured.
         self.assertIsNotNone(session.terminal_event)
         # Session id pinned from the init event.
-        self.assertEqual(session.claude_session_id, 'live-1')
+        self.assertEqual(session.agent_session_id, 'live-1')
 
 
 class StreamingClaudeSessionDockerModeTests(unittest.TestCase):

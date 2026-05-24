@@ -25,7 +25,7 @@ from dataclasses import dataclass, field
 from queue import Empty, Queue
 from typing import Any
 
-from claude_core_lib.claude_core_lib.session.session_id_utils import fix_session_id
+from agent_core_lib.agent_core_lib.helpers.session_id_utils import fix_session_id
 from claude_core_lib.claude_core_lib.session.wire_protocol import (
     CLAUDE_EVENT_CONTROL_REQUEST,
     CLAUDE_EVENT_CONTROL_RESPONSE,
@@ -37,7 +37,11 @@ from claude_core_lib.claude_core_lib.session.wire_protocol import (
 )
 from agent_core_lib.agent_core_lib.helpers.architecture_doc_utils import read_architecture_doc
 from agent_core_lib.agent_core_lib.helpers.logging_utils import configure_logger
-from agent_core_lib.agent_core_lib.helpers.text_utils import condensed_text, normalized_text
+from agent_core_lib.agent_core_lib.helpers.text_utils import (
+    condensed_text,
+    normalized_text,
+    text_from_mapping,
+)
 
 
 def _wait_for_exit(proc: subprocess.Popen, timeout: float) -> bool:
@@ -76,10 +80,10 @@ def _validate_image_blocks(images) -> list[dict]:
     for entry in images[:_MAX_IMAGES_PER_MESSAGE]:
         if not isinstance(entry, dict):
             continue
-        media_type = str(entry.get('media_type', '') or '').strip().lower()
+        media_type = text_from_mapping(entry, 'media_type').lower()
         if media_type not in _ALLOWED_IMAGE_MEDIA_TYPES:
             continue
-        data = str(entry.get('data', '') or '').strip()
+        data = text_from_mapping(entry, 'data')
         if not data:
             continue
         # Base64 expansion is ~4/3 of the raw byte count. Reject
@@ -192,7 +196,7 @@ class StreamingClaudeSession(object):
         self._disallowed_tools = normalized_text(disallowed_tools)
         self._max_turns = max_turns
         self._effort = normalized_text(effort).lower()
-        self._resume_session_id = normalized_text(resume_session_id)
+        self._resume_session_id = fix_session_id(resume_session_id)
         # One-shot guards so the session-id verification lines (see
         # ``_maybe_capture_session_id``) print exactly once per spawn:
         # one INFO confirming the id Claude actually ran with, or one
@@ -263,7 +267,7 @@ class StreamingClaudeSession(object):
         # a snapshot of new entries and (b) record the new high-water
         # index without a TOCTOU window.
         self._events_changed = threading.Condition(self._recent_events_lock)
-        self._claude_session_id: str = ''
+        self._agent_session_id: str = ''
         self._terminal_event: SessionEvent | None = None
         self._reader_threads: list[threading.Thread] = []
         self._stderr_lines: list[str] = []
@@ -291,8 +295,8 @@ class StreamingClaudeSession(object):
         return self._cwd
 
     @property
-    def claude_session_id(self) -> str:
-        return self._claude_session_id
+    def agent_session_id(self) -> str:
+        return self._agent_session_id
 
     def allowed_additional_dirs(self) -> tuple[str, ...]:
         """Spawn-time ``--add-dir`` paths the live subprocess was given.
@@ -453,7 +457,7 @@ class StreamingClaudeSession(object):
                 self._task_id,
                 self._proc.pid,
                 'resuming' if self._resume_session_id else 'fresh',
-                self._claude_session_id or '(pending)',
+                self._agent_session_id or '(pending)',
             )
             self._spawn_reader_threads()
 
@@ -773,17 +777,17 @@ class StreamingClaudeSession(object):
             # default — Claude only forks a new id when ``--fork-session``
             # is also passed. So just resuming is enough to stick with
             # the adopted id. Adopt the resume id synchronously so
-            # callers reading ``claude_session_id`` before the first
+            # callers reading ``agent_session_id`` before the first
             # ``system { subtype: init }`` event arrives get the right
             # answer; the actual id is re-confirmed via
             # ``_maybe_capture_session_id`` once the event lands.
-            self._claude_session_id = self._resume_session_id
+            self._agent_session_id = self._resume_session_id
             command.extend(['--resume', self._resume_session_id])
         else:
             # Pin a session-id up front so callers can resume after restart
             # without waiting for the system event to arrive.
-            self._claude_session_id = str(uuid.uuid4())
-            command.extend(['--session-id', self._claude_session_id])
+            self._agent_session_id = str(uuid.uuid4())
+            command.extend(['--session-id', self._agent_session_id])
         for directory in self._additional_dirs:
             command.extend(['--add-dir', directory])
         return command
@@ -1092,8 +1096,8 @@ class StreamingClaudeSession(object):
         candidate = fix_session_id(event.raw.get('session_id'))
         if not candidate:
             return
-        if not self._claude_session_id:
-            self._claude_session_id = candidate
+        if not self._agent_session_id:
+            self._agent_session_id = candidate
             return
         # Only init is authoritative; later events can echo fixture ids.
         is_init = (
@@ -1102,7 +1106,7 @@ class StreamingClaudeSession(object):
         )
         if not is_init:
             return
-        if candidate == self._claude_session_id:
+        if candidate == self._agent_session_id:
             if not self._session_id_confirmed:
                 self.logger.info(
                     'task %s: claude confirmed %s session id %s',
@@ -1123,7 +1127,7 @@ class StreamingClaudeSession(object):
                 'expected %s (%s) — %s',
                 self._task_id,
                 candidate,
-                self._claude_session_id,
+                self._agent_session_id,
                 mode,
                 action,
             )
@@ -1132,7 +1136,7 @@ class StreamingClaudeSession(object):
             if self._resume_session_id:
                 return
             # Fresh spawn: adopt the id Claude actually wrote to.
-            self._claude_session_id = candidate
+            self._agent_session_id = candidate
             if callable(self._session_id_correction_callback):
                 try:
                     self._session_id_correction_callback(candidate)

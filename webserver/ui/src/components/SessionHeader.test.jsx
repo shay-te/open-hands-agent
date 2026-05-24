@@ -42,7 +42,7 @@ function _session(overrides = {}) {
     status: TAB_STATUS.ACTIVE,
     live: true,
     working: false,
-    claude_session_id: 'sess-1',
+    agent_session_id: 'sess-1',
     ...overrides,
   };
 }
@@ -131,7 +131,7 @@ describe('SessionHeader — always prints the Claude session id', () => {
   test('shows the short session id with the full id in the title', () => {
     const { container } = render(
       <SessionHeader
-        session={_session({ claude_session_id: 'abcdef12-3456-7890-abcd-ef1234567890' })}
+        session={_session({ agent_session_id: 'abcdef12-3456-7890-abcd-ef1234567890' })}
         streamLifecycle={SESSION_LIFECYCLE.STREAMING}
       />,
     );
@@ -146,7 +146,7 @@ describe('SessionHeader — always prints the Claude session id', () => {
   test('omitted when the record has no session id yet', () => {
     const { container } = render(
       <SessionHeader
-        session={_session({ claude_session_id: '' })}
+        session={_session({ agent_session_id: '' })}
         streamLifecycle={SESSION_LIFECYCLE.CONNECTING}
       />,
     );

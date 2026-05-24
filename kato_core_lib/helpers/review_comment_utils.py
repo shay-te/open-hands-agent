@@ -1,4 +1,5 @@
 from __future__ import annotations
+from agent_core_lib.agent_core_lib.helpers.text_utils import text_from_mapping
 
 import re
 from dataclasses import dataclass
@@ -321,7 +322,7 @@ def _did_nothing_summary(execution: dict[str, str | bool]) -> str:
     reviewers have repeatedly read the header as "kato did
     something" and merged without checking, which is a real bug.
     """
-    error = str(execution.get('error') or '').strip()
+    error = text_from_mapping(execution, 'error')
     if error:
         return f'{ReviewReplyTemplate.DID_NOTHING_PREFIX}{_truncate(error)}'
     for key in ('result', ImplementationFields.MESSAGE, 'summary'):

@@ -32,8 +32,13 @@ class _FakePrepared:
 
 
 class _FakeSession:
-    def __init__(self, terminal_event: SessionEvent | None) -> None:
-        self.claude_session_id = 'fake-session-id'
+    def __init__(
+        self,
+        terminal_event: SessionEvent | None,
+        *,
+        session_id: str = 'fake-session-id',
+    ) -> None:
+        self.agent_session_id = session_id
         self._events_to_emit = [terminal_event] if terminal_event else []
         self._is_alive = True
         self.terminal_event = terminal_event
@@ -56,11 +61,12 @@ class _FakeManager:
         self,
         terminal_event: SessionEvent | None,
         *,
+        session_id: str = 'fake-session-id',
         record_status: str | None = None,
     ) -> None:
         self.start_kwargs: dict | None = None
         self.statuses: list[str] = []
-        self._session = _FakeSession(terminal_event)
+        self._session = _FakeSession(terminal_event, session_id=session_id)
         self._record_status = record_status
 
     def start_session(self, **kwargs):
@@ -128,6 +134,18 @@ class PlanningSessionRunnerTests(unittest.TestCase):
         self.assertTrue(result[ImplementationFields.SUCCESS])
         self.assertEqual(result[ImplementationFields.SESSION_ID], 'fake-session-id')
         self.assertEqual(result[ImplementationFields.MESSAGE], 'shipped it')
+
+    def test_implement_task_returns_normalized_session_id(self) -> None:
+        manager = _FakeManager(
+            _terminal(result='shipped it'),
+            session_id='  fake-session-id\n',
+        )
+        runner = PlanningSessionRunner(session_manager=manager, defaults=self.defaults)
+        prepared = _FakePrepared([_FakeRepo('client', '/tmp/client')])
+
+        result = runner.implement_task(build_task(), prepared_task=prepared)
+
+        self.assertEqual(result[ImplementationFields.SESSION_ID], 'fake-session-id')
 
     def test_implement_task_prompt_marks_ignored_repositories_out_of_bounds(self) -> None:
         manager = _FakeManager(_terminal(result='shipped it'))

@@ -8,8 +8,11 @@ from __future__ import annotations
 
 import unittest
 
-from claude_core_lib.claude_core_lib.session.session_id_utils import (
+from agent_core_lib.agent_core_lib.helpers.session_id_utils import (
     fix_session_id,
+    has_session_id,
+    read_session_id_from,
+    same_session_id,
 )
 
 
@@ -18,7 +21,7 @@ class FixSessionIdTests(unittest.TestCase):
     # ----- the empty / missing cases ---------------------------------
 
     def test_none_becomes_empty_string(self) -> None:
-        # ``getattr(record, 'claude_session_id', None)`` returns None
+        # ``getattr(record, 'agent_session_id', None)`` returns None
         # if the attribute is missing. Must coerce to '' so the
         # caller's ``if session_id:`` truthy guards keep working.
         self.assertEqual(fix_session_id(None), '')
@@ -70,23 +73,83 @@ class FixSessionIdTests(unittest.TestCase):
 
     def test_works_with_getattr_pattern(self) -> None:
         # The most common call shape across the codebase.
-        record = type('R', (), {'claude_session_id': '  abc  '})()
+        record = type('R', (), {'agent_session_id': '  abc  '})()
         self.assertEqual(
-            fix_session_id(getattr(record, 'claude_session_id', '')),
+            fix_session_id(getattr(record, 'agent_session_id', '')),
             'abc',
         )
 
     def test_works_with_missing_attribute_pattern(self) -> None:
         record = type('R', (), {})()
         self.assertEqual(
-            fix_session_id(getattr(record, 'claude_session_id', None)),
+            fix_session_id(getattr(record, 'agent_session_id', None)),
             '',
         )
 
     def test_works_with_dict_get_pattern(self) -> None:
-        payload = {'claude_session_id': '  abc  '}
-        self.assertEqual(fix_session_id(payload.get('claude_session_id')), 'abc')
+        payload = {'agent_session_id': '  abc  '}
+        self.assertEqual(fix_session_id(payload.get('agent_session_id')), 'abc')
         self.assertEqual(fix_session_id(payload.get('missing')), '')
+
+
+class HasSessionIdTests(unittest.TestCase):
+
+    def test_false_for_missing_or_blank_values(self) -> None:
+        self.assertFalse(has_session_id(None))
+        self.assertFalse(has_session_id(''))
+        self.assertFalse(has_session_id('   '))
+
+    def test_true_for_value_after_stripping(self) -> None:
+        self.assertTrue(has_session_id('  abc  '))
+        self.assertTrue(has_session_id(42))
+
+
+class SameSessionIdTests(unittest.TestCase):
+
+    def test_compares_after_canonical_normalization(self) -> None:
+        self.assertTrue(same_session_id(' abc ', 'abc'))
+        self.assertTrue(same_session_id(42, '42'))
+
+    def test_missing_values_compare_as_same_empty_sentinel(self) -> None:
+        self.assertTrue(same_session_id(None, ''))
+        self.assertTrue(same_session_id('   ', ''))
+
+    def test_distinct_ids_are_not_equal(self) -> None:
+        self.assertFalse(same_session_id('abc', 'def'))
+        self.assertFalse(same_session_id('', 'def'))
+
+
+class ReadSessionIdFromTests(unittest.TestCase):
+    """The duck-typed reader: record / session / workspace.
+
+    Collapses the ``fix_session_id(getattr(obj, 'agent_session_id', ''))``
+    pattern into one named helper.
+    """
+
+    def test_none_input_returns_empty(self) -> None:
+        # The wrapping pattern was always preceded by a None check;
+        # the helper folds it in so call sites don't need to.
+        self.assertEqual(read_session_id_from(None), '')
+
+    def test_reads_agent_session_id_from_record_like_object(self) -> None:
+        record = type('R', (), {'agent_session_id': 'sess-abc'})()
+        self.assertEqual(read_session_id_from(record), 'sess-abc')
+
+    def test_strips_whitespace_via_fix_session_id(self) -> None:
+        record = type('R', (), {'agent_session_id': '  sess-abc\n'})()
+        self.assertEqual(read_session_id_from(record), 'sess-abc')
+
+    def test_reads_agent_session_id_from_streaming_session(self) -> None:
+        session = type('S', (), {'agent_session_id': 'live-id'})()
+        self.assertEqual(read_session_id_from(session), 'live-id')
+
+    def test_object_with_no_attribute_returns_empty(self) -> None:
+        obj = type('Empty', (), {})()
+        self.assertEqual(read_session_id_from(obj), '')
+
+    def test_blank_record_returns_empty(self) -> None:
+        record = type('R', (), {'agent_session_id': '   '})()
+        self.assertEqual(read_session_id_from(record), '')
 
 
 if __name__ == '__main__':

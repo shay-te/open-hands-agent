@@ -1126,9 +1126,9 @@ class SessionHelpersWithConcreteStandInsTests(unittest.TestCase):
             return []
 
     class _Record:
-        def __init__(self, task_id: str, claude_session_id: str = '') -> None:
+        def __init__(self, task_id: str, agent_session_id: str = '') -> None:
             self.task_id = task_id
-            self.claude_session_id = claude_session_id
+            self.agent_session_id = agent_session_id
             self.cwd = ''
 
     class _Manager:
@@ -1163,12 +1163,12 @@ class SessionHelpersWithConcreteStandInsTests(unittest.TestCase):
 
         self.assertEqual(_session_ids_by_task(_Boom()), {})
 
-    def test_session_ids_by_task_filters_out_blank_claude_session_ids(self) -> None:
+    def test_session_ids_by_task_filters_out_blank_agent_session_ids(self) -> None:
         from kato_webserver.app import _session_ids_by_task
         mgr = self._Manager([
-            self._Record('T1', claude_session_id='abc'),
-            self._Record('T2', claude_session_id=''),  # filtered
-            self._Record('T3', claude_session_id='def'),
+            self._Record('T1', agent_session_id='abc'),
+            self._Record('T2', agent_session_id=''),  # filtered
+            self._Record('T3', agent_session_id='def'),
         ])
         result = _session_ids_by_task(mgr)
         self.assertEqual(result, {'T1': 'abc', 'T3': 'def'})
@@ -1383,9 +1383,9 @@ class GitDiffUtilsUntrackedFileBranchesTests(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 
-# NOTE: ``resolve_claude_session_id`` moved to
+# NOTE: ``resolve_agent_session_id`` moved to
 # ``claude_core_lib/claude_core_lib/session/history.py``. Its tests
-# live at ``claude_core_lib/claude_core_lib/tests/test_resolve_claude_session_id.py``.
+# live at ``claude_core_lib/claude_core_lib/tests/test_resolve_agent_session_id.py``.
 #
 # There is NO codex/openhands/openrouter equivalent. Those backends
 # don't have a webserver SSE history-replay code path (Claude's lives

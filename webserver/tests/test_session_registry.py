@@ -18,22 +18,22 @@ class PlanningSessionTests(unittest.TestCase):
             task_id='T1',
             task_summary='do work',
             status='active',
-            claude_session_id='sess-1',
+            agent_session_id='sess-1',
         )
         d = s.to_dict()
         self.assertEqual(d['task_id'], 'T1')
         self.assertEqual(d['task_summary'], 'do work')
         self.assertEqual(d['status'], 'active')
-        self.assertEqual(d['claude_session_id'], 'sess-1')
+        self.assertEqual(d['agent_session_id'], 'sess-1')
         self.assertIn('created_at_epoch', d)
 
     def test_default_status_is_waiting(self) -> None:
         s = PlanningSession(task_id='T1', task_summary='go')
         self.assertEqual(s.status, 'waiting')
 
-    def test_default_claude_session_id_is_empty(self) -> None:
+    def test_default_agent_session_id_is_empty(self) -> None:
         s = PlanningSession(task_id='T1', task_summary='go')
-        self.assertEqual(s.claude_session_id, '')
+        self.assertEqual(s.agent_session_id, '')
 
     def test_created_at_epoch_auto_populates(self) -> None:
         s = PlanningSession(task_id='T1', task_summary='go')

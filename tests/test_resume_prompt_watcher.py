@@ -44,7 +44,7 @@ class _FakeRecord(object):
         self.task_id = task_id
         self.task_summary = kwargs.get('task_summary', '')
         self.expected_branch = kwargs.get('expected_branch', '')
-        self.claude_session_id = kwargs.get('claude_session_id', '')
+        self.agent_session_id = kwargs.get('agent_session_id', '')
 
 
 class _FakeSessionManager(object):

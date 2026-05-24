@@ -6,8 +6,8 @@ from agent_core_lib.agent_core_lib.helpers.text_utils import (
     condensed_text,
     normalized_text,
     text_from_attr,
+    text_from_mapping,
 )
-
 IGNORED_REPOSITORY_FOLDERS_ENV = 'KATO_IGNORED_REPOSITORY_FOLDERS'
 
 
@@ -270,8 +270,8 @@ def review_comment_context_text(comment) -> str:
     for item in all_comments:
         if not isinstance(item, dict):
             continue
-        author = str(item.get('author', '') or '').strip()
-        body = str(item.get('body', '') or '').strip()
+        author = text_from_mapping(item, 'author')
+        body = text_from_mapping(item, 'body')
         if not body:
             continue
         if _is_self_reply_body(body):

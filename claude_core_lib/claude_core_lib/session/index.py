@@ -38,7 +38,8 @@ import shutil
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-
+from agent_core_lib.agent_core_lib.helpers.session_id_utils import fix_session_id
+from agent_core_lib.agent_core_lib.helpers.text_utils import text_from_mapping
 CLAUDE_SESSIONS_ROOT_ENV_KEY = 'KATO_CLAUDE_SESSIONS_ROOT'
 # Cap on per-transcript bytes scanned for first/last user message
 # previews. Claude transcripts grow without bound; reading the whole
@@ -173,9 +174,9 @@ def _parse_metadata(path: Path) -> ClaudeSessionMetadata | None:
                 if record is None:
                     continue
                 if not cwd:
-                    cwd = str(record.get('cwd', '') or '').strip()
+                    cwd = text_from_mapping(record, 'cwd')
                 if not session_id and record.get('sessionId'):
-                    session_id = str(record['sessionId']).strip()
+                    session_id = fix_session_id(record.get('sessionId'))
                 if record.get('type') != 'user':
                     continue
                 turn_count += 1
@@ -251,7 +252,19 @@ def _clip_preview(text: str) -> str:
 _logger = logging.getLogger(__name__)
 
 
-_PROJECT_DIR_ENCODE_CHARS = ('\\', '/', ':')
+# Characters Claude Code flattens to '-' when encoding the cwd into
+# its ``~/.claude/projects/<encoded-cwd>/`` directory name. Path
+# separators (``\``, ``/``) and the Windows drive colon are obvious.
+# Less obvious — and the cause of a real review-fix crash loop —
+# Claude ALSO flattens ``_`` and ``.``. For example a workspace at
+# ``/Users/me/dev_kato/PROJ-1/repo`` lands under
+# ``-Users-me-dev-kato-PROJ-1-repo`` (underscore → dash). If kato's
+# encoder skips ``_``/``.`` it migrates the adopted JSONL into a
+# differently-named directory than Claude will look in, and the
+# next ``claude --resume`` fails with "No conversation found." Kato
+# then refuses the fresh fallback (resume preservation), so the
+# task retries the same failure on every scan tick.
+_PROJECT_DIR_ENCODE_CHARS = ('\\', '/', ':', '_', '.')
 
 
 def claude_project_dir_for_cwd(cwd: str) -> Path:
@@ -259,14 +272,12 @@ def claude_project_dir_for_cwd(cwd: str) -> Path:
 
     Claude Code stores every session as
     ``~/.claude/projects/<encoded-cwd>/<session-id>.jsonl``. The
-    encoded form replaces every path separator AND the Windows drive
-    colon with ``-``: on POSIX ``/Users/me/proj`` becomes
-    ``-Users-me-proj``; on Windows ``C:\\Codes\\proj`` becomes
-    ``C--Codes-proj`` (drive colon + backslash both flatten to a
-    single dash neighbour pair). Replacing only ``os.sep`` was a bug
-    on Windows — it left the drive colon intact, so kato's migrated
-    JSONL landed under ``C:-Codes-proj`` while ``claude --resume``
-    looked under ``C--Codes-proj`` and started fresh.
+    encoded form flattens every path separator, the Windows drive
+    colon, AND ``_`` / ``.`` to ``-``: ``/Users/me/dev_kato`` becomes
+    ``-Users-me-dev-kato`` (note the underscore lost). The encoding
+    is lossy by design on Claude's side; kato must use the same
+    flattening or the migrated JSONL lands in a directory Claude
+    never reads.
 
     Looking sessions up via ``claude --resume <id>`` is cwd-keyed —
     spawning at a different cwd than the session's original cwd

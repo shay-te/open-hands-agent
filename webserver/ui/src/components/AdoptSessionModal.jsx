@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { adoptClaudeSession, fetchClaudeSessions } from '../api.js';
+import { adoptAgentSession, fetchClaudeSessions } from '../api.js';
 import { toast } from '../stores/toastStore.js';
 import { formatRelativeTime } from '../utils/relativeTime.js';
 
@@ -43,7 +43,7 @@ export default function AdoptSessionModal({ taskId, onClose, onAdopted }) {
   async function onAdopt() {
     if (!selectedSession || adopting) { return; }
     setAdopting(true);
-    const result = await adoptClaudeSession(taskId, selectedSession.session_id);
+    const result = await adoptAgentSession(taskId, selectedSession.session_id);
     setAdopting(false);
     if (!result.ok) {
       const message = (result.body && result.body.error)

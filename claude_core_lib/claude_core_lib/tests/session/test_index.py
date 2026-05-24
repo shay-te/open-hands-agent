@@ -269,24 +269,24 @@ class SessionManagerAdoptionTests(unittest.TestCase):
 
     def test_adopt_creates_record_when_none_exists(self) -> None:
         record = self.manager.adopt_session_id(
-            'PROJ-1', claude_session_id='abc-def',
+            'PROJ-1', agent_session_id='abc-def',
         )
         self.assertEqual(record.task_id, 'PROJ-1')
-        self.assertEqual(record.claude_session_id, 'abc-def')
+        self.assertEqual(record.agent_session_id, 'abc-def')
         self.assertEqual(record.status, SESSION_STATUS_TERMINATED)
 
     def test_adopt_refuses_to_change_existing_session_id(self) -> None:
-        self.manager.adopt_session_id('PROJ-1', claude_session_id='first')
+        self.manager.adopt_session_id('PROJ-1', agent_session_id='first')
         with self.assertRaisesRegex(RuntimeError, 'already pinned'):
-            self.manager.adopt_session_id('PROJ-1', claude_session_id='second')
+            self.manager.adopt_session_id('PROJ-1', agent_session_id='second')
         self.assertEqual(
-            self.manager.get_record('PROJ-1').claude_session_id,
+            self.manager.get_record('PROJ-1').agent_session_id,
             'first',
         )
 
     def test_adopt_persists_record_to_disk(self) -> None:
         self.manager.adopt_session_id(
-            'PROJ-1', claude_session_id='abc-def',
+            'PROJ-1', agent_session_id='abc-def',
             task_summary='fix the bug',
         )
         # New manager instance reads the persisted record from disk
@@ -294,18 +294,18 @@ class SessionManagerAdoptionTests(unittest.TestCase):
         fresh = ClaudeSessionManager(state_dir=self.state_dir)
         record = fresh.get_record('PROJ-1')
         self.assertIsNotNone(record)
-        self.assertEqual(record.claude_session_id, 'abc-def')
+        self.assertEqual(record.agent_session_id, 'abc-def')
         self.assertEqual(record.task_summary, 'fix the bug')
 
     def test_adopt_refuses_empty_session_id(self) -> None:
         with self.assertRaisesRegex(ValueError, 'must be non-empty'):
-            self.manager.adopt_session_id('PROJ-1', claude_session_id='')
+            self.manager.adopt_session_id('PROJ-1', agent_session_id='')
 
     def test_adopt_strips_whitespace_around_session_id(self) -> None:
         record = self.manager.adopt_session_id(
-            'PROJ-1', claude_session_id='  abc-def\n',
+            'PROJ-1', agent_session_id='  abc-def\n',
         )
-        self.assertEqual(record.claude_session_id, 'abc-def')
+        self.assertEqual(record.agent_session_id, 'abc-def')
 
     def test_adopt_does_not_change_cwd_so_kato_keeps_workspace_isolation(self) -> None:
         # Adoption MUST NOT repoint kato's spawn cwd at the source
@@ -317,10 +317,10 @@ class SessionManagerAdoptionTests(unittest.TestCase):
         # invariant — kato edited the dev's checkout in-place and
         # mixed git state. This test locks the safe default down.
         # Pre-set a cwd as if a previous spawn populated it.
-        first = self.manager.adopt_session_id('PROJ-1', claude_session_id='abc-def')
+        first = self.manager.adopt_session_id('PROJ-1', agent_session_id='abc-def')
         first.cwd = '/wks/PROJ-1/admin-backend'
         # Idempotent re-adopt — record.cwd must be untouched.
-        self.manager.adopt_session_id('PROJ-1', claude_session_id='abc-def')
+        self.manager.adopt_session_id('PROJ-1', agent_session_id='abc-def')
         self.assertEqual(
             self.manager.get_record('PROJ-1').cwd,
             '/wks/PROJ-1/admin-backend',
@@ -328,11 +328,11 @@ class SessionManagerAdoptionTests(unittest.TestCase):
 
     def test_adopt_does_not_overwrite_existing_task_summary(self) -> None:
         self.manager.adopt_session_id(
-            'PROJ-1', claude_session_id='first',
+            'PROJ-1', agent_session_id='first',
             task_summary='first summary',
         )
         self.manager.adopt_session_id(
-            'PROJ-1', claude_session_id='first',
+            'PROJ-1', agent_session_id='first',
             task_summary='second summary',
         )
         record = self.manager.get_record('PROJ-1')
@@ -384,6 +384,33 @@ class ProjectDirEncodingTests(unittest.TestCase):
             'C--Codes-UNA-2489-proj',
         )
 
+    def test_flattens_underscore_to_dash(self) -> None:
+        # UNA-2669 regression: Claude Code flattens ``_`` to ``-`` too.
+        # When a workspace lives under ``dev_kato/`` and kato's encoder
+        # kept the underscore, the migrated JSONL landed in
+        # ``-Users-...-dev_kato-...`` while ``claude --resume`` looked
+        # in ``-Users-...-dev-kato-...``. The session was therefore
+        # never found and review-comment fixes crashed on every scan
+        # tick (refusing the fresh fallback by design).
+        result = claude_project_dir_for_cwd(
+            '/Users/me/dev_kato/UNA-2669/ob-love-admin-client',
+        )
+        self.assertEqual(
+            result.name,
+            '-Users-me-dev-kato-UNA-2669-ob-love-admin-client',
+        )
+
+    def test_flattens_dot_to_dash(self) -> None:
+        # Claude Code also flattens ``.`` (a hidden folder or a path
+        # like ``./something``) to ``-``. Pin that behaviour so a
+        # cwd like ``/Users/me/.local/share/repo`` resolves to the
+        # same project dir Claude writes to.
+        result = claude_project_dir_for_cwd('/Users/me/.cache/proj')
+        self.assertEqual(
+            result.name,
+            '-Users-me--cache-proj',
+        )
+
 
 class MigrateSessionToWorkspaceTests(unittest.TestCase):
     """``migrate_session_to_workspace`` copies the JSONL to the target cwd's project dir."""
@@ -420,9 +447,9 @@ class MigrateSessionToWorkspaceTests(unittest.TestCase):
         )
         self.assertIsNotNone(result)
         # File now also exists at the kato cwd's project dir.
-        # Claude Code's encoding only replaces ``/`` with ``-``;
-        # dots in path segments (``.kato``) are preserved verbatim.
-        kato_dir = self.root / '-Users-dev-.kato-workspaces-PROJ-1-myproj'
+        # Claude Code's encoding flattens ``/``, ``_`` and ``.`` to ``-`` —
+        # ``.kato`` becomes ``-kato`` (leading dot stripped to dash).
+        kato_dir = self.root / '-Users-dev--kato-workspaces-PROJ-1-myproj'
         self.assertTrue((kato_dir / 'sess-abc.jsonl').is_file())
 
     def test_returns_none_when_source_missing(self) -> None:
@@ -769,7 +796,7 @@ class MigrateSessionToWorkspaceIdempotent(unittest.TestCase):
         # Place the source JSONL exactly where claude_project_dir_for_cwd
         # would route it, then migrate — should detect same path and no-op.
         target_cwd = '/Users/me/.kato/workspaces/PROJ-1/c'
-        target_dir = self.root / '-Users-me-.kato-workspaces-PROJ-1-c'
+        target_dir = self.root / '-Users-me--kato-workspaces-PROJ-1-c'
         target_dir.mkdir()
         source = target_dir / 'sess-A.jsonl'
         source.write_text(
@@ -786,7 +813,7 @@ class MigrateSessionToWorkspaceIdempotent(unittest.TestCase):
         # through to the copy. Pre-3.6 behaviour locked here so a future
         # change doesn't accidentally start crashing on the old path.
         target_cwd = '/Users/me/.kato/workspaces/PROJ-2/c'
-        target_dir_name = '-Users-me-.kato-workspaces-PROJ-2-c'
+        target_dir_name = '-Users-me--kato-workspaces-PROJ-2-c'
         # Source lives in a separate dir (so the copy is meaningful).
         source_dir = self.root / 'src'
         source_dir.mkdir()
@@ -864,6 +891,25 @@ class ParseMetadataDirectTests(unittest.TestCase):
                 return_value='',
             ):
                 self.assertIsNone(self._parse_metadata(path))
+
+    def test_record_session_id_fallback_is_normalized(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'fallback.jsonl'
+            path.write_text(
+                json.dumps({'type': 'user',
+                            'cwd': '/r',
+                            'sessionId': '  rec-id\n',
+                            'message': {'content': 'hi'}}) + '\n',
+            )
+
+            with patch.object(
+                Path, 'stem', new_callable=unittest.mock.PropertyMock,
+                return_value='',
+            ):
+                metadata = self._parse_metadata(path)
+
+        self.assertIsNotNone(metadata)
+        self.assertEqual(metadata.session_id, 'rec-id')
 
 
 class ListSessionsParseFailureContinue(unittest.TestCase):

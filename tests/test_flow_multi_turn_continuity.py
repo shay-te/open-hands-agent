@@ -45,7 +45,7 @@ def _make_stub_session(recorded: dict, *, fresh_id: str = 'fresh-uuid'):
             recorded['kwargs'] = kwargs
             self._task_id = kwargs.get('task_id', '')
             self._cwd = kwargs.get('cwd', '')
-            self._claude_session_id = (
+            self._agent_session_id = (
                 kwargs.get('resume_session_id', '') or fresh_id
             )
             self._alive = True
@@ -57,7 +57,7 @@ def _make_stub_session(recorded: dict, *, fresh_id: str = 'fresh-uuid'):
         def cwd(self): return self._cwd
 
         @property
-        def claude_session_id(self): return self._claude_session_id
+        def agent_session_id(self): return self._agent_session_id
 
         @property
         def is_alive(self): return self._alive
@@ -212,7 +212,7 @@ class FlowMultiTurnContinuityTests(unittest.TestCase):
         )
 
     def test_flow_multi_turn_record_without_session_id_uses_wrapper(self) -> None:
-        # Adversarial edge: a record exists for T1 but ``claude_session_id``
+        # Adversarial edge: a record exists for T1 but ``agent_session_id``
         # is empty (e.g., the previous spawn errored before adoption).
         # The runner must treat this as a FIRST SPAWN and wrap the message.
         recorded = {}
@@ -228,7 +228,7 @@ class FlowMultiTurnContinuityTests(unittest.TestCase):
             manager._records[manager._lookup_key('T1')] = PlanningSessionRecord(
                 task_id='T1',
                 task_summary='hung first spawn',
-                claude_session_id='',
+                agent_session_id='',
                 status=SESSION_STATUS_TERMINATED,
             )
 
@@ -247,7 +247,7 @@ class FlowMultiTurnContinuityTests(unittest.TestCase):
     def test_flow_multi_turn_record_with_whitespace_session_id_uses_wrapper(self) -> None:
         # Adversarial edge: persisted record has session id ``'   '``
         # (hand-edited disk, prior buggy version). The runner strips
-        # whitespace; if the check is naïve (``if record.claude_session_id``),
+        # whitespace; if the check is naïve (``if record.agent_session_id``),
         # it would treat that as truthy and skip the wrapper — and then
         # also pass whitespace as the resume id, which fails ugly.
         recorded = {}
@@ -260,7 +260,7 @@ class FlowMultiTurnContinuityTests(unittest.TestCase):
         with manager._lock:
             manager._records[manager._lookup_key('T1')] = PlanningSessionRecord(
                 task_id='T1',
-                claude_session_id='   ',  # whitespace only
+                agent_session_id='   ',  # whitespace only
                 status=SESSION_STATUS_TERMINATED,
             )
 
@@ -322,7 +322,7 @@ class FlowMultiTurnContinuityTests(unittest.TestCase):
                 recorded['kwargs'] = kwargs
                 # Match the manager's return shape: a stub session.
                 return SimpleNamespace(
-                    claude_session_id='', cwd=kwargs.get('cwd', ''),
+                    agent_session_id='', cwd=kwargs.get('cwd', ''),
                     task_id=kwargs.get('task_id', ''),
                     is_alive=True, is_working=False,
                 )
@@ -351,7 +351,7 @@ class FlowMultiTurnContinuityTests(unittest.TestCase):
 
 
 class FlowMultiTurnManagerSidePersistenceTests(unittest.TestCase):
-    """Without these, the runner's lookup of ``record.claude_session_id``
+    """Without these, the runner's lookup of ``record.agent_session_id``
     would always return empty and every spawn would be treated as fresh."""
 
     def _make_manager(self, recorded, fresh_id='session-X'):
@@ -369,7 +369,7 @@ class FlowMultiTurnManagerSidePersistenceTests(unittest.TestCase):
         # The kato side calls ``get_record`` before the next spawn —
         # that path runs ``_with_refreshed_session_id`` which mirrors
         # the live session's id onto the record. If THAT chain breaks,
-        # the runner sees ``claude_session_id=''`` and Bug 2 returns.
+        # the runner sees ``agent_session_id=''`` and Bug 2 returns.
         recorded = {}
         manager = self._make_manager(recorded, fresh_id='session-from-claude')
         manager.start_session(
@@ -377,7 +377,7 @@ class FlowMultiTurnManagerSidePersistenceTests(unittest.TestCase):
             cwd='/tmp/T1',
         )
         record = manager.get_record('T1')
-        self.assertEqual(record.claude_session_id, 'session-from-claude')
+        self.assertEqual(record.agent_session_id, 'session-from-claude')
 
     def test_flow_multi_turn_session_id_survives_terminate(self) -> None:
         # After ``terminate_session``, the live subprocess is gone but
@@ -396,7 +396,7 @@ class FlowMultiTurnManagerSidePersistenceTests(unittest.TestCase):
         record = manager.get_record('T1')
         self.assertIsNotNone(record)
         self.assertEqual(
-            record.claude_session_id, 'surviving-id',
+            record.agent_session_id, 'surviving-id',
             'terminate wiped the session id — next message will fork',
         )
 

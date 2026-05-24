@@ -60,7 +60,7 @@ class FlowAdoptValidationTests(unittest.TestCase):
                 state_dir=state_dir, session_factory=lambda **_: None,
             )
             with self.assertRaises(ValueError):
-                mgr.adopt_session_id('T1', claude_session_id='')
+                mgr.adopt_session_id('T1', agent_session_id='')
 
     def test_flow_adopt_rejects_whitespace_only_session_id(self) -> None:
         # Defensive: leading/trailing whitespace should be stripped;
@@ -74,7 +74,7 @@ class FlowAdoptValidationTests(unittest.TestCase):
                 state_dir=state_dir, session_factory=lambda **_: None,
             )
             with self.assertRaises(ValueError):
-                mgr.adopt_session_id('T1', claude_session_id='   ')
+                mgr.adopt_session_id('T1', agent_session_id='   ')
 
     def test_flow_adopt_normalizes_session_id_whitespace(self) -> None:
         # Trim leading/trailing whitespace (e.g., from copy-paste)
@@ -87,9 +87,9 @@ class FlowAdoptValidationTests(unittest.TestCase):
                 state_dir=state_dir, session_factory=lambda **_: None,
             )
             record = mgr.adopt_session_id(
-                'T1', claude_session_id='  sess-abc-123\n',
+                'T1', agent_session_id='  sess-abc-123\n',
             )
-            self.assertEqual(record.claude_session_id, 'sess-abc-123')
+            self.assertEqual(record.agent_session_id, 'sess-abc-123')
 
 
 # ---------------------------------------------------------------------------
@@ -110,7 +110,7 @@ class FlowAdoptPersistenceTests(unittest.TestCase):
                 state_dir=state_dir, session_factory=lambda **_: None,
             )
             mgr.adopt_session_id(
-                'T1', claude_session_id='adopted-id-from-vscode',
+                'T1', agent_session_id='adopted-id-from-vscode',
                 task_summary='migrated from VS Code',
             )
             # On-disk record exists with the adopted id.
@@ -118,7 +118,7 @@ class FlowAdoptPersistenceTests(unittest.TestCase):
                 (Path(state_dir) / 'T1.json').read_text(encoding='utf-8'),
             )
             self.assertEqual(
-                persisted['claude_session_id'], 'adopted-id-from-vscode',
+                persisted['agent_session_id'], 'adopted-id-from-vscode',
                 'adoption did not persist — restart will lose the adoption',
             )
 
@@ -131,7 +131,7 @@ class FlowAdoptPersistenceTests(unittest.TestCase):
                 state_dir=state_dir, session_factory=lambda **_: None,
             )
             mgr.adopt_session_id(
-                'T1', claude_session_id='adopted-id',
+                'T1', agent_session_id='adopted-id',
                 task_summary='migrated from VS Code',
             )
             persisted = json.loads(
@@ -151,13 +151,13 @@ class FlowAdoptPersistenceTests(unittest.TestCase):
             mgr = ClaudeSessionManager(
                 state_dir=state_dir, session_factory=lambda **_: None,
             )
-            mgr.adopt_session_id('T1', claude_session_id='first-id')
+            mgr.adopt_session_id('T1', agent_session_id='first-id')
             with self.assertRaises(RuntimeError):
-                mgr.adopt_session_id('T1', claude_session_id='second-id')
+                mgr.adopt_session_id('T1', agent_session_id='second-id')
             persisted = json.loads(
                 (Path(state_dir) / 'T1.json').read_text(encoding='utf-8'),
             )
-            self.assertEqual(persisted['claude_session_id'], 'first-id')
+            self.assertEqual(persisted['agent_session_id'], 'first-id')
 
     def test_flow_adopt_allows_idempotent_re_adopt(self) -> None:
         from claude_core_lib.claude_core_lib.session.manager import (
@@ -167,9 +167,9 @@ class FlowAdoptPersistenceTests(unittest.TestCase):
             mgr = ClaudeSessionManager(
                 state_dir=state_dir, session_factory=lambda **_: None,
             )
-            mgr.adopt_session_id('T1', claude_session_id='same-id')
-            mgr.adopt_session_id('T1', claude_session_id='same-id')
-            self.assertEqual(mgr.get_record('T1').claude_session_id, 'same-id')
+            mgr.adopt_session_id('T1', agent_session_id='same-id')
+            mgr.adopt_session_id('T1', agent_session_id='same-id')
+            self.assertEqual(mgr.get_record('T1').agent_session_id, 'same-id')
 
     def test_flow_adopt_with_no_existing_record_creates_one(self) -> None:
         # First-ever interaction with this task may be the adoption
@@ -183,11 +183,11 @@ class FlowAdoptPersistenceTests(unittest.TestCase):
             )
             self.assertIsNone(mgr.get_record('NEW-TASK'))
             mgr.adopt_session_id(
-                'NEW-TASK', claude_session_id='new-id',
+                'NEW-TASK', agent_session_id='new-id',
                 task_summary='first contact',
             )
             self.assertEqual(
-                mgr.get_record('NEW-TASK').claude_session_id, 'new-id',
+                mgr.get_record('NEW-TASK').agent_session_id, 'new-id',
             )
 
     def test_flow_adopt_keeps_existing_summary_when_new_is_empty(self) -> None:
@@ -211,7 +211,7 @@ class FlowAdoptPersistenceTests(unittest.TestCase):
                 )
                 mgr._persist_record(mgr._records[lookup_key])
 
-            mgr.adopt_session_id('T1', claude_session_id='new-id')
+            mgr.adopt_session_id('T1', agent_session_id='new-id')
 
             self.assertEqual(
                 mgr.get_record('T1').task_summary, 'original summary',
@@ -242,7 +242,7 @@ class FlowAdoptWorkspaceMirrorTests(unittest.TestCase):
             mgr.attach_workspace_manager(workspace_mgr)
 
             mgr.adopt_session_id(
-                'T1', claude_session_id='adopted-id',
+                'T1', agent_session_id='adopted-id',
                 task_summary='go',
             )
 
@@ -277,7 +277,7 @@ class FlowAdoptNextSpawnUsesResumeTests(unittest.TestCase):
                 recorded['kwargs'] = kwargs
                 self._task_id = kwargs.get('task_id', '')
                 self._cwd = kwargs.get('cwd', '')
-                self._claude_session_id = (
+                self._agent_session_id = (
                     kwargs.get('resume_session_id', '') or fresh_id
                 )
                 self._alive = True
@@ -289,7 +289,7 @@ class FlowAdoptNextSpawnUsesResumeTests(unittest.TestCase):
             def cwd(self): return self._cwd
 
             @property
-            def claude_session_id(self): return self._claude_session_id
+            def agent_session_id(self): return self._agent_session_id
 
             @property
             def is_alive(self): return self._alive
@@ -327,7 +327,7 @@ class FlowAdoptNextSpawnUsesResumeTests(unittest.TestCase):
                 session_factory=self._make_stub_session(recorded),
             )
             mgr.adopt_session_id(
-                'T1', claude_session_id='adopted-id-from-vscode',
+                'T1', agent_session_id='adopted-id-from-vscode',
             )
             mgr.start_session(
                 task_id='T1', initial_prompt='continue',
@@ -352,7 +352,7 @@ class FlowAdoptNextSpawnUsesResumeTests(unittest.TestCase):
                 state_dir=state_dir,
                 session_factory=self._make_stub_session({}),
             )
-            mgr1.adopt_session_id('T1', claude_session_id='adopted-id-xyz')
+            mgr1.adopt_session_id('T1', agent_session_id='adopted-id-xyz')
             del mgr1
 
             # Run 2: fresh process, fresh manager.

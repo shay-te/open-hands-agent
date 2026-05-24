@@ -50,7 +50,7 @@ def _make_stub_session(recorded: dict, *, fresh_id: str = 'fresh-uuid'):
             self._kwargs = kwargs
             self._task_id = kwargs.get('task_id', '')
             self._cwd = kwargs.get('cwd', '')
-            self._claude_session_id = (
+            self._agent_session_id = (
                 kwargs.get('resume_session_id', '') or fresh_id
             )
             self._alive = True
@@ -62,7 +62,7 @@ def _make_stub_session(recorded: dict, *, fresh_id: str = 'fresh-uuid'):
         def cwd(self): return self._cwd
 
         @property
-        def claude_session_id(self): return self._claude_session_id
+        def agent_session_id(self): return self._agent_session_id
 
         @property
         def is_alive(self): return self._alive
@@ -131,7 +131,7 @@ class FlowRestartMidWorkTests(unittest.TestCase):
             )
             # Claude reported its session id; the manager mirrors it.
             record = mgr_run1.get_record('T1')
-            self.assertEqual(record.claude_session_id, 'session-id-X')
+            self.assertEqual(record.agent_session_id, 'session-id-X')
 
             # --- OPERATOR KILLS KATO ---
             mgr_run1.terminate_session('T1')
@@ -151,7 +151,7 @@ class FlowRestartMidWorkTests(unittest.TestCase):
                 record, 'restart lost the record — chat tab would be empty',
             )
             self.assertEqual(
-                record.claude_session_id, 'session-id-X',
+                record.agent_session_id, 'session-id-X',
                 'restart lost the session id — next message will fork',
             )
 
@@ -187,7 +187,7 @@ class FlowRestartMidWorkTests(unittest.TestCase):
             record_path.write_text(json.dumps({
                 'task_id': 'T1',
                 'task_summary': 'crashed mid-work',
-                'claude_session_id': 'stale-but-real',
+                'agent_session_id': 'stale-but-real',
                 'status': SESSION_STATUS_ACTIVE,
                 'created_at_epoch': 1000.0,
                 'updated_at_epoch': 1000.0,
@@ -205,7 +205,7 @@ class FlowRestartMidWorkTests(unittest.TestCase):
                 'ACTIVE status survived restart — UI will lie about live tabs',
             )
             # But the session id IS preserved so resume still works.
-            self.assertEqual(record.claude_session_id, 'stale-but-real')
+            self.assertEqual(record.agent_session_id, 'stale-but-real')
 
     def test_flow_restart_with_unreadable_record_does_not_crash(self) -> None:
         # If one record on disk is corrupt, the manager must boot
@@ -222,7 +222,7 @@ class FlowRestartMidWorkTests(unittest.TestCase):
             # Healthy record.
             (Path(state_dir) / 'T2.json').write_text(json.dumps({
                 'task_id': 'T2',
-                'claude_session_id': 'healthy-id',
+                'agent_session_id': 'healthy-id',
                 'status': 'terminated',
             }), encoding='utf-8')
 
@@ -234,7 +234,7 @@ class FlowRestartMidWorkTests(unittest.TestCase):
             self.assertIsNone(mgr.get_record('T1'))
             # T2 still rehydrates.
             self.assertEqual(
-                mgr.get_record('T2').claude_session_id, 'healthy-id',
+                mgr.get_record('T2').agent_session_id, 'healthy-id',
             )
 
     def test_flow_restart_with_non_dict_payload_skipped(self) -> None:
@@ -263,7 +263,7 @@ class FlowRestartMidWorkTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as state_dir:
             (Path(state_dir) / 'orphan.json').write_text(json.dumps({
                 'task_id': '',
-                'claude_session_id': 'leaked-id',
+                'agent_session_id': 'leaked-id',
                 'status': 'terminated',
             }), encoding='utf-8')
             mgr = ClaudeSessionManager(
@@ -423,14 +423,14 @@ class FlowRestartMidWorkTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as state_dir:
             (Path(state_dir) / 'T1.json').write_text(json.dumps({
                 'task_id': 'T1',
-                'claude_session_id': 'real-id',
+                'agent_session_id': 'real-id',
                 'status': 'terminated',
             }), encoding='utf-8')
             mgr = ClaudeSessionManager(
                 state_dir=state_dir,
                 session_factory=_make_stub_session({}),
             )
-            self.assertEqual(mgr.get_record('T1').claude_session_id, 'real-id')
+            self.assertEqual(mgr.get_record('T1').agent_session_id, 'real-id')
 
 
 # ---------------------------------------------------------------------------
@@ -449,14 +449,14 @@ class FlowRestartMultiTaskTests(unittest.TestCase):
             for task_id, sid in (('T1', 'sid-1'), ('T2', 'sid-2'), ('T3', 'sid-3')):
                 (Path(state_dir) / f'{task_id}.json').write_text(json.dumps({
                     'task_id': task_id,
-                    'claude_session_id': sid,
+                    'agent_session_id': sid,
                     'status': 'terminated',
                 }), encoding='utf-8')
             mgr = ClaudeSessionManager(
                 state_dir=state_dir,
                 session_factory=_make_stub_session({}),
             )
-            ids = {r.task_id: r.claude_session_id for r in mgr.list_records()}
+            ids = {r.task_id: r.agent_session_id for r in mgr.list_records()}
             self.assertEqual(ids, {'T1': 'sid-1', 'T2': 'sid-2', 'T3': 'sid-3'})
 
     def test_flow_restart_one_corrupt_record_does_not_block_others(self) -> None:
@@ -471,19 +471,19 @@ class FlowRestartMultiTaskTests(unittest.TestCase):
             )
             (Path(state_dir) / 'T2.json').write_text(json.dumps({
                 'task_id': 'T2',
-                'claude_session_id': 'survivor',
+                'agent_session_id': 'survivor',
                 'status': 'terminated',
             }), encoding='utf-8')
             (Path(state_dir) / 'T3.json').write_text(json.dumps({
                 'task_id': 'T3',
-                'claude_session_id': 'also-survivor',
+                'agent_session_id': 'also-survivor',
                 'status': 'terminated',
             }), encoding='utf-8')
             mgr = ClaudeSessionManager(
                 state_dir=state_dir,
                 session_factory=_make_stub_session({}),
             )
-            ids = {r.task_id: r.claude_session_id for r in mgr.list_records()}
+            ids = {r.task_id: r.agent_session_id for r in mgr.list_records()}
             # T1 dropped; T2 + T3 came back.
             self.assertEqual(ids, {'T2': 'survivor', 'T3': 'also-survivor'})
 

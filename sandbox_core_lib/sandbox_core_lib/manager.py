@@ -19,6 +19,7 @@ Three responsibilities:
 """
 
 from __future__ import annotations
+from agent_core_lib.agent_core_lib.helpers.text_utils import text_from_mapping
 
 import contextlib
 import hashlib
@@ -32,7 +33,6 @@ import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-
 try:
     import fcntl  # POSIX-only; Windows callers fall back to a no-op lock
 except ImportError:                                  # pragma: no cover
@@ -735,7 +735,7 @@ def build_image(
     # immutable digest instead of the mutable ``node:22-bookworm-slim``
     # tag. Recommended for any deployment that cares about base-image
     # tampering or reproducibility.
-    base_override = str(env_source.get('KATO_SANDBOX_BASE_IMAGE', '') or '').strip()
+    base_override = text_from_mapping(env_source, 'KATO_SANDBOX_BASE_IMAGE')
     if base_override:
         cmd.extend(['--build-arg', f'BASE_IMAGE={base_override}'])
         if logger is not None:
@@ -751,7 +751,7 @@ def build_image(
     # be pushed to npm between operator builds. Default ``latest``
     # preserves existing behavior — operators opt into pinning when
     # their threat model requires it.
-    cli_override = str(env_source.get('KATO_SANDBOX_CLAUDE_CLI_VERSION', '') or '').strip()
+    cli_override = text_from_mapping(env_source, 'KATO_SANDBOX_CLAUDE_CLI_VERSION')
     if cli_override:
         cmd.extend(['--build-arg', f'CLAUDE_CLI_VERSION={cli_override}'])
         if logger is not None:

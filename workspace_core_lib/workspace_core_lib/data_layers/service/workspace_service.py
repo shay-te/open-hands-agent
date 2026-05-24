@@ -33,6 +33,9 @@ from workspace_core_lib.workspace_core_lib.data_layers.data_access.workspace_dat
     WorkspaceDataAccess,
     _safe_segment,
 )
+from agent_core_lib.agent_core_lib.helpers.session_id_utils import (
+    fix_session_id,
+)
 
 
 DEFAULT_PREFLIGHT_LOG_FILENAME = '.workspace-preflight.log'
@@ -194,7 +197,7 @@ class WorkspaceService(Service):
         values are kept when the corresponding argument is empty so
         a partial update doesn't blank a previously-recorded id.
         """
-        new_session = str(agent_session_id or '').strip()
+        new_session = fix_session_id(agent_session_id)
         new_cwd = str(cwd or '').strip()
 
         def apply(record: WorkspaceRecord) -> None:

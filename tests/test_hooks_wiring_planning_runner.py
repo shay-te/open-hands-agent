@@ -35,7 +35,7 @@ class _FakePrepared:
 
 class _FakeSession:
     def __init__(self, terminal_event: SessionEvent | None) -> None:
-        self.claude_session_id = 'fake-session-id'
+        self.agent_session_id = 'fake-session-id'
         self._events = [terminal_event] if terminal_event else []
         self._is_alive = True
         self.terminal_event = terminal_event
@@ -124,7 +124,7 @@ class HooksWiringResumeChatTests(unittest.TestCase):
         # can correlate with on-disk JSONL.
         ss_event = hook_runner.fire.call_args_list[1].args[1]
         self.assertEqual(ss_event['task_id'], 'T-1')
-        self.assertEqual(ss_event['claude_session_id'], 'fake-session-id')
+        self.assertEqual(ss_event['agent_session_id'], 'fake-session-id')
 
     def test_resume_chat_hook_failure_does_not_kill_caller(self) -> None:
         # Defensive: a misbehaving hook runner must not bring down
@@ -159,7 +159,7 @@ class HooksWiringRunToTerminalTests(unittest.TestCase):
         )
         end_event = hook_runner.fire.call_args_list[-1].args[1]
         self.assertEqual(end_event['reason'], 'completed')
-        self.assertEqual(end_event['claude_session_id'], 'fake-session-id')
+        self.assertEqual(end_event['agent_session_id'], 'fake-session-id')
 
     def test_terminal_with_error_fires_session_end_with_reason_error(self) -> None:
         manager = _FakeManager(_error_event())

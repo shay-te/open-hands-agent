@@ -85,7 +85,7 @@ class WebserverAppTests(unittest.TestCase):
                 task_id='PROJ-1',
                 task_summary='do the thing',
                 status='active',
-                claude_session_id='abc',
+                agent_session_id='abc',
             ),
         ])
         self.app = create_app(session_manager=self.manager)
@@ -130,7 +130,7 @@ class WebserverAppTests(unittest.TestCase):
         records = response.get_json()
         self.assertEqual(len(records), 1)
         self.assertEqual(records[0]['task_id'], 'PROJ-1')
-        self.assertEqual(records[0]['claude_session_id'], 'abc')
+        self.assertEqual(records[0]['agent_session_id'], 'abc')
 
     def test_session_detail_endpoint_includes_recent_events_when_session_alive(self):
         live_session = MagicMock()
@@ -140,7 +140,7 @@ class WebserverAppTests(unittest.TestCase):
         ]
         manager = _FakeManager(records=[
             _FakeRecord(task_id='PROJ-2', task_summary='live', status='active',
-                        claude_session_id='s'),
+                        agent_session_id='s'),
         ])
         manager.get_session = lambda task_id: live_session if task_id == 'PROJ-2' else None
         app = create_app(session_manager=manager)
@@ -194,7 +194,7 @@ class WebserverAppTests(unittest.TestCase):
         self.assertEqual(row['adopted_by_task_id'], '')
 
     def test_claude_sessions_endpoint_marks_adopted_sessions(self):
-        # PROJ-1 in the fixture already has claude_session_id='abc'.
+        # PROJ-1 in the fixture already has agent_session_id='abc'.
         # If we put a transcript with that id on disk, the endpoint
         # should report it as adopted by PROJ-1.
         import json, os, tempfile, unittest.mock as _mock
@@ -228,35 +228,35 @@ class WebserverAppTests(unittest.TestCase):
         adopted: list[tuple[str, str]] = []
 
         class _RecordingManager(_FakeManager):
-            def adopt_session_id(self, task_id, *, claude_session_id, task_summary=''):
-                adopted.append((task_id, claude_session_id))
+            def adopt_session_id(self, task_id, *, agent_session_id, task_summary=''):
+                adopted.append((task_id, agent_session_id))
                 return _FakeRecord(
                     task_id=task_id,
-                    claude_session_id=claude_session_id,
+                    agent_session_id=agent_session_id,
                 )
 
         manager = _RecordingManager()
         app = create_app(session_manager=manager)
         response = app.test_client().post(
-            '/api/sessions/PROJ-7/adopt-claude-session',
-            json={'claude_session_id': 'imported-sess-id'},
+            '/api/sessions/PROJ-7/adopt-agent-session',
+            json={'agent_session_id': 'imported-sess-id'},
         )
         self.assertEqual(response.status_code, 200)
         payload = response.get_json()
         self.assertEqual(payload['task_id'], 'PROJ-7')
-        self.assertEqual(payload['claude_session_id'], 'imported-sess-id')
+        self.assertEqual(payload['agent_session_id'], 'imported-sess-id')
         self.assertEqual(adopted, [('PROJ-7', 'imported-sess-id')])
 
     def test_adopt_claude_session_endpoint_rejects_empty_id(self):
         response = self.client.post(
-            '/api/sessions/PROJ-1/adopt-claude-session',
-            json={'claude_session_id': '   '},
+            '/api/sessions/PROJ-1/adopt-agent-session',
+            json={'agent_session_id': '   '},
         )
         self.assertEqual(response.status_code, 400)
 
     def test_adopt_claude_session_endpoint_rejects_pinned_id_change(self):
         class _PinnedManager(_FakeManager):
-            def adopt_session_id(self, task_id, *, claude_session_id, task_summary=''):
+            def adopt_session_id(self, task_id, *, agent_session_id, task_summary=''):
                 raise RuntimeError(
                     'cannot adopt session id new for task PROJ-1: '
                     'existing session id old is already pinned'
@@ -264,8 +264,8 @@ class WebserverAppTests(unittest.TestCase):
 
         app = create_app(session_manager=_PinnedManager())
         response = app.test_client().post(
-            '/api/sessions/PROJ-1/adopt-claude-session',
-            json={'claude_session_id': 'new'},
+            '/api/sessions/PROJ-1/adopt-agent-session',
+            json={'agent_session_id': 'new'},
         )
         self.assertEqual(response.status_code, 409)
         self.assertIn('already pinned', response.get_json()['error'])
@@ -295,7 +295,7 @@ class WebserverAppTests(unittest.TestCase):
                     super().__init__(records=[_FakeRecord(
                         task_id='PROJ-9',
                         cwd='/Users/dev/.kato/workspaces/PROJ-9/myproj',
-                        claude_session_id='',
+                        agent_session_id='',
                     )])
 
                 def get_record(self, task_id):
@@ -304,10 +304,10 @@ class WebserverAppTests(unittest.TestCase):
                         None,
                     )
 
-                def adopt_session_id(self, task_id, *, claude_session_id, task_summary=''):
+                def adopt_session_id(self, task_id, *, agent_session_id, task_summary=''):
                     return _FakeRecord(
                         task_id=task_id,
-                        claude_session_id=claude_session_id,
+                        agent_session_id=agent_session_id,
                     )
 
             manager = _AdoptingManager()
@@ -318,14 +318,14 @@ class WebserverAppTests(unittest.TestCase):
             ):
                 app = create_app(session_manager=manager)
                 response = app.test_client().post(
-                    '/api/sessions/PROJ-9/adopt-claude-session',
-                    json={'claude_session_id': 'sess-imported'},
+                    '/api/sessions/PROJ-9/adopt-agent-session',
+                    json={'agent_session_id': 'sess-imported'},
                 )
             self.assertEqual(response.status_code, 200)
             # The JSONL has been copied into the kato cwd's project dir.
-            # Claude Code's encoding only replaces ``/`` with ``-`` —
-            # dots in segments (``.kato``) are preserved.
-            kato_dir = sessions_root / '-Users-dev-.kato-workspaces-PROJ-9-myproj'
+            # Claude Code's encoding flattens ``/``, ``_`` and ``.`` to ``-`` —
+            # ``.kato`` becomes ``-kato`` (leading dot stripped to dash).
+            kato_dir = sessions_root / '-Users-dev--kato-workspaces-PROJ-9-myproj'
             self.assertTrue((kato_dir / 'sess-imported.jsonl').is_file())
             payload = response.get_json()
             self.assertIn('transcript_migrated_to', payload)
@@ -344,7 +344,7 @@ class WebserverAppTests(unittest.TestCase):
                 return live if task_id == 'PROJ-1' else None
 
         manager = _LiveManager(records=[
-            _FakeRecord(task_id='PROJ-1', claude_session_id='abc'),
+            _FakeRecord(task_id='PROJ-1', agent_session_id='abc'),
         ])
         app = create_app(session_manager=manager)
         response = app.test_client().post(
@@ -375,7 +375,7 @@ class WebserverAppTests(unittest.TestCase):
                 return live if task_id == 'PROJ-1' else None
 
         manager = _LiveManager(records=[
-            _FakeRecord(task_id='PROJ-1', claude_session_id='abc'),
+            _FakeRecord(task_id='PROJ-1', agent_session_id='abc'),
         ])
         app = create_app(session_manager=manager)
         response = app.test_client().post(
@@ -420,7 +420,7 @@ class WebserverAppTests(unittest.TestCase):
             def get_session(self, task_id):
                 return live if task_id == 'PROJ-1' else None
         manager = _LiveManager(records=[
-            _FakeRecord(task_id='PROJ-1', claude_session_id='abc'),
+            _FakeRecord(task_id='PROJ-1', agent_session_id='abc'),
         ])
         app = create_app(session_manager=manager)
         response = app.test_client().post(
@@ -429,6 +429,59 @@ class WebserverAppTests(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(sent, ['hi'])
+
+    def test_post_message_respawns_when_live_session_id_drifted(self):
+        import tempfile
+        from claude_core_lib.claude_core_lib.session.manager import (
+            ClaudeSessionManager,
+        )
+
+        class _WrongLiveSession:
+            def __init__(self):
+                self.agent_session_id = 'wrong-live-id'
+                self.is_alive = True
+                self.sent = []
+                self.terminate_calls = 0
+
+            def send_user_message(self, text, images=None):
+                self.sent.append((text, images))
+
+            def terminate(self):
+                self.terminate_calls += 1
+                self.is_alive = False
+
+        class _RecordingRunner:
+            def __init__(self):
+                self.calls = []
+
+            def resume_session_for_chat(self, **kwargs):
+                self.calls.append(kwargs)
+
+        with tempfile.TemporaryDirectory() as state_dir:
+            manager = ClaudeSessionManager(
+                state_dir=state_dir,
+                session_factory=lambda **_: None,
+            )
+            manager.adopt_session_id('PROJ-1', agent_session_id='pinned-id')
+            wrong = _WrongLiveSession()
+            manager._sessions[manager._lookup_key('PROJ-1')] = wrong
+            runner = _RecordingRunner()
+            app = create_app(
+                session_manager=manager,
+                planning_session_runner=runner,
+            )
+
+            response = app.test_client().post(
+                '/api/sessions/PROJ-1/messages',
+                json={'text': 'wake up'},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()['status'], 'spawned')
+        self.assertEqual(wrong.sent, [])
+        self.assertEqual(wrong.terminate_calls, 1)
+        self.assertEqual(runner.calls[0]['task_id'], 'PROJ-1')
+        self.assertEqual(runner.calls[0]['message'], 'wake up')
 
     def test_adopt_claude_session_endpoint_refuses_when_session_alive(self):
         live = MagicMock()
@@ -442,12 +495,12 @@ class WebserverAppTests(unittest.TestCase):
                 raise AssertionError('should not be called when live')
 
         manager = _LiveManager(records=[
-            _FakeRecord(task_id='PROJ-1', claude_session_id='existing'),
+            _FakeRecord(task_id='PROJ-1', agent_session_id='existing'),
         ])
         app = create_app(session_manager=manager)
         response = app.test_client().post(
-            '/api/sessions/PROJ-1/adopt-claude-session',
-            json={'claude_session_id': 'new'},
+            '/api/sessions/PROJ-1/adopt-agent-session',
+            json={'agent_session_id': 'new'},
         )
         self.assertEqual(response.status_code, 409)
 
@@ -587,7 +640,7 @@ class WebserverAppTests(unittest.TestCase):
                 task_id='PROJ-3',
                 task_summary='approval',
                 status='active',
-                claude_session_id='s',
+                agent_session_id='s',
             ),
         ])
         manager.get_session = lambda task_id: live_session if task_id == 'PROJ-3' else None
@@ -741,7 +794,7 @@ class MultiRepoEndpointShapeTests(unittest.TestCase):
                 task_id='PROJ-1',
                 task_summary='multi-repo task',
                 status='active',
-                claude_session_id='abc',
+                agent_session_id='abc',
                 cwd=str(self.repo_a),
             ),
         ])

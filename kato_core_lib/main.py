@@ -23,7 +23,9 @@ from sandbox_core_lib.sandbox_core_lib.tls_pin import (
     TlsPinError,
     validate_anthropic_tls_pin_or_refuse,
 )
-from claude_core_lib.claude_core_lib.session.session_id_utils import fix_session_id
+from agent_core_lib.agent_core_lib.helpers.session_id_utils import (
+    read_session_id_from,
+)
 from kato_core_lib.validate_env import validate_environment
 from sandbox_core_lib.sandbox_core_lib.bypass_permissions_validator import (
     BypassPermissionsRefused,
@@ -403,7 +405,7 @@ def _resume_streaming_sessions(app) -> None:
     tab in a "Claude: sleeping" state until the operator types into
     it. We walk the workspace registry and call ``start_session`` for
     each ``active`` workspace; the session manager's existing
-    resume-id plumbing reuses the saved ``claude_session_id`` so the
+    resume-id plumbing reuses the saved ``agent_session_id`` so the
     chat picks up where it left off. A short system-notice prompt is
     sent so the Claude CLI doesn't exit on empty stdin (it requires
     at least one message at startup).
@@ -775,7 +777,7 @@ def _log_known_session_ids(app) -> None:
     lines = []
     for record in records:
         task_id = str(getattr(record, 'task_id', '') or '').strip()
-        sid = fix_session_id(getattr(record, 'claude_session_id', ''))
+        sid = read_session_id_from(record)
         if task_id and sid:
             lines.append(f'  task {task_id}: session id {sid}')
     if lines:

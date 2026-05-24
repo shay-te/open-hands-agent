@@ -247,13 +247,13 @@ class MainTests(unittest.TestCase):
         self.assertEqual(call_kwargs['task_id'], 'PROJ-2')
         self.assertEqual(call_kwargs['initial_prompt'], _RESUME_WAIT_PROMPT)
 
-    def test_resume_streaming_sessions_recovers_latest_claude_session_id_after_restart(self) -> None:
+    def test_resume_streaming_sessions_recovers_latest_agent_session_id_after_restart(self) -> None:
         """End-to-end: a kato restart re-attaches the existing chat to its
         most recently persisted Claude session id, not a fresh session.
 
         Sets up a real ``ClaudeSessionManager`` (not a mock) pointed at a
         temp state dir. Starts a session for PROJ-1 — this writes
-        ``claude_session_id`` to ``<state_dir>/PROJ-1.json``. Then
+        ``agent_session_id`` to ``<state_dir>/PROJ-1.json``. Then
         simulates "kato restart" by building a brand-new manager pointed
         at the same dir and feeding it through ``_resume_streaming_sessions``.
         Asserts that the resumed session inherits the persisted session id,
@@ -272,12 +272,12 @@ class MainTests(unittest.TestCase):
                 first_fakes.append(s)
                 return s
 
-            # --- Run 1: start a session, capture the persisted claude_session_id
+            # --- Run 1: start a session, capture the persisted agent_session_id
             first_manager = ClaudeSessionManager(
                 state_dir=state_dir, session_factory=first_factory,
             )
             first_manager.start_session(task_id='PROJ-1', task_summary='resume me')
-            persisted_session_id = first_fakes[0].claude_session_id
+            persisted_session_id = first_fakes[0].agent_session_id
             self.assertTrue(persisted_session_id)
 
             # --- Simulated restart: new manager, same state_dir, no in-memory carry-over
@@ -318,7 +318,7 @@ class MainTests(unittest.TestCase):
             _resume_streaming_sessions(app)
 
             # Exactly one new session spawned, and it inherits the
-            # persisted claude_session_id as its resume target — proving
+            # persisted agent_session_id as its resume target — proving
             # the chat picks up where the previous kato run left off.
             self.assertEqual(len(second_fakes), 1)
             self.assertEqual(second_fakes[0].resume_session_id, persisted_session_id)
@@ -338,7 +338,7 @@ class MainTests(unittest.TestCase):
                 session_factory=lambda **kw: fakes_1.append(_FakeStreamingSession(**kw)) or fakes_1[-1],
             )
             mgr_1.start_session(task_id='PROJ-1', task_summary='first run')
-            persisted_session_id = mgr_1.get_record('PROJ-1').claude_session_id
+            persisted_session_id = mgr_1.get_record('PROJ-1').agent_session_id
             mgr_1.terminate_session('PROJ-1')
 
             # Manager 2 (simulated restart 1): a different adoption is refused.
@@ -348,8 +348,8 @@ class MainTests(unittest.TestCase):
                 session_factory=lambda **kw: fakes_2.append(_FakeStreamingSession(**kw)) or fakes_2[-1],
             )
             with self.assertRaises(RuntimeError):
-                mgr_2.adopt_session_id('PROJ-1', claude_session_id='newer-session-uuid')
-            latest_session_id = mgr_2.get_record('PROJ-1').claude_session_id
+                mgr_2.adopt_session_id('PROJ-1', agent_session_id='newer-session-uuid')
+            latest_session_id = mgr_2.get_record('PROJ-1').agent_session_id
             self.assertEqual(latest_session_id, persisted_session_id)
 
             # Manager 3 (simulated restart 2): _resume_streaming_sessions
@@ -426,7 +426,7 @@ class MainTests(unittest.TestCase):
             self.assertEqual(len(fakes), 1)
             self.assertEqual(fakes[0].resume_session_id, 'workspace-session-id')
             self.assertEqual(
-                manager.get_record('PROJ-1').claude_session_id,
+                manager.get_record('PROJ-1').agent_session_id,
                 'workspace-session-id',
             )
 

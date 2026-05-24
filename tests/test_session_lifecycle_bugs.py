@@ -148,7 +148,7 @@ class Bug2ResumeSendsRawUserMessageTests(unittest.TestCase):
     def test_resume_with_session_id_sends_raw_message(self) -> None:
         manager = MagicMock()
         manager.get_record.return_value = SimpleNamespace(
-            claude_session_id='persisted-id-abc',
+            agent_session_id='persisted-id-abc',
         )
         runner = PlanningSessionRunner(
             session_manager=manager, defaults=StreamingSessionDefaults(),
@@ -165,7 +165,7 @@ class Bug2ResumeSendsRawUserMessageTests(unittest.TestCase):
     def test_resume_with_session_id_does_not_emit_continuity_block(self) -> None:
         manager = MagicMock()
         manager.get_record.return_value = SimpleNamespace(
-            claude_session_id='persisted-id-abc',
+            agent_session_id='persisted-id-abc',
         )
         runner = PlanningSessionRunner(
             session_manager=manager, defaults=StreamingSessionDefaults(),
@@ -198,11 +198,11 @@ class Bug2ResumeSendsRawUserMessageTests(unittest.TestCase):
     def test_first_spawn_with_record_lacking_session_id_keeps_wrapper(
         self,
     ) -> None:
-        # Edge: record exists but ``claude_session_id`` is blank (e.g.
+        # Edge: record exists but ``agent_session_id`` is blank (e.g.
         # the prior session was rejected by Claude and self-healed back
         # to a fresh start). Treat as first-spawn — wrap the message.
         manager = MagicMock()
-        manager.get_record.return_value = SimpleNamespace(claude_session_id='')
+        manager.get_record.return_value = SimpleNamespace(agent_session_id='')
         runner = PlanningSessionRunner(
             session_manager=manager, defaults=StreamingSessionDefaults(),
         )

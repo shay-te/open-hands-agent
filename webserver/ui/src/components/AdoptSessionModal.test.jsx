@@ -1,13 +1,13 @@
 // Component-level tests for AdoptSessionModal — the "Adopt a Claude
 // Code session" picker. Mounts → lists existing Claude sessions from
 // ~/.claude/, search box re-queries the api, operator picks a row,
-// confirm calls /adopt-claude-session.
+// confirm calls /adopt-agent-session.
 //
 // Interesting wiring:
 //   - Lists each session: cwd + relative time + turn count + preview.
 //   - Search input refetches with the query string.
 //   - Adopt button stays disabled until a row is selected.
-//   - Confirm calls adoptClaudeSession(taskId, sessionId), then onAdopted + onClose.
+//   - Confirm calls adoptAgentSession(taskId, sessionId), then onAdopted + onClose.
 //   - Error path: ok:false → toast error, modal stays open.
 //   - fetchClaudeSessions throws → error rendered in the empty area.
 
@@ -15,7 +15,7 @@ import { describe, test, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 
 vi.mock('../api.js', () => ({
-  adoptClaudeSession: vi.fn(),
+  adoptAgentSession: vi.fn(),
   fetchClaudeSessions: vi.fn(),
 }));
 
@@ -24,7 +24,7 @@ vi.mock('../stores/toastStore.js', () => ({
 }));
 
 import AdoptSessionModal from './AdoptSessionModal.jsx';
-import { adoptClaudeSession, fetchClaudeSessions } from '../api.js';
+import { adoptAgentSession, fetchClaudeSessions } from '../api.js';
 import { toast } from '../stores/toastStore.js';
 
 
@@ -63,7 +63,7 @@ function renderModal({
 
 beforeEach(() => {
   fetchClaudeSessions.mockReset();
-  adoptClaudeSession.mockReset();
+  adoptAgentSession.mockReset();
   toast.show.mockReset();
 });
 
@@ -156,9 +156,9 @@ describe('AdoptSessionModal — search + select', () => {
 
 describe('AdoptSessionModal — submit', () => {
 
-  test('success: calls adoptClaudeSession(taskId, sessionId) then onAdopted + onClose', async () => {
+  test('success: calls adoptAgentSession(taskId, sessionId) then onAdopted + onClose', async () => {
     fetchClaudeSessions.mockResolvedValue({ sessions: [_session('claude-sess-1')] });
-    adoptClaudeSession.mockResolvedValue({ ok: true, body: {} });
+    adoptAgentSession.mockResolvedValue({ ok: true, body: {} });
 
     const { onAdopted, onClose } = renderModal({ taskId: 'TASK-7' });
 
@@ -168,7 +168,7 @@ describe('AdoptSessionModal — submit', () => {
     fireEvent.click(screen.getByRole('button', { name: /Adopt selected/i }));
 
     await waitFor(() => {
-      expect(adoptClaudeSession).toHaveBeenCalledWith('TASK-7', 'claude-sess-1');
+      expect(adoptAgentSession).toHaveBeenCalledWith('TASK-7', 'claude-sess-1');
     });
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     expect(onAdopted).toHaveBeenCalled();
@@ -176,7 +176,7 @@ describe('AdoptSessionModal — submit', () => {
 
   test('failure: surfaces error toast, modal stays open', async () => {
     fetchClaudeSessions.mockResolvedValue({ sessions: [_session('claude-sess-1')] });
-    adoptClaudeSession.mockResolvedValue({
+    adoptAgentSession.mockResolvedValue({
       ok: false,
       body: { error: 'session is locked' },
     });
@@ -188,7 +188,7 @@ describe('AdoptSessionModal — submit', () => {
     fireEvent.click(screen.getByText(/last message in claude-sess-1/));
     fireEvent.click(screen.getByRole('button', { name: /Adopt selected/i }));
 
-    await waitFor(() => expect(adoptClaudeSession).toHaveBeenCalled());
+    await waitFor(() => expect(adoptAgentSession).toHaveBeenCalled());
 
     expect(toast.show).toHaveBeenCalledWith(expect.objectContaining({
       kind: 'error',

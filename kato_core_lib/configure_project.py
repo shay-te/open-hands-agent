@@ -1,4 +1,5 @@
 from __future__ import annotations
+from agent_core_lib.agent_core_lib.helpers.text_utils import text_from_mapping
 
 import argparse
 import logging
@@ -20,7 +21,6 @@ from kato_core_lib.validate_env import (
     validate_claude_env,
     validate_openhands_env,
 )
-
 try:
     from core_lib.helpers.command_line import (
         input_string as core_input_string,
@@ -437,7 +437,7 @@ def _write_configuration_file(
 
 def _report_configuration_validation(values: dict[str, str]) -> int:
     errors = validate_agent_env(values)
-    backend = str(values.get('KATO_AGENT_BACKEND', '') or '').strip().lower()
+    backend = text_from_mapping(values, 'KATO_AGENT_BACKEND').lower()
     if backend == 'claude':
         errors.extend(validate_claude_env(values))
     else:

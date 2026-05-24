@@ -311,7 +311,7 @@ class FlowStaleResumePersistenceTests(unittest.TestCase):
             )
             record = PlanningSessionRecord(
                 task_id='T1',
-                claude_session_id='dead-id',
+                agent_session_id='dead-id',
                 status=SESSION_STATUS_TERMINATED,
             )
             with mgr._lock:
@@ -335,7 +335,7 @@ class FlowStaleResumePersistenceTests(unittest.TestCase):
                 (Path(state_dir) / 't1.json').read_text(encoding='utf-8'),
             )
             self.assertEqual(
-                persisted['claude_session_id'], 'dead-id',
+                persisted['agent_session_id'], 'dead-id',
                 'on-disk record lost the pinned session id',
             )
 
@@ -352,7 +352,7 @@ class FlowStaleResumePersistenceTests(unittest.TestCase):
             )
             record = PlanningSessionRecord(
                 task_id='T1',
-                claude_session_id='healthy-id',
+                agent_session_id='healthy-id',
                 status=SESSION_STATUS_TERMINATED,
             )
             with mgr._lock:
@@ -396,7 +396,7 @@ class FlowStaleResumePersistenceTests(unittest.TestCase):
             )
             record = PlanningSessionRecord(
                 task_id='T1',
-                claude_session_id='not-yet-validated',
+                agent_session_id='not-yet-validated',
                 status=SESSION_STATUS_TERMINATED,
             )
             self.assertEqual(
@@ -432,7 +432,7 @@ class FlowStaleResumeEndToEndTests(unittest.TestCase):
                     terminal_event = None
 
                     @property
-                    def claude_session_id(self): return 'dead-id'
+                    def agent_session_id(self): return 'dead-id'
 
                     def start(self, *, initial_prompt=''): pass
 
@@ -479,7 +479,7 @@ class FlowStaleResumeEndToEndTests(unittest.TestCase):
                 terminal_event = None
 
                 @property
-                def claude_session_id(self):
+                def agent_session_id(self):
                     return kwargs.get('resume_session_id', '') or 'fresh-id'
 
                 def start(self, *, initial_prompt=''): pass
@@ -501,7 +501,7 @@ class FlowStaleResumeEndToEndTests(unittest.TestCase):
                 resume_session_id='healthy-id',
             )
             self.assertEqual(len(spawn_calls), 1)
-            self.assertEqual(session.claude_session_id, 'healthy-id')
+            self.assertEqual(session.agent_session_id, 'healthy-id')
 
 
 if __name__ == '__main__':

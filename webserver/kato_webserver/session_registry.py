@@ -13,6 +13,10 @@ import threading
 import time
 from dataclasses import dataclass, field
 
+from agent_core_lib.agent_core_lib.helpers.session_id_utils import (
+    AGENT_SESSION_ID,
+)
+
 
 @dataclass
 class PlanningSession(object):
@@ -20,7 +24,7 @@ class PlanningSession(object):
     task_summary: str
     status: str = "waiting"  # waiting | active | done
     created_at_epoch: float = field(default_factory=time.time)
-    claude_session_id: str = ""
+    agent_session_id: str = ""
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -28,7 +32,7 @@ class PlanningSession(object):
             "task_summary": self.task_summary,
             "status": self.status,
             "created_at_epoch": self.created_at_epoch,
-            "claude_session_id": self.claude_session_id,
+            AGENT_SESSION_ID: self.agent_session_id,
         }
 
 

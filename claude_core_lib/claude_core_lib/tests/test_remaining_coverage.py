@@ -242,7 +242,7 @@ class SessionManagerLoadPersistedRecordsTests(unittest.TestCase):
                 'task_id': 'T1',
                 'task_summary': 'fix bug',
                 'cwd': '/tmp',
-                'claude_session_id': 'sess-1',
+                'agent_session_id': 'sess-1',
                 'status': SESSION_STATUS_ACTIVE,
                 'updated_at_epoch': 1000.0,
                 'created_at_epoch': 1000.0,

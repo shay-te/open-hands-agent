@@ -364,6 +364,17 @@ class PeekSessionMetadataTests(unittest.TestCase):
         self.assertEqual(cwd, '/repo')
         self.assertEqual(sid, 'sess-A')
 
+    def test_normalizes_session_id_from_record(self) -> None:
+        path = self.dir / 'sess.jsonl'
+        _write_jsonl(path, [
+            {'type': 'user', 'cwd': '/repo', 'sessionId': '  sess-A\n'},
+        ])
+
+        cwd, sid = _peek_session_metadata(path)
+
+        self.assertEqual(cwd, '/repo')
+        self.assertEqual(sid, 'sess-A')
+
     def test_returns_empty_when_no_record_has_both_fields(self) -> None:
         path = self.dir / 'lonely.jsonl'
         _write_jsonl(path, [

@@ -228,6 +228,16 @@ class WorkspaceServiceTests(unittest.TestCase):
         self.assertEqual(record.agent_session_id, 'sess-1')
         self.assertEqual(record.cwd, '/tmp/wks')
 
+    def test_update_agent_session_normalizes_session_id(self) -> None:
+        self.service.create(task_id='PROJ-1')
+        self.service.update_agent_session(
+            'PROJ-1', agent_session_id='  sess-1\n',
+        )
+
+        record = self.service.get('PROJ-1')
+        assert record is not None
+        self.assertEqual(record.agent_session_id, 'sess-1')
+
     def test_update_agent_session_partial_does_not_blank_existing(self) -> None:
         # Setting only ``agent_session_id`` must not erase a
         # previously-recorded ``cwd`` (and vice-versa).
@@ -423,27 +433,6 @@ class WorkspaceServiceTests(unittest.TestCase):
             self.service.append_preflight_log('PROJ-31', msg)
         messages = [m for _, m in self.service.read_preflight_log('PROJ-31')]
         self.assertEqual(messages, ['a', 'b', 'c'])
-
-    # ----- backwards compat with legacy on-disk format -----
-
-    def test_get_loads_legacy_claude_session_id_field(self) -> None:
-        # Pre-rename deployments persisted under ``claude_session_id``.
-        # Hand-write a legacy file and confirm the service surfaces
-        # it as ``agent_session_id``.
-        (self.root / 'PROJ-1').mkdir()
-        (self.root / 'PROJ-1' / DEFAULT_METADATA_FILENAME).write_text(
-            json.dumps({
-                'task_id': 'PROJ-1',
-                'claude_session_id': 'legacy',
-                'status': WORKSPACE_STATUS_DONE,
-            }),
-            encoding='utf-8',
-        )
-        record = self.service.get('PROJ-1')
-        assert record is not None
-        self.assertEqual(record.agent_session_id, 'legacy')
-        self.assertEqual(record.status, WORKSPACE_STATUS_DONE)
-
 
 class WorkspaceServicePreflightLogTests(unittest.TestCase):
     """Cover the defensive paths in append/read of the preflight log."""

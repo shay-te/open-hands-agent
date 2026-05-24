@@ -18,7 +18,7 @@ Endpoints:
     GET  /api/sessions/<task_id>/commit?repo=<id>&sha=  — unified diff for one commit
     POST /api/sessions/<task_id>/messages               — body: {"text", "images": [{media_type, data}]}
     POST /api/sessions/<task_id>/permission             — body: {"request_id", "allow", "rationale"}
-    POST /api/sessions/<task_id>/adopt-claude-session   — body: {"claude_session_id"}
+    POST /api/sessions/<task_id>/adopt-agent-session    — body: {"agent_session_id"}
     POST /api/sessions/<task_id>/sync-repositories      — clone task repos missing from workspace
     POST /api/sessions/<task_id>/add-repository         — body: {"repository_id"} — tag + clone
     GET  /api/repositories                              — list inventory repos for the chooser
@@ -56,7 +56,13 @@ from flask import (
     url_for,
 )
 
-from claude_core_lib.claude_core_lib.session.session_id_utils import fix_session_id
+from agent_core_lib.agent_core_lib.helpers.session_id_utils import (
+    AGENT_SESSION_ID,
+    fix_session_id,
+    read_session_id_from,
+    same_session_id,
+)
+from agent_core_lib.agent_core_lib.helpers.text_utils import text_from_mapping
 from claude_core_lib.claude_core_lib.session.wire_protocol import (
     CLAUDE_EVENT_CONTROL_REQUEST,
     CLAUDE_EVENT_PERMISSION_REQUEST,
@@ -685,7 +691,7 @@ def _register_http_routes(app: Flask) -> None:
     @app.post('/api/sessions/<task_id>/model')
     def set_session_model(task_id: str):
         body = request.get_json(silent=True) or {}
-        model = str(body.get('model') or '').strip()
+        model = text_from_mapping(body, 'model')
         overrides = app.config.get('TASK_MODEL_OVERRIDES')
         if overrides is None:
             return jsonify({'error': 'not available'}), 503
@@ -750,7 +756,7 @@ def _register_http_routes(app: Flask) -> None:
         adopted_by: dict[str, str] = {}
         try:
             for record in manager.list_records():
-                sid = fix_session_id(getattr(record, 'claude_session_id', ''))
+                sid = read_session_id_from(record)
                 if sid and sid not in adopted_by:
                     adopted_by[sid] = record.task_id
         except Exception:  # pragma: no cover — defensive
@@ -765,54 +771,45 @@ def _register_http_routes(app: Flask) -> None:
             ],
         })
 
-    @app.post('/api/sessions/<task_id>/adopt-claude-session')
-    def adopt_claude_session(task_id: str):
-        """Bind an existing Claude Code session id to ``task_id``.
+    @app.post('/api/sessions/<task_id>/adopt-agent-session')
+    def adopt_agent_session(task_id: str):
+        """Bind an existing agent session id to ``task_id``.
 
-        Body: ``{"claude_session_id": "<uuid>"}``. The next agent
-        spawn for ``task_id`` will ``--resume`` that session instead
-        of starting a fresh conversation. Refuses when a live session
-        is already running for ``task_id`` — the operator must close
-        it first to avoid two writers on the same record.
+        Body: ``{"agent_session_id": "<uuid>"}``. The next agent spawn
+        for ``task_id`` will ``--resume`` that session instead of
+        starting a fresh conversation. Refuses when a live session is
+        already running for ``task_id`` — the operator must close it
+        first to avoid two writers on the same record.
         """
         payload = request.get_json(silent=True) or {}
-        claude_session_id = fix_session_id(payload.get('claude_session_id'))
-        if not claude_session_id:
-            return jsonify({'error': 'claude_session_id is required'}), 400
+        agent_session_id = fix_session_id(payload.get(AGENT_SESSION_ID))
+        if not agent_session_id:
+            return jsonify({'error': 'agent_session_id is required'}), 400
         manager = app.config['SESSION_MANAGER']
         live_session = manager.get_session(task_id)
         if live_session is not None and live_session.is_alive:
             return jsonify({
                 'error': (
                     'a live planning session is already running for this task; '
-                    'stop it before adopting a different Claude session'
+                    'stop it before adopting a different agent session'
                 ),
             }), 409
         try:
             record = manager.adopt_session_id(
                 task_id,
-                claude_session_id=claude_session_id,
+                agent_session_id=agent_session_id,
             )
         except ValueError as exc:
             return jsonify({'error': str(exc)}), 400
         except RuntimeError as exc:
             return jsonify({'error': str(exc)}), 409
-        # Migrate the source JSONL into kato's per-task workspace
-        # cwd so ``claude --resume <id>`` can find it. Kato spawns
-        # Claude at its own workspace clone — NOT the source
-        # session's cwd — so the operator can review changes against
-        # an isolated worktree without risk of clobbering their VS
-        # Code checkout. The trade-off is documented in
-        # ``docs/adopting-existing-claude-sessions.md``: the migrated
-        # JSONL is a one-time SNAPSHOT; turns the source instance
-        # takes after adoption don't sync over.
         migration = _migrate_adopted_session_transcript(
-            app, task_id, claude_session_id,
+            app, task_id, agent_session_id,
         )
         migration_path = str(migration) if migration else ''
         return jsonify({
             'task_id': record.task_id,
-            'claude_session_id': record.claude_session_id,
+            AGENT_SESSION_ID: record.agent_session_id,
             'transcript_migrated_to': migration_path,
         })
 
@@ -864,7 +861,7 @@ def _register_http_routes(app: Flask) -> None:
         ``restart_required: true``.
         """
         payload = request.get_json(silent=True) or {}
-        new_path = str(payload.get('repository_root_path') or '').strip()
+        new_path = text_from_mapping(payload, 'repository_root_path')
         if not new_path:
             return jsonify({'error': 'repository_root_path is required'}), 400
         # Resolve ``~`` and relative segments so the operator can
@@ -942,7 +939,7 @@ def _register_http_routes(app: Flask) -> None:
         """
         payload = request.get_json(silent=True) or {}
         updates: dict[str, str] = {}
-        active = str(payload.get('active') or '').strip().lower()
+        active = text_from_mapping(payload, 'active').lower()
         if active:
             if active not in _TASK_PROVIDER_FIELDS:
                 return jsonify({
@@ -950,7 +947,7 @@ def _register_http_routes(app: Flask) -> None:
                              f'{list(_TASK_PROVIDER_FIELDS.keys())}.',
                 }), 400
             updates['KATO_ISSUE_PLATFORM'] = active
-        provider = str(payload.get('provider') or '').strip().lower()
+        provider = text_from_mapping(payload, 'provider').lower()
         fields = payload.get('fields') or {}
         if provider:
             if provider not in _TASK_PROVIDER_FIELDS:
@@ -1006,7 +1003,7 @@ def _register_http_routes(app: Flask) -> None:
         keys are written.
         """
         payload = request.get_json(silent=True) or {}
-        provider = str(payload.get('provider') or '').strip().lower()
+        provider = text_from_mapping(payload, 'provider').lower()
         fields = payload.get('fields') or {}
         if not provider or provider not in _GIT_HOST_FIELDS:
             return jsonify({
@@ -1210,8 +1207,8 @@ def _register_http_routes(app: Flask) -> None:
         for item in approve_in:
             if not isinstance(item, dict):
                 continue
-            repo_id = str(item.get('repository_id') or '').strip()
-            remote_url = str(item.get('remote_url') or '').strip()
+            repo_id = text_from_mapping(item, 'repository_id')
+            remote_url = text_from_mapping(item, 'remote_url')
             mode = str(item.get('mode') or 'restricted').strip().lower()
             if not repo_id:
                 continue
@@ -1786,8 +1783,8 @@ def _register_http_routes(app: Flask) -> None:
         payload = request.get_json(silent=True) or {}
         result = add_comment(
             task_id,
-            repo_id=str(payload.get('repo') or '').strip(),
-            file_path=str(payload.get('file_path') or '').strip(),
+            repo_id=text_from_mapping(payload, 'repo'),
+            file_path=text_from_mapping(payload, 'file_path'),
             line=int(payload.get('line', -1) or -1),
             body=str(payload.get('body') or ''),
             parent_id=str(payload.get('parent_id') or ''),
@@ -1865,7 +1862,7 @@ def _register_http_routes(app: Flask) -> None:
         if not callable(sync):
             return jsonify({'error': 'comments not supported'}), 501
         payload = request.get_json(silent=True) or {}
-        repo_id = str(payload.get('repo') or '').strip()
+        repo_id = text_from_mapping(payload, 'repo')
         if not repo_id:
             return jsonify({'ok': False, 'error': 'repo is required'}), 400
         return jsonify(sync(task_id, repo_id))
@@ -1944,7 +1941,7 @@ def _register_http_routes(app: Flask) -> None:
         if not callable(add_repo):
             return jsonify({'error': 'agent service does not support add-repository'}), 501
         payload = request.get_json(silent=True) or {}
-        repository_id = str(payload.get('repository_id', '') or '').strip()
+        repository_id = text_from_mapping(payload, 'repository_id')
         if not repository_id:
             return jsonify({'error': 'repository_id is required'}), 400
         result = add_repo(task_id, repository_id) or {}
@@ -2209,7 +2206,7 @@ def _register_post_message_route(app: Flask) -> None:
     @app.post('/api/sessions/<task_id>/messages')
     def post_message(task_id: str):
         payload = request.get_json(silent=True) or {}
-        text = str(payload.get('text', '') or '').strip()
+        text = text_from_mapping(payload, 'text')
         images = payload.get('images') or []
         if not isinstance(images, list):
             images = []
@@ -2275,7 +2272,7 @@ def _register_post_permission_route(app: Flask) -> None:
         if error is not None:
             return error
         payload = request.get_json(silent=True) or {}
-        request_id = str(payload.get('request_id', '') or '').strip()
+        request_id = text_from_mapping(payload, 'request_id')
         if not request_id:
             return jsonify({'error': 'request_id is required'}), 400
         allow = bool(payload.get('allow', False))
@@ -2414,7 +2411,7 @@ def _spawn_or_reject_chat_session(app: Flask, task_id: str, text: str):
 
 
 def _migrate_adopted_session_transcript(
-    app, task_id: str, claude_session_id: str,
+    app, task_id: str, agent_session_id: str,
 ):
     """Copy the adopted session JSONL into kato's workspace cwd.
 
@@ -2441,7 +2438,7 @@ def _migrate_adopted_session_transcript(
         return None
     transcript_path = ''
     for entry in list_sessions(max_results=10000):
-        if entry.session_id == claude_session_id:
+        if same_session_id(entry.session_id, agent_session_id):
             transcript_path = entry.transcript_path
             break
     if not transcript_path:
@@ -2556,7 +2553,7 @@ def _event_stream_generator(
       * (live stream + `session_closed`) — events flow until the
         subprocess exits and the buffer drains.
     """
-    claude_session_id = _resolve_claude_session_id(
+    agent_session_id = _resolve_agent_session_id(
         manager, workspace_manager, task_id,
     )
     record = manager.get_record(task_id) if manager is not None else None
@@ -2571,7 +2568,7 @@ def _event_stream_generator(
     session = manager.get_session(task_id) if manager is not None else None
     if session is None:
         yield from _replay_preflight_log(workspace_manager, task_id)
-        yield from _replay_history_from_disk(claude_session_id)
+        yield from _replay_history_from_disk(agent_session_id)
         if _drain_queued_task_comment(agent_service, task_id):
             session = manager.get_session(task_id) if manager is not None else None
             if session is not None:
@@ -2587,7 +2584,7 @@ def _event_stream_generator(
         yield _sse_message(SSE_EVENT_SESSION_IDLE, idle_payload)
         return
     yield from _replay_preflight_log(workspace_manager, task_id)
-    yield from _replay_history_from_disk(claude_session_id)
+    yield from _replay_history_from_disk(agent_session_id)
     replayed_count = yield from _replay_session_backlog(
         session, agent_service=agent_service, task_id=task_id,
     )
@@ -2639,23 +2636,23 @@ def _replay_preflight_log(workspace_manager, task_id: str):
         )
 
 
-# Resolver lives in claude_core_lib (Claude-specific: it reads the
-# ``claude_session_id`` field set by ClaudeSessionManager and feeds
-# the downstream replay of Claude's JSONL transcripts).
+# Resolver lives in claude_core_lib (reads the ``agent_session_id``
+# field set by ClaudeSessionManager and feeds the downstream replay
+# of Claude's JSONL transcripts).
 from claude_core_lib.claude_core_lib.session.history import (
-    resolve_claude_session_id as _resolve_claude_session_id,  # noqa: F401 — kept as alias for in-file callers
+    resolve_agent_session_id as _resolve_agent_session_id,  # noqa: F401 — kept as alias for in-file callers
 )
 
 
-def _replay_history_from_disk(claude_session_id: str):
-    if not claude_session_id:
+def _replay_history_from_disk(agent_session_id: str):
+    if not agent_session_id:
         return
     try:
         from claude_core_lib.claude_core_lib.session.history import load_history_events
     except ImportError:
         return
     try:
-        events = load_history_events(claude_session_id)
+        events = load_history_events(agent_session_id)
     except Exception:
         return
     # Emit under a distinct event type so the client doesn't run these
@@ -2794,7 +2791,7 @@ def _records_as_dicts(
 
     Source of truth: the workspace manager (folder-per-task). Each entry
     is enriched with ``live`` (is the Claude subprocess running?),
-    ``claude_session_id`` (back-fill from session-manager records when
+    ``agent_session_id`` (back-fill from session-manager records when
     older workspace metadata didn't capture it yet), and
     ``has_changes_pending`` (true when kato is paused awaiting push
     approval — the workspace has commits ready to push).
@@ -2860,11 +2857,9 @@ def _session_ids_by_task(session_manager) -> dict[str, str]:
     except Exception:
         return {}
     return {
-        str(record.task_id): fix_session_id(
-            getattr(record, 'claude_session_id', ''),
-        )
+        str(record.task_id): read_session_id_from(record)
         for record in records
-        if fix_session_id(getattr(record, 'claude_session_id', ''))
+        if read_session_id_from(record)
     }
 
 
@@ -3029,10 +3024,10 @@ def _workspace_record_to_dict(
     payload['pending_permission_tool_name'] = (
         (pending_permission_tool_by_task or {}).get(record.task_id, '')
     )
-    if not payload.get('claude_session_id') and session_ids_by_task:
+    if not payload.get(AGENT_SESSION_ID) and session_ids_by_task:
         backfilled = session_ids_by_task.get(record.task_id, '')
         if backfilled:
-            payload['claude_session_id'] = backfilled
+            payload[AGENT_SESSION_ID] = backfilled
     has_pending = False
     if callable(awaiting_push_check):
         try:
@@ -3045,9 +3040,9 @@ def _workspace_record_to_dict(
 
 def _record_to_dict(record) -> dict[str, Any]:
     if hasattr(record, 'to_dict'):
-        return record.to_dict()
+        return dict(record.to_dict())
     if isinstance(record, dict):
-        return record
+        return dict(record)
     return {'task_id': str(getattr(record, 'task_id', '') or '')}
 
 

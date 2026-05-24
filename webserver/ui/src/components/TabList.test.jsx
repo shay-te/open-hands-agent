@@ -20,7 +20,7 @@ function _session(taskId, overrides = {}) {
     status: TAB_STATUS.ACTIVE,
     working: false,
     live: true,
-    claude_session_id: 'sess',
+    agent_session_id: 'sess',
     ...overrides,
   };
 }

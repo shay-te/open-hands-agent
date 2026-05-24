@@ -1286,9 +1286,9 @@ class LogKnownSessionIdsBranchTests(unittest.TestCase):
 
     def test_records_with_ids_log_per_task_line(self) -> None:
         records = [
-            SimpleNamespace(task_id='PROJ-1', claude_session_id='sess-a'),
-            SimpleNamespace(task_id='PROJ-2', claude_session_id='sess-b'),
-            SimpleNamespace(task_id='', claude_session_id='no-task'),  # skipped
+            SimpleNamespace(task_id='PROJ-1', agent_session_id='sess-a'),
+            SimpleNamespace(task_id='PROJ-2', agent_session_id='sess-b'),
+            SimpleNamespace(task_id='', agent_session_id='no-task'),  # skipped
         ]
         app = self._app_with_records(records)
         main_module._log_known_session_ids(app)
@@ -1301,8 +1301,8 @@ class LogKnownSessionIdsBranchTests(unittest.TestCase):
         # → ``lines`` ends empty → fall to the "no Claude session ids
         # recorded at startup" else branch.
         records = [
-            SimpleNamespace(task_id='', claude_session_id='x'),
-            SimpleNamespace(task_id='y', claude_session_id=''),
+            SimpleNamespace(task_id='', agent_session_id='x'),
+            SimpleNamespace(task_id='y', agent_session_id=''),
         ]
         app = self._app_with_records(records)
         main_module._log_known_session_ids(app)

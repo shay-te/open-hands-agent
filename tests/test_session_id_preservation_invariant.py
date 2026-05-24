@@ -1,4 +1,4 @@
-"""Regression invariants: ``claude_session_id`` STAYS THE SAME across the
+"""Regression invariants: ``agent_session_id`` STAYS THE SAME across the
 operations the operator runs every day.
 
 Operator-stated requirement: "when we started with session id, we will
@@ -91,7 +91,7 @@ class _FakeStreamingSession(object):
         # On a successful --resume the CLI reports the resumed id;
         # on a fresh spawn it picks a new uuid. Tests that want to
         # simulate fresh-spawn behavior set resume_session_id=''.
-        self.claude_session_id = resume_session_id or 'fresh-uuid-99'
+        self.agent_session_id = resume_session_id or 'fresh-uuid-99'
         self.cwd = cwd
         self._alive = True
 
@@ -127,7 +127,7 @@ class _FreshIdDespiteResumeSession(_FakeStreamingSession):
             **kwargs,
         )
         if resume_session_id:
-            self.claude_session_id = 'fresh-id-that-must-not-win'
+            self.agent_session_id = 'fresh-id-that-must-not-win'
 
 
 class _RestartPreservesIdTests(unittest.TestCase):
@@ -138,21 +138,21 @@ class _RestartPreservesIdTests(unittest.TestCase):
         # does) must not lose the session id.
         original = PlanningSessionRecord(
             task_id='PROJ-1',
-            claude_session_id=_ORIGINAL_ID,
+            agent_session_id=_ORIGINAL_ID,
             cwd='/x/wks/PROJ-1/repo',
             expected_branch='feature/proj-1',
-            previous_claude_session_id='',
+            previous_agent_session_id='',
         )
         restored = PlanningSessionRecord.from_dict(original.to_dict())
-        self.assertEqual(restored.claude_session_id, _ORIGINAL_ID)
+        self.assertEqual(restored.agent_session_id, _ORIGINAL_ID)
         self.assertEqual(restored, original)
 
     def test_wake_up_after_restart_passes_resume_id_to_spawn(self):
         # The wake path (operator types "continue" after a restart)
-        # reads previous_record.claude_session_id and passes it via
+        # reads previous_record.agent_session_id and passes it via
         # ``--resume`` to the new subprocess. When the resume
         # succeeds (stand-in returns the same id), the in-memory
-        # record's claude_session_id stays at the ORIGINAL value.
+        # record's agent_session_id stays at the ORIGINAL value.
         with tempfile.TemporaryDirectory() as td:
             manager = ClaudeSessionManager(
                 state_dir=Path(td),
@@ -162,7 +162,7 @@ class _RestartPreservesIdTests(unittest.TestCase):
             # disk + in memory (the loader does this at boot).
             seeded = PlanningSessionRecord(
                 task_id='PROJ-1',
-                claude_session_id=_ORIGINAL_ID,
+                agent_session_id=_ORIGINAL_ID,
             )
             manager._records[manager._lookup_key('PROJ-1')] = seeded
             manager._persist_record(seeded)
@@ -170,9 +170,9 @@ class _RestartPreservesIdTests(unittest.TestCase):
             # resume_session_id resolved from the record.
             manager.start_session(task_id='PROJ-1')
             record = manager.get_record('PROJ-1')
-            self.assertEqual(record.claude_session_id, _ORIGINAL_ID)
+            self.assertEqual(record.agent_session_id, _ORIGINAL_ID)
             # No recovery-slot move happened.
-            self.assertEqual(record.previous_claude_session_id, '')
+            self.assertEqual(record.previous_agent_session_id, '')
 
     def test_large_transcript_still_keeps_session_id(self):
         # Regression: the JSONL size gate used to skip --resume for
@@ -194,7 +194,7 @@ class _RestartPreservesIdTests(unittest.TestCase):
                 )
                 seeded = PlanningSessionRecord(
                     task_id='PROJ-1',
-                    claude_session_id=_ORIGINAL_ID,
+                    agent_session_id=_ORIGINAL_ID,
                     cwd='/x/wks/PROJ-1/repo',
                 )
                 manager._records[manager._lookup_key('PROJ-1')] = seeded
@@ -206,8 +206,8 @@ class _RestartPreservesIdTests(unittest.TestCase):
                 )
                 record = manager.get_record('PROJ-1')
 
-            self.assertEqual(record.claude_session_id, _ORIGINAL_ID)
-            self.assertEqual(record.previous_claude_session_id, '')
+            self.assertEqual(record.agent_session_id, _ORIGINAL_ID)
+            self.assertEqual(record.previous_agent_session_id, '')
 
     def test_live_session_reporting_fresh_id_does_not_overwrite_original(self):
         # Regression: correction/refresh helpers must not let a live
@@ -219,7 +219,7 @@ class _RestartPreservesIdTests(unittest.TestCase):
             )
             seeded = PlanningSessionRecord(
                 task_id='PROJ-1',
-                claude_session_id=_ORIGINAL_ID,
+                agent_session_id=_ORIGINAL_ID,
                 cwd='/x/wks/PROJ-1/repo',
             )
             manager._records[manager._lookup_key('PROJ-1')] = seeded
@@ -231,8 +231,8 @@ class _RestartPreservesIdTests(unittest.TestCase):
             )
             record = manager.get_record('PROJ-1')
 
-            self.assertEqual(record.claude_session_id, _ORIGINAL_ID)
-            self.assertEqual(record.previous_claude_session_id, '')
+            self.assertEqual(record.agent_session_id, _ORIGINAL_ID)
+            self.assertEqual(record.previous_agent_session_id, '')
 
 
 class _SyncRepositoriesPreservesIdTests(unittest.TestCase):
@@ -254,7 +254,7 @@ class _SyncRepositoriesPreservesIdTests(unittest.TestCase):
         )
         manager._records[manager._lookup_key('T1')] = PlanningSessionRecord(
             task_id='T1',
-            claude_session_id=_ORIGINAL_ID,
+            agent_session_id=_ORIGINAL_ID,
             cwd='/x/wks/T1/client',
         )
         manager._persist_record(
@@ -291,7 +291,7 @@ class _SyncRepositoriesPreservesIdTests(unittest.TestCase):
             ):
                 service.sync_task_repositories('T1')
             self.assertEqual(
-                manager.get_record('T1').claude_session_id, _ORIGINAL_ID,
+                manager.get_record('T1').agent_session_id, _ORIGINAL_ID,
             )
 
     def test_new_repo_provisioned_keeps_session_id_identical(self):
@@ -315,7 +315,7 @@ class _SyncRepositoriesPreservesIdTests(unittest.TestCase):
             ):
                 service.sync_task_repositories('T1')
             self.assertEqual(
-                manager.get_record('T1').claude_session_id, _ORIGINAL_ID,
+                manager.get_record('T1').agent_session_id, _ORIGINAL_ID,
             )
 
 
@@ -331,7 +331,7 @@ class _AddRepoPreservesIdTests(unittest.TestCase):
                 state_dir=Path(td), session_factory=_FakeStreamingSession,
             )
             manager._records[manager._lookup_key('T1')] = PlanningSessionRecord(
-                task_id='T1', claude_session_id=_ORIGINAL_ID,
+                task_id='T1', agent_session_id=_ORIGINAL_ID,
             )
             manager._persist_record(
                 manager._records[manager._lookup_key('T1')]
@@ -359,7 +359,7 @@ class _AddRepoPreservesIdTests(unittest.TestCase):
             ):
                 service.add_task_repository('T1', 'new-repo')
             self.assertEqual(
-                manager.get_record('T1').claude_session_id, _ORIGINAL_ID,
+                manager.get_record('T1').agent_session_id, _ORIGINAL_ID,
             )
 
 
@@ -373,7 +373,7 @@ class _StaleResumeIdStaysPinnedTests(unittest.TestCase):
             manager = ClaudeSessionManager(state_dir=Path(td))
             previous_record = PlanningSessionRecord(
                 task_id='PROJ-1',
-                claude_session_id=_ORIGINAL_ID,
+                agent_session_id=_ORIGINAL_ID,
             )
             manager._records[manager._lookup_key('PROJ-1')] = previous_record
             manager._persist_record(previous_record)
@@ -389,8 +389,8 @@ class _StaleResumeIdStaysPinnedTests(unittest.TestCase):
                 'PROJ-1', previous_record, dead_session,
             )
             self.assertEqual(resume_id, _ORIGINAL_ID)
-            self.assertEqual(previous_record.claude_session_id, _ORIGINAL_ID)
-            self.assertEqual(previous_record.previous_claude_session_id, '')
+            self.assertEqual(previous_record.agent_session_id, _ORIGINAL_ID)
+            self.assertEqual(previous_record.previous_agent_session_id, '')
 
     def test_stale_resume_during_spawn_refuses_fresh_session(self):
         # If the first spawn rejects --resume, fail loud and leave the
@@ -414,7 +414,7 @@ class _StaleResumeIdStaysPinnedTests(unittest.TestCase):
                 state_dir=Path(td), session_factory=factory,
             )
             manager._records[manager._lookup_key('PROJ-1')] = PlanningSessionRecord(
-                task_id='PROJ-1', claude_session_id=_ORIGINAL_ID,
+                task_id='PROJ-1', agent_session_id=_ORIGINAL_ID,
             )
             manager._persist_record(
                 manager._records[manager._lookup_key('PROJ-1')]
@@ -426,8 +426,8 @@ class _StaleResumeIdStaysPinnedTests(unittest.TestCase):
                 with self.assertRaises(RuntimeError):
                     manager.start_session(task_id='PROJ-1')
             record = manager.get_record('PROJ-1')
-            self.assertEqual(record.claude_session_id, _ORIGINAL_ID)
-            self.assertEqual(record.previous_claude_session_id, '')
+            self.assertEqual(record.agent_session_id, _ORIGINAL_ID)
+            self.assertEqual(record.previous_agent_session_id, '')
             self.assertEqual(len(factory_calls), 1)
 
 
@@ -437,7 +437,7 @@ class _HappyPathResumeKeepsIdAcrossMultipleScenariosTests(unittest.TestCase):
     Start with id X. Stop kato. Restart. Operator triggers Sync.
     Operator adds a repo via add_task_repository. Operator finally
     types "continue" and the spawn happens. Throughout all of this,
-    the persisted claude_session_id stays X.
+    the persisted agent_session_id stays X.
     """
 
     def test_full_operator_flow_preserves_session_id(self):
@@ -447,13 +447,13 @@ class _HappyPathResumeKeepsIdAcrossMultipleScenariosTests(unittest.TestCase):
                 state_dir=Path(td), session_factory=_FakeStreamingSession,
             )
             seeded = PlanningSessionRecord(
-                task_id='T1', claude_session_id=_ORIGINAL_ID,
+                task_id='T1', agent_session_id=_ORIGINAL_ID,
                 cwd='/x/wks/T1/client',
             )
             manager._records[manager._lookup_key('T1')] = seeded
             manager._persist_record(seeded)
             self.assertEqual(
-                manager.get_record('T1').claude_session_id, _ORIGINAL_ID,
+                manager.get_record('T1').agent_session_id, _ORIGINAL_ID,
             )
 
             # === STEP 1: Operator triggers Sync (per-task or global).
@@ -462,7 +462,7 @@ class _HappyPathResumeKeepsIdAcrossMultipleScenariosTests(unittest.TestCase):
             # directly. The record stays untouched. Proxy via
             # checking the record after a noop "sync" pass.
             self.assertEqual(
-                manager.get_record('T1').claude_session_id, _ORIGINAL_ID,
+                manager.get_record('T1').agent_session_id, _ORIGINAL_ID,
             )
 
             # === STEP 2: Operator adds a repo to the task.
@@ -470,16 +470,16 @@ class _HappyPathResumeKeepsIdAcrossMultipleScenariosTests(unittest.TestCase):
             # provisions clones + prepare_task_branches. No session
             # manager call (verified by _AddRepoPreservesIdTests).
             self.assertEqual(
-                manager.get_record('T1').claude_session_id, _ORIGINAL_ID,
+                manager.get_record('T1').agent_session_id, _ORIGINAL_ID,
             )
 
             # === STEP 3: Operator types "continue" → wake spawn.
-            # start_session reads previous_record.claude_session_id
+            # start_session reads previous_record.agent_session_id
             # (= X), passes --resume X, fake session reports back X
-            # as its live id, record.claude_session_id stays X.
+            # as its live id, record.agent_session_id stays X.
             manager.start_session(task_id='T1', cwd='/x/wks/T1/client')
             self.assertEqual(
-                manager.get_record('T1').claude_session_id, _ORIGINAL_ID,
+                manager.get_record('T1').agent_session_id, _ORIGINAL_ID,
             )
 
             # === STEP 4: kato process restart simulation.
@@ -489,7 +489,7 @@ class _HappyPathResumeKeepsIdAcrossMultipleScenariosTests(unittest.TestCase):
                 state_dir=Path(td), session_factory=_FakeStreamingSession,
             )
             self.assertEqual(
-                manager_v2.get_record('T1').claude_session_id, _ORIGINAL_ID,
+                manager_v2.get_record('T1').agent_session_id, _ORIGINAL_ID,
             )
 
 

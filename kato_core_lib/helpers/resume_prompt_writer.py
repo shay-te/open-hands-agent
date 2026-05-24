@@ -43,11 +43,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from claude_core_lib.claude_core_lib.session.session_id_utils import fix_session_id
+from agent_core_lib.agent_core_lib.helpers.session_id_utils import fix_session_id
+from agent_core_lib.agent_core_lib.helpers.text_utils import text_from_mapping
 from kato_core_lib.helpers.atomic_text_utils import atomic_write_text
 from kato_core_lib.helpers.logging_utils import configure_logger
-
-
 RESUME_PROMPT_FILENAME = 'resume_prompt.md'
 
 
@@ -67,7 +66,7 @@ class ResumePromptInputs(object):
     recent_assistant_texts: list[str]
     last_user_text: str
     last_assistant_text: str
-    claude_session_id: str = ''
+    agent_session_id: str = ''
 
 
 def render_resume_prompt(inputs: ResumePromptInputs) -> str:
@@ -83,7 +82,7 @@ def render_resume_prompt(inputs: ResumePromptInputs) -> str:
     ]
     last_user = _trim(inputs.last_user_text or '', 800)
     last_assistant = _trim(inputs.last_assistant_text or '', 1600)
-    claude_session_id = fix_session_id(inputs.claude_session_id)
+    agent_session_id = fix_session_id(inputs.agent_session_id)
 
     lines: list[str] = []
     lines.append(f'# Resume prompt for {task_id}')
@@ -91,8 +90,8 @@ def render_resume_prompt(inputs: ResumePromptInputs) -> str:
     lines.append(f'**Task**: {summary}')
     lines.append(f'**Branch**: `{branch}`')
     lines.append(f'**Workspace**: `{workspace}`')
-    if claude_session_id:
-        lines.append(f'**Claude session id**: `{claude_session_id}`')
+    if agent_session_id:
+        lines.append(f'**Agent session id**: `{agent_session_id}`')
     lines.append('')
 
     if repos:
@@ -228,7 +227,7 @@ def build_inputs_from_session(
     workspace_path: str,
     repository_paths: list[str],
     recent_events: list,
-    claude_session_id: str = '',
+    agent_session_id: str = '',
     max_recent_assistant: int = 6,
 ) -> ResumePromptInputs:
     """Adapter: turn a session's ``recent_events()`` snapshot into renderer inputs.
@@ -265,7 +264,7 @@ def build_inputs_from_session(
         recent_assistant_texts=recent_assistant_texts,
         last_user_text=last_user,
         last_assistant_text=last_assistant,
-        claude_session_id=claude_session_id,
+        agent_session_id=agent_session_id,
     )
 
 
@@ -282,7 +281,7 @@ def _extract_assistant_text(raw: dict) -> str:
         if not isinstance(block, dict):
             continue
         if block.get('type') == 'text':
-            text = str(block.get('text', '') or '').strip()
+            text = text_from_mapping(block, 'text')
             if text:
                 parts.append(text)
     return '\n\n'.join(parts).strip()
@@ -310,7 +309,7 @@ def _extract_user_text(raw: dict) -> str:
         if not isinstance(block, dict):
             continue
         if block.get('type') == 'text':
-            text = str(block.get('text', '') or '').strip()
+            text = text_from_mapping(block, 'text')
             if text:
                 parts.append(text)
     return '\n\n'.join(parts).strip()

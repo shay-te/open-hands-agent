@@ -25,8 +25,17 @@ from pathlib import Path
 
 from agent_core_lib.agent_core_lib.helpers.atomic_write import atomic_write_json
 from agent_core_lib.agent_core_lib.helpers.logging_utils import configure_logger
-from agent_core_lib.agent_core_lib.helpers.text_utils import normalized_text
-from claude_core_lib.claude_core_lib.session.session_id_utils import fix_session_id
+from agent_core_lib.agent_core_lib.helpers.session_id_utils import (
+    AGENT_SESSION_ID,
+    fix_session_id,
+    has_session_id,
+    read_session_id_from,
+    same_session_id,
+)
+from agent_core_lib.agent_core_lib.helpers.text_utils import (
+    normalized_text,
+    text_from_mapping,
+)
 from claude_core_lib.claude_core_lib.session.streaming import StreamingClaudeSession
 
 
@@ -57,7 +66,10 @@ class PlanningSessionRecord(object):
 
     task_id: str
     task_summary: str = ''
-    claude_session_id: str = ''
+    # The agent's session id for this task. ``agent_session_id`` is
+    # the canonical name across every kato agent backend (Claude,
+    # Codex, OpenHands, ...).
+    agent_session_id: str = ''
     status: str = SESSION_STATUS_ACTIVE
     created_at_epoch: float = field(default_factory=time.time)
     updated_at_epoch: float = field(default_factory=time.time)
@@ -70,7 +82,7 @@ class PlanningSessionRecord(object):
     expected_branch: str = ''
     # Recovery slot for older records that already drifted before
     # strict session-id preservation was enforced.
-    previous_claude_session_id: str = ''
+    previous_agent_session_id: str = ''
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -78,17 +90,15 @@ class PlanningSessionRecord(object):
     @classmethod
     def from_dict(cls, payload: dict[str, object]) -> 'PlanningSessionRecord':
         return cls(
-            task_id=str(payload.get('task_id', '') or '').strip(),
+            task_id=text_from_mapping(payload, 'task_id'),
             task_summary=str(payload.get('task_summary', '') or ''),
-            claude_session_id=fix_session_id(payload.get('claude_session_id')),
+            agent_session_id=fix_session_id(payload.get(AGENT_SESSION_ID)),
             status=str(payload.get('status', SESSION_STATUS_ACTIVE) or SESSION_STATUS_ACTIVE),
             created_at_epoch=float(payload.get('created_at_epoch', time.time()) or time.time()),
             updated_at_epoch=float(payload.get('updated_at_epoch', time.time()) or time.time()),
-            cwd=str(payload.get('cwd', '') or '').strip(),
+            cwd=text_from_mapping(payload, 'cwd'),
             expected_branch=str(payload.get('expected_branch', '') or ''),
-            previous_claude_session_id=fix_session_id(
-                payload.get('previous_claude_session_id'),
-            ),
+            previous_agent_session_id=fix_session_id(payload.get('previous_agent_session_id')),
         )
 
 
@@ -185,21 +195,13 @@ class ClaudeSessionManager(object):
         with self._lock:
             for workspace in workspace_records:
                 # ``agent_session_id`` is workspace_core_lib's generic name
-                # for the bound agent session id. Older deployments may
-                # still surface the legacy ``claude_session_id`` attribute
-                # on workspace records that haven't been rewritten yet —
-                # accept either.
-                session_id = (
-                    fix_session_id(getattr(workspace, 'agent_session_id', ''))
-                    or fix_session_id(getattr(workspace, 'claude_session_id', ''))
-                )
+                # for the bound agent session id.
+                session_id = read_session_id_from(workspace)
                 if not session_id:
                     continue
                 lookup_key = self._lookup_key(workspace.task_id)
                 existing = self._records.get(lookup_key)
-                existing_id = fix_session_id(
-                    getattr(existing, 'claude_session_id', ''),
-                )
+                existing_id = read_session_id_from(existing)
                 if existing is not None and existing_id:
                     continue
                 record = existing or PlanningSessionRecord(
@@ -207,7 +209,7 @@ class ClaudeSessionManager(object):
                     task_summary=str(getattr(workspace, 'task_summary', '') or ''),
                     status=SESSION_STATUS_TERMINATED,
                 )
-                record.claude_session_id = session_id
+                record.agent_session_id = session_id
                 cwd = str(getattr(workspace, 'cwd', '') or '').strip()
                 if cwd and not record.cwd:
                     record.cwd = cwd
@@ -278,10 +280,17 @@ class ClaudeSessionManager(object):
             with self._lock:
                 existing = self._sessions.get(lookup_key)
                 if existing is not None and existing.is_alive:
-                    return existing
+                    drifted = self._discard_if_session_id_drifted_locked(
+                        lookup_key, normalized_task_id, existing,
+                    )
+                    if not drifted:
+                        return existing
+                    existing = None
                 previous_record = self._records.get(lookup_key)
                 resume_session_id = self._resume_id_for_spawn(
-                    normalized_task_id, previous_record, existing,
+                    normalized_task_id,
+                    previous_record,
+                    existing,
                 )
             # Warn on huge transcripts, but never trade away the user's
             # session id. A slow resume is better than silent session drift.
@@ -314,7 +323,7 @@ class ClaudeSessionManager(object):
             )
             # Capture a first-spawn id, but never let a live process
             # replace an already-pinned operator session id.
-            correction_expected_id = session.claude_session_id
+            correction_expected_id = fix_session_id(session.agent_session_id)
             correction_can_replace = not bool(resume_session_id)
             session._session_id_correction_callback = (
                 lambda sid, k=lookup_key, t=normalized_task_id,
@@ -479,10 +488,10 @@ class ClaudeSessionManager(object):
         it. Kato must fail loud rather than silently drift to a fresh
         Claude session id.
         """
-        raw_resume_id = previous_record.claude_session_id if previous_record else ''
-        resume_session_id = str(raw_resume_id or '').strip()
+        raw_resume_id = previous_record.agent_session_id if previous_record else ''
+        resume_session_id = fix_session_id(raw_resume_id)
         if previous_record is not None and raw_resume_id != resume_session_id:
-            previous_record.claude_session_id = resume_session_id
+            previous_record.agent_session_id = resume_session_id
             self._persist_record(previous_record)
         if not resume_session_id or existing_session is None:
             return resume_session_id
@@ -604,37 +613,43 @@ class ClaudeSessionManager(object):
         counterpart so the next ``start_session`` for this task resumes from
         Claude's actual JSONL rather than kato's expected UUID.
         """
-        actual_id = str(actual_id or '').strip()
-        if not actual_id:
+        actual_id = fix_session_id(actual_id)
+        if not has_session_id(actual_id):
             return
         with self._lock:
             record = self._records.get(lookup_key)
-            if record is None or record.claude_session_id == actual_id:
+            if record is None:
                 return
-            if record.claude_session_id:
+            record_id = fix_session_id(record.agent_session_id)
+            if same_session_id(record_id, actual_id):
+                if record.agent_session_id != actual_id:
+                    record.agent_session_id = actual_id
+                    record.updated_at_epoch = time.time()
+                    self._persist_record(record)
+                return
+            if record_id:
                 can_replace = (
                     can_replace_existing
-                    and str(expected_existing_id or '').strip()
-                    == record.claude_session_id
+                    and same_session_id(expected_existing_id, record_id)
                 )
                 if not can_replace:
                     self.logger.warning(
                         'task %s: live Claude reported session id %s, but '
                         'record is pinned to %s; keeping the persisted id',
-                        task_id, actual_id, record.claude_session_id,
+                        task_id, actual_id, record_id,
                     )
                     return
                 self.logger.warning(
                     'task %s: fresh spawn reported actual session id %s '
                     'instead of requested %s; recording actual id',
-                    task_id, actual_id, record.claude_session_id,
+                    task_id, actual_id, record_id,
                 )
             else:
                 self.logger.info(
-                    'task %s: recording live claude_session_id %s',
+                    'task %s: recording live agent_session_id %s',
                     task_id, actual_id,
                 )
-            record.claude_session_id = actual_id
+            record.agent_session_id = actual_id
             record.updated_at_epoch = time.time()
             self._persist_record(record)
 
@@ -649,16 +664,19 @@ class ClaudeSessionManager(object):
         resume_session_id: str,
     ) -> None:
         """Build and persist the on-disk record for the just-spawned session."""
-        previous_id = (
-            previous_record.previous_claude_session_id
-            if previous_record else ''
+        previous_id = fix_session_id(
+            previous_record.previous_agent_session_id
+            if previous_record else '',
         )
-        active_id = resume_session_id or session.claude_session_id
+        active_id = (
+            fix_session_id(resume_session_id)
+            or read_session_id_from(session)
+        )
         record = PlanningSessionRecord(
             task_id=normalized_task_id,
             task_summary=normalized_text(task_summary)
             or (previous_record.task_summary if previous_record else ''),
-            claude_session_id=active_id,
+            agent_session_id=active_id,
             status=SESSION_STATUS_ACTIVE,
             created_at_epoch=(
                 previous_record.created_at_epoch
@@ -672,14 +690,24 @@ class ClaudeSessionManager(object):
             # a real branch. Falling back to the persisted value would
             # silently re-arm a stale lock from a prior buggy run.
             expected_branch=normalized_text(expected_branch),
-            previous_claude_session_id=previous_id,
+            previous_agent_session_id=previous_id,
         )
         self._records[self._lookup_key(normalized_task_id)] = record
         self._persist_record(record)
 
     def get_session(self, task_id: str) -> StreamingClaudeSession | None:
         with self._lock:
-            return self._sessions.get(self._lookup_key(task_id))
+            lookup_key = self._lookup_key(task_id)
+            session = self._sessions.get(lookup_key)
+            if session is None:
+                return None
+            if getattr(session, 'is_alive', False):
+                drifted = self._discard_if_session_id_drifted_locked(
+                    lookup_key, self._normalize_task_id(task_id), session,
+                )
+                if drifted:
+                    return None
+            return session
 
     def get_record(self, task_id: str) -> PlanningSessionRecord | None:
         with self._lock:
@@ -697,15 +725,15 @@ class ClaudeSessionManager(object):
         self,
         task_id: str,
         *,
-        claude_session_id: str,
+        agent_session_id: str,
         task_summary: str = '',
     ) -> PlanningSessionRecord:
-        """Bind ``claude_session_id`` to ``task_id`` so the next spawn resumes it.
+        """Bind ``agent_session_id`` to ``task_id`` so the next spawn resumes it.
 
         Used by the planning UI when an operator picks an existing
         Claude Code session (e.g. a VS Code extension chat) to hand
         off to kato. The next ``start_session`` for ``task_id`` will
-        ``--resume <claude_session_id>`` instead of starting a fresh
+        ``--resume <agent_session_id>`` instead of starting a fresh
         conversation.
 
         Adoption does NOT change the spawn cwd — kato continues to
@@ -727,9 +755,9 @@ class ClaudeSessionManager(object):
         subprocess on its own (that would be a confusing implicit
         side-effect).
         """
-        new_id = fix_session_id(claude_session_id)
+        new_id = fix_session_id(agent_session_id)
         if not new_id:
-            raise ValueError('claude_session_id must be non-empty')
+            raise ValueError('agent_session_id must be non-empty')
         normalized_task_id = self._normalize_task_id(task_id)
         lookup_key = self._lookup_key(task_id)
         with self._lock:
@@ -761,14 +789,14 @@ class ClaudeSessionManager(object):
                         status=SESSION_STATUS_TERMINATED,
                     )
                     self._records[lookup_key] = record
-                existing_id = fix_session_id(record.claude_session_id)
+                existing_id = fix_session_id(record.agent_session_id)
                 if existing_id and existing_id != new_id:
                     raise RuntimeError(
                         f'cannot adopt session id {new_id} for task '
                         f'{normalized_task_id}: existing session id '
                         f'{existing_id} is already pinned'
                     )
-                record.claude_session_id = new_id
+                record.agent_session_id = new_id
                 if task_summary and not record.task_summary:
                     record.task_summary = str(task_summary)
                 record.updated_at_epoch = now
@@ -930,12 +958,12 @@ class ClaudeSessionManager(object):
     def _mirror_to_workspace_metadata(self, record: PlanningSessionRecord) -> None:
         if self._workspace_manager is None:
             return
-        if not record.claude_session_id and not record.cwd:
+        if not has_session_id(record.agent_session_id) and not record.cwd:
             return
         try:
             self._workspace_manager.update_agent_session(
                 record.task_id,
-                agent_session_id=record.claude_session_id,
+                agent_session_id=fix_session_id(record.agent_session_id),
                 cwd=record.cwd,
             )
         except Exception:
@@ -954,25 +982,23 @@ class ClaudeSessionManager(object):
         accumulate forever. Best-effort — a unlink failure must not
         break ``terminate_session``.
         """
-        claude_session_id = fix_session_id(
-            getattr(record, 'claude_session_id', ''),
-        )
-        if not claude_session_id:
+        agent_session_id = read_session_id_from(record)
+        if not agent_session_id:
             return
         try:
             from claude_core_lib.claude_core_lib.session.history import (
                 delete_session_file,
             )
-            if delete_session_file(claude_session_id):
+            if delete_session_file(agent_session_id):
                 self.logger.info(
                     'deleted Claude transcript %s for forgotten task %s',
-                    claude_session_id,
+                    agent_session_id,
                     task_id,
                 )
         except Exception:
             self.logger.exception(
                 'failed deleting Claude transcript %s for task %s',
-                claude_session_id,
+                agent_session_id,
                 task_id,
             )
 
@@ -1046,19 +1072,55 @@ class ClaudeSessionManager(object):
     ) -> PlanningSessionRecord | None:
         if record is None:
             return None
-        session = self._sessions.get(self._lookup_key(record.task_id))
+        lookup_key = self._lookup_key(record.task_id)
+        session = self._sessions.get(lookup_key)
         if session is None:
             return record
-        live_id = session.claude_session_id
-        if live_id and live_id != record.claude_session_id:
-            if record.claude_session_id:
+        if getattr(session, 'is_alive', False):
+            drifted = self._discard_if_session_id_drifted_locked(
+                lookup_key, record.task_id, session,
+            )
+            if drifted:
+                return record
+        live_id = read_session_id_from(session)
+        record_id = read_session_id_from(record)
+        if has_session_id(live_id) and not same_session_id(live_id, record_id):
+            if record_id:
                 self.logger.warning(
                     'task %s: live Claude reports session id %s, but '
                     'record is pinned to %s; keeping the persisted id',
-                    record.task_id, live_id, record.claude_session_id,
+                    record.task_id, live_id, record_id,
                 )
                 return record
-            record.claude_session_id = live_id
+            record.agent_session_id = live_id
             record.updated_at_epoch = time.time()
             self._persist_record(record)
         return record
+
+    def _discard_if_session_id_drifted_locked(
+        self,
+        lookup_key: str,
+        normalized_task_id: str,
+        session: StreamingClaudeSession,
+    ) -> bool:
+        record = self._records.get(lookup_key)
+        pinned_id = read_session_id_from(record)
+        if not pinned_id:
+            return False
+        live_id = read_session_id_from(session)
+        if same_session_id(live_id, pinned_id):
+            return False
+        self._sessions.pop(lookup_key, None)
+        self.logger.warning(
+            'task %s: live Claude session id %s disagrees with pinned id %s; '
+            'terminating live process so the next spawn resumes the pinned id',
+            normalized_task_id, live_id or '(blank)', pinned_id,
+        )
+        try:
+            session.terminate()
+        except Exception:
+            self.logger.exception(
+                'failed to terminate mismatched live session for task %s',
+                normalized_task_id,
+            )
+        return True

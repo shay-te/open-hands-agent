@@ -48,7 +48,7 @@ def _make_live_stub_session():
         def cwd(self): return self._kwargs.get('cwd', '')
 
         @property
-        def claude_session_id(self):
+        def agent_session_id(self):
             return self._kwargs.get('resume_session_id', '') or 'live-id-from-spawn'
 
         def start(self, *, initial_prompt=''): pass
@@ -95,7 +95,7 @@ class BugAdoptWhileSessionAliveTests(unittest.TestCase):
             # subprocess before writing the adopted id.
             try:
                 mgr.adopt_session_id(
-                    'T1', claude_session_id='external-id-from-vscode',
+                    'T1', agent_session_id='external-id-from-vscode',
                 )
             except (RuntimeError, ValueError) as exc:
                 # Contract option (a): refuse adoption explicitly so the
