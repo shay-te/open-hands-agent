@@ -233,7 +233,7 @@ class ClaudeCliClient(object):
     def implement_task(
         self,
         task: Any,
-        session_id: str = '',
+        agent_session_id: str = '',
         prepared_task: Any | None = None,
     ) -> dict[str, str | bool]:
         self.logger.info('requesting implementation for task %s', task.id)
@@ -245,7 +245,7 @@ class ClaudeCliClient(object):
             additional_dirs=additional_dirs,
             branch_name=agent_prompt_utils.task_branch_name(task, prepared_task),
             default_commit_message=f'Implement {task.id}',
-            session_id=session_id,
+            agent_session_id=agent_session_id,
             log_label=agent_prompt_utils.task_conversation_title(task),
             task_id=str(task.id),
         )
@@ -316,14 +316,14 @@ class ClaudeCliClient(object):
         self,
         comment: ReviewComment,
         branch_name: str,
-        session_id: str = '',
+        agent_session_id: str = '',
         task_id: str = '',
         task_summary: str = '',
     ) -> dict[str, str | bool]:
         return self.fix_review_comments(
             [comment],
             branch_name,
-            session_id=session_id,
+            agent_session_id=agent_session_id,
             task_id=task_id,
             task_summary=task_summary,
         )
@@ -332,7 +332,7 @@ class ClaudeCliClient(object):
         self,
         comments: list[ReviewComment],
         branch_name: str,
-        session_id: str = '',
+        agent_session_id: str = '',
         task_id: str = '',
         task_summary: str = '',
         mode: str = 'fix',
@@ -377,7 +377,7 @@ class ClaudeCliClient(object):
             prompt=prompt,
             cwd=cwd,
             additional_dirs=[],
-            session_id=session_id,
+            agent_session_id=agent_session_id,
             branch_name=branch_name,
             default_commit_message='Address review comments',
             log_label=agent_prompt_utils.review_conversation_title(
@@ -747,7 +747,7 @@ class ClaudeCliClient(object):
         additional_dirs: list[str],
         branch_name: str = '',
         default_commit_message: str | None = None,
-        session_id: str = '',
+        agent_session_id: str = '',
         log_label: str = '',
         task_id: str = '',
     ) -> dict[str, str | bool]:
@@ -755,7 +755,7 @@ class ClaudeCliClient(object):
             prompt=prompt,
             cwd=cwd,
             additional_dirs=additional_dirs,
-            session_id=session_id,
+            agent_session_id=agent_session_id,
             log_label=log_label,
             task_id=task_id,
         )
@@ -771,13 +771,13 @@ class ClaudeCliClient(object):
         prompt: str,
         cwd: str,
         additional_dirs: list[str],
-        session_id: str = '',
+        agent_session_id: str = '',
         log_label: str = '',
         task_id: str = '',
     ) -> dict[str, str | bool]:
         command = self._build_command(
             additional_dirs=additional_dirs,
-            session_id=session_id,
+            agent_session_id=agent_session_id,
             resolve_binary=not self._docker_mode_on,
         )
         env = self._build_subprocess_env()
@@ -869,7 +869,7 @@ class ClaudeCliClient(object):
         self,
         *,
         additional_dirs: list[str],
-        session_id: str,
+        agent_session_id: str,
         resolve_binary: bool = True,
         include_system_prompt: bool = True,
     ) -> list[str]:
@@ -922,7 +922,7 @@ class ClaudeCliClient(object):
             )
             if appended_system_prompt:
                 command.extend(['--append-system-prompt', appended_system_prompt])
-        normalized_session_id = fix_session_id(session_id)
+        normalized_session_id = fix_session_id(agent_session_id)
         if normalized_session_id:
             command.extend(['--resume', normalized_session_id])
         for directory in additional_dirs:
@@ -1013,7 +1013,7 @@ class ClaudeCliClient(object):
         is_error = bool(payload.get('is_error', False))
         success = completed.returncode == 0 and not is_error
         result_text = normalized_text(payload.get('result', ''))
-        session_id_value = fix_session_id(payload.get('session_id', ''))
+        session_id_value = fix_session_id(payload.get('agent_session_id', ''))
 
         if completed.returncode != 0:
             detail = stderr or condensed_text(stdout) or 'no output'
@@ -1185,7 +1185,7 @@ class ClaudeCliClient(object):
         # boot command line short, which matters on Windows where
         # CreateProcess caps total args at ~32K chars.
         command = self._build_command(
-            additional_dirs=[], session_id='',
+            additional_dirs=[], agent_session_id='',
             include_system_prompt=False,
         )
         env = self._build_subprocess_env()

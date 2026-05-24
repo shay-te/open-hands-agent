@@ -44,7 +44,7 @@ from claude_core_lib.claude_core_lib.session.index import (
 def _write_transcript(
     root: Path,
     project_dir: str,
-    session_id: str,
+    agent_session_id: str,
     *,
     cwd: str = '/Users/dev/repos/myproj',
     user_messages: list[str] | None = None,
@@ -53,12 +53,12 @@ def _write_transcript(
 ) -> Path:
     project_path = root / project_dir
     project_path.mkdir(parents=True, exist_ok=True)
-    transcript_path = project_path / f'{session_id}.jsonl'
+    transcript_path = project_path / f'{agent_session_id}.jsonl'
     lines: list[str] = []
     for text in user_messages or []:
         lines.append(json.dumps({
             'type': 'user',
-            'sessionId': session_id,
+            'sessionId': agent_session_id,
             'cwd': cwd,
             'message': {'content': text},
         }))
@@ -95,7 +95,7 @@ class SessionDiscoveryTests(unittest.TestCase):
         )
         sessions = list_sessions(sessions_root=self.root)
         self.assertEqual(len(sessions), 1)
-        self.assertEqual(sessions[0].session_id, 'sess-1')
+        self.assertEqual(sessions[0].agent_session_id, 'sess-1')
         self.assertEqual(sessions[0].cwd, '/Users/dev/repos/myproj')
         self.assertEqual(sessions[0].turn_count, 1)
         self.assertEqual(
@@ -122,7 +122,7 @@ class SessionDiscoveryTests(unittest.TestCase):
             self.root, '-proj', 'new', user_messages=['new'],
             file_mtime=now,
         )
-        ids = [s.session_id for s in list_sessions(sessions_root=self.root)]
+        ids = [s.agent_session_id for s in list_sessions(sessions_root=self.root)]
         self.assertEqual(ids, ['new', 'old'])
 
     def test_query_matches_cwd_substring(self) -> None:
@@ -137,7 +137,7 @@ class SessionDiscoveryTests(unittest.TestCase):
             user_messages=['update the pricing page'],
         )
         results = list_sessions(sessions_root=self.root, query='billing')
-        self.assertEqual([s.session_id for s in results], ['sess-billing'])
+        self.assertEqual([s.agent_session_id for s in results], ['sess-billing'])
 
     def test_query_matches_user_message_substring(self) -> None:
         _write_transcript(
@@ -149,7 +149,7 @@ class SessionDiscoveryTests(unittest.TestCase):
             user_messages=['add a new dashboard'],
         )
         results = list_sessions(sessions_root=self.root, query='auth')
-        self.assertEqual([s.session_id for s in results], ['sess-a'])
+        self.assertEqual([s.agent_session_id for s in results], ['sess-a'])
 
     def test_query_is_case_insensitive(self) -> None:
         _write_transcript(
@@ -247,7 +247,7 @@ class SessionDiscoveryTests(unittest.TestCase):
 
     def test_metadata_to_dict_is_json_serialisable(self) -> None:
         meta = ClaudeSessionMetadata(
-            session_id='sess',
+            agent_session_id='sess',
             cwd='/proj',
             last_modified_epoch=1.5,
             turn_count=2,
@@ -612,12 +612,12 @@ class ListSessionsEdgeCaseTests(unittest.TestCase):
                 )
         result = list_sessions(sessions_root=self.root)
         self.assertEqual(len(result), 1)
-        self.assertEqual(result[0].session_id, 'sess-big')
+        self.assertEqual(result[0].agent_session_id, 'sess-big')
         # Turn count is bounded by the cap, not the full file.
         self.assertGreater(result[0].turn_count, 0)
 
     def test_parse_metadata_uses_session_id_from_record_when_filename_blank(self) -> None:
-        # Edge case: session_id is normally the filename stem, but if the
+        # Edge case: agent_session_id is normally the filename stem, but if the
         # path stem ends up blank (defensive branch), record's sessionId
         # is the fallback. We can't easily make the stem blank with a
         # normal path, so we just verify the record-side fallback is
@@ -633,7 +633,7 @@ class ListSessionsEdgeCaseTests(unittest.TestCase):
         result = list_sessions(sessions_root=self.root)
         # Filename stem wins (that's by design — Claude Code uses the
         # filename as canonical id).
-        self.assertEqual(result[0].session_id, 'fileid')
+        self.assertEqual(result[0].agent_session_id, 'fileid')
 
     def test_query_does_not_match_when_substring_absent(self) -> None:
         sessions_dir = self.root / 'enc-cwd'
@@ -687,7 +687,7 @@ class ListSessionsQueryFilteringTests(unittest.TestCase):
             # Query 'alpha' must drop the beta session via line 117.
             result = list_sessions(sessions_root=root, query='alpha')
             self.assertEqual(len(result), 1)
-            self.assertEqual(result[0].session_id, 'sess-alpha')
+            self.assertEqual(result[0].agent_session_id, 'sess-alpha')
 
 
 class ParseMetadataPreviewCapTests(unittest.TestCase):
@@ -743,7 +743,7 @@ class ParseMetadataPreviewCapTests(unittest.TestCase):
             ):
                 result = list_sessions(sessions_root=root)
             self.assertEqual(len(result), 1)
-            self.assertEqual(result[0].session_id, 'rec-id')
+            self.assertEqual(result[0].agent_session_id, 'rec-id')
 
     def test_first_and_last_user_messages_track_independently(self) -> None:
         # Lines 187-190: ``first_user_message`` is set once; ``last_user_message``
@@ -875,7 +875,7 @@ class ParseMetadataDirectTests(unittest.TestCase):
                 self.assertIsNone(self._parse_metadata(path))
 
     def test_returns_none_when_session_id_remains_blank(self) -> None:
-        # Line 190: ``if not session_id: return None`` —
+        # Line 190: ``if not agent_session_id: return None`` —
         # path.stem is blank AND no record has a sessionId field.
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / 'no_id.jsonl'
@@ -909,7 +909,7 @@ class ParseMetadataDirectTests(unittest.TestCase):
                 metadata = self._parse_metadata(path)
 
         self.assertIsNotNone(metadata)
-        self.assertEqual(metadata.session_id, 'rec-id')
+        self.assertEqual(metadata.agent_session_id, 'rec-id')
 
 
 class ListSessionsParseFailureContinue(unittest.TestCase):
@@ -948,7 +948,7 @@ class ListSessionsParseFailureContinue(unittest.TestCase):
                 result = list_sessions(sessions_root=root)
             # Good survives; bad was silently dropped via the continue.
             self.assertEqual(len(result), 1)
-            self.assertEqual(result[0].session_id, 'good')
+            self.assertEqual(result[0].agent_session_id, 'good')
             # And our selective fn was hit for both files.
             self.assertIn('bad.jsonl', calls)
 

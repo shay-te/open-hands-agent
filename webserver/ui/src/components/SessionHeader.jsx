@@ -7,6 +7,7 @@ import {
   triggerScan,
   updateTaskSource,
 } from '../api.js';
+import { AGENT_SESSION_ID } from '../constants/sessionFields.js';
 import { TAB_STATUS } from '../constants/tabStatus.js';
 import { usePushApproval } from '../hooks/usePushApproval.js';
 import { useTaskPublish } from '../hooks/useTaskPublish.js';
@@ -73,6 +74,7 @@ export default function SessionHeader({
   if (!session) { return null; }
   const baseStatus = deriveTabStatus(session);
   const status = resolveTabStatus(session, needsAttention);
+  const agentSessionId = session[AGENT_SESSION_ID] || '';
   const isLoading = baseStatus === TAB_STATUS.PROVISIONING;
   // Session is "resumable" when the streaming subprocess isn't
   // running — the operator stopped it, it ended on its own, or the
@@ -420,18 +422,18 @@ export default function SessionHeader({
           >
             Claude: {claudeStatus.label}
           </span>
-          {session.agent_session_id ? (
+          {agentSessionId ? (
             <span
               id="session-claude-id"
               className="claude-session-id"
               title={
-                `Agent session id: ${session.agent_session_id}\n`
+                `Agent session id: ${agentSessionId}\n`
                 + 'kato resumes this id across restarts — compare it '
                 + 'before/after a restart to confirm the conversation '
                 + 'was continued, not started fresh.'
               }
             >
-              sid:{session.agent_session_id.slice(0, 8)}…
+              sid:{agentSessionId.slice(0, 8)}…
             </span>
           ) : null}
           {searchSlot}

@@ -63,7 +63,7 @@ class ClaudeSessionMetadata:
     turn count (good enough for the dropdown).
     """
 
-    session_id: str
+    agent_session_id: str
     cwd: str
     last_modified_epoch: float
     turn_count: int
@@ -158,7 +158,7 @@ def _parse_metadata(path: Path) -> ClaudeSessionMetadata | None:
     except OSError:
         return None
     last_modified_epoch = float(stat.st_mtime)
-    session_id = path.stem
+    agent_session_id = path.stem
     cwd = ''
     turn_count = 0
     first_user_message = ''
@@ -175,8 +175,8 @@ def _parse_metadata(path: Path) -> ClaudeSessionMetadata | None:
                     continue
                 if not cwd:
                     cwd = text_from_mapping(record, 'cwd')
-                if not session_id and record.get('sessionId'):
-                    session_id = fix_session_id(record.get('sessionId'))
+                if not agent_session_id and record.get('sessionId'):
+                    agent_session_id = fix_session_id(record.get('sessionId'))
                 if record.get('type') != 'user':
                     continue
                 turn_count += 1
@@ -187,10 +187,10 @@ def _parse_metadata(path: Path) -> ClaudeSessionMetadata | None:
                     last_user_message = preview
     except OSError:
         return None
-    if not session_id:
+    if not agent_session_id:
         return None
     return ClaudeSessionMetadata(
-        session_id=session_id,
+        agent_session_id=agent_session_id,
         cwd=cwd,
         last_modified_epoch=last_modified_epoch,
         turn_count=turn_count,

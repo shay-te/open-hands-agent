@@ -41,13 +41,13 @@ class ImplementationService(Service):
     def implement_task(
         self,
         task: Task,
-        session_id: str = '',
+        agent_session_id: str = '',
         prepared_task: PreparedTaskContext | None = None,
     ) -> dict[str, str | bool]:
         self.logger.info('delegating implementation for task %s', task.id)
         return self._client.implement_task(
             task,
-            session_id,
+            agent_session_id,
             prepared_task=prepared_task,
         )
 
@@ -55,14 +55,14 @@ class ImplementationService(Service):
         self,
         comment,
         branch_name: str,
-        session_id: str = '',
+        agent_session_id: str = '',
         task_id: str = '',
         task_summary: str = '',
     ) -> dict[str, str | bool]:
         return self._client.fix_review_comment(
             comment,
             branch_name,
-            session_id,
+            agent_session_id,
             task_id=task_id,
             task_summary=task_summary,
         )
@@ -71,7 +71,7 @@ class ImplementationService(Service):
         self,
         comments,
         branch_name: str,
-        session_id: str = '',
+        agent_session_id: str = '',
         task_id: str = '',
         task_summary: str = '',
         mode: str = 'fix',
@@ -92,7 +92,7 @@ class ImplementationService(Service):
             return self._client.fix_review_comments(
                 comments,
                 branch_name,
-                session_id=session_id,
+                agent_session_id=agent_session_id,
                 task_id=task_id,
                 task_summary=task_summary,
                 mode=mode,
@@ -108,7 +108,7 @@ class ImplementationService(Service):
             last_result = self._client.fix_review_comment(
                 comment,
                 branch_name,
-                session_id,
+                agent_session_id,
                 task_id=task_id,
                 task_summary=task_summary,
             )

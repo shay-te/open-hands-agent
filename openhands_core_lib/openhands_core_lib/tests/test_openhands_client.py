@@ -401,7 +401,7 @@ class OpenHandsClientImplementTaskTests(unittest.TestCase):
             'summary': 'Implemented task',
             ImplementationFields.COMMIT_MESSAGE: 'Implement PROJ-1',
             ImplementationFields.SUCCESS: True,
-            ImplementationFields.SESSION_ID: 'conversation-1',
+            ImplementationFields.AGENT_SESSION_ID: 'conversation-1',
         })
         self.assertEqual(mock_post.call_args.args, ('/api/v1/app-conversations',))
         request_body = mock_post.call_args.kwargs['json']
@@ -450,9 +450,9 @@ class OpenHandsClientImplementTaskTests(unittest.TestCase):
                 }]}),
             ],
         ):
-            result = implement_task_with_defaults(client, session_id=valid_session_id)
+            result = implement_task_with_defaults(client, agent_session_id=valid_session_id)
 
-        self.assertEqual(result[ImplementationFields.SESSION_ID], 'conversation-1')
+        self.assertEqual(result[ImplementationFields.AGENT_SESSION_ID], 'conversation-1')
         self.assertNotIn('parent_conversation_id', mock_post.call_args.kwargs['json'])
 
     def test_ignores_non_uuid_session_id(self) -> None:
@@ -478,7 +478,7 @@ class OpenHandsClientImplementTaskTests(unittest.TestCase):
                 }]}),
             ],
         ):
-            implement_task_with_defaults(client, session_id='conversation-1')
+            implement_task_with_defaults(client, agent_session_id='conversation-1')
 
         self.assertNotIn('parent_conversation_id', mock_post.call_args.kwargs['json'])
 
@@ -538,7 +538,7 @@ class OpenHandsClientTestTaskTests(unittest.TestCase):
                 'summary': 'Added tests and validated the implementation',
                 ImplementationFields.COMMIT_MESSAGE: 'Finalize PROJ-1',
                 ImplementationFields.SUCCESS: True,
-                ImplementationFields.SESSION_ID: 'conversation-2',
+                ImplementationFields.AGENT_SESSION_ID: 'conversation-2',
             },
         ) as mock_run_prompt:
             result = test_task_with_defaults(client)
@@ -547,7 +547,7 @@ class OpenHandsClientTestTaskTests(unittest.TestCase):
             'summary': 'Added tests and validated the implementation',
             ImplementationFields.COMMIT_MESSAGE: 'Finalize PROJ-1',
             ImplementationFields.SUCCESS: True,
-            ImplementationFields.SESSION_ID: 'conversation-2',
+            ImplementationFields.AGENT_SESSION_ID: 'conversation-2',
         })
         self.assertIn('Act as a separate testing agent.', mock_run_prompt.call_args.kwargs['prompt'])
         self.assertIn('Do not create a pull request.', mock_run_prompt.call_args.kwargs['prompt'])
@@ -604,13 +604,13 @@ class OpenHandsClientFixReviewCommentTests(unittest.TestCase):
                 'summary': 'Updated branch',
                 ImplementationFields.COMMIT_MESSAGE: 'Address review comments',
                 ImplementationFields.SUCCESS: True,
-                ImplementationFields.SESSION_ID: 'conversation-3',
+                ImplementationFields.AGENT_SESSION_ID: 'conversation-3',
             },
         ) as mock_run_prompt:
             result = fix_review_comment_with_defaults(client, comment)
 
         self.assertEqual(result['branch_name'], 'feature/proj-1')
-        self.assertEqual(result[ImplementationFields.SESSION_ID], 'conversation-3')
+        self.assertEqual(result[ImplementationFields.AGENT_SESSION_ID], 'conversation-3')
         self.assertTrue(result[ImplementationFields.SUCCESS])
         self.assertIn(
             'Comment by reviewer: Please rename this variable.',
@@ -636,7 +636,7 @@ class OpenHandsClientFixReviewCommentTests(unittest.TestCase):
                 'summary': 'Updated branch',
                 ImplementationFields.COMMIT_MESSAGE: 'Address review comments',
                 ImplementationFields.SUCCESS: True,
-                ImplementationFields.SESSION_ID: 'conversation-3',
+                ImplementationFields.AGENT_SESSION_ID: 'conversation-3',
             },
         ) as mock_run_prompt:
             fix_review_comment_with_defaults(client, task_id='PROJ-1', task_summary='fix it already')
@@ -667,9 +667,9 @@ class OpenHandsClientFixReviewCommentTests(unittest.TestCase):
                 }]}),
             ],
         ):
-            result = fix_review_comment_with_defaults(client, session_id=valid_session_id)
+            result = fix_review_comment_with_defaults(client, agent_session_id=valid_session_id)
 
-        self.assertEqual(result[ImplementationFields.SESSION_ID], 'conversation-1')
+        self.assertEqual(result[ImplementationFields.AGENT_SESSION_ID], 'conversation-1')
         self.assertEqual(
             mock_post.call_args.kwargs['json']['parent_conversation_id'],
             '570ac9187d7242b1b8fac4d06ca6f5f0',
@@ -745,7 +745,7 @@ class OpenHandsClientFixReviewCommentTests(unittest.TestCase):
         ]
         with patch.object(
             client, '_run_prompt',
-            return_value={'success': True, 'summary': 'done', ImplementationFields.SESSION_ID: 'c-1'},
+            return_value={'success': True, 'summary': 'done', ImplementationFields.AGENT_SESSION_ID: 'c-1'},
         ) as mock_run:
             with patch.object(client, '_patch', return_value=mock_response()):
                 client.fix_review_comments(comments, 'branch')
@@ -998,7 +998,7 @@ class OpenHandsClientConversationPollingTests(unittest.TestCase):
             result = implement_task_with_defaults(client)
 
         self.assertTrue(result[ImplementationFields.SUCCESS])
-        self.assertEqual(result[ImplementationFields.SESSION_ID], 'conversation-2')
+        self.assertEqual(result[ImplementationFields.AGENT_SESSION_ID], 'conversation-2')
         self.assertEqual(mock_post.call_count, 2)
 
     def test_raises_when_start_task_ready_without_conversation_id(self) -> None:
@@ -1533,7 +1533,7 @@ class ResultUtilsTests(unittest.TestCase):
         self.assertTrue(openhands_success_flag(None, default=True))
 
     def test_openhands_session_id_reads_session_id_key(self) -> None:
-        self.assertEqual(openhands_session_id({'session_id': 'conv-1'}), 'conv-1')
+        self.assertEqual(openhands_session_id({'agent_session_id': 'conv-1'}), 'conv-1')
 
     def test_openhands_session_id_reads_conversation_id_fallback(self) -> None:
         self.assertEqual(openhands_session_id({'conversation_id': 'conv-2'}), 'conv-2')
@@ -1878,7 +1878,7 @@ class OpenHandsFlowTests(unittest.TestCase):
         self.assertTrue(result[ImplementationFields.SUCCESS])
         self.assertEqual(result['summary'], 'Implemented X')
         self.assertEqual(result['branch_name'], 'feature/flow-1')
-        self.assertEqual(result[ImplementationFields.SESSION_ID], 'conv-flow-1')
+        self.assertEqual(result[ImplementationFields.AGENT_SESSION_ID], 'conv-flow-1')
 
     def test_test_task_full_flow(self) -> None:
         client = OpenHandsClient('https://openhands.example', 'oh-token')
@@ -1909,7 +1909,7 @@ class OpenHandsFlowTests(unittest.TestCase):
 
         self.assertTrue(result[ImplementationFields.SUCCESS])
         self.assertEqual(result['summary'], 'Renamed method')
-        self.assertEqual(result[ImplementationFields.SESSION_ID], 'conv-review-1')
+        self.assertEqual(result[ImplementationFields.AGENT_SESSION_ID], 'conv-review-1')
 
     def test_validate_then_implement_full_flow(self) -> None:
         client = OpenHandsClient(

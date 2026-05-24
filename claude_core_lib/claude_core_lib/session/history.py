@@ -1,7 +1,7 @@
 """Replay archived Claude CLI sessions as raw stream-json events.
 
 Claude Code persists every conversation it runs as a JSONL file under
-``~/.claude/projects/<encoded-cwd>/<session_id>.jsonl``. After a kato
+``~/.claude/projects/<encoded-cwd>/<agent_session_id>.jsonl``. After a kato
 restart the in-memory ``_recent_events`` buffer is empty, so the only
 way to repopulate the chat is to read those JSONL files and feed them
 back into the SSE backlog. This module is the read side of that
@@ -48,13 +48,13 @@ def find_session_file(
     become ``-``), so reconstructing it deterministically is brittle —
     globbing is the simplest robust strategy.
     """
-    session_id = fix_session_id(agent_session_id)
-    if not session_id:
+    agent_session_id = fix_session_id(agent_session_id)
+    if not agent_session_id:
         return None
     root = Path(projects_root) if projects_root else _default_projects_root()
     if not root.is_dir():
         return None
-    pattern = str(root / '*' / f'{session_id}.jsonl')
+    pattern = str(root / '*' / f'{agent_session_id}.jsonl')
     matches = glob.glob(pattern)
     if not matches:
         return None
@@ -132,7 +132,7 @@ def find_session_id_for_cwd(
 
 
 def _peek_session_metadata(path: Path) -> tuple[str, str]:
-    """Return ``(cwd, session_id)`` from the first record that has them.
+    """Return ``(cwd, agent_session_id)`` from the first record that has them.
 
     The first few lines are usually queue-ops without cwd; we read until
     we see a ``user``/``assistant`` record (which carries both fields)
@@ -153,9 +153,9 @@ def _peek_session_metadata(path: Path) -> tuple[str, str]:
                 if not isinstance(payload, dict):
                     continue
                 cwd = text_from_mapping(payload, 'cwd')
-                session_id = fix_session_id(payload.get('sessionId'))
-                if cwd and session_id:
-                    return cwd, session_id
+                agent_session_id = fix_session_id(payload.get('sessionId'))
+                if cwd and agent_session_id:
+                    return cwd, agent_session_id
     except OSError:
         pass
     return '', ''

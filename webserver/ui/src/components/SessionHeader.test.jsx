@@ -32,6 +32,7 @@ import { useTaskPublish } from '../hooks/useTaskPublish.js';
 import { toast } from '../stores/toastStore.js';
 import SessionHeader, { SessionHeaderPlaceholder } from './SessionHeader.jsx';
 import { SESSION_LIFECYCLE } from '../hooks/useSessionStream.js';
+import { AGENT_SESSION_ID } from '../constants/sessionFields.js';
 import { TAB_STATUS } from '../constants/tabStatus.js';
 
 
@@ -42,7 +43,7 @@ function _session(overrides = {}) {
     status: TAB_STATUS.ACTIVE,
     live: true,
     working: false,
-    agent_session_id: 'sess-1',
+    [AGENT_SESSION_ID]: 'sess-1',
     ...overrides,
   };
 }
@@ -131,7 +132,7 @@ describe('SessionHeader — always prints the Claude session id', () => {
   test('shows the short session id with the full id in the title', () => {
     const { container } = render(
       <SessionHeader
-        session={_session({ agent_session_id: 'abcdef12-3456-7890-abcd-ef1234567890' })}
+        session={_session({ [AGENT_SESSION_ID]: 'abcdef12-3456-7890-abcd-ef1234567890' })}
         streamLifecycle={SESSION_LIFECYCLE.STREAMING}
       />,
     );
@@ -146,7 +147,7 @@ describe('SessionHeader — always prints the Claude session id', () => {
   test('omitted when the record has no session id yet', () => {
     const { container } = render(
       <SessionHeader
-        session={_session({ agent_session_id: '' })}
+        session={_session({ [AGENT_SESSION_ID]: '' })}
         streamLifecycle={SESSION_LIFECYCLE.CONNECTING}
       />,
     );

@@ -154,7 +154,7 @@ class ClaudeCliClientArchitectureDocTests(unittest.TestCase):
         # without an arch doc.
         client = ClaudeCliClient(binary='claude')
 
-        cmd = client._build_command(additional_dirs=[], session_id='')
+        cmd = client._build_command(additional_dirs=[], agent_session_id='')
 
         self.assertIn('--append-system-prompt', cmd)
         index = cmd.index('--append-system-prompt')
@@ -169,7 +169,7 @@ class ClaudeCliClientArchitectureDocTests(unittest.TestCase):
             architecture_doc_path=str(self.doc_path),
         )
 
-        cmd = client._build_command(additional_dirs=[], session_id='')
+        cmd = client._build_command(additional_dirs=[], agent_session_id='')
 
         self.assertIn('--append-system-prompt', cmd)
         index = cmd.index('--append-system-prompt')
@@ -182,7 +182,7 @@ class ClaudeCliClientArchitectureDocTests(unittest.TestCase):
             architecture_doc_path=str(self.doc_path),
         )
 
-        cmd = client._build_command(additional_dirs=[], session_id='')
+        cmd = client._build_command(additional_dirs=[], agent_session_id='')
 
         self.assertIn('--append-system-prompt', cmd)
         index = cmd.index('--append-system-prompt')
@@ -204,7 +204,7 @@ class ClaudeCliClientArchitectureDocTests(unittest.TestCase):
         )
 
         cmd = client._build_command(
-            additional_dirs=[], session_id='',
+            additional_dirs=[], agent_session_id='',
             include_system_prompt=False,
         )
 
@@ -291,7 +291,7 @@ class ResumedSessionStillReceivesDocTests(unittest.TestCase):
             architecture_doc_path=str(self.doc_path),
         )
 
-        cmd = client._build_command(additional_dirs=[], session_id='abc-123')
+        cmd = client._build_command(additional_dirs=[], agent_session_id='abc-123')
 
         self.assertIn('--append-system-prompt', cmd)
         self.assertIn('--resume', cmd)

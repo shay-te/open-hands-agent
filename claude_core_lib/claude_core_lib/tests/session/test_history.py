@@ -51,15 +51,15 @@ class FindSessionIdForCwdTests(unittest.TestCase):
     def _seed_session(
         self,
         encoded_dir: str,
-        session_id: str,
+        agent_session_id: str,
         cwd: str,
         *,
         mtime: float | None = None,
     ) -> Path:
-        path = self.projects_root / encoded_dir / f'{session_id}.jsonl'
+        path = self.projects_root / encoded_dir / f'{agent_session_id}.jsonl'
         _write_jsonl(path, [
-            {'type': 'queue-operation', 'sessionId': session_id},
-            {'type': 'user', 'cwd': cwd, 'sessionId': session_id,
+            {'type': 'queue-operation', 'sessionId': agent_session_id},
+            {'type': 'user', 'cwd': cwd, 'sessionId': agent_session_id,
              'message': {'role': 'user', 'content': [{'type': 'text', 'text': 'hi'}]}},
         ])
         if mtime is not None:
@@ -632,9 +632,9 @@ class DeleteSessionFileTests(unittest.TestCase):
         self.addCleanup(self._tmp.cleanup)
         self.projects_root = Path(self._tmp.name)
 
-    def _seed(self, encoded_dir: str, session_id: str) -> Path:
-        path = self.projects_root / encoded_dir / f'{session_id}.jsonl'
-        _write_jsonl(path, [{'type': 'user', 'sessionId': session_id}])
+    def _seed(self, encoded_dir: str, agent_session_id: str) -> Path:
+        path = self.projects_root / encoded_dir / f'{agent_session_id}.jsonl'
+        _write_jsonl(path, [{'type': 'user', 'sessionId': agent_session_id}])
         return path
 
     def test_deletes_matching_transcript_and_reports_true(self) -> None:

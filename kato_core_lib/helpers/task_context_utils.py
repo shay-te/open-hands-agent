@@ -54,8 +54,8 @@ def repository_branch_text(repository_branches: dict[str, str]) -> str:
 
 
 def session_suffix(payload: dict[str, str | bool]) -> str:
-    session_id = fix_session_id(payload.get(ImplementationFields.AGENT_SESSION_ID))
-    return f' (session {session_id})' if session_id else ''
+    agent_session_id = fix_session_id(payload.get(ImplementationFields.AGENT_SESSION_ID))
+    return f' (session {agent_session_id})' if agent_session_id else ''
 
 
 def task_started_comment(task: Task, repositories: list[object] | None = None) -> str:

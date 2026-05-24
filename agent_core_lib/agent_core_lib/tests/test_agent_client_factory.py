@@ -131,10 +131,10 @@ def _make_compliant_backend():
     class _Backend:
         def validate_connection(self): return None
         def validate_model_access(self): return None
-        def implement_task(self, task, session_id='', prepared_task=None): return {'success': True}
+        def implement_task(self, task, agent_session_id='', prepared_task=None): return {'success': True}
         def test_task(self, task, prepared_task=None): return {'success': True}
-        def fix_review_comment(self, comment, branch_name, session_id='', task_id='', task_summary=''): return {'success': True}
-        def fix_review_comments(self, comments, branch_name, session_id='', task_id='', task_summary='', mode='fix'): return {'success': True}
+        def fix_review_comment(self, comment, branch_name, agent_session_id='', task_id='', task_summary=''): return {'success': True}
+        def fix_review_comments(self, comments, branch_name, agent_session_id='', task_id='', task_summary='', mode='fix'): return {'success': True}
         def delete_conversation(self, conversation_id): return None
         def stop_all_conversations(self): return None
 

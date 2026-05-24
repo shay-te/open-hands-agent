@@ -134,7 +134,7 @@ class ReviewCommentServiceTests(unittest.TestCase):
                 PullRequestFields.TITLE: 'PROJ-9 thing',
             },
             'feature/proj-9/admin-client',
-            session_id='conv-1',
+            agent_session_id='conv-1',
             task_id='PROJ-9',
             task_summary='thing',
         )
@@ -189,7 +189,7 @@ class ReviewCommentServiceTests(unittest.TestCase):
                 PullRequestFields.TITLE: 'PROJ-1 fix it already',
             },
             'feature/proj-1/client',
-            session_id='conversation-1',
+            agent_session_id='conversation-1',
             task_id='PROJ-1',
             task_summary='fix it already',
         )
@@ -241,7 +241,7 @@ class ReviewCommentServiceTests(unittest.TestCase):
                 PullRequestFields.TITLE: 'PROJ-1 fix it already',
             },
             'feature/proj-1/client',
-            session_id='conversation-1',
+            agent_session_id='conversation-1',
             task_id='PROJ-1',
             task_summary='fix it already',
         )
@@ -273,7 +273,7 @@ class ReviewCommentServiceTests(unittest.TestCase):
                 PullRequestFields.TITLE: 'PROJ-1 fix it already',
             },
             'feature/proj-1/client',
-            session_id='conversation-1',
+            agent_session_id='conversation-1',
             task_id='PROJ-1',
             task_summary='fix it already',
         )
@@ -416,7 +416,7 @@ class ReviewCommentServiceTests(unittest.TestCase):
             task_summary='Cross-repo refactor',
             repository_id='admin-client',
             branch_name='feature/PROJ-9',
-            session_id='conv-1',
+            agent_session_id='conv-1',
             pull_request_title='PROJ-9 Cross-repo refactor',
         )
 
@@ -488,7 +488,7 @@ class ReviewCommentServiceTests(unittest.TestCase):
             task_summary='Cross-repo work in progress',
             repository_id='admin-client',
             branch_name='feature/PROJ-12',
-            session_id='conv-1',
+            agent_session_id='conv-1',
             pull_request_title='PROJ-12 thing',
         )
 

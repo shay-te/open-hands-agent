@@ -30,9 +30,8 @@ from collections.abc import Mapping
 # Canonical key name for the agent's session id across every code
 # surface kato exposes (JSON payloads on disk, API request/response
 # bodies, hook event payloads, log labels). Use this constant instead
-# of the literal string ``'agent_session_id'`` so a future rename
-# can land in one place and so a typo in a literal can't silently
-# drift one consumer away from the others.
+# of an inline field-name literal so a future rename can land here
+# and a typo can't silently drift one consumer away from the others.
 AGENT_SESSION_ID = 'agent_session_id'
 
 
@@ -44,7 +43,7 @@ def fix_session_id(value: object) -> str:
       * non-string types → coerced via ``str(...)``
       * whitespace stripped from both ends
       * whitespace-only input → ``''`` (so the caller's
-        ``if session_id:`` truthy guards continue to work)
+        ``if agent_session_id:`` truthy guards continue to work)
 
     This is the ONLY function callers should use to normalize a
     session id read from any source (record, payload, attribute,

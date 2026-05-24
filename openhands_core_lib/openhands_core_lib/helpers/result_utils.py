@@ -27,7 +27,12 @@ def openhands_success_flag(
 
 
 def openhands_session_id(payload: Mapping[object, object] | None) -> str:
-    for key in (ImplementationFields.SESSION_ID, 'conversation_id'):
+    # ``payload`` here is OpenHands' raw API response (wire format),
+    # not kato's internal dict — the OpenHands API emits ``session_id``
+    # (and the older ``conversation_id`` alias on some endpoints). Kato
+    # normalizes that to ``AGENT_SESSION_ID`` upstream in
+    # ``build_openhands_result``.
+    for key in ('session_id', 'conversation_id'):
         value = text_from_mapping(payload, key)
         if value:
             return value
@@ -63,7 +68,7 @@ def build_openhands_result(
     if message:
         result[ImplementationFields.MESSAGE] = message
 
-    session_id = openhands_session_id(payload)
-    if session_id:
-        result[ImplementationFields.SESSION_ID] = session_id
+    agent_session_id = openhands_session_id(payload)
+    if agent_session_id:
+        result[ImplementationFields.AGENT_SESSION_ID] = agent_session_id
     return result

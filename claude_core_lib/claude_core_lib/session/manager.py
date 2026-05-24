@@ -163,7 +163,7 @@ class ClaudeSessionManager(object):
         self._done_callback = callback
 
     def attach_workspace_manager(self, workspace_manager) -> None:
-        """Mirror session_id + cwd into workspace metadata as we capture them.
+        """Mirror agent_session_id + cwd into workspace metadata as we capture them.
 
         Optional wiring: when the orchestrator boots both managers it calls
         this so kato has a single source of truth for "which Claude session
@@ -192,8 +192,8 @@ class ClaudeSessionManager(object):
             for workspace in workspace_records:
                 # ``agent_session_id`` is workspace_core_lib's generic name
                 # for the bound agent session id.
-                session_id = read_session_id_from(workspace)
-                if not session_id:
+                agent_session_id = read_session_id_from(workspace)
+                if not agent_session_id:
                     continue
                 lookup_key = self._lookup_key(workspace.task_id)
                 existing = self._records.get(lookup_key)
@@ -205,7 +205,7 @@ class ClaudeSessionManager(object):
                     task_summary=str(getattr(workspace, 'task_summary', '') or ''),
                     status=SESSION_STATUS_TERMINATED,
                 )
-                record.agent_session_id = session_id
+                record.agent_session_id = agent_session_id
                 cwd = str(getattr(workspace, 'cwd', '') or '').strip()
                 if cwd and not record.cwd:
                     record.cwd = cwd

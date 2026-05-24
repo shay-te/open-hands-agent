@@ -2,7 +2,11 @@ import unittest
 from unittest.mock import ANY, Mock, patch
 
 from kato_core_lib.kato_core_lib import KatoCoreLib
-from kato_core_lib.data_layers.data.fields import PullRequestFields, StatusFields
+from kato_core_lib.data_layers.data.fields import (
+    ImplementationFields,
+    PullRequestFields,
+    StatusFields,
+)
 from task_core_lib.task_core_lib.platform import Platform
 from tests.utils import build_task, build_test_cfg
 
@@ -30,7 +34,7 @@ class KatoCoreLibTests(unittest.TestCase):
         implementation_client.max_retries = cfg.kato.retry.max_retries
         implementation_client.implement_task.return_value = {
             'success': True,
-            'session_id': 'conversation-1',
+            ImplementationFields.AGENT_SESSION_ID: 'conversation-1',
             'commit_message': 'Implement PROJ-1',
             'summary': 'Files changed:\n- client/app.ts\n  Updated the client flow.',
         }
@@ -736,7 +740,7 @@ class KatoCoreLibTests(unittest.TestCase):
         completed = subprocess.CompletedProcess(
             args=['docker'],
             returncode=0,
-            stdout=json.dumps({'is_error': False, 'result': 'ok', 'session_id': 's'}),
+            stdout=json.dumps({'is_error': False, 'result': 'ok', 'agent_session_id': 's'}),
             stderr='',
         )
 

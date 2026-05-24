@@ -7,6 +7,7 @@ import { describe, test, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 
 import Tab from './Tab.jsx';
+import { AGENT_SESSION_ID } from '../constants/sessionFields.js';
 import { TAB_STATUS } from '../constants/tabStatus.js';
 
 
@@ -18,7 +19,7 @@ function _session(overrides = {}) {
     working: true,
     has_changes_pending: false,
     live: true,
-    agent_session_id: 'sess-1',
+    [AGENT_SESSION_ID]: 'sess-1',
     ...overrides,
   };
 }

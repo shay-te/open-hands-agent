@@ -101,7 +101,7 @@ def _completed(stdout: str, stderr: str = '', returncode: int = 0) -> subprocess
 
 
 def _ok_json(**extra) -> subprocess.CompletedProcess:
-    payload = {'is_error': False, 'result': 'Done', 'session_id': 'sess-abc', **extra}
+    payload = {'is_error': False, 'result': 'Done', 'agent_session_id': 'sess-abc', **extra}
     return _completed(json.dumps(payload))
 
 
@@ -141,21 +141,21 @@ class ClaudeCliClientLifecycleFlowTest(unittest.TestCase):
 
         # After validate_connection, _build_command uses the resolved binary
         self.assertEqual(
-            self.client._build_command(additional_dirs=[], session_id='')[0],
+            self.client._build_command(additional_dirs=[], agent_session_id='')[0],
             '/usr/local/bin/claude',
         )
 
         # Step 2: implement_task
         impl_result = self._run_with_mock(self.client.implement_task, task)
         self.assertTrue(impl_result[ImplementationFields.SUCCESS])
-        session_id = impl_result.get(ImplementationFields.AGENT_SESSION_ID, '')
+        agent_session_id = impl_result.get(ImplementationFields.AGENT_SESSION_ID, '')
 
-        # Step 3: fix_review_comment (reuses session_id from impl)
+        # Step 3: fix_review_comment (reuses agent_session_id from impl)
         review_result = self._run_with_mock(
             self.client.fix_review_comment,
             _comment(),
             'feature/proj-1',
-            session_id=session_id,
+            agent_session_id=agent_session_id,
         )
         self.assertTrue(review_result[ImplementationFields.SUCCESS])
 
@@ -168,7 +168,7 @@ class ClaudeCliClientLifecycleFlowTest(unittest.TestCase):
         with patch(
             'claude_core_lib.claude_core_lib.cli_client.subprocess.run',
             return_value=_completed(
-                json.dumps({'is_error': False, 'result': 'ok', 'session_id': 'flow-sess-1'})
+                json.dumps({'is_error': False, 'result': 'ok', 'agent_session_id': 'flow-sess-1'})
             ),
         ):
             result = self.client.implement_task(task)
@@ -181,7 +181,7 @@ class ClaudeCliClientLifecycleFlowTest(unittest.TestCase):
             return_value=_ok_json(),
         ) as mock_run:
             self.client.fix_review_comment(
-                _comment(), 'feature/proj-1', session_id='resume-me',
+                _comment(), 'feature/proj-1', agent_session_id='resume-me',
             )
 
         cmd = mock_run.call_args.args[0]
@@ -190,7 +190,7 @@ class ClaudeCliClientLifecycleFlowTest(unittest.TestCase):
 
     def test_implement_raises_on_api_error(self) -> None:
         task = _task()
-        error_payload = {'is_error': True, 'result': 'rate limited', 'session_id': ''}
+        error_payload = {'is_error': True, 'result': 'rate limited', 'agent_session_id': ''}
         with patch(
             'claude_core_lib.claude_core_lib.cli_client.subprocess.run',
             return_value=_completed(json.dumps(error_payload)),
@@ -435,7 +435,7 @@ class HelperChainFlowTest(unittest.TestCase):
     def test_openhands_result_integrated_with_prompt_builder(self) -> None:
         payload = {
             'success': True,
-            'session_id': 'oh-sess-1',
+            'agent_session_id': 'oh-sess-1',
             'message': 'Task done.',
             'commit_message': 'fix: resolve auth issue',
         }
@@ -472,7 +472,7 @@ class HistoryIndexFlowTest(unittest.TestCase):
 
     def _write_transcript(
         self,
-        session_id: str,
+        agent_session_id: str,
         cwd: str,
         user_messages: list[str],
         dir_name: str | None = None,
@@ -480,18 +480,18 @@ class HistoryIndexFlowTest(unittest.TestCase):
         encoded_dir = dir_name or cwd.replace('/', '-').lstrip('-')
         project_dir = self.root / encoded_dir
         project_dir.mkdir(parents=True, exist_ok=True)
-        path = project_dir / f'{session_id}.jsonl'
+        path = project_dir / f'{agent_session_id}.jsonl'
         lines: list[str] = []
         for msg in user_messages:
             lines.append(json.dumps({
                 'type': 'user',
-                'sessionId': session_id,
+                'sessionId': agent_session_id,
                 'cwd': cwd,
                 'message': {'role': 'user', 'content': [{'type': 'text', 'text': msg}]},
             }))
         lines.append(json.dumps({
             'type': 'assistant',
-            'sessionId': session_id,
+            'sessionId': agent_session_id,
             'cwd': cwd,
             'message': {'role': 'assistant', 'content': [{'type': 'text', 'text': 'reply'}]},
         }))
@@ -501,30 +501,30 @@ class HistoryIndexFlowTest(unittest.TestCase):
     def test_write_discover_load(self) -> None:
         cwd = str(self.root / 'workspaces' / 'PROJ-10' / 'repo')
         Path(cwd).mkdir(parents=True)
-        session_id = 'flow-sess-10'
+        agent_session_id = 'flow-sess-10'
 
         transcript = self._write_transcript(
-            session_id,
+            agent_session_id,
             cwd=cwd,
             user_messages=['Implement the feature', 'Add tests too'],
         )
 
         # find_session_file locates the JSONL
-        found = find_session_file(session_id, projects_root=self.root)
+        found = find_session_file(agent_session_id, projects_root=self.root)
         self.assertIsNotNone(found)
         self.assertEqual(found, transcript)
 
         # list_sessions discovers it
         sessions = list_sessions(sessions_root=self.root)
-        session_ids = [s.session_id for s in sessions]
-        self.assertIn(session_id, session_ids)
+        session_ids = [s.agent_session_id for s in sessions]
+        self.assertIn(agent_session_id, session_ids)
 
-        meta = next(s for s in sessions if s.session_id == session_id)
+        meta = next(s for s in sessions if s.agent_session_id == agent_session_id)
         self.assertEqual(meta.cwd, cwd)
         self.assertIn('Implement the feature', meta.first_user_message)
 
         # load_history_events returns user and assistant events
-        events = load_history_events(session_id, projects_root=self.root)
+        events = load_history_events(agent_session_id, projects_root=self.root)
         types = [e['type'] for e in events]
         self.assertIn('user', types)
         self.assertIn('assistant', types)
@@ -532,9 +532,9 @@ class HistoryIndexFlowTest(unittest.TestCase):
     def test_migrate_then_find_in_new_location(self) -> None:
         old_cwd = str(self.root / 'old' / 'repo')
         Path(old_cwd).mkdir(parents=True)
-        session_id = 'flow-migrate-1'
+        agent_session_id = 'flow-migrate-1'
 
-        source = self._write_transcript(session_id, cwd=old_cwd, user_messages=['hi'])
+        source = self._write_transcript(agent_session_id, cwd=old_cwd, user_messages=['hi'])
 
         new_cwd = str(self.root / 'new' / 'repo')
         result = migrate_session_to_workspace(
@@ -567,7 +567,7 @@ class HistoryIndexFlowTest(unittest.TestCase):
             dir_name='-repo-billing',
         )
         results = list_sessions(sessions_root=self.root, query='auth')
-        self.assertEqual([s.session_id for s in results], ['sess-auth'])
+        self.assertEqual([s.agent_session_id for s in results], ['sess-auth'])
 
     def test_session_metadata_to_dict_is_serializable(self) -> None:
         self._write_transcript(

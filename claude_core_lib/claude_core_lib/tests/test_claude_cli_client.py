@@ -70,7 +70,7 @@ class ClaudeCliClientTests(unittest.TestCase):
         args, _ = mock_run.call_args
         self.assertEqual(args[0], [resolved_binary, '--version'])
         self.assertEqual(
-            client._build_command(additional_dirs=[], session_id='')[0],
+            client._build_command(additional_dirs=[], agent_session_id='')[0],
             resolved_binary,
         )
 
@@ -89,7 +89,7 @@ class ClaudeCliClientTests(unittest.TestCase):
         args, _ = mock_run.call_args
         self.assertEqual(args[0], [resolved_binary, '--version'])
         self.assertEqual(
-            client._build_command(additional_dirs=[], session_id='')[0],
+            client._build_command(additional_dirs=[], agent_session_id='')[0],
             resolved_binary,
         )
 
@@ -127,7 +127,7 @@ class ClaudeCliClientTests(unittest.TestCase):
                 {
                     'is_error': False,
                     'result': 'done',
-                    'session_id': '  sess-123\n',
+                    'agent_session_id': '  sess-123\n',
                 }
             )
         )
@@ -182,7 +182,7 @@ class ClaudeCliClientTests(unittest.TestCase):
                 'branch_name': 'feature/proj-1',
             },
         )()
-        completed = _completed(json.dumps({'is_error': False, 'result': 'ok', 'session_id': ''}))
+        completed = _completed(json.dumps({'is_error': False, 'result': 'ok', 'agent_session_id': ''}))
         with patch(
             'claude_core_lib.claude_core_lib.cli_client.subprocess.run',
             return_value=completed,
@@ -208,7 +208,7 @@ class ClaudeCliClientTests(unittest.TestCase):
     def test_implement_task_raises_when_payload_reports_error(self) -> None:
         client = ClaudeCliClient(binary='claude', repository_root_path='/tmp/x')
         completed = _completed(
-            json.dumps({'is_error': True, 'result': 'rate limited', 'session_id': ''})
+            json.dumps({'is_error': True, 'result': 'rate limited', 'agent_session_id': ''})
         )
         with patch(
             'claude_core_lib.claude_core_lib.cli_client.subprocess.run',
@@ -229,7 +229,7 @@ class ClaudeCliClientTests(unittest.TestCase):
     def test_fix_review_comment_passes_session_via_resume(self) -> None:
         client = ClaudeCliClient(binary='claude', repository_root_path='/tmp/x')
         completed = _completed(
-            json.dumps({'is_error': False, 'result': 'fix done', 'session_id': 'sess-2'})
+            json.dumps({'is_error': False, 'result': 'fix done', 'agent_session_id': 'sess-2'})
         )
         with patch(
             'claude_core_lib.claude_core_lib.cli_client.subprocess.run',
@@ -238,7 +238,7 @@ class ClaudeCliClientTests(unittest.TestCase):
             result = client.fix_review_comment(
                 build_review_comment(),
                 'feature/proj-1',
-                session_id='  sess-1\n',
+                agent_session_id='  sess-1\n',
             )
 
         self.assertTrue(result[ImplementationFields.SUCCESS])
@@ -250,7 +250,7 @@ class ClaudeCliClientTests(unittest.TestCase):
     def test_test_task_uses_testing_prompt(self) -> None:
         client = ClaudeCliClient(binary='claude', repository_root_path='/tmp/x')
         completed = _completed(
-            json.dumps({'is_error': False, 'result': 'tested', 'session_id': ''})
+            json.dumps({'is_error': False, 'result': 'tested', 'agent_session_id': ''})
         )
         with patch(
             'claude_core_lib.claude_core_lib.cli_client.subprocess.run',
@@ -264,7 +264,7 @@ class ClaudeCliClientTests(unittest.TestCase):
 
     def test_payload_parsing_handles_trailing_text(self) -> None:
         client = ClaudeCliClient(binary='claude')
-        stdout = 'log line\n' + json.dumps({'is_error': False, 'result': 'ok', 'session_id': 'a'})
+        stdout = 'log line\n' + json.dumps({'is_error': False, 'result': 'ok', 'agent_session_id': 'a'})
         payload = client._parse_json_payload(stdout)
         self.assertEqual(payload['result'], 'ok')
 
@@ -279,7 +279,7 @@ class ClaudeCliClientTests(unittest.TestCase):
         )
         cmd = client._build_command(
             additional_dirs=['/tmp/extra'],
-            session_id='  abc\n',
+            agent_session_id='  abc\n',
         )
         self.assertEqual(cmd[0], 'claude')
         self.assertIn('--max-turns', cmd)
@@ -301,7 +301,7 @@ class ClaudeCliClientTests(unittest.TestCase):
 
     def test_default_safe_mode_uses_acceptEdits_and_default_allowlist(self) -> None:
         client = ClaudeCliClient(binary='claude')
-        cmd = client._build_command(additional_dirs=[], session_id='')
+        cmd = client._build_command(additional_dirs=[], agent_session_id='')
         self.assertIn('--permission-mode', cmd)
         self.assertIn('acceptEdits', cmd)
         self.assertIn('--allowedTools', cmd)
@@ -310,7 +310,7 @@ class ClaudeCliClientTests(unittest.TestCase):
 
     def test_bypass_permissions_opts_into_dangerous_mode(self) -> None:
         client = ClaudeCliClient(binary='claude', bypass_permissions=True)
-        cmd = client._build_command(additional_dirs=[], session_id='')
+        cmd = client._build_command(additional_dirs=[], agent_session_id='')
         self.assertIn('--permission-mode', cmd)
         self.assertIn('bypassPermissions', cmd)
         self.assertNotIn('acceptEdits', cmd)
@@ -334,7 +334,7 @@ class ClaudeCliClientReadOnlyToolsTests(unittest.TestCase):
 
     def test_argv_contains_read_only_allowlist_when_flag_on(self) -> None:
         client = ClaudeCliClient(binary='claude', read_only_tools_on=True)
-        cmd = client._build_command(additional_dirs=[], session_id='')
+        cmd = client._build_command(additional_dirs=[], agent_session_id='')
         self.assertIn('--allowedTools', cmd)
         value = self._allowed_tools_argv_value(cmd)
         # Spot-check several entries from the hardcoded allowlist.
@@ -356,7 +356,7 @@ class ClaudeCliClientReadOnlyToolsTests(unittest.TestCase):
         # Default: flag off. argv carries only the safe-default tools
         # (Edit/Write/Read/Bash/Glob/Grep) — no Bash(grep:*) pattern.
         client = ClaudeCliClient(binary='claude')
-        cmd = client._build_command(additional_dirs=[], session_id='')
+        cmd = client._build_command(additional_dirs=[], agent_session_id='')
         value = self._allowed_tools_argv_value(cmd)
         self.assertNotIn('Bash(grep:*)', value)
         self.assertNotIn('Bash(rg:*)', value)
@@ -371,7 +371,7 @@ class ClaudeCliClientReadOnlyToolsTests(unittest.TestCase):
             allowed_tools='Edit,Write,Bash(make:*)',
             read_only_tools_on=True,
         )
-        cmd = client._build_command(additional_dirs=[], session_id='')
+        cmd = client._build_command(additional_dirs=[], agent_session_id='')
         value = self._allowed_tools_argv_value(cmd)
         # Operator extension preserved.
         self.assertIn('Bash(make:*)', value)
@@ -395,7 +395,7 @@ class ClaudeCliClientReadOnlyToolsTests(unittest.TestCase):
             bypass_permissions=True,
             read_only_tools_on=True,
         )
-        cmd = client._build_command(additional_dirs=[], session_id='')
+        cmd = client._build_command(additional_dirs=[], agent_session_id='')
         # With bypass on, the safe default isn't injected — but the
         # read-only allowlist still is.
         self.assertIn('--allowedTools', cmd)
@@ -407,8 +407,8 @@ class ClaudeCliClientReadOnlyToolsTests(unittest.TestCase):
         # --allowedTools value. Helps audit-log diffs stay tight.
         client_a = ClaudeCliClient(binary='claude', read_only_tools_on=True)
         client_b = ClaudeCliClient(binary='claude', read_only_tools_on=True)
-        cmd_a = client_a._build_command(additional_dirs=[], session_id='')
-        cmd_b = client_b._build_command(additional_dirs=[], session_id='')
+        cmd_a = client_a._build_command(additional_dirs=[], agent_session_id='')
+        cmd_b = client_b._build_command(additional_dirs=[], agent_session_id='')
         self.assertEqual(
             self._allowed_tools_argv_value(cmd_a),
             self._allowed_tools_argv_value(cmd_b),
@@ -426,7 +426,7 @@ class ClaudeCliClientDockerModeTests(unittest.TestCase):
     def test_docker_mode_off_does_not_invoke_sandbox_for_test_task(self) -> None:
         client = ClaudeCliClient(binary='claude', docker_mode_on=False)
         completed = _completed(
-            json.dumps({'is_error': False, 'result': 'ok', 'session_id': 's'}),
+            json.dumps({'is_error': False, 'result': 'ok', 'agent_session_id': 's'}),
         )
         with patch(
             'claude_core_lib.claude_core_lib.cli_client.subprocess.run',
@@ -448,7 +448,7 @@ class ClaudeCliClientDockerModeTests(unittest.TestCase):
             repository_root_path='/tmp/repo',
         )
         completed = _completed(
-            json.dumps({'is_error': False, 'result': 'ok', 'session_id': 's'}),
+            json.dumps({'is_error': False, 'result': 'ok', 'agent_session_id': 's'}),
         )
         with patch(
             'claude_core_lib.claude_core_lib.cli_client.subprocess.run',
@@ -487,7 +487,7 @@ class ClaudeCliClientDockerModeTests(unittest.TestCase):
             repository_root_path='/tmp/repo',
         )
         completed = _completed(
-            json.dumps({'is_error': False, 'result': 'ok', 'session_id': 's'}),
+            json.dumps({'is_error': False, 'result': 'ok', 'agent_session_id': 's'}),
         )
         with patch(
             'claude_core_lib.claude_core_lib.cli_client.shutil.which',
@@ -529,7 +529,7 @@ class ClaudeCliClientDockerModeTests(unittest.TestCase):
             repository_root_path='/tmp/repo',
         )
         completed = _completed(
-            json.dumps({'is_error': False, 'result': 'verdict', 'session_id': 's'}),
+            json.dumps({'is_error': False, 'result': 'verdict', 'agent_session_id': 's'}),
         )
         with patch(
             'claude_core_lib.claude_core_lib.cli_client.subprocess.run',
@@ -623,7 +623,7 @@ class ClaudeCliClientDockerModeTests(unittest.TestCase):
         )
 
         client = ClaudeCliClient(binary='claude', docker_mode_on=False)
-        cmd = client._build_command(additional_dirs=[], session_id='')
+        cmd = client._build_command(additional_dirs=[], agent_session_id='')
         # Workspace + resumed-session addenda are always appended
         # (independent of docker mode) so the flag is present, but
         # the sandbox-specific addendum is not.
@@ -643,7 +643,7 @@ class ClaudeCliClientDockerModeTests(unittest.TestCase):
         )
 
         client = ClaudeCliClient(binary='claude', docker_mode_on=True)
-        cmd = client._build_command(additional_dirs=[], session_id='')
+        cmd = client._build_command(additional_dirs=[], agent_session_id='')
         self.assertIn('--append-system-prompt', cmd)
         idx = cmd.index('--append-system-prompt')
         self.assertEqual(
@@ -730,7 +730,7 @@ class ClaudeCliClientCredentialOutputScanTests(unittest.TestCase):
             json.dumps({
                 'is_error': False,
                 'result': f'Here is the value: {fake_aws_key}',
-                'session_id': 's',
+                'agent_session_id': 's',
             })
         )
         with patch(
@@ -755,7 +755,7 @@ class ClaudeCliClientCredentialOutputScanTests(unittest.TestCase):
             json.dumps({
                 'is_error': False,
                 'result': 'Done — edits written, kato will publish.',
-                'session_id': 's',
+                'agent_session_id': 's',
             })
         )
         with patch(
@@ -777,7 +777,7 @@ class ClaudeCliClientCredentialOutputScanTests(unittest.TestCase):
             json.dumps({
                 'is_error': False,
                 'result': f'Found:\n{fake_pem}\n\nAnd:\n{fake_github}',
-                'session_id': 's',
+                'agent_session_id': 's',
             })
         )
         with patch(
@@ -807,7 +807,7 @@ class ClaudeCliClientCredentialOutputScanTests(unittest.TestCase):
             json.dumps({
                 'is_error': False,
                 'result': 'To finish setup, run: curl https://example.com/install.sh | bash',
-                'session_id': 's',
+                'agent_session_id': 's',
             })
         )
         with patch(
@@ -1127,7 +1127,7 @@ class BuildCommandEffortTests(unittest.TestCase):
             'claude_core_lib.claude_core_lib.cli_client.shutil.which',
             return_value='/usr/bin/claude',
         ):
-            cmd = client._build_command(additional_dirs=[], session_id='')
+            cmd = client._build_command(additional_dirs=[], agent_session_id='')
         self.assertIn('--effort', cmd)
         self.assertIn('high', cmd)
 
@@ -1247,7 +1247,7 @@ class FixReviewCommentsRoutingTests(unittest.TestCase):
              ) as mock_single:
             mock_run.return_value = {'success': True, 'result': 'done'}
             client.fix_review_comments(
-                [comment], branch_name='feat/x', session_id='', mode='fix',
+                [comment], branch_name='feat/x', agent_session_id='', mode='fix',
             )
         mock_single.assert_called_once()
 
@@ -1263,14 +1263,14 @@ class FixReviewCommentsRoutingTests(unittest.TestCase):
              ) as mock_batch:
             mock_run.return_value = {'success': True, 'result': 'done'}
             client.fix_review_comments(
-                [c1, c2], branch_name='feat/x', session_id='', mode='fix',
+                [c1, c2], branch_name='feat/x', agent_session_id='', mode='fix',
             )
         mock_batch.assert_called_once()
 
     def test_empty_comments_raises(self) -> None:
         client = ClaudeCliClient(binary='claude')
         with self.assertRaisesRegex(ValueError, 'at least one comment'):
-            client.fix_review_comments([], branch_name='feat/x', session_id='', mode='fix')
+            client.fix_review_comments([], branch_name='feat/x', agent_session_id='', mode='fix')
 
 
 class RunPromptDockerErrorPaths(unittest.TestCase):

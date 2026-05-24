@@ -1,7 +1,7 @@
 """DTO for the dict-shaped result every backend returns today.
 
 Backends return free-form dicts with at least ``success: bool``
-and usually a ``message: str`` / ``summary: str`` / ``session_id:
+and usually a ``message: str`` / ``summary: str`` / ``agent_session_id:
 str``. Pinning the full shape would be brittle — different
 backends populate different keys. We type the methods as
 ``AgentResult = dict[str, Any]`` so the contract describes the

@@ -23,9 +23,9 @@ class FixSessionIdTests(unittest.TestCase):
     # ----- the empty / missing cases ---------------------------------
 
     def test_none_becomes_empty_string(self) -> None:
-        # ``getattr(record, 'agent_session_id', None)`` returns None
+        # ``getattr(record, AGENT_SESSION_ID, None)`` returns None
         # if the attribute is missing. Must coerce to '' so the
-        # caller's ``if session_id:`` truthy guards keep working.
+        # caller's ``if agent_session_id:`` truthy guards keep working.
         self.assertEqual(fix_session_id(None), '')
 
     def test_empty_string_stays_empty(self) -> None:
@@ -124,7 +124,7 @@ class SameSessionIdTests(unittest.TestCase):
 class ReadSessionIdFromTests(unittest.TestCase):
     """The duck-typed reader: record / session / workspace.
 
-    Collapses the ``fix_session_id(getattr(obj, 'agent_session_id', ''))``
+    Collapses the ``fix_session_id(getattr(obj, AGENT_SESSION_ID, ''))``
     pattern into one named helper.
     """
 

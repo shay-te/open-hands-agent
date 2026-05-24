@@ -6,6 +6,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { AGENT_SESSION_ID } from '../constants/sessionFields.js';
 import { TAB_STATUS } from '../constants/tabStatus.js';
 import { deriveTabStatus, resolveTabStatus, tabStatusTitle } from './tabStatus.js';
 
@@ -40,7 +41,7 @@ test('deriveTabStatus: ACTIVE with live=false and no session id → IDLE', funct
   // running subprocess.
   assert.equal(
     deriveTabStatus({
-      status: TAB_STATUS.ACTIVE, live: false, agent_session_id: '',
+      status: TAB_STATUS.ACTIVE, live: false, [AGENT_SESSION_ID]: '',
     }),
     TAB_STATUS.IDLE,
   );
@@ -50,7 +51,7 @@ test('deriveTabStatus: ACTIVE with live=false BUT a session id stays ACTIVE', fu
   // Has a session id → kato can respawn → still "active" semantics.
   assert.equal(
     deriveTabStatus({
-      status: TAB_STATUS.ACTIVE, live: false, agent_session_id: 'sess-1',
+      status: TAB_STATUS.ACTIVE, live: false, [AGENT_SESSION_ID]: 'sess-1',
     }),
     TAB_STATUS.ACTIVE,
   );
@@ -62,24 +63,24 @@ test('deriveTabStatus: non-ACTIVE statuses ignore the live=false gate', function
   // semantic meaning the operator needs.
   assert.equal(
     deriveTabStatus({
-      status: TAB_STATUS.DONE, live: false, agent_session_id: '',
+      status: TAB_STATUS.DONE, live: false, [AGENT_SESSION_ID]: '',
     }),
     TAB_STATUS.DONE,
   );
   assert.equal(
     deriveTabStatus({
-      status: TAB_STATUS.TERMINATED, live: false, agent_session_id: '',
+      status: TAB_STATUS.TERMINATED, live: false, [AGENT_SESSION_ID]: '',
     }),
     TAB_STATUS.TERMINATED,
   );
 });
 
 test('deriveTabStatus: ACTIVE with live=true stays ACTIVE regardless of session id', function () {
-  // Live process running. Even if some race makes agent_session_id
+  // Live process running. Even if some race makes the agent session id
   // briefly empty, "active" is the correct dot.
   assert.equal(
     deriveTabStatus({
-      status: TAB_STATUS.ACTIVE, live: true, agent_session_id: '',
+      status: TAB_STATUS.ACTIVE, live: true, [AGENT_SESSION_ID]: '',
     }),
     TAB_STATUS.ACTIVE,
   );
@@ -91,7 +92,7 @@ test('deriveTabStatus: working=true overrides stale persisted status', function 
       status: TAB_STATUS.REVIEW,
       live: true,
       working: true,
-      agent_session_id: 'sess-1',
+      [AGENT_SESSION_ID]: 'sess-1',
     }),
     TAB_STATUS.WORKING,
   );
@@ -131,7 +132,7 @@ test('resolveTabStatus: falsy attention falls through to base', function () {
 test('resolveTabStatus: respects the IDLE downgrade when no attention', function () {
   assert.equal(
     resolveTabStatus({
-      status: TAB_STATUS.ACTIVE, live: false, agent_session_id: '',
+      status: TAB_STATUS.ACTIVE, live: false, [AGENT_SESSION_ID]: '',
     }, false),
     TAB_STATUS.IDLE,
   );

@@ -89,7 +89,7 @@ class ReviewReplyTemplate:
 class ReviewFixContext(object):
     repository_id: str
     branch_name: str
-    session_id: str
+    agent_session_id: str
     task_id: str
     task_summary: str
     pull_request_title: str
@@ -416,7 +416,7 @@ def review_fix_context_from_mapping(context: dict[str, str]) -> ReviewFixContext
     return ReviewFixContext(
         repository_id=text_from_mapping(context, PullRequestFields.REPOSITORY_ID),
         branch_name=text_from_mapping(context, Task.branch_name.key),
-        session_id=fix_session_id(context.get(ImplementationFields.AGENT_SESSION_ID)),
+        agent_session_id=fix_session_id(context.get(ImplementationFields.AGENT_SESSION_ID)),
         task_id=text_from_mapping(context, TaskFields.ID),
         task_summary=text_from_mapping(context, TaskFields.SUMMARY),
         pull_request_title=text_from_mapping(context, PullRequestFields.TITLE),

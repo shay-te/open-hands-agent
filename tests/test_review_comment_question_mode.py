@@ -222,7 +222,7 @@ class ServiceRoutingTests(unittest.TestCase):
         state_registry.pull_request_context.return_value = {
             'task_id': 'PROJ-1',
             'task_summary': 'do the thing',
-            'session_id': 'sess-1',
+            'agent_session_id': 'sess-1',
             'branch_name': 'feature/proj-7',
             'pull_request_title': 'PROJ-1: do',
             'repository_id': 'client',

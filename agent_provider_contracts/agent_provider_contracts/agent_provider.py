@@ -66,12 +66,12 @@ class AgentProvider(Protocol):
     def implement_task(
         self,
         task: AgentTask,
-        session_id: str = '',
+        agent_session_id: str = '',
         prepared_task: AgentPreparedTaskContext | None = None,
     ) -> AgentResult:
         """Run the agent against a task to produce code changes.
 
-        ``session_id`` is the previous run's id when resuming a
+        ``agent_session_id`` is the previous run's id when resuming a
         task; empty for fresh runs. The result dict always carries
         ``success: bool`` plus per-backend diagnostic keys.
         """
@@ -94,7 +94,7 @@ class AgentProvider(Protocol):
         self,
         comment: AgentReviewComment,
         branch_name: str,
-        session_id: str = '',
+        agent_session_id: str = '',
         task_id: str = '',
         task_summary: str = '',
     ) -> AgentResult:
@@ -109,7 +109,7 @@ class AgentProvider(Protocol):
         self,
         comments: list[AgentReviewComment],
         branch_name: str,
-        session_id: str = '',
+        agent_session_id: str = '',
         task_id: str = '',
         task_summary: str = '',
         mode: str = 'fix',

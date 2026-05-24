@@ -13,7 +13,7 @@ from kato_core_lib.helpers.text_utils import normalized_text, text_from_mapping
 def build_pull_request_context(
     repository_id: str,
     branch_name: str,
-    session_id: str = '',
+    agent_session_id: str = '',
     task_id: str = '',
     task_summary: str = '',
     pull_request_title: str = '',
@@ -22,7 +22,7 @@ def build_pull_request_context(
         PullRequestFields.REPOSITORY_ID: normalized_text(repository_id),
         Task.branch_name.key: normalized_text(branch_name),
     }
-    normalized_session_id = fix_session_id(session_id)
+    normalized_session_id = fix_session_id(agent_session_id)
     normalized_task_id = normalized_text(task_id)
     normalized_task_summary = normalized_text(task_summary)
     normalized_pull_request_title = normalized_text(pull_request_title)

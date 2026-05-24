@@ -177,7 +177,7 @@ class AgentServiceUtilsTests(unittest.TestCase):
 
         self.assertEqual(context.repository_id, 'client')
         self.assertEqual(context.branch_name, 'feature/proj-1/client')
-        self.assertEqual(context.session_id, 'conversation-1')
+        self.assertEqual(context.agent_session_id, 'conversation-1')
         self.assertEqual(context.task_id, 'PROJ-1')
         self.assertEqual(context.task_summary, 'fix it already')
         self.assertEqual(

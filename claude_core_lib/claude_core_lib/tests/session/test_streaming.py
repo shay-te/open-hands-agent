@@ -64,7 +64,7 @@ class StreamingClaudeSessionTests(unittest.TestCase):
 
     def test_start_launches_subprocess_and_pins_session_id(self) -> None:
         fake_proc = _FakeProc(stdout_lines=[
-            json.dumps({'type': 'system', 'subtype': 'init', 'session_id': 'live-123'}),
+            json.dumps({'type': 'system', 'subtype': 'init', 'agent_session_id': 'live-123'}),
         ])
         with patch(
             'claude_core_lib.claude_core_lib.session.streaming.subprocess.Popen',
@@ -456,7 +456,7 @@ class StreamingClaudeSessionTests(unittest.TestCase):
 
     def test_events_iter_yields_until_terminal(self) -> None:
         fake_proc = _FakeProc(stdout_lines=[
-            json.dumps({'type': 'system', 'subtype': 'init', 'session_id': 's1'}),
+            json.dumps({'type': 'system', 'subtype': 'init', 'agent_session_id': 's1'}),
             json.dumps({'type': 'assistant', 'message': {'role': 'assistant'}}),
             json.dumps({'type': 'result', 'subtype': 'success',
                         'is_error': False, 'result': 'done'}),
@@ -595,21 +595,21 @@ class StreamingClaudeSessionPureMethodTests(unittest.TestCase):
 
     def test_maybe_capture_session_id_pins_first_session_id_only(self) -> None:
         session = self._build_session()
-        # First init event with session_id → pinned.
+        # First init event with agent_session_id → pinned.
         session._maybe_capture_session_id(SessionEvent(raw={
-            'type': 'system', 'subtype': 'init', 'session_id': 'first',
+            'type': 'system', 'subtype': 'init', 'agent_session_id': 'first',
         }))
         self.assertEqual(session.agent_session_id, 'first')
         # Subsequent events with different ids must not overwrite.
         session._maybe_capture_session_id(SessionEvent(raw={
-            'type': 'system', 'session_id': 'second',
+            'type': 'system', 'agent_session_id': 'second',
         }))
         self.assertEqual(session.agent_session_id, 'first')
 
     def test_maybe_capture_session_id_ignores_empty_candidate(self) -> None:
         session = self._build_session()
         session._maybe_capture_session_id(SessionEvent(raw={
-            'type': 'system', 'session_id': '',
+            'type': 'system', 'agent_session_id': '',
         }))
         self.assertEqual(session.agent_session_id, '')
 
@@ -619,7 +619,7 @@ class StreamingClaudeSessionPureMethodTests(unittest.TestCase):
         session._agent_session_id = 'sess-abc'
         session.logger = MagicMock()
         ev = SessionEvent(raw={
-            'type': 'system', 'subtype': 'init', 'session_id': 'sess-abc',
+            'type': 'system', 'subtype': 'init', 'agent_session_id': 'sess-abc',
         })
         session._maybe_capture_session_id(ev)
         session._maybe_capture_session_id(ev)  # second init: no dup log
@@ -635,7 +635,7 @@ class StreamingClaudeSessionPureMethodTests(unittest.TestCase):
         corrections: list[str] = []
         session._session_id_correction_callback = corrections.append
         ev = SessionEvent(raw={
-            'type': 'system', 'subtype': 'init', 'session_id': 'actual-id',
+            'type': 'system', 'subtype': 'init', 'agent_session_id': 'actual-id',
         })
         session._maybe_capture_session_id(ev)
         session._maybe_capture_session_id(ev)  # only one warning, one correction
@@ -654,7 +654,7 @@ class StreamingClaudeSessionPureMethodTests(unittest.TestCase):
         corrections: list[str] = []
         session._session_id_correction_callback = corrections.append
         ev = SessionEvent(raw={
-            'type': 'system', 'subtype': 'init', 'session_id': 'sess-zzz',
+            'type': 'system', 'subtype': 'init', 'agent_session_id': 'sess-zzz',
         })
         session._maybe_capture_session_id(ev)
         session._maybe_capture_session_id(ev)  # only one warning, one correction
@@ -680,7 +680,7 @@ class StreamingClaudeSessionPureMethodTests(unittest.TestCase):
 
         session._session_id_correction_callback = broken_callback
         ev = SessionEvent(raw={
-            'type': 'system', 'subtype': 'init', 'session_id': 'actual-id',
+            'type': 'system', 'subtype': 'init', 'agent_session_id': 'actual-id',
         })
         # Must NOT raise.
         session._maybe_capture_session_id(ev)
@@ -1250,7 +1250,7 @@ class StreamingClaudeSessionPureMethodTests(unittest.TestCase):
     def test_start_sends_initial_prompt_when_provided(self) -> None:
         # Line 425: start() with non-empty initial_prompt calls send_user_message.
         fake_proc = _FakeProc(stdout_lines=[
-            json.dumps({'type': 'system', 'subtype': 'init', 'session_id': 'live'}),
+            json.dumps({'type': 'system', 'subtype': 'init', 'agent_session_id': 'live'}),
         ])
         with patch(
             'claude_core_lib.claude_core_lib.session.streaming.subprocess.Popen',
@@ -1457,7 +1457,7 @@ class StreamingClaudeSessionPureMethodTests(unittest.TestCase):
         session.logger = MagicMock()
         stdout_stream = io.BytesIO(
             json.dumps({'type': 'system', 'subtype': 'init',
-                        'session_id': 'live-1'}).encode() + b'\n'
+                        'agent_session_id': 'live-1'}).encode() + b'\n'
             + json.dumps({
                 'type': 'result', 'is_error': False, 'result': 'done',
             }).encode() + b'\n'
@@ -1610,7 +1610,7 @@ class StreamingClaudeSessionCredentialOutputScanTests(unittest.TestCase):
             'subtype': 'success',
             'is_error': False,
             'result': f'Here is the value: {fake_aws_key}',
-            'session_id': 'live-1',
+            'agent_session_id': 'live-1',
         })
         fake_proc = _FakeProc(stdout_lines=[terminal_line])
         with patch(
@@ -1639,7 +1639,7 @@ class StreamingClaudeSessionCredentialOutputScanTests(unittest.TestCase):
             'subtype': 'success',
             'is_error': False,
             'result': 'Done — edits written.',
-            'session_id': 'live-2',
+            'agent_session_id': 'live-2',
         })
         fake_proc = _FakeProc(stdout_lines=[terminal_line])
         with patch(
@@ -1672,7 +1672,7 @@ class StreamingClaudeSessionCredentialOutputScanTests(unittest.TestCase):
             'subtype': 'success',
             'is_error': False,
             'result': 'On your host:\n```bash\nsudo apt install build-essential\n```',
-            'session_id': 'live-phish',
+            'agent_session_id': 'live-phish',
         })
         fake_proc = _FakeProc(stdout_lines=[terminal_line])
         with patch(

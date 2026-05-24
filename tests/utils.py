@@ -392,7 +392,7 @@ def create_pull_request_with_defaults(
 def implement_task_with_defaults(
     client,
     task: Task | None = None,
-    session_id: str = '',
+    agent_session_id: str = '',
 ):
     with patch.object(client, '_patch', return_value=mock_response()):
         return client.implement_task(task or build_task(), '')
@@ -410,7 +410,7 @@ def fix_review_comment_with_defaults(
     client,
     comment: ReviewComment | None = None,
     branch_name: str = 'feature/proj-1',
-    session_id: str = '',
+    agent_session_id: str = '',
     task_id: str = '',
     task_summary: str = '',
 ):
@@ -418,7 +418,7 @@ def fix_review_comment_with_defaults(
         return client.fix_review_comment(
             comment or build_review_comment(),
             branch_name,
-            session_id,
+            agent_session_id,
             task_id=task_id,
             task_summary=task_summary,
         )

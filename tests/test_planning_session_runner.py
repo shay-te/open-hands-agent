@@ -36,9 +36,9 @@ class _FakeSession:
         self,
         terminal_event: SessionEvent | None,
         *,
-        session_id: str = 'fake-session-id',
+        agent_session_id: str = 'fake-session-id',
     ) -> None:
-        self.agent_session_id = session_id
+        self.agent_session_id = agent_session_id
         self._events_to_emit = [terminal_event] if terminal_event else []
         self._is_alive = True
         self.terminal_event = terminal_event
@@ -61,12 +61,12 @@ class _FakeManager:
         self,
         terminal_event: SessionEvent | None,
         *,
-        session_id: str = 'fake-session-id',
+        agent_session_id: str = 'fake-session-id',
         record_status: str | None = None,
     ) -> None:
         self.start_kwargs: dict | None = None
         self.statuses: list[str] = []
-        self._session = _FakeSession(terminal_event, session_id=session_id)
+        self._session = _FakeSession(terminal_event, agent_session_id=agent_session_id)
         self._record_status = record_status
 
     def start_session(self, **kwargs):
@@ -102,7 +102,7 @@ def _terminal(*, is_error: bool = False, result: str = 'all done') -> SessionEve
             'subtype': 'success' if not is_error else 'error',
             'is_error': is_error,
             'result': result,
-            'session_id': 'live-id',
+            'agent_session_id': 'live-id',
         },
     )
 
@@ -138,7 +138,7 @@ class PlanningSessionRunnerTests(unittest.TestCase):
     def test_implement_task_returns_normalized_session_id(self) -> None:
         manager = _FakeManager(
             _terminal(result='shipped it'),
-            session_id='  fake-session-id\n',
+            agent_session_id='  fake-session-id\n',
         )
         runner = PlanningSessionRunner(session_manager=manager, defaults=self.defaults)
         prepared = _FakePrepared([_FakeRepo('client', '/tmp/client')])

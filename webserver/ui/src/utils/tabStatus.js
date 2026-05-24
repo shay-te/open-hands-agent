@@ -1,3 +1,4 @@
+import { AGENT_SESSION_ID } from '../constants/sessionFields.js';
 import { TAB_STATUS } from '../constants/tabStatus.js';
 
 // Single source of truth for the per-task base status.
@@ -16,7 +17,7 @@ export function deriveTabStatus(session) {
   }
   if (status === TAB_STATUS.ACTIVE
       && session?.live === false
-      && !session?.agent_session_id) {
+      && !session?.[AGENT_SESSION_ID]) {
     return TAB_STATUS.IDLE;
   }
   return status;

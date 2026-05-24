@@ -1297,7 +1297,7 @@ class LogKnownSessionIdsBranchTests(unittest.TestCase):
         self.assertIn('known Claude session ids', info_msg)
 
     def test_records_present_but_all_skipped_logs_no_ids(self) -> None:
-        # Records exist but every one is missing either task_id or session_id
+        # Records exist but every one is missing either task_id or agent_session_id
         # → ``lines`` ends empty → fall to the "no Claude session ids
         # recorded at startup" else branch.
         records = [

@@ -44,7 +44,7 @@ class GitDenylistMergeTests(unittest.TestCase):
 class CommandIncludesGitDenyTests(unittest.TestCase):
     def _build(self, **kwargs) -> list[str]:
         client = ClaudeCliClient(binary='claude', **kwargs)
-        return client._build_command(additional_dirs=[], session_id='')
+        return client._build_command(additional_dirs=[], agent_session_id='')
 
     def test_safe_mode_command_includes_git_deny(self) -> None:
         command = self._build(bypass_permissions=False)

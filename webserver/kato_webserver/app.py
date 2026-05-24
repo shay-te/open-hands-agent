@@ -18,7 +18,7 @@ Endpoints:
     GET  /api/sessions/<task_id>/commit?repo=<id>&sha=  — unified diff for one commit
     POST /api/sessions/<task_id>/messages               — body: {"text", "images": [{media_type, data}]}
     POST /api/sessions/<task_id>/permission             — body: {"request_id", "allow", "rationale"}
-    POST /api/sessions/<task_id>/adopt-agent-session    — body: {"agent_session_id"}
+    POST /api/sessions/<task_id>/adopt-agent-session    — body keyed by AGENT_SESSION_ID
     POST /api/sessions/<task_id>/sync-repositories      — clone task repos missing from workspace
     POST /api/sessions/<task_id>/add-repository         — body: {"repository_id"} — tag + clone
     GET  /api/repositories                              — list inventory repos for the chooser
@@ -767,10 +767,10 @@ def _register_http_routes(app: Flask) -> None:
                     **{
                         key: value
                         for key, value in row.to_dict().items()
-                        if key != 'session_id'
+                        if key != 'agent_session_id'
                     },
-                    AGENT_SESSION_ID: row.session_id,
-                    'adopted_by_task_id': adopted_by.get(row.session_id, ''),
+                    AGENT_SESSION_ID: row.agent_session_id,
+                    'adopted_by_task_id': adopted_by.get(row.agent_session_id, ''),
                 }
                 for row in rows
             ],
@@ -780,7 +780,7 @@ def _register_http_routes(app: Flask) -> None:
     def adopt_agent_session(task_id: str):
         """Bind an existing agent session id to ``task_id``.
 
-        Body: ``{"agent_session_id": "<uuid>"}``. The next agent spawn
+        Body: keyed by ``AGENT_SESSION_ID``. The next agent spawn
         for ``task_id`` will ``--resume`` that session instead of
         starting a fresh conversation. Refuses when a live session is
         already running for ``task_id`` — the operator must close it
@@ -2443,7 +2443,7 @@ def _migrate_adopted_session_transcript(
         return None
     transcript_path = ''
     for entry in list_sessions(max_results=10000):
-        if same_session_id(entry.session_id, agent_session_id):
+        if same_session_id(entry.agent_session_id, agent_session_id):
             transcript_path = entry.transcript_path
             break
     if not transcript_path:

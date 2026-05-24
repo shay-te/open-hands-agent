@@ -105,7 +105,7 @@ class OpenHandsClient(RetryingClientBase):
     def implement_task(
         self,
         task: Any,
-        session_id: str = '',
+        agent_session_id: str = '',
         prepared_task: Any | None = None,
     ) -> dict[str, str | bool]:
         self.logger.info('requesting implementation for task %s', task.id)
@@ -145,14 +145,14 @@ class OpenHandsClient(RetryingClientBase):
         self,
         comment: ReviewComment,
         branch_name: str,
-        session_id: str = '',
+        agent_session_id: str = '',
         task_id: str = '',
         task_summary: str = '',
     ) -> dict[str, str | bool]:
         return self.fix_review_comments(
             [comment],
             branch_name,
-            session_id=session_id,
+            agent_session_id=agent_session_id,
             task_id=task_id,
             task_summary=task_summary,
         )
@@ -161,7 +161,7 @@ class OpenHandsClient(RetryingClientBase):
         self,
         comments: list[ReviewComment],
         branch_name: str,
-        session_id: str = '',
+        agent_session_id: str = '',
         task_id: str = '',
         task_summary: str = '',
         mode: str = 'fix',
@@ -184,7 +184,7 @@ class OpenHandsClient(RetryingClientBase):
                 task_id=task_id,
                 task_summary=task_summary,
             ),
-            session_id=session_id,
+            agent_session_id=agent_session_id,
             branch_name=branch_name,
             default_commit_message='Address review comments',
         )
@@ -497,11 +497,11 @@ class OpenHandsClient(RetryingClientBase):
         self,
         prompt: str,
         title: str,
-        session_id: str = '',
+        agent_session_id: str = '',
     ) -> dict[str, str | bool]:
-        conversation_id = self._start_conversation(prompt, title, session_id)
+        conversation_id = self._start_conversation(prompt, title, agent_session_id)
         payload = self._wait_for_conversation_result(conversation_id, title)
-        payload[ImplementationFields.SESSION_ID] = conversation_id
+        payload[ImplementationFields.AGENT_SESSION_ID] = conversation_id
         return payload
 
     def delete_conversation(self, conversation_id: str) -> None:
@@ -572,14 +572,14 @@ class OpenHandsClient(RetryingClientBase):
         *,
         prompt: str,
         title: str,
-        session_id: str = '',
+        agent_session_id: str = '',
         branch_name: str = '',
         default_commit_message: str | None = None,
     ) -> dict[str, str | bool]:
         payload = self._run_prompt(
             prompt=prompt,
             title=title,
-            session_id=session_id,
+            agent_session_id=agent_session_id,
         )
         return build_openhands_result(
             payload,
@@ -649,7 +649,7 @@ class OpenHandsClient(RetryingClientBase):
             payload['llm_base_url'] = llm_base_url
         return payload
 
-    def _start_conversation(self, prompt: str, title: str, session_id: str = '') -> str:
+    def _start_conversation(self, prompt: str, title: str, agent_session_id: str = '') -> str:
         request_body = {
             'title': title,
             'initial_message': {
@@ -657,7 +657,7 @@ class OpenHandsClient(RetryingClientBase):
                 'content': [{'text': prompt}],
             },
         }
-        parent_conversation_id = self._normalized_uuid(session_id)
+        parent_conversation_id = self._normalized_uuid(agent_session_id)
         if parent_conversation_id:
             request_body['parent_conversation_id'] = parent_conversation_id
 

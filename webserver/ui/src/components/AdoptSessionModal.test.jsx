@@ -25,12 +25,13 @@ vi.mock('../stores/toastStore.js', () => ({
 
 import AdoptSessionModal from './AdoptSessionModal.jsx';
 import { adoptAgentSession, fetchClaudeSessions } from '../api.js';
+import { AGENT_SESSION_ID } from '../constants/sessionFields.js';
 import { toast } from '../stores/toastStore.js';
 
 
 function _session(id, extra = {}) {
   return {
-    agent_session_id: id,
+    [AGENT_SESSION_ID]: id,
     cwd: extra.cwd || `/home/dev/${id}`,
     last_modified_epoch: extra.last_modified_epoch
       ?? (Date.now() / 1000 - 600),  // 10 minutes ago

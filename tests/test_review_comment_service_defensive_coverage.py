@@ -358,7 +358,7 @@ class ReviewPullRequestDisplayNameTests(unittest.TestCase):
         # Line 557 (the success arm).
         context = ReviewFixContext(
             repository_id='r', pull_request_title='Fix the bug',
-            branch_name='b', task_id='T1', task_summary='', session_id='',
+            branch_name='b', task_id='T1', task_summary='', agent_session_id='',
         )
         self.assertEqual(
             ReviewCommentService._review_pull_request_display_name(
@@ -371,7 +371,7 @@ class ReviewPullRequestDisplayNameTests(unittest.TestCase):
         # Line 558-559.
         context = ReviewFixContext(
             repository_id='r', pull_request_title='',
-            branch_name='b', task_id='T1', task_summary='', session_id='',
+            branch_name='b', task_id='T1', task_summary='', agent_session_id='',
         )
         result = ReviewCommentService._review_pull_request_display_name(
             _comment('c1', 'pr-1'), context,
@@ -389,7 +389,7 @@ class RunReviewCommentFixTests(unittest.TestCase):
         ) as batch:
             context = ReviewFixContext(
                 repository_id='r', pull_request_title='',
-                branch_name='b', task_id='T', task_summary='', session_id='',
+                branch_name='b', task_id='T', task_summary='', agent_session_id='',
             )
             result = service._run_review_comment_fix(_comment(), context)
         batch.assert_called_once()
@@ -408,7 +408,7 @@ class CallFixReviewCommentsBackendTypeErrorTests(unittest.TestCase):
         ]
         context = ReviewFixContext(
             repository_id='r', pull_request_title='',
-            branch_name='b', task_id='T', task_summary='', session_id='s',
+            branch_name='b', task_id='T', task_summary='', agent_session_id='s',
         )
         result = service._call_fix_review_comments_or_fanout(
             backend, [_comment()], context, streaming=False, mode='fix',
@@ -427,7 +427,7 @@ class CallFixReviewCommentsBackendTypeErrorTests(unittest.TestCase):
 
         context = ReviewFixContext(
             repository_id='r', pull_request_title='',
-            branch_name='b', task_id='T', task_summary='', session_id='s',
+            branch_name='b', task_id='T', task_summary='', agent_session_id='s',
         )
         result = service._call_fix_review_comments_or_fanout(
             _NoBatch(), [_comment('c1'), _comment('c2')], context,
@@ -443,7 +443,7 @@ class ProvisionWorkspaceCloneExceptionTests(unittest.TestCase):
         repo = SimpleNamespace(id='r', local_path='/x')
         context = ReviewFixContext(
             repository_id='r', pull_request_title='',
-            branch_name='b', task_id='T', task_summary='', session_id='',
+            branch_name='b', task_id='T', task_summary='', agent_session_id='',
         )
         self.assertIs(service._provision_workspace_clone(repo, context), repo)
 
@@ -458,7 +458,7 @@ class ProvisionWorkspaceCloneExceptionTests(unittest.TestCase):
         repo = SimpleNamespace(id='r', local_path='/x')
         context = ReviewFixContext(
             repository_id='r', pull_request_title='',
-            branch_name='b', task_id='T', task_summary='', session_id='',
+            branch_name='b', task_id='T', task_summary='', agent_session_id='',
         )
         with patch(
             'kato_core_lib.data_layers.service.workspace_provisioning_service.'
@@ -482,7 +482,7 @@ class ProvisionWorkspaceCloneExceptionTests(unittest.TestCase):
         context = ReviewFixContext(
             repository_id='comment-repo',
             pull_request_title='', branch_name='b',
-            task_id='T', task_summary='', session_id='',
+            task_id='T', task_summary='', agent_session_id='',
         )
         captured = {}
 
@@ -517,7 +517,7 @@ class ProvisionWorkspaceCloneExceptionTests(unittest.TestCase):
         context = ReviewFixContext(
             repository_id='comment-repo',
             pull_request_title='', branch_name='b',
-            task_id='T', task_summary='', session_id='',
+            task_id='T', task_summary='', agent_session_id='',
         )
         # Provisioner returns clones with DIFFERENT ids — the loop on
         # line 781-783 finds no match and we fall through to line 784.
@@ -540,7 +540,7 @@ class ProvisionWorkspaceCloneExceptionTests(unittest.TestCase):
         repo = SimpleNamespace(id='r', local_path='/x')
         context = ReviewFixContext(
             repository_id='r', pull_request_title='',
-            branch_name='b', task_id='T', task_summary='', session_id='',
+            branch_name='b', task_id='T', task_summary='', agent_session_id='',
         )
         with patch(
             'kato_core_lib.data_layers.service.workspace_provisioning_service.'
@@ -563,7 +563,7 @@ class TaskForWorkspaceCloneFallbackTests(unittest.TestCase):
         service._task_service.get_assigned_tasks.return_value = [task]
         context = ReviewFixContext(
             repository_id='r', pull_request_title='',
-            branch_name='b', task_id='T1', task_summary='', session_id='',
+            branch_name='b', task_id='T1', task_summary='', agent_session_id='',
         )
         result = service._task_for_workspace_clone(context, SimpleNamespace(id='r'))
         self.assertIs(result, task)
@@ -576,7 +576,7 @@ class TaskForWorkspaceCloneFallbackTests(unittest.TestCase):
         service._task_service.get_review_tasks.return_value = []
         context = ReviewFixContext(
             repository_id='r', pull_request_title='',
-            branch_name='b', task_id='T1', task_summary='summary', session_id='',
+            branch_name='b', task_id='T1', task_summary='summary', agent_session_id='',
         )
         result = service._task_for_workspace_clone(context, SimpleNamespace(id='r'))
         # Falls back to a SimpleNamespace stub.
@@ -590,7 +590,7 @@ class TaskForWorkspaceCloneFallbackTests(unittest.TestCase):
         service._task_service.get_review_tasks.return_value = []
         context = ReviewFixContext(
             repository_id='r', pull_request_title='',
-            branch_name='b', task_id='T-missing', task_summary='', session_id='',
+            branch_name='b', task_id='T-missing', task_summary='', agent_session_id='',
         )
         result = service._task_for_workspace_clone(context, SimpleNamespace(id='r'))
         self.assertEqual(result.id, 'T-missing')
@@ -605,7 +605,7 @@ class ReviewRepositoryLocalPathTests(unittest.TestCase):
         )
         context = ReviewFixContext(
             repository_id='r', pull_request_title='',
-            branch_name='b', task_id='T', task_summary='', session_id='',
+            branch_name='b', task_id='T', task_summary='', agent_session_id='',
         )
         self.assertEqual(service._review_repository_local_path(context), '')
 
@@ -616,7 +616,7 @@ class ReviewRepositoryLocalPathTests(unittest.TestCase):
         )
         context = ReviewFixContext(
             repository_id='r', pull_request_title='',
-            branch_name='b', task_id='T', task_summary='', session_id='',
+            branch_name='b', task_id='T', task_summary='', agent_session_id='',
         )
         self.assertEqual(
             service._review_repository_local_path(context),
@@ -631,7 +631,7 @@ class PublishReviewCommentFixDelegationTests(unittest.TestCase):
         with patch.object(service, '_publish_review_comments_batch_fix') as batch:
             context = ReviewFixContext(
                 repository_id='r', pull_request_title='',
-                branch_name='b', task_id='T', task_summary='', session_id='',
+                branch_name='b', task_id='T', task_summary='', agent_session_id='',
             )
             service._publish_review_comment_fix(
                 _comment(), SimpleNamespace(id='r'), context, {'success': True},
@@ -651,7 +651,7 @@ class PublishReviewCommentsBatchExceptionTests(unittest.TestCase):
         service._repository_service.resolve_review_comment = MagicMock()
         context = ReviewFixContext(
             repository_id='r', pull_request_title='',
-            branch_name='b', task_id='T', task_summary='', session_id='',
+            branch_name='b', task_id='T', task_summary='', agent_session_id='',
         )
         service._publish_review_comments_batch_fix(
             [_comment()], SimpleNamespace(id='r'), context, {'success': True},
@@ -712,7 +712,7 @@ class PublishReviewNoChangesTests(unittest.TestCase):
         )
         context = ReviewFixContext(
             repository_id='r', pull_request_title='',
-            branch_name='b', task_id='T', task_summary='', session_id='',
+            branch_name='b', task_id='T', task_summary='', agent_session_id='',
         )
         service._publish_review_no_changes(
             [_comment()], SimpleNamespace(id='r'), context,
@@ -730,7 +730,7 @@ class PublishReviewCommentAnswersTests(unittest.TestCase):
         )
         context = ReviewFixContext(
             repository_id='r', pull_request_title='',
-            branch_name='b', task_id='T', task_summary='', session_id='',
+            branch_name='b', task_id='T', task_summary='', agent_session_id='',
         )
         service._publish_review_comment_answers(
             [_comment()], SimpleNamespace(id='r'), context,

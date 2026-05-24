@@ -248,7 +248,7 @@ class CodexCliClient(object):
     def implement_task(
         self,
         task: Any,
-        session_id: str = '',
+        agent_session_id: str = '',
         prepared_task: Any | None = None,
     ) -> dict[str, str | bool]:
         self.logger.info('requesting implementation for task %s', task.id)
@@ -260,7 +260,7 @@ class CodexCliClient(object):
             additional_dirs=additional_dirs,
             branch_name=agent_prompt_utils.task_branch_name(task, prepared_task),
             default_commit_message=f'Implement {task.id}',
-            session_id=session_id,
+            agent_session_id=agent_session_id,
             log_label=agent_prompt_utils.task_conversation_title(task),
             task_id=str(task.id),
         )
@@ -329,14 +329,14 @@ class CodexCliClient(object):
         self,
         comment: ReviewComment,
         branch_name: str,
-        session_id: str = '',
+        agent_session_id: str = '',
         task_id: str = '',
         task_summary: str = '',
     ) -> dict[str, str | bool]:
         return self.fix_review_comments(
             [comment],
             branch_name,
-            session_id=session_id,
+            agent_session_id=agent_session_id,
             task_id=task_id,
             task_summary=task_summary,
         )
@@ -345,7 +345,7 @@ class CodexCliClient(object):
         self,
         comments: list[ReviewComment],
         branch_name: str,
-        session_id: str = '',
+        agent_session_id: str = '',
         task_id: str = '',
         task_summary: str = '',
         mode: str = 'fix',
@@ -372,7 +372,7 @@ class CodexCliClient(object):
             prompt=prompt,
             cwd=cwd,
             additional_dirs=[],
-            session_id=session_id,
+            agent_session_id=agent_session_id,
             branch_name=branch_name,
             default_commit_message='Address review comments',
             log_label=agent_prompt_utils.review_conversation_title(
@@ -735,7 +735,7 @@ class CodexCliClient(object):
         additional_dirs: list[str],
         branch_name: str = '',
         default_commit_message: str | None = None,
-        session_id: str = '',
+        agent_session_id: str = '',
         log_label: str = '',
         task_id: str = '',
     ) -> dict[str, str | bool]:
@@ -743,7 +743,7 @@ class CodexCliClient(object):
             prompt=prompt,
             cwd=cwd,
             additional_dirs=additional_dirs,
-            session_id=session_id,
+            agent_session_id=agent_session_id,
             log_label=log_label,
             task_id=task_id,
         )
@@ -759,7 +759,7 @@ class CodexCliClient(object):
         prompt: str,
         cwd: str,
         additional_dirs: list[str],
-        session_id: str = '',
+        agent_session_id: str = '',
         log_label: str = '',
         task_id: str = '',
         sandbox_override: str = '',
@@ -774,7 +774,7 @@ class CodexCliClient(object):
         try:
             command = self._build_command(
                 additional_dirs=additional_dirs,
-                session_id=session_id,
+                agent_session_id=agent_session_id,
                 resolve_binary=not self._docker_mode_on,
                 last_message_file=last_message_file,
                 cwd=cwd,
@@ -869,7 +869,7 @@ class CodexCliClient(object):
         self,
         *,
         additional_dirs: list[str],
-        session_id: str,
+        agent_session_id: str,
         resolve_binary: bool = True,
         include_system_prompt: bool = True,  # accepted for API parity, see note
         last_message_file: str = '',
@@ -906,7 +906,7 @@ class CodexCliClient(object):
             *(self._host_binary_argv() if resolve_binary else [self._binary]),
             'exec',
         ]
-        normalized_session_id = normalized_text(session_id)
+        normalized_session_id = normalized_text(agent_session_id)
         is_resume = bool(normalized_session_id)
         if is_resume:
             command.extend(['resume', normalized_session_id])
@@ -989,7 +989,7 @@ class CodexCliClient(object):
         # — we observed this on every probe).
         parsed_error_text = normalized_text(payload.get('result', '')) if is_error else ''
         result_text = file_message or normalized_text(payload.get('result', ''))
-        session_id_value = normalized_text(payload.get('session_id', ''))
+        session_id_value = normalized_text(payload.get(ImplementationFields.AGENT_SESSION_ID, ''))
 
         if completed.returncode != 0:
             detail = parsed_error_text or stderr or condensed_text(stdout) or 'no output'
@@ -1015,7 +1015,7 @@ class CodexCliClient(object):
         if result_text:
             result[ImplementationFields.MESSAGE] = result_text
         if session_id_value:
-            result[ImplementationFields.SESSION_ID] = session_id_value
+            result[ImplementationFields.AGENT_SESSION_ID] = session_id_value
         return result
 
     def _scan_response_for_credentials(
@@ -1060,7 +1060,7 @@ class CodexCliClient(object):
         * ``{"type": "thread.started", "thread_id": "<uuid>"}`` —
           this is where the session-id-equivalent comes from. Codex
           calls it ``thread_id``; kato's contract calls it
-          ``session_id``, so we translate. ``codex exec resume <id>``
+          ``agent_session_id``, so we translate. ``codex exec resume <id>``
           accepts the thread_id as its positional argument.
         * ``{"type": "turn.started"}`` — informational.
         * ``{"type": "item.completed", "item": {"type": "agent_message",
@@ -1078,7 +1078,11 @@ class CodexCliClient(object):
         versions surface a concrete error event name, add it to
         :data:`_ERROR_EVENT_TYPES`.
         """
-        payload: dict[str, object] = {'session_id': '', 'is_error': False, 'result': ''}
+        payload: dict[str, object] = {
+            ImplementationFields.AGENT_SESSION_ID: '',
+            'is_error': False,
+            'result': '',
+        }
         if not stdout:
             return payload
         for raw_line in stdout.splitlines():
@@ -1138,7 +1142,7 @@ class CodexCliClient(object):
         # ``--output-last-message`` file (we only care that the spawn
         # exited 0 and the JSONL stream had no error events).
         command = self._build_command(
-            additional_dirs=[], session_id='',
+            additional_dirs=[], agent_session_id='',
             include_system_prompt=False,
         )
         env = self._build_subprocess_env()
@@ -1246,16 +1250,20 @@ def _parse_json_event(raw_line: str) -> dict | None:
 
 
 def _absorb_thread_id(event: dict, payload: dict[str, object]) -> None:
-    """Codex calls it ``thread_id`` (translated to ``session_id`` for kato).
+    """Codex calls it ``thread_id`` (translated to ``AGENT_SESSION_ID`` for kato).
 
     Falls back to a top-level ``session_id`` key on any event for
-    forward-compat with future codex versions.
+    forward-compat with future codex versions. ``event`` is the raw
+    codex CLI JSON envelope — its keys are codex's wire format, not
+    kato's internal names — so the literal ``'session_id'`` is what
+    codex would emit if it ever surfaced one. ``payload`` is kato's
+    internal dict, so its key is ``AGENT_SESSION_ID``.
     """
-    if payload.get('session_id'):
+    if payload.get(ImplementationFields.AGENT_SESSION_ID):
         return
     tid = event.get('thread_id') or event.get('session_id', '')
     if tid:
-        payload['session_id'] = str(tid).strip()
+        payload[ImplementationFields.AGENT_SESSION_ID] = str(tid).strip()
 
 
 def _absorb_agent_message(event: dict, payload: dict[str, object]) -> None:

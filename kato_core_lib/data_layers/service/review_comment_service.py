@@ -690,15 +690,15 @@ class ReviewCommentService(Service):
                 task_summary=review_context.task_summary,
             )
             singular_args = lambda c: (  # noqa: E731
-                c, review_context.branch_name, review_context.session_id,
+                c, review_context.branch_name, review_context.agent_session_id,
             )
         if hasattr(backend, 'fix_review_comments'):
             plural_args = (comments, review_context.branch_name)
             if not streaming:
-                # Implementation-service signature carries session_id
+                # Implementation-service signature carries agent_session_id
                 # as a positional, plural method matches.
                 plural_args = (
-                    comments, review_context.branch_name, review_context.session_id,
+                    comments, review_context.branch_name, review_context.agent_session_id,
                 )
             try:
                 return backend.fix_review_comments(

@@ -3,7 +3,7 @@
 A-Z scenario (the operator's lived experience):
 
     1. Kato is running, task ``T1`` has a live Claude session with
-       session_id ``X`` and a JSONL transcript on disk.
+       agent_session_id ``X`` and a JSONL transcript on disk.
     2. Operator hits Ctrl-C on kato (or the process dies).
     3. Operator runs ``kato run`` again.
     4. Operator opens task T1's chat tab.
@@ -322,23 +322,23 @@ class FlowRestartMidWorkTests(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as td:
             projects_root = Path(td)
-            session_id = 'sess-restart-1'
+            agent_session_id = 'sess-restart-1'
             cwd = '/tmp/workspaces/T1'
             # Encode the same way Claude Code does.
             encoded = '-' + cwd.lstrip('/').replace('/', '-').replace('.', '-')
             (projects_root / encoded).mkdir(parents=True)
-            jsonl = projects_root / encoded / f'{session_id}.jsonl'
+            jsonl = projects_root / encoded / f'{agent_session_id}.jsonl'
             events = [
-                {'type': 'user', 'sessionId': session_id, 'cwd': cwd,
+                {'type': 'user', 'sessionId': agent_session_id, 'cwd': cwd,
                  'message': {'role': 'user', 'content': [
                      {'type': 'text', 'text': 'turn 1 question'}]}},
-                {'type': 'assistant', 'sessionId': session_id, 'cwd': cwd,
+                {'type': 'assistant', 'sessionId': agent_session_id, 'cwd': cwd,
                  'message': {'role': 'assistant', 'content': [
                      {'type': 'text', 'text': 'turn 1 answer'}]}},
-                {'type': 'user', 'sessionId': session_id, 'cwd': cwd,
+                {'type': 'user', 'sessionId': agent_session_id, 'cwd': cwd,
                  'message': {'role': 'user', 'content': [
                      {'type': 'text', 'text': 'turn 2 question'}]}},
-                {'type': 'assistant', 'sessionId': session_id, 'cwd': cwd,
+                {'type': 'assistant', 'sessionId': agent_session_id, 'cwd': cwd,
                  'message': {'role': 'assistant', 'content': [
                      {'type': 'text', 'text': 'turn 2 answer'}]}},
             ]
@@ -347,7 +347,7 @@ class FlowRestartMidWorkTests(unittest.TestCase):
                     fh.write(json.dumps(e) + '\n')
 
             result = load_history_events(
-                session_id, projects_root=projects_root,
+                agent_session_id, projects_root=projects_root,
             )
             self.assertEqual(
                 [e['type'] for e in result],
@@ -364,17 +364,17 @@ class FlowRestartMidWorkTests(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as td:
             projects_root = Path(td)
-            session_id = 'sess-filter-1'
+            agent_session_id = 'sess-filter-1'
             cwd = '/tmp/workspaces/T1'
             encoded = '-' + cwd.lstrip('/').replace('/', '-').replace('.', '-')
             (projects_root / encoded).mkdir(parents=True)
-            jsonl = projects_root / encoded / f'{session_id}.jsonl'
+            jsonl = projects_root / encoded / f'{agent_session_id}.jsonl'
             events = [
-                {'type': 'user', 'sessionId': session_id, 'cwd': cwd,
+                {'type': 'user', 'sessionId': agent_session_id, 'cwd': cwd,
                  'message': {'role': 'user', 'content': [
                      {'type': 'text', 'text':
                       'Security guardrails:\n- do not read ~/.ssh'}]}},
-                {'type': 'user', 'sessionId': session_id, 'cwd': cwd,
+                {'type': 'user', 'sessionId': agent_session_id, 'cwd': cwd,
                  'message': {'role': 'user', 'content': [
                      {'type': 'text', 'text':
                       'operator real message'}]}},
@@ -384,7 +384,7 @@ class FlowRestartMidWorkTests(unittest.TestCase):
                     fh.write(json.dumps(e) + '\n')
 
             result = load_history_events(
-                session_id, projects_root=projects_root,
+                agent_session_id, projects_root=projects_root,
             )
             joined = ' '.join(
                 block.get('text', '')

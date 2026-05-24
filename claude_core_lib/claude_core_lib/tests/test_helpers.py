@@ -344,14 +344,14 @@ class OpenhandsSuccessFlagTests(unittest.TestCase):
 
 class OpenhandsSessionIdTests(unittest.TestCase):
     def test_returns_session_id(self) -> None:
-        self.assertEqual(openhands_session_id({'session_id': 'abc'}), 'abc')
+        self.assertEqual(openhands_session_id({'agent_session_id': 'abc'}), 'abc')
 
     def test_falls_back_to_conversation_id(self) -> None:
         self.assertEqual(openhands_session_id({'conversation_id': 'xyz'}), 'xyz')
 
     def test_prefers_session_id_over_conversation_id(self) -> None:
         self.assertEqual(
-            openhands_session_id({'session_id': 'sess', 'conversation_id': 'conv'}),
+            openhands_session_id({'agent_session_id': 'sess', 'conversation_id': 'conv'}),
             'sess',
         )
 
@@ -396,7 +396,7 @@ class BuildOpenhandsResultTests(unittest.TestCase):
         self.assertEqual(result['commit_message'], 'from payload')
 
     def test_session_id_from_payload(self) -> None:
-        result = build_openhands_result({'session_id': 'sess-1'})
+        result = build_openhands_result({'agent_session_id': 'sess-1'})
         self.assertEqual(result[ImplementationFields.AGENT_SESSION_ID], 'sess-1')
 
     def test_session_id_omitted_when_missing(self) -> None:

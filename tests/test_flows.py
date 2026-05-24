@@ -999,11 +999,11 @@ class ReviewCommentFixFlowTests(unittest.TestCase):
         self.assertIsNotNone(fix_call_kwargs)
 
         # Verify via the mock on the underlying kato_client through ImplementationService.
-        # session_id is passed as the 3rd positional arg to fix_review_comment.
+        # agent_session_id is passed as the 3rd positional arg to fix_review_comment.
         impl_mock = review_service._implementation_service._client
         impl_mock.fix_review_comment.assert_called_once()
         call_args, _ = impl_mock.fix_review_comment.call_args
-        # call_args: (comment, branch_name, session_id)
+        # call_args: (comment, branch_name, agent_session_id)
         self.assertEqual(
             call_args[2],
             'impl-session-xyz',
@@ -1094,7 +1094,7 @@ class ShutdownFlowTests(unittest.TestCase):
                 PullRequestFields.REPOSITORY_ID: 'repo',
             },
             branch_name='PROJ-1',
-            session_id='conv-abc',
+            agent_session_id='conv-abc',
             task_id='PROJ-1',
         )
 

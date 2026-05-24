@@ -158,7 +158,7 @@ class ImplementationServiceFallbackTests(unittest.TestCase):
         service = ImplementationService(client)
         result = service.fix_review_comments(
             [SimpleNamespace(comment_id='c1')],
-            branch_name='b', session_id='s', task_id='T', task_summary='sum',
+            branch_name='b', agent_session_id='s', task_id='T', task_summary='sum',
             mode='fix',
         )
         client.fix_review_comments.assert_called_once()
@@ -181,7 +181,7 @@ class ImplementationServiceFallbackTests(unittest.TestCase):
                 self.calls = []
 
             def fix_review_comment(
-                self, comment, branch_name, session_id,
+                self, comment, branch_name, agent_session_id,
                 task_id='', task_summary='',
             ):
                 self.calls.append(comment)
@@ -194,7 +194,7 @@ class ImplementationServiceFallbackTests(unittest.TestCase):
             SimpleNamespace(comment_id='c2'),
         ]
         result = service.fix_review_comments(
-            comments, branch_name='b', session_id='s',
+            comments, branch_name='b', agent_session_id='s',
         )
         self.assertEqual(len(client.calls), 2)
         # Last result is returned (line 115).

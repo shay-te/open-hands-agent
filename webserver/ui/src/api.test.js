@@ -7,6 +7,7 @@ import {
   fetchClaudeSessions,
   postChatMessage,
 } from './api.js';
+import { AGENT_SESSION_ID } from './constants/sessionFields.js';
 
 
 function _stubFetch(response) {
@@ -112,16 +113,16 @@ test('adoptAgentSession posts the session id as JSON', async function () {
   const calls = _stubFetch({
     ok: true,
     status: 200,
-    json: () => Promise.resolve({ task_id: 'PROJ-1', agent_session_id: 'sess-1' }),
+    json: () => Promise.resolve({ task_id: 'PROJ-1', [AGENT_SESSION_ID]: 'sess-1' }),
   });
   const result = await adoptAgentSession('PROJ-1', 'sess-1');
   assert.equal(calls.length, 1);
   assert.equal(calls[0].url, '/api/sessions/PROJ-1/adopt-agent-session');
   assert.equal(calls[0].init.method, 'POST');
   assert.equal(calls[0].init.headers['content-type'], 'application/json');
-  assert.deepEqual(JSON.parse(calls[0].init.body), { agent_session_id: 'sess-1' });
+  assert.deepEqual(JSON.parse(calls[0].init.body), { [AGENT_SESSION_ID]: 'sess-1' });
   assert.equal(result.ok, true);
-  assert.equal(result.body.agent_session_id, 'sess-1');
+  assert.equal(result.body[AGENT_SESSION_ID], 'sess-1');
 });
 
 test('adoptAgentSession returns ok=false without calling fetch when task_id is empty', async function () {

@@ -116,7 +116,7 @@ class CodexFlowTests(unittest.TestCase):
 
         self.assertTrue(result[ImplementationFields.SUCCESS])
         self.assertEqual(result[ImplementationFields.MESSAGE], 'done editing')
-        self.assertEqual(result[ImplementationFields.SESSION_ID], 'sess-99')
+        self.assertEqual(result[ImplementationFields.AGENT_SESSION_ID], 'sess-99')
 
     def test_resume_uses_subcommand_form_in_the_argv(self) -> None:
         lib = AgentCoreLib(
@@ -141,7 +141,7 @@ class CodexFlowTests(unittest.TestCase):
             'codex_core_lib.codex_core_lib.cli_client.subprocess.run',
             side_effect=capture,
         ):
-            lib.agent.implement_task(_task(), session_id='resume-me')
+            lib.agent.implement_task(_task(), agent_session_id='resume-me')
         self.assertTrue(seen)
         cmd = seen[0]
         # Subcommand form, NOT a --resume flag.

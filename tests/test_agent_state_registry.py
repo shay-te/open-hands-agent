@@ -44,7 +44,7 @@ class AgentStateRegistryTests(unittest.TestCase):
         self.registry.remember_pull_request_context(
             pull_request,
             'feature/proj-1/client',
-            session_id='conversation-1',
+            agent_session_id='conversation-1',
             task_id='PROJ-1',
             task_summary='fix it already',
         )

@@ -25,7 +25,10 @@ from dataclasses import dataclass, field
 from queue import Empty, Queue
 from typing import Any
 
-from agent_core_lib.agent_core_lib.helpers.session_id_utils import fix_session_id
+from agent_core_lib.agent_core_lib.helpers.session_id_utils import (
+    AGENT_SESSION_ID,
+    fix_session_id,
+)
 from claude_core_lib.claude_core_lib.session.wire_protocol import (
     CLAUDE_EVENT_CONTROL_REQUEST,
     CLAUDE_EVENT_CONTROL_RESPONSE,
@@ -1093,7 +1096,7 @@ class StreamingClaudeSession(object):
         return SessionEvent(raw=payload)
 
     def _maybe_capture_session_id(self, event: SessionEvent) -> None:
-        candidate = fix_session_id(event.raw.get('session_id'))
+        candidate = fix_session_id(event.get('session_id', ''))
         if not candidate:
             return
         if not self._agent_session_id:

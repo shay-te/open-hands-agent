@@ -20,7 +20,7 @@ class AgentStateRegistry(object):
         self,
         pull_request: dict[str, str],
         branch_name: str,
-        session_id: str = '',
+        agent_session_id: str = '',
         task_id: str = '',
         task_summary: str = '',
     ) -> None:
@@ -28,7 +28,7 @@ class AgentStateRegistry(object):
         context = build_pull_request_context(
             pull_request[PullRequestFields.REPOSITORY_ID],
             branch_name,
-            session_id,
+            agent_session_id,
             task_id,
             task_summary,
             normalized_text(pull_request.get(PullRequestFields.TITLE, '')),
@@ -150,10 +150,10 @@ class AgentStateRegistry(object):
             for context in contexts:
                 if str(context.get(TaskFields.ID, '') or '').strip() != normalized:
                     continue
-                session_id = fix_session_id(context.get(ImplementationFields.AGENT_SESSION_ID))
-                if session_id and session_id not in seen:
-                    seen.add(session_id)
-                    session_ids.append(session_id)
+                agent_session_id = fix_session_id(context.get(ImplementationFields.AGENT_SESSION_ID))
+                if agent_session_id and agent_session_id not in seen:
+                    seen.add(agent_session_id)
+                    session_ids.append(agent_session_id)
         return session_ids
 
     def forget_task(self, task_id: str) -> None:

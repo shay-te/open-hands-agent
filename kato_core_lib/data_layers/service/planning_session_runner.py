@@ -181,7 +181,7 @@ class PlanningSessionRunner(object):
 
         Used by the webserver when the user sends a chat message to a tab
         whose previous subprocess has already exited. The session manager
-        resumes via the persisted ``--resume <session_id>`` if a Claude
+        resumes via the persisted ``--resume <agent_session_id>`` if a Claude
         session is on file (kato-meta.json or kato/sessions), otherwise
         starts fresh. Returns the live ``StreamingClaudeSession`` so the
         caller can write follow-up messages, but the spawn itself does not
@@ -310,7 +310,7 @@ class PlanningSessionRunner(object):
         """Run a review-comment fix as a streaming session bound to ``task_id``.
 
         Each review-fix gets a fresh subprocess so the runner has a clean
-        ``terminal_event`` to wait on; the persisted Claude session_id
+        ``terminal_event`` to wait on; the persisted Claude agent_session_id
         carries conversation context across the restart. The browser tab
         stays bound to ``task_id``, so the user sees the new turn stream
         in next to the original implementation history.

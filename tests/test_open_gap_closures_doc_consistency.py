@@ -357,7 +357,7 @@ class ReadOnlyToolsAllowlistPinTests(unittest.TestCase):
         from claude_core_lib.claude_core_lib.cli_client import ClaudeCliClient
 
         client = ClaudeCliClient(binary='claude', read_only_tools_on=True)
-        cmd = client._build_command(additional_dirs=[], session_id='')
+        cmd = client._build_command(additional_dirs=[], agent_session_id='')
         idx = cmd.index('--allowedTools')
         argv_value = cmd[idx + 1]
         for entry in self._PINNED_READ_ONLY_ALLOWLIST:

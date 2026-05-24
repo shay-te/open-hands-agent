@@ -90,7 +90,7 @@ class ConstructionTests(unittest.TestCase):
         client = CodexCliClient(effort='HIGH')
         self.assertEqual(client._effort, 'high')
         cmd = client._build_command(
-            additional_dirs=[], session_id='', resolve_binary=False,
+            additional_dirs=[], agent_session_id='', resolve_binary=False,
         )
         self.assertNotIn('--reasoning-effort', cmd)
         self.assertNotIn('high', cmd)
@@ -99,7 +99,7 @@ class ConstructionTests(unittest.TestCase):
         # Same parity story as ``effort``.
         client = CodexCliClient(max_turns=10)
         cmd = client._build_command(
-            additional_dirs=[], session_id='', resolve_binary=False,
+            additional_dirs=[], agent_session_id='', resolve_binary=False,
         )
         self.assertNotIn('--max-turns', cmd)
 
@@ -112,7 +112,7 @@ class ConstructionTests(unittest.TestCase):
             disallowed_tools='Bash',
         )
         cmd = client._build_command(
-            additional_dirs=[], session_id='', resolve_binary=False,
+            additional_dirs=[], agent_session_id='', resolve_binary=False,
         )
         self.assertNotIn('--allow-tools', cmd)
         self.assertNotIn('--allowedTools', cmd)
@@ -185,7 +185,7 @@ class BuildCommandTests(unittest.TestCase):
         # ``codex exec`` is the documented non-interactive entry.
         client = CodexCliClient(binary='codex')
         cmd = client._build_command(
-            additional_dirs=[], session_id='', resolve_binary=False,
+            additional_dirs=[], agent_session_id='', resolve_binary=False,
         )
         self.assertEqual(cmd[0], 'codex')
         self.assertEqual(cmd[1], 'exec')
@@ -194,7 +194,7 @@ class BuildCommandTests(unittest.TestCase):
         # ``codex exec --json`` → JSONL event stream on stdout.
         client = CodexCliClient(binary='codex')
         cmd = client._build_command(
-            additional_dirs=[], session_id='', resolve_binary=False,
+            additional_dirs=[], agent_session_id='', resolve_binary=False,
         )
         self.assertIn('--json', cmd)
 
@@ -204,7 +204,7 @@ class BuildCommandTests(unittest.TestCase):
         # flag is set.
         client = CodexCliClient(binary='codex')
         cmd = client._build_command(
-            additional_dirs=[], session_id='', resolve_binary=False,
+            additional_dirs=[], agent_session_id='', resolve_binary=False,
         )
         self.assertIn('--skip-git-repo-check', cmd)
 
@@ -216,7 +216,7 @@ class BuildCommandTests(unittest.TestCase):
         # approval policy must come from ~/.codex/config.toml.
         client = CodexCliClient(binary='codex', bypass_permissions=False)
         cmd = client._build_command(
-            additional_dirs=[], session_id='', resolve_binary=False,
+            additional_dirs=[], agent_session_id='', resolve_binary=False,
         )
         self.assertIn('--sandbox', cmd)
         self.assertIn('workspace-write', cmd)
@@ -228,7 +228,7 @@ class BuildCommandTests(unittest.TestCase):
         # NOT also emit --sandbox alongside it.
         client = CodexCliClient(binary='codex', bypass_permissions=True)
         cmd = client._build_command(
-            additional_dirs=[], session_id='', resolve_binary=False,
+            additional_dirs=[], agent_session_id='', resolve_binary=False,
         )
         self.assertIn('--dangerously-bypass-approvals-and-sandbox', cmd)
         self.assertNotIn('--sandbox', cmd)
@@ -238,7 +238,7 @@ class BuildCommandTests(unittest.TestCase):
         # Codex uses ``-m``/``--model``; we send the short form.
         client = CodexCliClient(binary='codex', model='gpt-5-codex')
         cmd = client._build_command(
-            additional_dirs=[], session_id='', resolve_binary=False,
+            additional_dirs=[], agent_session_id='', resolve_binary=False,
         )
         self.assertIn('-m', cmd)
         self.assertIn('gpt-5-codex', cmd)
@@ -249,7 +249,7 @@ class BuildCommandTests(unittest.TestCase):
         # If a future change reverts to a flag, this fires.
         client = CodexCliClient(binary='codex')
         cmd = client._build_command(
-            additional_dirs=[], session_id='sess-123', resolve_binary=False,
+            additional_dirs=[], agent_session_id='sess-123', resolve_binary=False,
         )
         self.assertNotIn('--resume', cmd)
         # Expect the sub-subcommand and the id positionally right after.
@@ -258,7 +258,7 @@ class BuildCommandTests(unittest.TestCase):
     def test_no_session_id_skips_resume_subcommand(self) -> None:
         client = CodexCliClient(binary='codex')
         cmd = client._build_command(
-            additional_dirs=[], session_id='', resolve_binary=False,
+            additional_dirs=[], agent_session_id='', resolve_binary=False,
         )
         self.assertNotIn('resume', cmd[:4])
 
@@ -266,7 +266,7 @@ class BuildCommandTests(unittest.TestCase):
         # Codex uses ``-C`` / ``--cd <DIR>`` for the agent's working root.
         client = CodexCliClient(binary='codex')
         cmd = client._build_command(
-            additional_dirs=[], session_id='', resolve_binary=False,
+            additional_dirs=[], agent_session_id='', resolve_binary=False,
             cwd='/work/repo',
         )
         idx = cmd.index('-C')
@@ -277,7 +277,7 @@ class BuildCommandTests(unittest.TestCase):
         client = CodexCliClient(binary='codex')
         cmd = client._build_command(
             additional_dirs=['/repo/a', '/repo/b'],
-            session_id='', resolve_binary=False,
+            agent_session_id='', resolve_binary=False,
         )
         self.assertEqual(cmd.count('--add-dir'), 2)
         self.assertIn('/repo/a', cmd)
@@ -289,7 +289,7 @@ class BuildCommandTests(unittest.TestCase):
         # emitted it, codex would error out with "unexpected argument".
         client = CodexCliClient(binary='codex', bypass_permissions=False)
         cmd = client._build_command(
-            additional_dirs=[], session_id='sess-1', resolve_binary=False,
+            additional_dirs=[], agent_session_id='sess-1', resolve_binary=False,
         )
         self.assertNotIn('--sandbox', cmd)
 
@@ -299,7 +299,7 @@ class BuildCommandTests(unittest.TestCase):
         client = CodexCliClient(binary='codex')
         cmd = client._build_command(
             additional_dirs=['/repo/a'],
-            session_id='sess-1', resolve_binary=False,
+            agent_session_id='sess-1', resolve_binary=False,
             cwd='/work/repo',
         )
         self.assertNotIn('-C', cmd)
@@ -307,10 +307,10 @@ class BuildCommandTests(unittest.TestCase):
 
     def test_resume_keeps_json_skip_git_repo_check_model_and_output_file(self) -> None:
         # The flags resume DOES accept must still pass through so the
-        # parser can recover the result + session_id.
+        # parser can recover the result + agent_session_id.
         client = CodexCliClient(binary='codex', model='gpt-5-codex')
         cmd = client._build_command(
-            additional_dirs=[], session_id='sess-1', resolve_binary=False,
+            additional_dirs=[], agent_session_id='sess-1', resolve_binary=False,
             last_message_file='/tmp/x.txt',
         )
         self.assertIn('--json', cmd)
@@ -322,7 +322,7 @@ class BuildCommandTests(unittest.TestCase):
         # Bypass works on resume just like on fresh exec.
         client = CodexCliClient(binary='codex', bypass_permissions=True)
         cmd = client._build_command(
-            additional_dirs=[], session_id='sess-1', resolve_binary=False,
+            additional_dirs=[], agent_session_id='sess-1', resolve_binary=False,
         )
         self.assertIn('--dangerously-bypass-approvals-and-sandbox', cmd)
         self.assertNotIn('--sandbox', cmd)
@@ -332,7 +332,7 @@ class BuildCommandTests(unittest.TestCase):
         # message to a file — cleanest way to recover the result text.
         client = CodexCliClient(binary='codex')
         cmd = client._build_command(
-            additional_dirs=[], session_id='', resolve_binary=False,
+            additional_dirs=[], agent_session_id='', resolve_binary=False,
             last_message_file='/tmp/x.txt',
         )
         idx = cmd.index('-o')
@@ -342,7 +342,7 @@ class BuildCommandTests(unittest.TestCase):
         # ``investigate`` uses sandbox=read-only for triage runs.
         client = CodexCliClient(binary='codex', bypass_permissions=False)
         cmd = client._build_command(
-            additional_dirs=[], session_id='', resolve_binary=False,
+            additional_dirs=[], agent_session_id='', resolve_binary=False,
             sandbox_override='read-only',
         )
         idx = cmd.index('--sandbox')
@@ -351,7 +351,7 @@ class BuildCommandTests(unittest.TestCase):
     def test_extra_args_appended_at_end(self) -> None:
         client = CodexCliClient(binary='codex', extra_args=['--ephemeral'])
         cmd = client._build_command(
-            additional_dirs=[], session_id='', resolve_binary=False,
+            additional_dirs=[], agent_session_id='', resolve_binary=False,
         )
         self.assertEqual(cmd[-1], '--ephemeral')
 
@@ -393,12 +393,12 @@ class ImplementTaskTests(unittest.TestCase):
         # Primary source for the result text is the file codex writes
         # via ``--output-last-message``, NOT the JSONL stdout stream.
         client = CodexCliClient(binary='codex')
-        jsonl_stdout = '{"type": "session_start", "session_id": "sess-1"}\n'
+        jsonl_stdout = '{"type": "session_start", "agent_session_id": "sess-1"}\n'
         with self._mock_run(stdout=jsonl_stdout, last_message='all done'):
             result = client.implement_task(_task())
         self.assertTrue(result[ImplementationFields.SUCCESS])
         self.assertEqual(result[ImplementationFields.MESSAGE], 'all done')
-        self.assertEqual(result[ImplementationFields.SESSION_ID], 'sess-1')
+        self.assertEqual(result[ImplementationFields.AGENT_SESSION_ID], 'sess-1')
 
     def test_test_task_returns_result_from_last_message_file(self) -> None:
         client = CodexCliClient(binary='codex')
@@ -489,7 +489,7 @@ class JsonlParsingTests(unittest.TestCase):
 
     def test_empty_input_returns_empty_payload(self) -> None:
         payload = CodexCliClient(binary='codex')._parse_jsonl_payload('')
-        self.assertEqual(payload, {'session_id': '', 'is_error': False, 'result': ''})
+        self.assertEqual(payload, {'agent_session_id': '', 'is_error': False, 'result': ''})
 
     def test_real_success_stream_extracts_thread_id_and_message(self) -> None:
         # Exact stream captured from a real run. Codex calls the
@@ -501,8 +501,8 @@ class JsonlParsingTests(unittest.TestCase):
             '{"type":"turn.completed","usage":{"input_tokens":13201,"output_tokens":5}}\n'
         )
         payload = CodexCliClient(binary='codex')._parse_jsonl_payload(stream)
-        # Translated: codex's ``thread_id`` → kato's ``session_id``.
-        self.assertEqual(payload['session_id'], '019e4620-dc9f-70d3-a1d5-72363469167f')
+        # Translated: codex's ``thread_id`` → kato's ``agent_session_id``.
+        self.assertEqual(payload['agent_session_id'], '019e4620-dc9f-70d3-a1d5-72363469167f')
         self.assertEqual(payload['result'], 'ok')
         self.assertFalse(payload['is_error'])
 
@@ -512,14 +512,14 @@ class JsonlParsingTests(unittest.TestCase):
             '{"type":"thread.started","thread_id":"second-should-not-overwrite"}\n'
         )
         payload = CodexCliClient(binary='codex')._parse_jsonl_payload(stream)
-        self.assertEqual(payload['session_id'], 'first')
+        self.assertEqual(payload['agent_session_id'], 'first')
 
     def test_forward_compat_session_id_key_also_recognised(self) -> None:
-        # If a future codex version starts emitting ``session_id``
+        # If a future codex version starts emitting ``agent_session_id``
         # directly, the parser should still pick it up.
-        stream = '{"type":"thread.started","session_id":"fwd-compat-id"}\n'
+        stream = '{"type":"thread.started","agent_session_id":"fwd-compat-id"}\n'
         payload = CodexCliClient(binary='codex')._parse_jsonl_payload(stream)
-        self.assertEqual(payload['session_id'], 'fwd-compat-id')
+        self.assertEqual(payload['agent_session_id'], 'fwd-compat-id')
 
     def test_non_agent_message_items_are_ignored(self) -> None:
         # ``item.completed`` events fire for non-agent-message items
@@ -568,7 +568,7 @@ class JsonlParsingTests(unittest.TestCase):
             'when using Codex with a ChatGPT account.\\"}}"}}\n'
         )
         payload = CodexCliClient(binary='codex')._parse_jsonl_payload(stream)
-        self.assertEqual(payload['session_id'], '019e462c-fe86-74f2-a3da-8855fda13b5f')
+        self.assertEqual(payload['agent_session_id'], '019e462c-fe86-74f2-a3da-8855fda13b5f')
         self.assertTrue(payload['is_error'])
         self.assertNotIn('"type":"error"', payload['result'],
                          msg='envelope should have been unwrapped')
@@ -609,7 +609,7 @@ class JsonlParsingTests(unittest.TestCase):
             '{"type":"turn.completed","usage":{"input_tokens":100,"output_tokens":3}}\n'
         )
         payload = CodexCliClient(binary='codex')._parse_jsonl_payload(stream)
-        self.assertEqual(payload['session_id'], '019e462b-d803-7340-afa0-a22eb31786c7')
+        self.assertEqual(payload['agent_session_id'], '019e462b-d803-7340-afa0-a22eb31786c7')
         self.assertEqual(payload['result'], 'cherry-blossom-42')
         self.assertFalse(payload['is_error'])
 

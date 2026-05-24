@@ -18,6 +18,7 @@ vi.mock('../utils/scrollUtils.js', async (importOriginal) => {
 import EventLog from './EventLog.jsx';
 import { scrollToBottom } from '../utils/scrollUtils.js';
 import { BUBBLE_KIND } from '../constants/bubbleKind.js';
+import { AGENT_SESSION_ID } from '../constants/sessionFields.js';
 import { CLAUDE_EVENT, CLAUDE_SYSTEM_SUBTYPE } from '../constants/claudeEvent.js';
 import { ENTRY_SOURCE } from '../constants/entrySource.js';
 
@@ -89,16 +90,16 @@ describe('EventLog — local entries', () => {
 
 describe('EventLog — server event rendering', () => {
 
-  test('SYSTEM init shows session_id', () => {
+  test('SYSTEM init shows agent session id', () => {
     render(<EventLog entries={[_server({
       type: CLAUDE_EVENT.SYSTEM,
       subtype: CLAUDE_SYSTEM_SUBTYPE.INIT,
-      session_id: 'sess-abc-123',
+      [AGENT_SESSION_ID]: 'sess-abc-123',
     })]} />);
     expect(screen.getByText(/Claude session started.*sess-abc/)).toBeInTheDocument();
   });
 
-  test('SYSTEM init with missing session_id falls back to "(none yet)"', () => {
+  test('SYSTEM init with missing agent session id falls back to "(none yet)"', () => {
     render(<EventLog entries={[_server({
       type: CLAUDE_EVENT.SYSTEM,
       subtype: CLAUDE_SYSTEM_SUBTYPE.INIT,
@@ -458,7 +459,7 @@ describe('EventLog — per-turn sticky grouping', () => {
       _server({
         type: CLAUDE_EVENT.SYSTEM,
         subtype: CLAUDE_SYSTEM_SUBTYPE.INIT,
-        session_id: 'sess-1',
+        [AGENT_SESSION_ID]: 'sess-1',
       }),
       _local(BUBBLE_KIND.USER, 'the ask'),
     ]} />);

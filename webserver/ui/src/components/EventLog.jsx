@@ -3,6 +3,7 @@ import Bubble from './Bubble.jsx';
 import Icon from './Icon.jsx';
 import MarkdownContent from './MarkdownContent.jsx';
 import StickyHeader from './StickyHeader.jsx';
+import { AGENT_SESSION_ID } from '../constants/sessionFields.js';
 import { BUBBLE_KIND } from '../constants/bubbleKind.js';
 import { CLAUDE_EVENT, CLAUDE_SYSTEM_SUBTYPE } from '../constants/claudeEvent.js';
 import { ENTRY_SOURCE } from '../constants/entrySource.js';
@@ -275,7 +276,7 @@ function serverBubblesFor(raw, index, isHistory = false, onOpenFile) {
   switch (raw.type) {
     case CLAUDE_EVENT.SYSTEM:
       if (raw.subtype === CLAUDE_SYSTEM_SUBTYPE.INIT) {
-        const sid = raw.session_id || '';
+        const sid = raw[AGENT_SESSION_ID] || '';
         const sidShort = sid ? sid.slice(0, 8) : '(none yet)';
         const sidFull = sid || '(unknown)';
         return [
@@ -491,7 +492,7 @@ function resultBubbles(raw, index) {
 }
 
 function keyOf(raw, index, slot) {
-  return `${index}:${raw.uuid || raw.session_id || ''}:${slot}`;
+  return `${index}:${raw.uuid || raw[AGENT_SESSION_ID] || ''}:${slot}`;
 }
 
 

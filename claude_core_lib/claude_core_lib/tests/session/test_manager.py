@@ -224,11 +224,11 @@ class ClaudeSessionManagerTests(unittest.TestCase):
         self.assertIsNone(rebooted.get_record('UNA-1201'))
         self.assertEqual(rebooted.list_records(), [])
 
-    def _seed_claude_transcript(self, projects_root, session_id):
-        path = Path(projects_root) / 'enc-cwd' / f'{session_id}.jsonl'
+    def _seed_claude_transcript(self, projects_root, agent_session_id):
+        path = Path(projects_root) / 'enc-cwd' / f'{agent_session_id}.jsonl'
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(
-            json.dumps({'type': 'user', 'sessionId': session_id}) + '\n',
+            json.dumps({'type': 'user', 'sessionId': agent_session_id}) + '\n',
             encoding='utf-8',
         )
         return path
@@ -340,13 +340,13 @@ class ClaudeSessionManagerTests(unittest.TestCase):
         sessions_root = self.state_dir / 'claude-sessions'
         old_cwd_project_dir = sessions_root / '-tmp-old-repo'
         old_cwd_project_dir.mkdir(parents=True)
-        session_id = 'old-session-uuid'
-        old_jsonl = old_cwd_project_dir / f'{session_id}.jsonl'
+        agent_session_id = 'old-session-uuid'
+        old_jsonl = old_cwd_project_dir / f'{agent_session_id}.jsonl'
         old_jsonl.write_text('{"type": "user"}\n', encoding='utf-8')
         # Persist a record pointing at the old session id.
         record = PlanningSessionRecord(
             task_id='PROJ-77',
-            agent_session_id=session_id,
+            agent_session_id=agent_session_id,
             status='terminated',
             cwd='/tmp/old/repo',
         )
@@ -367,7 +367,7 @@ class ClaudeSessionManagerTests(unittest.TestCase):
 
         new_cwd_project_dir = sessions_root / '-tmp-new-repo'
         self.assertTrue(
-            (new_cwd_project_dir / f'{session_id}.jsonl').is_file(),
+            (new_cwd_project_dir / f'{agent_session_id}.jsonl').is_file(),
             'JSONL should have been copied into the new cwd project dir',
         )
 

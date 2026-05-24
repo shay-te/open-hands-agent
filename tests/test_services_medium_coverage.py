@@ -931,7 +931,7 @@ class PlanningSessionRunnerTests(unittest.TestCase):
     def test_resume_session_for_chat_sends_raw_message_when_session_id_persisted(
         self,
     ) -> None:
-        # Bug-fix lock: when ``--resume <session_id>`` will be used,
+        # Bug-fix lock: when ``--resume <agent_session_id>`` will be used,
         # Claude already has the workspace context from the prior JSONL.
         # Wrapping the follow-up message in another inventory/continuity
         # block makes Claude treat each respawn as a fresh task and
@@ -1260,7 +1260,7 @@ class MediumServicesRemainingEdgeTests(unittest.TestCase):
                 repo,
                 description='',
                 commit_message='msg',
-                session_id='',
+                agent_session_id='',
             )
         # The else-branch log message DOES NOT include 'and opened PR at <url>'.
         # Just verify _log_task_step was called multiple times (started + log).

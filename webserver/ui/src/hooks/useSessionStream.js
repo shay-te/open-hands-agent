@@ -1,4 +1,5 @@
 import { useEffect, useReducer, useRef, useState } from 'react';
+import { AGENT_SESSION_ID } from '../constants/sessionFields.js';
 import { CLAUDE_EVENT } from '../constants/claudeEvent.js';
 import { ENTRY_SOURCE } from '../constants/entrySource.js';
 import { safeParseJSON } from '../utils/sse.js';
@@ -107,7 +108,7 @@ function rawFingerprint(raw) {
   const messageId = raw.message && raw.message.id;
   if (messageId) { return `m:${messageId}`; }
   if (raw.tool_use_id) { return `t:${raw.tool_use_id}`; }
-  return `s:${raw.type || ''}:${raw.subtype || ''}:${raw.session_id || ''}`;
+  return `s:${raw.type || ''}:${raw.subtype || ''}:${raw[AGENT_SESSION_ID] || ''}`;
 }
 
 function appendEntryIfNew(state, entry) {

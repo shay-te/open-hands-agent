@@ -6,6 +6,7 @@ import { describe, test, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 
 import TabList from './TabList.jsx';
+import { AGENT_SESSION_ID } from '../constants/sessionFields.js';
 import { TAB_STATUS } from '../constants/tabStatus.js';
 import {
   PINNED_TABS_STORAGE_KEY,
@@ -20,7 +21,7 @@ function _session(taskId, overrides = {}) {
     status: TAB_STATUS.ACTIVE,
     working: false,
     live: true,
-    agent_session_id: 'sess',
+    [AGENT_SESSION_ID]: 'sess',
     ...overrides,
   };
 }

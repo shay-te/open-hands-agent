@@ -188,7 +188,7 @@ class TaskPublisher(Service):
         failed_repositories: list[tuple[str, str]] = []
         unchanged_repositories: list[str] = []
         description = pull_request_description(task, execution)
-        session_id = fix_session_id(execution.get(ImplementationFields.AGENT_SESSION_ID))
+        agent_session_id = fix_session_id(execution.get(ImplementationFields.AGENT_SESSION_ID))
         commit_message = self._task_commit_message(task)
         for repository in prepared_task.repositories or []:
             outcome = self._create_pull_request_for_repository(
@@ -197,7 +197,7 @@ class TaskPublisher(Service):
                 repository,
                 description,
                 commit_message,
-                session_id,
+                agent_session_id,
             )
             if outcome is _NO_CHANGES_SENTINEL:
                 # Repo was tagged for context (or the agent didn't end
@@ -235,7 +235,7 @@ class TaskPublisher(Service):
         repository,
         description: str,
         commit_message: str,
-        session_id: str,
+        agent_session_id: str,
     ):
         branch_name = prepared_task.repository_branches[repository.id]
         pull_request = self._create_repository_pull_request(
@@ -277,7 +277,7 @@ class TaskPublisher(Service):
             task,
             repository,
             branch_name,
-            session_id,
+            agent_session_id,
             pull_request,
         )
         return pull_request
@@ -332,13 +332,13 @@ class TaskPublisher(Service):
         task: Task,
         repository,
         branch_name: str,
-        session_id: str,
+        agent_session_id: str,
         pull_request: dict[str, str],
     ) -> None:
         self._state_registry.remember_pull_request_context(
             pull_request,
             branch_name,
-            session_id,
+            agent_session_id,
             str(task.id or ''),
             str(task.summary or ''),
         )

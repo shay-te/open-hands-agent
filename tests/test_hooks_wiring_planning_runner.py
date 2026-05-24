@@ -79,14 +79,14 @@ class _FakeManager:
 def _success_event(text: str = 'done') -> SessionEvent:
     return SessionEvent(raw={
         'type': 'result', 'subtype': 'success', 'is_error': False,
-        'result': text, 'session_id': 'live-id',
+        'result': text, 'agent_session_id': 'live-id',
     })
 
 
 def _error_event() -> SessionEvent:
     return SessionEvent(raw={
         'type': 'result', 'subtype': 'error', 'is_error': True,
-        'result': 'oops', 'session_id': 'live-id',
+        'result': 'oops', 'agent_session_id': 'live-id',
     })
 
 

@@ -65,7 +65,7 @@ class Bug1HistoryReplayFromDiskTests(unittest.TestCase):
         self.projects_root = Path(self._tmp.name)
 
     def _write_session(
-        self, session_id: str, cwd: str, events: list[dict],
+        self, agent_session_id: str, cwd: str, events: list[dict],
     ) -> Path:
         """Write a fake Claude Code JSONL transcript and return its path."""
         # Claude's per-project folder uses the cwd with /._ replaced by -.
@@ -73,7 +73,7 @@ class Bug1HistoryReplayFromDiskTests(unittest.TestCase):
         encoded = '-' + encoded if encoded else 'home'
         project_dir = self.projects_root / encoded
         project_dir.mkdir(parents=True, exist_ok=True)
-        target = project_dir / f'{session_id}.jsonl'
+        target = project_dir / f'{agent_session_id}.jsonl'
         with target.open('w', encoding='utf-8') as fh:
             for event in events:
                 fh.write(json.dumps(event) + '\n')
@@ -87,12 +87,12 @@ class Bug1HistoryReplayFromDiskTests(unittest.TestCase):
             load_history_events,
         )
 
-        session_id = 'sess-abc-123'
+        agent_session_id = 'sess-abc-123'
         cwd = '/workspaces/PROJ-1/repo-a'
         events = [
             {
                 'type': 'user',
-                'sessionId': session_id, 'cwd': cwd,
+                'sessionId': agent_session_id, 'cwd': cwd,
                 'message': {
                     'role': 'user',
                     'content': [
@@ -102,7 +102,7 @@ class Bug1HistoryReplayFromDiskTests(unittest.TestCase):
             },
             {
                 'type': 'assistant',
-                'sessionId': session_id, 'cwd': cwd,
+                'sessionId': agent_session_id, 'cwd': cwd,
                 'message': {
                     'role': 'assistant',
                     'content': [
@@ -112,7 +112,7 @@ class Bug1HistoryReplayFromDiskTests(unittest.TestCase):
             },
             {
                 'type': 'user',
-                'sessionId': session_id, 'cwd': cwd,
+                'sessionId': agent_session_id, 'cwd': cwd,
                 'message': {
                     'role': 'user',
                     'content': [
@@ -122,7 +122,7 @@ class Bug1HistoryReplayFromDiskTests(unittest.TestCase):
             },
             {
                 'type': 'assistant',
-                'sessionId': session_id, 'cwd': cwd,
+                'sessionId': agent_session_id, 'cwd': cwd,
                 'message': {
                     'role': 'assistant',
                     'content': [
@@ -131,9 +131,9 @@ class Bug1HistoryReplayFromDiskTests(unittest.TestCase):
                 },
             },
         ]
-        self._write_session(session_id, cwd, events)
+        self._write_session(agent_session_id, cwd, events)
         result = load_history_events(
-            session_id, projects_root=self.projects_root,
+            agent_session_id, projects_root=self.projects_root,
         )
         # All four turns surfaced.
         self.assertEqual(len(result), 4)
@@ -167,12 +167,12 @@ class Bug1HistoryReplayFromDiskTests(unittest.TestCase):
         from claude_core_lib.claude_core_lib.session.history import (
             load_history_events,
         )
-        session_id = 'sess-filtered'
+        agent_session_id = 'sess-filtered'
         cwd = '/workspaces/PROJ-1/repo-a'
         events = [
             {
                 'type': 'user',
-                'sessionId': session_id, 'cwd': cwd,
+                'sessionId': agent_session_id, 'cwd': cwd,
                 'message': {
                     'role': 'user',
                     'content': [{
@@ -183,7 +183,7 @@ class Bug1HistoryReplayFromDiskTests(unittest.TestCase):
             },
             {
                 'type': 'user',
-                'sessionId': session_id, 'cwd': cwd,
+                'sessionId': agent_session_id, 'cwd': cwd,
                 'message': {
                     'role': 'user',
                     'content': [{
@@ -193,16 +193,16 @@ class Bug1HistoryReplayFromDiskTests(unittest.TestCase):
             },
             {
                 'type': 'assistant',
-                'sessionId': session_id, 'cwd': cwd,
+                'sessionId': agent_session_id, 'cwd': cwd,
                 'message': {
                     'role': 'assistant',
                     'content': [{'type': 'text', 'text': 'on it'}],
                 },
             },
         ]
-        self._write_session(session_id, cwd, events)
+        self._write_session(agent_session_id, cwd, events)
         result = load_history_events(
-            session_id, projects_root=self.projects_root,
+            agent_session_id, projects_root=self.projects_root,
         )
         # Both the orchestration prompt and the real exchange survive.
         texts = [

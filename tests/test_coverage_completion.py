@@ -1390,7 +1390,7 @@ class GitDiffUtilsUntrackedFileBranchesTests(unittest.TestCase):
 # There is NO codex/openhands/openrouter equivalent. Those backends
 # don't have a webserver SSE history-replay code path (Claude's lives
 # in ``_replay_history_from_disk`` which reads ``~/.claude/projects/
-# <session_id>.jsonl``). Creating empty doppelgängers would be
+# <agent_session_id>.jsonl``). Creating empty doppelgängers would be
 # cargo-cult.
 
 

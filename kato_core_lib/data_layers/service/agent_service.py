@@ -337,18 +337,18 @@ class AgentService(Service):
             if self._norm_task_id(tid) not in current_review_norm
         }
         for task_id in stale_task_ids:
-            for session_id in self._state_registry.session_ids_for_task(task_id):
+            for agent_session_id in self._state_registry.session_ids_for_task(task_id):
                 self.logger.info(
                     'task %s is no longer in review; stopping conversation %s',
                     task_id,
-                    session_id,
+                    agent_session_id,
                 )
                 try:
-                    self._implementation_service.delete_conversation(session_id)
+                    self._implementation_service.delete_conversation(agent_session_id)
                 except Exception:
                     self.logger.warning(
                         'failed to stop conversation %s for done task %s',
-                        session_id,
+                        agent_session_id,
                         task_id,
                     )
             self._state_registry.forget_task(task_id)
