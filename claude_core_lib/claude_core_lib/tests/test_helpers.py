@@ -350,8 +350,10 @@ class OpenhandsSessionIdTests(unittest.TestCase):
         self.assertEqual(openhands_session_id({'conversation_id': 'xyz'}), 'xyz')
 
     def test_prefers_session_id_over_conversation_id(self) -> None:
+        # OpenHands' wire primary is ``session_id``; ``conversation_id``
+        # is the alt key on older endpoints. Primary wins.
         self.assertEqual(
-            openhands_session_id({'agent_session_id': 'sess', 'conversation_id': 'conv'}),
+            openhands_session_id({'session_id': 'sess', 'conversation_id': 'conv'}),
             'sess',
         )
 
