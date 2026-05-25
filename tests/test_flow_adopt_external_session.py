@@ -115,9 +115,11 @@ class FlowAdoptPersistenceTests(unittest.TestCase):
                 'T1', agent_session_id='adopted-id-from-vscode',
                 task_summary='migrated from VS Code',
             )
-            # On-disk record exists with the adopted id.
+            # On-disk record exists with the adopted id. The manager
+            # lowercases task ids for filenames (PROJ-1 and proj-1 share
+            # one record); the file is t1.json, not T1.json.
             persisted = json.loads(
-                (Path(state_dir) / 'T1.json').read_text(encoding='utf-8'),
+                (Path(state_dir) / 't1.json').read_text(encoding='utf-8'),
             )
             self.assertEqual(
                 persisted[AGENT_SESSION_ID], 'adopted-id-from-vscode',
@@ -137,7 +139,7 @@ class FlowAdoptPersistenceTests(unittest.TestCase):
                 task_summary='migrated from VS Code',
             )
             persisted = json.loads(
-                (Path(state_dir) / 'T1.json').read_text(encoding='utf-8'),
+                (Path(state_dir) / 't1.json').read_text(encoding='utf-8'),
             )
             self.assertEqual(
                 persisted.get('task_summary'), 'migrated from VS Code',
@@ -157,7 +159,7 @@ class FlowAdoptPersistenceTests(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 mgr.adopt_session_id('T1', agent_session_id='second-id')
             persisted = json.loads(
-                (Path(state_dir) / 'T1.json').read_text(encoding='utf-8'),
+                (Path(state_dir) / 't1.json').read_text(encoding='utf-8'),
             )
             self.assertEqual(persisted[AGENT_SESSION_ID], 'first-id')
 

@@ -242,11 +242,16 @@ class LoadEnvTests(unittest.TestCase):
 class ScriptEntryPointTest(unittest.TestCase):
     def test_main_module_invocation_raises_system_exit(self):
         # cli.py line 199: ``if __name__ == '__main__': raise SystemExit(main())``
+        # runpy.run_module(..., run_name='__main__') re-executes the file in
+        # a fresh namespace, so patching kato_core_lib.cli.cmd_doctor has no
+        # effect on the new __main__ namespace's cmd_doctor. Patch the
+        # external subprocess boundary instead — that's what every cmd_*
+        # eventually calls through _run, and patches there survive runpy.
         import runpy
         argv_backup = sys.argv
         sys.argv = ['cli', 'doctor']
         try:
-            with mock.patch.object(cli, 'cmd_doctor', return_value=0):
+            with mock.patch('subprocess.call', return_value=0):
                 with self.assertRaises(SystemExit) as ctx:
                     runpy.run_module('kato_core_lib.cli', run_name='__main__')
                 self.assertEqual(ctx.exception.code, 0)
