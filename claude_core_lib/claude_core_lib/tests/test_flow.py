@@ -285,8 +285,11 @@ class SessionManagerLifecycleFlowTest(unittest.TestCase):
         self.assertEqual(record.task_id, task_id)
         self.assertEqual(record.task_summary, 'Implement auth flow')
 
-        # Disk record present
-        disk_path = self.state_dir / f'{task_id}.json'
+        # Disk record present. ``_record_path`` lowercases the task id
+        # so ``PROJ-1`` and ``proj-1`` share one file — the on-disk name
+        # is ``<task_id>.lower().json``. macOS's case-insensitive FS hid
+        # this; Linux CI exposes it.
+        disk_path = self.state_dir / f'{task_id.lower()}.json'
         self.assertTrue(disk_path.exists())
         disk_payload = json.loads(disk_path.read_text())
         self.assertEqual(disk_payload['task_id'], task_id)

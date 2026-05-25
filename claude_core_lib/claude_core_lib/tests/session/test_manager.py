@@ -86,8 +86,12 @@ class ClaudeSessionManagerTests(unittest.TestCase):
         self.assertEqual(record.status, SESSION_STATUS_ACTIVE)
         self.assertEqual(record.agent_session_id, session.agent_session_id)
 
-        # persisted as JSON next to the manager
-        persisted = json.loads((self.state_dir / 'PROJ-1.json').read_text())
+        # persisted as JSON next to the manager. ``_record_path``
+        # lowercases the task id (so ``PROJ-1`` and ``proj-1`` share
+        # one file) — the on-disk name is ``proj-1.json``, not
+        # ``PROJ-1.json``. macOS's case-insensitive FS hid the
+        # difference; Linux CI exposed it.
+        persisted = json.loads((self.state_dir / 'proj-1.json').read_text())
         self.assertEqual(persisted['task_id'], 'PROJ-1')
         self.assertEqual(persisted[AGENT_SESSION_ID], session.agent_session_id)
         self.assertEqual(persisted['status'], SESSION_STATUS_ACTIVE)
@@ -106,7 +110,8 @@ class ClaudeSessionManagerTests(unittest.TestCase):
         manager.start_session(task_id='PROJ-TRIM')
 
         record = manager.get_record('PROJ-TRIM')
-        persisted = json.loads((self.state_dir / 'PROJ-TRIM.json').read_text())
+        # ``_record_path`` lowercases — see comment on ``proj-1.json`` above.
+        persisted = json.loads((self.state_dir / 'proj-trim.json').read_text())
         self.assertEqual(record.agent_session_id, 'generated-id')
         self.assertEqual(persisted[AGENT_SESSION_ID], 'generated-id')
 
@@ -151,7 +156,8 @@ class ClaudeSessionManagerTests(unittest.TestCase):
 
         record = self.manager.get_record('PROJ-1')
         self.assertEqual(record.status, SESSION_STATUS_DONE)
-        persisted = json.loads((self.state_dir / 'PROJ-1.json').read_text())
+        # ``_record_path`` lowercases — see test_start_session above.
+        persisted = json.loads((self.state_dir / 'proj-1.json').read_text())
         self.assertEqual(persisted['status'], SESSION_STATUS_DONE)
 
     def test_update_status_rejects_unknown(self) -> None:
@@ -1636,7 +1642,8 @@ class CorrectSessionIdInRecordTests(unittest.TestCase):
 
         self.manager._correct_session_id_in_record(key, 'PROJ-B', 'same-id')
 
-        persisted = json.loads((self.state_dir / 'PROJ-B.json').read_text())
+        # ``_record_path`` lowercases — on-disk name is ``proj-b.json``.
+        persisted = json.loads((self.state_dir / 'proj-b.json').read_text())
         self.assertEqual(self.manager._records[key].agent_session_id, 'same-id')
         self.assertEqual(persisted[AGENT_SESSION_ID], 'same-id')
 
