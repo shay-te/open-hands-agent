@@ -3362,6 +3362,17 @@ body.kato-resizing #left-pane-resizer::before {
 .diff-file-comment-pill.is-failed { color: #fca5a5; }
 .diff-file-comment-pill.is-resolved { color: #93c5fd; }
 .diff-file-comment-ago { color: #737373; font-size: 11px; }
+/* Reply-count chip in a collapsed root's header (``▸ 2 replies``).
+ * Surfaces follow-up traffic on a thread without having to expand it. */
+.diff-file-comment-reply-count {
+  font-size: 11px;
+  color: #a3a3a3;
+  background: #1f1f1f;
+  border: 1px solid #2a2a2a;
+  border-radius: 999px;
+  padding: 1px 8px;
+  margin-left: 4px;
+}
 /* Collapse chevron, pushed to the far right Bitbucket-style. */
 .diff-file-comment-collapse {
   margin-left: auto;

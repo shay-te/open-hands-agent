@@ -30,4 +30,7 @@ omit =
     */.venv/*
 
 [report]
-skip_empty = true
+# Empty files (the ``__init__.py`` shells that exist purely as
+# package markers) are now included so the report's file list
+# matches the source tree. Their coverage trivially reads 100%.
+skip_empty = false

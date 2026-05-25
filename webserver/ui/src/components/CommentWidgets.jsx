@@ -66,6 +66,17 @@ function statusPill(comment) {
 export function CommentBubble({
   comment, isRoot,
   onResolve, onReopen, onDelete, onReply, onMarkAddressed,
+  // When the thread parent owns the collapse state (so collapsing
+  // the root also hides the replies — see ``CommentThread``), it
+  // passes ``collapsed`` + ``onToggleCollapsed`` here and the
+  // internal state is bypassed. Reply bubbles still manage their
+  // own collapse state.
+  collapsed: collapsedProp,
+  onToggleCollapsed,
+  // Optional reply count surfaced inline in the collapsed header
+  // (e.g. ``▸ 2 replies``) so the operator can see, without
+  // expanding, that the root has follow-up traffic.
+  replyCount = 0,
 }) {
   const sourceLabel = comment.source === 'remote' ? 'REMOTE' : 'LOCAL';
   const sourceTitle = comment.source === 'remote'
@@ -89,8 +100,15 @@ export function CommentBubble({
   // operator can still expand it, and it never disappears unless they
   // Delete it. Re-sync when the status flips (resolve→collapse,
   // reopen→expand) while still allowing a manual toggle in between.
-  const [collapsed, setCollapsed] = useState(isRoot && isResolved);
-  useEffect(() => { setCollapsed(isRoot && isResolved); }, [isRoot, isResolved]);
+  // When the parent thread owns the state (``collapsedProp`` set so
+  // collapsing the root also hides the reply bubbles), defer to it.
+  const [localCollapsed, setLocalCollapsed] = useState(isRoot && isResolved);
+  useEffect(() => { setLocalCollapsed(isRoot && isResolved); }, [isRoot, isResolved]);
+  const parentControlled = typeof onToggleCollapsed === 'function';
+  const collapsed = parentControlled ? !!collapsedProp : localCollapsed;
+  const toggleCollapsed = parentControlled
+    ? onToggleCollapsed
+    : () => setLocalCollapsed((value) => !value);
 
   return (
     <div
@@ -122,10 +140,18 @@ export function CommentBubble({
           </span>
         )}
         {ago && <span className="diff-file-comment-ago">{ago}</span>}
+        {collapsed && replyCount > 0 && (
+          <span
+            className="diff-file-comment-reply-count"
+            title={`${replyCount} repl${replyCount === 1 ? 'y' : 'ies'} hidden — expand to view`}
+          >
+            {replyCount === 1 ? '1 reply' : `${replyCount} replies`}
+          </span>
+        )}
         <button
           type="button"
           className="diff-file-comment-collapse"
-          onClick={() => setCollapsed((value) => !value)}
+          onClick={toggleCollapsed}
           aria-expanded={!collapsed}
           aria-label={collapsed ? 'Expand comment' : 'Collapse comment'}
           title={collapsed ? 'Expand comment' : 'Collapse comment'}
@@ -208,23 +234,35 @@ export function CommentThread({
   onMarkAddressed,
 }) {
   const isResolved = thread.root.status === 'resolved';
+  // Collapse state lives here (not inside CommentBubble) so that
+  // collapsing the root ALSO hides the reply bubbles — otherwise
+  // the operator saw a collapsed root header with all replies still
+  // expanded underneath, which defeated the purpose of collapsing.
+  // The root bubble gets ``collapsed``/``onToggleCollapsed`` props
+  // and reports its reply count inline (``▸ 2 replies``).
+  const [collapsed, setCollapsed] = useState(isResolved);
+  useEffect(() => { setCollapsed(isResolved); }, [isResolved]);
   return (
     <article
       className={[
         'diff-file-comment-thread',
         isResolved ? 'is-resolved' : '',
+        collapsed ? 'is-collapsed' : '',
       ].filter(Boolean).join(' ')}
     >
       <CommentBubble
         comment={thread.root}
         isRoot
+        collapsed={collapsed}
+        onToggleCollapsed={() => setCollapsed((v) => !v)}
+        replyCount={(thread.replies || []).length}
         onResolve={() => onResolve(thread.root.id)}
         onReopen={() => onReopen(thread.root.id)}
         onDelete={() => onDelete(thread.root.id)}
         onReply={() => onReply(thread.root.id)}
         onMarkAddressed={() => onMarkAddressed(thread.root.id)}
       />
-      {thread.replies.map((reply) => (
+      {!collapsed && thread.replies.map((reply) => (
         <CommentBubble
           key={reply.id}
           comment={reply}
