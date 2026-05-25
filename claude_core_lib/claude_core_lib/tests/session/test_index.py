@@ -412,6 +412,41 @@ class ProjectDirEncodingTests(unittest.TestCase):
         )
 
 
+class ClaudeProjectDirAbsolutePathTests(unittest.TestCase):
+    """``claude_project_dir_for_cwd`` must always return an absolute path.
+
+    UNA-2669 regression: when ``KATO_CLAUDE_SESSIONS_ROOT`` was unset,
+    ``Path('').expanduser()`` evaluated to ``Path('.')`` — truthy and
+    ``is_dir()`` for the current working directory — silently rerouting
+    the project dir to a RELATIVE path under wherever kato was running.
+    The adoption-flow JSONL migration then wrote to
+    ``<kato_cwd>/<encoded>/<id>.jsonl`` instead of
+    ``~/.claude/projects/<encoded>/<id>.jsonl``, Claude never found it,
+    and every ``--resume`` failed.
+    """
+
+    def test_returns_absolute_path_when_env_override_unset(self) -> None:
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop(CLAUDE_SESSIONS_ROOT_ENV_KEY, None)
+            result = claude_project_dir_for_cwd('/Users/me/proj')
+        self.assertTrue(result.is_absolute(), f'expected absolute path, got {result}')
+        self.assertIn('.claude/projects', str(result))
+
+    def test_returns_absolute_path_when_env_override_is_empty_string(self) -> None:
+        # An exported-but-empty env var must behave the same as unset —
+        # not as "rebase under cwd". This is the exact crash signature.
+        with patch.dict(os.environ, {CLAUDE_SESSIONS_ROOT_ENV_KEY: ''}, clear=False):
+            result = claude_project_dir_for_cwd('/Users/me/proj')
+        self.assertTrue(result.is_absolute(), f'expected absolute path, got {result}')
+        self.assertIn('.claude/projects', str(result))
+
+    def test_returns_absolute_path_when_env_override_is_whitespace(self) -> None:
+        with patch.dict(os.environ, {CLAUDE_SESSIONS_ROOT_ENV_KEY: '   '}, clear=False):
+            result = claude_project_dir_for_cwd('/Users/me/proj')
+        self.assertTrue(result.is_absolute(), f'expected absolute path, got {result}')
+        self.assertIn('.claude/projects', str(result))
+
+
 class MigrateSessionToWorkspaceTests(unittest.TestCase):
     """``migrate_session_to_workspace`` copies the JSONL to the target cwd's project dir."""
 

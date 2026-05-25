@@ -292,9 +292,13 @@ def claude_project_dir_for_cwd(cwd: str) -> Path:
     encoded = abs_cwd
     for ch in _PROJECT_DIR_ENCODE_CHARS:
         encoded = encoded.replace(ch, '-')
-    root = Path(os.environ.get(CLAUDE_SESSIONS_ROOT_ENV_KEY, '')).expanduser()
-    if str(root) and root.is_dir():
-        return root / encoded
+    # Empty overrides must not collapse to Path('.') and reroute
+    # Claude transcript migrations under kato's current cwd.
+    override = os.environ.get(CLAUDE_SESSIONS_ROOT_ENV_KEY, '').strip()
+    if override:
+        root = Path(override).expanduser()
+        if root.is_dir():
+            return root / encoded
     return Path.home() / '.claude' / 'projects' / encoded
 
 
