@@ -137,7 +137,9 @@ describe('SessionHeader — always prints the Claude session id', () => {
       />,
     );
     const el = container.querySelector('#session-claude-id');
+    const info = container.querySelector('.session-header-info');
     expect(el).toBeInTheDocument();
+    expect(info).toContainElement(el);
     expect(el).toHaveTextContent('sid:abcdef12…');
     expect(el.getAttribute('title')).toContain(
       'abcdef12-3456-7890-abcd-ef1234567890',

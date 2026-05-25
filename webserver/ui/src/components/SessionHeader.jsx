@@ -346,6 +346,20 @@ export default function SessionHeader({
   // condition that the return statement consumes is precomputed
   // here so the JSX below is pure rendering.
   const taskSummary = session.task_summary || '';
+  const sessionIdBadge = agentSessionId ? (
+    <span
+      id="session-claude-id"
+      className="claude-session-id"
+      title={
+        `Agent session id: ${agentSessionId}\n`
+        + 'kato resumes this id across restarts — compare it '
+        + 'before/after a restart to confirm the conversation '
+        + 'was continued, not started fresh.'
+      }
+    >
+      sid:{agentSessionId.slice(0, 8)}…
+    </span>
+  ) : null;
   const pushButtonLabel = taskPublish.pushBusy ? 'Pushing…' : 'Push';
   const pullButtonLabel = taskPublish.pullBusy ? 'Pulling…' : 'Pull';
   const prButtonLabel = taskPublish.prBusy ? 'Opening PR…' : 'Pull request';
@@ -412,6 +426,7 @@ export default function SessionHeader({
             title={tabStatusTitle(baseStatus, needsAttention)}
           />
           <strong id="session-task-id">{session.task_id}</strong>
+          {sessionIdBadge}
           <span id="session-task-summary">{taskSummary}</span>
         </div>
         <div className="session-header-actions">
@@ -422,20 +437,6 @@ export default function SessionHeader({
           >
             Claude: {claudeStatus.label}
           </span>
-          {agentSessionId ? (
-            <span
-              id="session-claude-id"
-              className="claude-session-id"
-              title={
-                `Agent session id: ${agentSessionId}\n`
-                + 'kato resumes this id across restarts — compare it '
-                + 'before/after a restart to confirm the conversation '
-                + 'was continued, not started fresh.'
-              }
-            >
-              sid:{agentSessionId.slice(0, 8)}…
-            </span>
-          ) : null}
           {searchSlot}
           {approvePushButton}
           <button
