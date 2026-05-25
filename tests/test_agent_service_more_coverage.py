@@ -767,6 +767,66 @@ class MaybeTriggerCommentRunTests(unittest.TestCase):
         # Real round-trip: in_progress → queued, persisted to disk.
         self.assertEqual(live.kato_status, KatoCommentStatus.QUEUED.value)
 
+    def test_concurrent_dispatches_are_serialized_per_task(self) -> None:
+        # Regression: two ``_maybe_trigger_comment_run`` calls racing on
+        # the same task (scan-tick drain + browser POST landing in the
+        # same window) used to BOTH pass the busy check before either
+        # had incremented ``user_messages_sent``, flip THEIR comment to
+        # IN_PROGRESS, and call ``send_user_message``. Both comments
+        # then rode the same RESULT and the FIRST one's result_text was
+        # attached to BOTH (visible symptom: kato's reply to a comment
+        # was about a completely unrelated change). The per-task
+        # dispatch lock now serializes the entire busy-check → flip →
+        # send sequence so only one comment can be in flight at a time.
+        import threading
+        first_id = self._seed_comment('T1', body='comment A')
+        import time
+        time.sleep(0.01)
+        second_id = self._seed_comment('T1', body='comment B')
+
+        dispatch_order: list[str] = []
+        dispatch_lock = threading.Lock()
+        # Once the first run claims the dispatch lock, simulate a
+        # ``send_user_message`` that hasn't yet produced a Claude event
+        # by bumping a busy flag the patched ``_task_has_busy_turn``
+        # reads. The second concurrent run must see "busy" and bail.
+        busy_after_first = {'flag': False}
+
+        def fake_run(task_id, record):
+            with dispatch_lock:
+                dispatch_order.append(record.id)
+                busy_after_first['flag'] = True
+            time.sleep(0.05)  # widen the race window
+            return True
+
+        def busy_check(task_id):
+            return busy_after_first['flag']
+
+        with patch.object(self.service, '_run_comment_agent', side_effect=fake_run), \
+             patch.object(self.service, '_task_has_busy_turn', side_effect=busy_check):
+            t1 = threading.Thread(
+                target=self.service._maybe_trigger_comment_run,
+                args=('T1', first_id),
+            )
+            t2 = threading.Thread(
+                target=self.service._maybe_trigger_comment_run,
+                args=('T1', second_id),
+            )
+            t1.start(); t2.start()
+            t1.join(); t2.join()
+
+        # Exactly ONE comment got dispatched; the other stayed QUEUED.
+        # Without the lock, BOTH would have been flipped IN_PROGRESS.
+        live = {c.id: c.kato_status
+                for c in real_store_for(self.workspace_service, 'T1').list()}
+        in_progress = [cid for cid, s in live.items()
+                       if s == KatoCommentStatus.IN_PROGRESS.value]
+        queued = [cid for cid, s in live.items()
+                  if s == KatoCommentStatus.QUEUED.value]
+        self.assertEqual(len(in_progress), 1, live)
+        self.assertEqual(len(queued), 1, live)
+        self.assertEqual(len(dispatch_order), 1)
+
 
 class RunCommentAgentTests(unittest.TestCase):
     def test_returns_silently_when_no_session_manager(self) -> None:

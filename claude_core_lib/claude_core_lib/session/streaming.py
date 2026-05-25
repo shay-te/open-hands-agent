@@ -275,6 +275,21 @@ class StreamingClaudeSession(object):
         self._reader_threads: list[threading.Thread] = []
         self._stderr_lines: list[str] = []
         self._stderr_lock = threading.Lock()
+        # Count of user messages forwarded to the CLI subprocess. Paired
+        # with ``result_events_received`` to detect "in-flight messages
+        # whose turn hasn't started yet" — there is a real race window
+        # where ``send_user_message`` has written to stdin but Claude
+        # has not yet emitted its first event, so ``is_working`` (which
+        # walks ``_recent_events``) still returns False. Comment
+        # dispatch used to slip into that gap, fire its own
+        # ``send_user_message`` on a "false-idle" session, and then get
+        # marked ``ADDRESSED`` the moment the PRIOR turn's RESULT fired
+        # — well before the comment's own turn had even started.
+        # ``AgentService._task_has_busy_turn`` now also requires
+        # ``user_messages_sent <= result_events_received`` to call a
+        # session idle.
+        self._user_messages_sent = 0
+        self._user_messages_sent_lock = threading.Lock()
         self.logger = configure_logger(self.__class__.__name__)
         if self._permission_mode == 'bypassPermissions':
             self.logger.warning(
@@ -342,6 +357,32 @@ class StreamingClaudeSession(object):
                 if event_type in ('assistant', 'stream_event', 'user'):
                     return True
         return False
+
+    @property
+    def user_messages_sent(self) -> int:
+        """Count of user messages forwarded to the CLI since spawn.
+
+        Paired with ``result_events_received`` by callers that need to
+        tell "session is mid-turn" apart from "session has in-flight
+        messages whose turn hasn't started yet". See the counter init
+        in ``__init__`` for the race that motivates this.
+        """
+        with self._user_messages_sent_lock:
+            return self._user_messages_sent
+
+    @property
+    def result_events_received(self) -> int:
+        """Count of ``result`` events received since spawn.
+
+        Walks the event log instead of a separate counter because the
+        log is the source of truth (e.g. a recovered session
+        replays its NDJSON history into ``_recent_events`` directly).
+        """
+        with self._recent_events_lock:
+            return sum(
+                1 for e in self._recent_events
+                if e.event_type == CLAUDE_EVENT_RESULT
+            )
 
     @property
     def has_finished(self) -> bool:
@@ -505,6 +546,13 @@ class StreamingClaudeSession(object):
             },
         }
         self._write_stdin_line(envelope)
+        # Increment AFTER the write succeeds. ``_write_stdin_line`` can
+        # raise (broken pipe, etc.) — only count messages we actually
+        # handed to Claude. The counter is paired with
+        # ``result_events_received`` to expose "in-flight messages" to
+        # callers (``AgentService._task_has_busy_turn``).
+        with self._user_messages_sent_lock:
+            self._user_messages_sent += 1
         self.logger.info(
             'forwarded user message to claude session for task %s '
             '(%s chars, %d image(s))',

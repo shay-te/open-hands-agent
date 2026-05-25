@@ -162,6 +162,17 @@ class AgentService(Service):
         import threading as _threading
         self._pending_publish_lock = _threading.RLock()
         self._pending_publish: dict[str, tuple] = {}
+        # Per-task lock that serializes ``_maybe_trigger_comment_run``'s
+        # busy-check → IN_PROGRESS flip → send_user_message sequence.
+        # Without this, two concurrent triggers (scan-tick draining the
+        # queue + a fresh POST landing in the same window) can each pass
+        # the busy check, each flip THEIR comment to IN_PROGRESS, each
+        # call send_user_message. Both comments then ride the same
+        # RESULT and ``complete_in_progress_task_comments`` attaches
+        # the FIRST one's result text to BOTH (visible symptom: kato's
+        # reply to a comment is about a completely unrelated change).
+        self._comment_dispatch_locks: dict[str, _threading.Lock] = {}
+        self._comment_dispatch_locks_lock = _threading.Lock()
         self._state_registry = state_registry or AgentStateRegistry()
         self._review_comment_service = review_comment_service or ReviewCommentService(
             self._task_service,
@@ -1500,6 +1511,16 @@ class AgentService(Service):
             return None
         return LocalCommentStore(workspace_dir)
 
+    def _comment_dispatch_lock_for(self, task_id: str):
+        """Return the per-task lock that serializes comment dispatch."""
+        with self._comment_dispatch_locks_lock:
+            lock = self._comment_dispatch_locks.get(task_id)
+            if lock is None:
+                import threading as _threading
+                lock = _threading.Lock()
+                self._comment_dispatch_locks[task_id] = lock
+            return lock
+
     def _maybe_trigger_comment_run(
         self, task_id: str, comment_id: str,
     ) -> bool:
@@ -1511,6 +1532,14 @@ class AgentService(Service):
         bad spawn just leaves the comment queued — the operator
         can retry by reopening the comment or running the queue
         drain manually.
+
+        Serialized per-task via ``_comment_dispatch_lock_for`` so
+        the busy-check → IN_PROGRESS flip → ``send_user_message``
+        sequence is atomic. Two concurrent triggers (scan-tick drain
+        + browser POST) used to each pass the busy check before
+        either had incremented ``user_messages_sent``, each dispatch
+        its own comment, and then BOTH comments got the same
+        result_text attached when the FIRST RESULT fired.
         """
         from kato_core_lib.comment_core_lib import KatoCommentStatus
 
@@ -1520,45 +1549,66 @@ class AgentService(Service):
         record = store.get(comment_id)
         if record is None:
             return False
-        live_turn_busy = self._task_has_busy_turn(task_id)
-        if live_turn_busy:
-            # Stay queued; the queue drain (called from the
-            # ``RESULT`` event handler) picks it up on the next
-            # idle transition.
-            return False
-        store.update_kato_status(
-            comment_id, kato_status=KatoCommentStatus.IN_PROGRESS.value,
-        )
-        try:
-            started = self._run_comment_agent(task_id, record)
-        except Exception as exc:
-            self.logger.exception(
-                'comment agent run failed for task %s comment %s',
-                task_id, comment_id,
-            )
+        with self._comment_dispatch_lock_for(task_id):
+            live_turn_busy = self._task_has_busy_turn(task_id)
+            if live_turn_busy:
+                # Stay queued; the queue drain (called from the
+                # ``RESULT`` event handler) picks it up on the next
+                # idle transition.
+                return False
             store.update_kato_status(
-                comment_id,
-                kato_status=KatoCommentStatus.FAILED.value,
-                failure_reason=str(exc),
+                comment_id, kato_status=KatoCommentStatus.IN_PROGRESS.value,
             )
-            return False
-        if not started:
-            self.logger.warning(
-                'comment %s on task %s could not be started; left QUEUED '
-                'for the next scan tick to retry',
-                comment_id, task_id,
-            )
-            store.update_kato_status(
-                comment_id, kato_status=KatoCommentStatus.QUEUED.value,
-            )
-            return False
+            try:
+                started = self._run_comment_agent(task_id, record)
+            except Exception as exc:
+                self.logger.exception(
+                    'comment agent run failed for task %s comment %s',
+                    task_id, comment_id,
+                )
+                store.update_kato_status(
+                    comment_id,
+                    kato_status=KatoCommentStatus.FAILED.value,
+                    failure_reason=str(exc),
+                )
+                return False
+            if not started:
+                self.logger.warning(
+                    'comment %s on task %s could not be started; left QUEUED '
+                    'for the next scan tick to retry',
+                    comment_id, task_id,
+                )
+                store.update_kato_status(
+                    comment_id, kato_status=KatoCommentStatus.QUEUED.value,
+                )
+                return False
         self.logger.info(
             'comment %s on task %s dispatched to the agent', comment_id, task_id,
         )
         return True
 
     def _task_has_busy_turn(self, task_id: str) -> bool:
-        """True when the live streaming session is mid-turn."""
+        """True when the live streaming session has any work in flight.
+
+        "In flight" covers TWO states the dispatch path must treat as
+        busy, because each one used to let a queued comment slip into
+        a turn it didn't own and then be marked ADDRESSED by that
+        turn's RESULT:
+
+        1. Mid-turn (``is_working``): Claude has spoken at least one
+           event for the current message but no RESULT yet.
+        2. Sent-but-unacked: ``send_user_message`` has written to the
+           CLI's stdin but Claude has not yet emitted its first event
+           for that message. ``is_working`` walks ``_recent_events``,
+           so during this race window it returns False even though
+           there is a queued message waiting to be processed. Without
+           this second check, a comment dispatched in that gap would
+           fire its OWN ``send_user_message`` onto a "false-idle"
+           session, and the PRIOR message's RESULT would then mark the
+           comment ``ADDRESSED`` before its work had even started
+           (visible symptom: kato's reply quoted prior-turn work and
+           the chat panel was still ``thinking`` on the comment).
+        """
         if self._session_manager is None:
             return False
         try:
@@ -1567,7 +1617,11 @@ class AgentService(Service):
             return False
         if session is None or not getattr(session, 'is_alive', False):
             return False
-        return bool(getattr(session, 'is_working', False))
+        if bool(getattr(session, 'is_working', False)):
+            return True
+        sent = int(getattr(session, 'user_messages_sent', 0) or 0)
+        received = int(getattr(session, 'result_events_received', 0) or 0)
+        return sent > received
 
     def _run_comment_agent(self, task_id: str, record) -> bool:
         """Hand the comment off to the streaming session as a user message.

@@ -60,7 +60,9 @@ export function tokenizeInline(text) {
   return tokens;
 }
 
-// Block parser → [{ type: 'p'|'code'|'quote'|'ul'|'ol', ... }].
+// Block parser → [{ type: 'p'|'code'|'quote'|'ul'|'ol'|'hr'|'h', ... }].
+const HR_RE = /^\s*(?:-{3,}|\*{3,}|_{3,})\s*$/;
+const ATX_HEADING_RE = /^\s*(#{1,6})\s+(.+?)\s*#*\s*$/;
 export function parseBlocks(body) {
   const text = String(body || '');
   if (!text.trim()) { return [{ type: 'empty' }]; }
@@ -77,6 +79,30 @@ export function parseBlocks(body) {
       }
       i += 1;
       blocks.push({ type: 'code', value: code.join('\n') });
+      continue;
+    }
+    // Horizontal rule: ``---``, ``***`` or ``___`` on a line by
+    // itself. Claude uses ``---`` as a section break ("Done. […]
+    // ---\nAddressed both comments together"); without this it
+    // rendered as literal dashes and the body looked like one
+    // unbroken wall of text.
+    if (HR_RE.test(line)) {
+      blocks.push({ type: 'hr' });
+      i += 1;
+      continue;
+    }
+    // ATX heading: ``# Title`` through ``###### Title``. Claude leans
+    // on these for sub-section labels in long replies; without a
+    // dedicated block they fell through to the paragraph branch and
+    // rendered as ``# Title`` literal text.
+    const atx = line.match(ATX_HEADING_RE);
+    if (atx) {
+      blocks.push({
+        type: 'h',
+        level: Math.min(6, atx[1].length),
+        value: atx[2],
+      });
+      i += 1;
       continue;
     }
     if (/^\s*>\s?/.test(line)) {
@@ -103,6 +129,8 @@ export function parseBlocks(body) {
     while (
       i < lines.length && lines[i].trim()
       && !/^```/.test(lines[i].trim())
+      && !HR_RE.test(lines[i])
+      && !ATX_HEADING_RE.test(lines[i])
       && !/^\s*>\s?/.test(lines[i])
       && !/^\s*[-*]\s+/.test(lines[i])
       && !/^\s*\d+\.\s+/.test(lines[i])

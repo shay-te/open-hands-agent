@@ -191,6 +191,39 @@ test('formatFinishResult: full happy path includes push, PR, and move-to-review 
   assert.match(out.message, /✓ ticket moved to In Review/);
 });
 
+test('formatFinishResult: title includes task id when supplied', () => {
+  // The toast title used to be just "Done — task finalised" — when an
+  // operator had several tabs mid-flow it was easy to lose track of
+  // which task the toast was for. Passing ``taskId`` interpolates it
+  // into the title.
+  const out = formatFinishResult(
+    {
+      ok: true,
+      body: {
+        finished: true,
+        pushed: { pushed_repositories: ['client'] },
+        pull_request: { skipped_existing: ['client'] },
+        moved_to_review: true,
+      },
+    },
+    'UNA-2536',
+  );
+  assert.equal(out.title, 'Done — task finalised (UNA-2536)');
+});
+
+test('formatFinishResult: omitting task id keeps the bare title', () => {
+  const out = formatFinishResult({
+    ok: true,
+    body: {
+      finished: true,
+      pushed: { pushed_repositories: [] },
+      pull_request: {},
+      moved_to_review: true,
+    },
+  });
+  assert.equal(out.title, 'Done — task finalised');
+});
+
 test('formatFinishResult: missing move-to-review surfaces the reason', () => {
   const out = formatFinishResult({
     ok: true,

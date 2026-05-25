@@ -157,7 +157,12 @@ export function formatUpdateSourceResult(result) {
 // Build the toast for ``POST /finish``. Three steps (push, PR,
 // move-to-review) each get a single line with the failure reason
 // inline when something didn't run.
-export function formatFinishResult(result) {
+//
+// ``taskId`` (optional) is interpolated into the title so the toast
+// makes it obvious WHICH task finished — without it the operator
+// gets a generic "Done — task finalised" with no anchor, easy to
+// confuse when several tabs are mid-flow.
+export function formatFinishResult(result, taskId = '') {
   if (!result || !result.ok) {
     return formatRequestFailure(result, 'Finish request failed');
   }
@@ -171,8 +176,10 @@ export function formatFinishResult(result) {
   } else {
     lines.push(`✗ ticket did NOT move to In Review: ${body.move_error || 'unknown reason — check kato logs'}`);
   }
+  const baseTitle = body.finished ? 'Done — task finalised' : 'Done — partial completion';
+  const trimmedTask = String(taskId || '').trim();
   return {
-    title: body.finished ? 'Done — task finalised' : 'Done — partial completion',
+    title: trimmedTask ? `${baseTitle} (${trimmedTask})` : baseTitle,
     message: lines.join('\n'),
   };
 }

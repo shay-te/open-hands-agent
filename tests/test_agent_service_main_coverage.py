@@ -977,6 +977,43 @@ class TaskHasBusyTurnTests(unittest.TestCase):
         service = AgentService(**_kwargs(session_manager=session))
         self.assertTrue(service._task_has_busy_turn('T1'))
 
+    def test_returns_true_when_user_message_sent_but_no_result_yet(self) -> None:
+        # Regression: there is a real race window between
+        # ``send_user_message`` writing to stdin and Claude emitting
+        # its first event for that message. ``is_working`` walks
+        # ``_recent_events`` from the back, so during this gap it
+        # returns False — the session looks idle even though a turn
+        # is queued. A comment dispatched into that gap fired its own
+        # ``send_user_message`` on a "false-idle" session, and the
+        # PRIOR turn's RESULT then marked the comment ``ADDRESSED``
+        # before its work even began (kato's reply quoted prior-turn
+        # work and the chat panel was still ``thinking`` on the
+        # comment). ``_task_has_busy_turn`` must treat
+        # ``user_messages_sent > result_events_received`` as busy so
+        # the comment stays QUEUED until the queue drains.
+        session = MagicMock()
+        session.get_session.return_value = SimpleNamespace(
+            is_alive=True,
+            is_working=False,           # the "false-idle gap"
+            user_messages_sent=1,
+            result_events_received=0,
+        )
+        service = AgentService(**_kwargs(session_manager=session))
+        self.assertTrue(service._task_has_busy_turn('T1'))
+
+    def test_returns_false_when_sends_match_results(self) -> None:
+        # Truly idle: every sent message has been answered with a
+        # RESULT and there is no mid-turn activity.
+        session = MagicMock()
+        session.get_session.return_value = SimpleNamespace(
+            is_alive=True,
+            is_working=False,
+            user_messages_sent=3,
+            result_events_received=3,
+        )
+        service = AgentService(**_kwargs(session_manager=session))
+        self.assertFalse(service._task_has_busy_turn('T1'))
+
 
 class TaskPullRequestIdTests(unittest.TestCase):
     def test_returns_empty_for_blank_input(self) -> None:

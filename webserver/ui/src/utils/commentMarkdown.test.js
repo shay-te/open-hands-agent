@@ -70,3 +70,36 @@ test('parseBlocks classifies code / quote / lists / paragraphs', () => {
 test('parseBlocks flags an empty body', () => {
   assert.deepEqual(parseBlocks('   '), [{ type: 'empty' }]);
 });
+
+test('parseBlocks recognises --- / *** / ___ as horizontal rule', () => {
+  // Regression: Claude uses ``---`` as a section break in dense
+  // replies. Previously it fell through to the paragraph branch and
+  // rendered as literal dashes, gluing the reply into one wall of
+  // text.
+  for (const hr of ['---', '----', '***', '___', '   ---  ']) {
+    const blocks = parseBlocks(`before\n${hr}\nafter`);
+    assert.deepEqual(blocks.map((b) => b.type), ['p', 'hr', 'p']);
+  }
+});
+
+test('parseBlocks recognises ATX headings # through ######', () => {
+  const blocks = parseBlocks([
+    '# top',
+    '## sub',
+    '###### bottom',
+    'body line',
+  ].join('\n'));
+  assert.deepEqual(blocks, [
+    { type: 'h', level: 1, value: 'top' },
+    { type: 'h', level: 2, value: 'sub' },
+    { type: 'h', level: 6, value: 'bottom' },
+    { type: 'p', value: 'body line' },
+  ]);
+});
+
+test('parseBlocks does NOT treat # mid-paragraph as a heading', () => {
+  // ``# code comment in a paragraph`` must stay paragraph text —
+  // ATX headings need the ``#`` at column zero.
+  const blocks = parseBlocks('look at # this comment in the code');
+  assert.deepEqual(blocks.map((b) => b.type), ['p']);
+});

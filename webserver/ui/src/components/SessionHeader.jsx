@@ -262,7 +262,7 @@ export default function SessionHeader({
     // Toast classification: full success → green, partial → amber,
     // request-level failure → red. Multi-line message is fine — the
     // toast component renders <pre> and wraps long lines.
-    const { title, message } = formatFinishResult(result);
+    const { title, message } = formatFinishResult(result, session.task_id);
     const body = (result && result.body) || {};
     const kind = !result.ok
       ? 'error'

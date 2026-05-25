@@ -327,6 +327,22 @@ export function CommentForm({
     if (draftKey) { writeDraftByKey(draftKey, draft); }
   }, [draftKey, draft]);
 
+  // Auto-grow the textarea up to the CSS ``max-height`` cap so the
+  // operator can see every line they have typed. Without this the
+  // box stayed at its ``rows={3}`` initial height and a long paste
+  // overflowed an unscrollable region. The CSS rule on
+  // ``.diff-file-comments-textarea`` caps growth and turns on the
+  // scrollbar past the cap, so this hook only needs to set
+  // ``style.height`` to ``scrollHeight``.
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) { return; }
+    // Reset first so shrinking on backspace works (scrollHeight only
+    // grows otherwise).
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, [draft]);
+
   async function submit() {
     const trimmed = draft.trim();
     if (!trimmed || busy) { return; }
@@ -429,9 +445,14 @@ export function CommentForm({
 function describeKatoStatus(comment) {
   switch (comment.kato_status) {
     case 'queued':
-      return 'Kato will run an agent on this comment when the live turn ends.';
+      // Conversational, matching the operator's mental model:
+      // "say I'm behind, pulling, then place the actual comment".
+      // The dispatch logic IS exactly that — the comment stays
+      // QUEUED until the live turn ends, then dispatches; once
+      // its OWN turn finishes the real reply is posted.
+      return 'Kato is behind on another turn — will pick this up when the current turn finishes.';
     case 'in_progress':
-      return 'Kato is running an agent against this comment right now.';
+      return 'Kato is working on this comment now — will reply when its turn finishes.';
     case 'addressed':
       return comment.kato_addressed_sha
         ? `Kato pushed a fix in commit ${comment.kato_addressed_sha.slice(0, 8)}.`

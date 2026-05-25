@@ -29,6 +29,22 @@ export function renderCommentMarkdown(body) {
     if (block.type === 'empty') {
       return <p key={key} className="cmt-md-empty">(empty comment)</p>;
     }
+    if (block.type === 'hr') {
+      return <hr key={key} className="cmt-md-hr" />;
+    }
+    if (block.type === 'h') {
+      // Render as <h3>-<h6> regardless of the source level so the
+      // comment thread's own typography hierarchy stays intact —
+      // ``# Headline`` inside a nested comment must not collide
+      // with the page's primary headings.
+      const level = Math.max(3, Math.min(6, block.level || 3));
+      const HTag = `h${level}`;
+      return (
+        <HTag key={key} className={`cmt-md-h cmt-md-h${level}`}>
+          {renderInline(block.value, key)}
+        </HTag>
+      );
+    }
     if (block.type === 'code') {
       return (
         <pre key={key} className="cmt-md-pre"><code>{block.value}</code></pre>
