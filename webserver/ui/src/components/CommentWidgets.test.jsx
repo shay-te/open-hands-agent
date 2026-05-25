@@ -243,6 +243,69 @@ describe('CommentForm — submit + cancel', () => {
     expect(onSubmit).toHaveBeenCalledWith('great idea');
   });
 
+  test('draftKey persists in-progress draft across unmount/remount', async () => {
+    // Regression: while the operator was typing a comment and
+    // kato/claude posted a sibling comment, the parent re-rendered,
+    // unmounted CommentForm, and re-mounted it with an empty draft —
+    // losing the in-flight text. With ``draftKey`` set, the draft is
+    // mirrored to localStorage on every keystroke and restored on
+    // the next mount.
+    const draftKey = 'kato.comment.draft.T1|client|src/foo.py|line:42|root';
+    try {
+      const first = render(
+        <CommentForm
+          placeholder="…"
+          onSubmit={vi.fn().mockResolvedValue(true)}
+          onCancel={vi.fn()}
+          draftKey={draftKey}
+        />,
+      );
+      fireEvent.change(screen.getByRole('textbox'), {
+        target: { value: 'in-flight draft' },
+      });
+      // Simulate the parent re-render: unmount and remount with the
+      // SAME draftKey. The remounted form must hydrate from storage.
+      first.unmount();
+      render(
+        <CommentForm
+          placeholder="…"
+          onSubmit={vi.fn().mockResolvedValue(true)}
+          onCancel={vi.fn()}
+          draftKey={draftKey}
+        />,
+      );
+      expect(screen.getByRole('textbox').value).toBe('in-flight draft');
+    } finally {
+      // Don't leak storage state into sibling tests.
+      try { window.localStorage.removeItem(draftKey); } catch (_e) { /* */ }
+    }
+  });
+
+  test('successful submit clears the persisted draft', async () => {
+    const draftKey = 'kato.comment.draft.T1|client|src/foo.py|line:7|root';
+    try {
+      render(
+        <CommentForm
+          placeholder="…"
+          onSubmit={vi.fn().mockResolvedValue(true)}
+          onCancel={vi.fn()}
+          draftKey={draftKey}
+        />,
+      );
+      fireEvent.change(screen.getByRole('textbox'), {
+        target: { value: 'will be posted' },
+      });
+      expect(window.localStorage.getItem(draftKey)).toBe('will be posted');
+      fireEvent.click(screen.getByRole('button', { name: /post|add|send|submit/i }));
+      // Wait one microtask for the submit promise + state updates.
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(window.localStorage.getItem(draftKey)).toBe(null);
+    } finally {
+      try { window.localStorage.removeItem(draftKey); } catch (_e) { /* */ }
+    }
+  });
+
   test('cancel button fires onCancel', () => {
     const onCancel = vi.fn();
     render(

@@ -385,6 +385,7 @@ export default function DiffFileWithComments({
               onSubmit={(body) => onSubmit(lineKey, body, replyTo)}
               onCancel={() => { setActiveLine(null); setReplyTo(''); }}
               replyMode={!!replyTo}
+              draftKey={`kato.comment.draft.${taskId}|${repoId}|${path}|${lineKey}|${replyTo || 'root'}`}
             />
           )}
         </div>
@@ -691,6 +692,7 @@ export default function DiffFileWithComments({
           : null
       }
       replyMode={fileFormReplyMode}
+      draftKey={`kato.comment.draft.${taskId}|${repoId}|${path}|file|${(fileFormReplyMode && replyTo) || 'root'}`}
     />
   ) : null;
   const commentsLoadingMessage = commentsLoading && comments.length === 0 ? (

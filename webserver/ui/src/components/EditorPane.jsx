@@ -522,6 +522,7 @@ export default function EditorPane({ openFile, onCommentSpawned }) {
             placeholder="What should kato do about this line?"
             onSubmit={(b) => onCommentSubmit(activeLine, b)}
             onCancel={() => setActiveLine(null)}
+            draftKey={`kato.comment.draft.${taskId}|${repoId}|${filePath}|line:${activeLine}|root`}
           />
         </div>,
         zoneNode,
@@ -537,6 +538,7 @@ export default function EditorPane({ openFile, onCommentSpawned }) {
             placeholder="What should kato do about this file?"
             onSubmit={(b) => onCommentSubmit(activeLine, b)}
             onCancel={() => setActiveLine(null)}
+            draftKey={`kato.comment.draft.${taskId}|${repoId}|${filePath}|file|root`}
           />
         </div>
       )}
@@ -589,6 +591,7 @@ export default function EditorPane({ openFile, onCommentSpawned }) {
                   replyMode
                   onSubmit={(b) => onCommentSubmit(root.line, b, root.id)}
                   onCancel={() => setReplyTo('')}
+                  draftKey={`kato.comment.draft.${taskId}|${repoId}|${filePath}|reply:${root.id}|root`}
                 />
               )}
             </div>

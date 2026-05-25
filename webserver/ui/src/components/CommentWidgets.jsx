@@ -3,6 +3,7 @@ import { formatRelativeTime } from '../utils/relativeTime.js';
 import { avatarColor, avatarInitials } from '../utils/avatar.js';
 import { renderCommentMarkdown } from '../utils/commentMarkdown.jsx';
 import { commentSubmitLock } from '../stores/commentSubmitLock.js';
+import { readDraftByKey, writeDraftByKey } from '../utils/composerDraft.js';
 import { toast } from '../stores/toastStore.js';
 
 // Bubble + thread builder + form, shared between the file-level
@@ -289,8 +290,15 @@ export function CommentForm({
   onSubmit,
   onCancel,
   replyMode = false,
+  // Stable identity for draft persistence. When supplied, the
+  // textarea contents are mirrored to localStorage on every keystroke
+  // so the draft survives parent re-renders / unmounts (kato/claude
+  // posting a sibling comment caused the diff view to re-key inline
+  // forms and wipe the in-flight draft). Leave blank to opt out — the
+  // form then behaves as a plain ephemeral textarea.
+  draftKey = '',
 }) {
-  const [draft, setDraft] = useState('');
+  const [draft, setDraft] = useState(() => readDraftByKey(draftKey));
   const [busy, setBusy] = useState(false);
   // Mirror the global lock into local render state so the button
   // shows ``Submitting…`` and disables when ANY comment form is
@@ -311,6 +319,14 @@ export function CommentForm({
   // disables this form's submit button too.
   useEffect(() => commentSubmitLock.subscribe(setGloballyLocked), []);
 
+  // Mirror every keystroke into localStorage when a draftKey is
+  // supplied, so an unmount + remount (e.g. parent re-keying the
+  // form when kato posts a sibling comment) restores the draft on
+  // the next mount instead of dropping it.
+  useEffect(() => {
+    if (draftKey) { writeDraftByKey(draftKey, draft); }
+  }, [draftKey, draft]);
+
   async function submit() {
     const trimmed = draft.trim();
     if (!trimmed || busy) { return; }
@@ -326,7 +342,10 @@ export function CommentForm({
     setBusy(true);
     try {
       const ok = await onSubmit(trimmed);
-      if (ok) { setDraft(''); }
+      if (ok) {
+        setDraft('');
+        if (draftKey) { writeDraftByKey(draftKey, ''); }
+      }
     } finally {
       setBusy(false);
       commentSubmitLock.release();

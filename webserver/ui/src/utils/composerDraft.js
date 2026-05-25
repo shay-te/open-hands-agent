@@ -26,8 +26,11 @@ function defaultStorage() {
   return null;
 }
 
-export function readDraft(taskId, storage) {
-  const key = draftStorageKey(taskId);
+// Generic key-based variants. Used by callers that own their own
+// key shape (e.g. CommentForm: ``comment.<task>.<repo>.<path>.<line>.<replyTo>``).
+// The ``taskId``-shaped helpers below are thin wrappers that just
+// supply the chat-composer prefix.
+export function readDraftByKey(key, storage) {
   if (!key) { return ''; }
   const store = storage || defaultStorage();
   if (!store) { return ''; }
@@ -35,14 +38,13 @@ export function readDraft(taskId, storage) {
     return store.getItem(key) || '';
   } catch (_err) {
     // localStorage can throw in private browsing / quota-exceeded /
-    // disabled-storage environments. The composer must still work —
+    // disabled-storage environments. Callers must still work —
     // fall through with empty draft.
     return '';
   }
 }
 
-export function writeDraft(taskId, value, storage) {
-  const key = draftStorageKey(taskId);
+export function writeDraftByKey(key, value, storage) {
   if (!key) { return; }
   const store = storage || defaultStorage();
   if (!store) { return; }
@@ -54,8 +56,16 @@ export function writeDraft(taskId, value, storage) {
     }
   } catch (_err) {
     // Swallow — draft persistence is best-effort. A failed write
-    // means the next tab return shows a blank composer, not a crash.
+    // means the next mount shows a blank composer, not a crash.
   }
+}
+
+export function readDraft(taskId, storage) {
+  return readDraftByKey(draftStorageKey(taskId), storage);
+}
+
+export function writeDraft(taskId, value, storage) {
+  writeDraftByKey(draftStorageKey(taskId), value, storage);
 }
 
 export function clearDraft(taskId, storage) {

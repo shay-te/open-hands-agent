@@ -26,6 +26,28 @@ test('tokenizeInline keeps emphasis literal inside code spans', () => {
   ]);
 });
 
+test('tokenizeInline leaves intra-word underscores in identifiers alone', () => {
+  // Regression: ``linked_entity_type`` was being rendered as
+  // ``linked<em>entity</em>type`` (looked like ``linkedentitytype``
+  // in the UI) because ``_x_`` matched the italic pattern even
+  // when surrounded by word characters. CommonMark says ``_``
+  // does NOT open or close emphasis intra-word.
+  assert.deepEqual(tokenizeInline('linked_entity_type'), [
+    { type: 'text', value: 'linked_entity_type' },
+  ]);
+  assert.deepEqual(tokenizeInline('a linked_task_id b'), [
+    { type: 'text', value: 'a linked_task_id b' },
+  ]);
+});
+
+test('tokenizeInline still treats free-standing _italic_ as italic', () => {
+  assert.deepEqual(tokenizeInline('a _italic_ b'), [
+    { type: 'text', value: 'a ' },
+    { type: 'italic', value: 'italic' },
+    { type: 'text', value: ' b' },
+  ]);
+});
+
 test('parseBlocks classifies code / quote / lists / paragraphs', () => {
   const blocks = parseBlocks([
     'first para',

@@ -23,6 +23,10 @@ jobs:
 
       - name: Run unit tests with coverage
         run: |
+          # .coveragerc sets parallel = true, so each `coverage run` writes to
+          # a uniquely-suffixed data file (.coverage.<host>.<pid>.<rand>) and
+          # `coverage combine` merges them before reporting. Do NOT use
+          # `--append` here — coverage 7.x refuses to append in parallel mode.
           # Top-level integration tests
           coverage run -m unittest discover -s tests
           # Plus every core-lib's internal tests (per CLAUDE.md core-lib quality rule:
@@ -34,9 +38,10 @@ jobs:
             # Skip the top-level tests/ — already covered by the first discover above.
             [ "$tests_dir" = "tests" ] && continue
             if [ -d "$tests_dir" ] && ls "$tests_dir"/test_*.py >/dev/null 2>&1; then
-              coverage run --append -m unittest discover -s "$tests_dir" -t .
+              coverage run -m unittest discover -s "$tests_dir" -t .
             fi
           done
+          coverage combine
           coverage report --show-missing
 
   shellcheck:

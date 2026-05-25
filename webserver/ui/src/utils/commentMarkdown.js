@@ -7,13 +7,17 @@
 
 // Inline tokenizer. Order matters: code spans win over emphasis so
 // `**x**` inside backticks stays literal.
+const WORD = /[\w]/;
 export function tokenizeInline(text) {
   const tokens = [];
-  let rest = String(text || '');
+  const source = String(text || '');
+  let rest = source;
+  let consumed = 0;
   const patterns = [
     { type: 'code', re: /^`([^`]+)`/ },
     { type: 'bold', re: /^\*\*([^*]+)\*\*/ },
-    { type: 'italic', re: /^(?:\*([^*]+)\*|_([^_]+)_)/ },
+    { type: 'italic-star', re: /^\*([^*]+)\*/ },
+    { type: 'italic-underscore', re: /^_([^_]+)_/ },
     { type: 'link', re: /^\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/ },
   ];
   let buffer = '';
@@ -25,19 +29,31 @@ export function tokenizeInline(text) {
     for (const { type, re } of patterns) {
       const m = rest.match(re);
       if (!m) { continue; }
+      // CommonMark: `_` does NOT open or close emphasis intra-word, so
+      // identifiers like `linked_entity_type` stay literal. `*` keeps
+      // the looser rule because it never collides with identifiers.
+      if (type === 'italic-underscore') {
+        const prevChar = consumed > 0 ? source[consumed - 1] : '';
+        const nextChar = source[consumed + m[0].length] || '';
+        if (WORD.test(prevChar) || WORD.test(nextChar)) { continue; }
+      }
       flush();
       if (type === 'link') {
         tokens.push({ type, value: m[1], href: m[2] });
+      } else if (type === 'italic-star' || type === 'italic-underscore') {
+        tokens.push({ type: 'italic', value: m[1] });
       } else {
-        tokens.push({ type, value: m[1] || m[2] });
+        tokens.push({ type, value: m[1] });
       }
       rest = rest.slice(m[0].length);
+      consumed += m[0].length;
       matched = true;
       break;
     }
     if (!matched) {
       buffer += rest[0];
       rest = rest.slice(1);
+      consumed += 1;
     }
   }
   flush();
