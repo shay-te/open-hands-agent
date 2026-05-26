@@ -1747,6 +1747,194 @@ class ForgetClaudeTranscriptExceptionTests(unittest.TestCase):
         self.assertIn('failed deleting', msg)
 
 
+class EnsureResumeJsonlCopiedFileMissingTests(unittest.TestCase):
+    """Line 430 (in manager.py): when ``migrate_session_to_workspace``
+    returned a path but the file is not actually present after the copy
+    (race / symlink / permission anomaly), the manager must log a
+    warning instead of falling through silently."""
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.state_dir = Path(self._tmp.name)
+        self.manager = ClaudeSessionManager(
+            state_dir=self.state_dir,
+            session_factory=lambda **kw: _FakeStreamingSession(**kw),
+        )
+
+    def test_logs_warning_when_copied_path_not_on_disk(self) -> None:
+        # find_session_file returns a Path; migrate returns a string
+        # path that does NOT correspond to a real file → warning.
+        with patch(
+            'claude_core_lib.claude_core_lib.session.history.find_session_file',
+            return_value=Path('/fake/source.jsonl'),
+        ), patch(
+            'claude_core_lib.claude_core_lib.session.index.migrate_session_to_workspace',
+            return_value='/this/path/does/not/exist.jsonl',
+        ), patch.object(self.manager, 'logger', MagicMock()) as logger:
+            self.manager._ensure_resume_jsonl_at_target_cwd(
+                resume_session_id='abc',
+                target_cwd='/some/target',
+            )
+            # Warning emitted about the missing copied file.
+            logger.warning.assert_called()
+            msg = logger.warning.call_args[0][0]
+            self.assertIn('migrated JSONL not present', msg)
+
+
+class LogResumeJsonlStateTests(unittest.TestCase):
+    """Lines 568-569, 572-577, 580-581 (in manager.py): the
+    ``_log_resume_jsonl_state`` diagnostic helper has three guarded
+    blocks (import, find_session_file, claude_project_dir_for_cwd).
+    Each must swallow on failure and emit appropriate logs."""
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.state_dir = Path(self._tmp.name)
+        self.manager = ClaudeSessionManager(
+            state_dir=self.state_dir,
+            session_factory=lambda **kw: _FakeStreamingSession(**kw),
+        )
+
+    def test_logs_info_with_aligned_state_when_dirs_match(self) -> None:
+        # Happy path: find_session_file returns a Path whose parent's
+        # resolve() equals the resolved target_dir → aligned=True.
+        with tempfile.TemporaryDirectory() as td:
+            jsonl_dir = Path(td) / 'project'
+            jsonl_dir.mkdir()
+            jsonl = jsonl_dir / 'sess.jsonl'
+            jsonl.write_text('')
+            with patch(
+                'claude_core_lib.claude_core_lib.session.history.find_session_file',
+                return_value=jsonl,
+            ), patch(
+                'claude_core_lib.claude_core_lib.session.index.claude_project_dir_for_cwd',
+                return_value=jsonl_dir,
+            ), patch.object(self.manager, 'logger', MagicMock()) as logger:
+                self.manager._log_resume_jsonl_state(
+                    normalized_task_id='PROJ-1',
+                    resume_session_id='abc',
+                    target_cwd='/some/cwd',
+                )
+                logger.info.assert_called()
+                args = logger.info.call_args[0]
+                # The "aligned" bool is the last positional arg.
+                self.assertTrue(args[-1])
+
+    def test_swallows_when_find_session_file_raises(self) -> None:
+        # Lines 572-577: exception from find_session_file is logged
+        # at exception() and the helper returns early.
+        with patch(
+            'claude_core_lib.claude_core_lib.session.history.find_session_file',
+            side_effect=RuntimeError('disk error'),
+        ), patch.object(self.manager, 'logger', MagicMock()) as logger:
+            self.manager._log_resume_jsonl_state(
+                normalized_task_id='PROJ-1',
+                resume_session_id='abc',
+                target_cwd='/some/cwd',
+            )
+            logger.exception.assert_called_once()
+            # And no info log because we returned before the info call.
+            logger.info.assert_not_called()
+
+    def test_swallows_when_claude_project_dir_raises(self) -> None:
+        # Lines 580-581: claude_project_dir_for_cwd raises, target_dir
+        # becomes None, helper still proceeds and logs info with the
+        # ``(no cwd)``-style placeholder.
+        with patch(
+            'claude_core_lib.claude_core_lib.session.history.find_session_file',
+            return_value=Path('/some/source.jsonl'),
+        ), patch(
+            'claude_core_lib.claude_core_lib.session.index.claude_project_dir_for_cwd',
+            side_effect=RuntimeError('boom'),
+        ), patch.object(self.manager, 'logger', MagicMock()) as logger:
+            self.manager._log_resume_jsonl_state(
+                normalized_task_id='PROJ-1',
+                resume_session_id='abc',
+                target_cwd='/some/cwd',
+            )
+            logger.info.assert_called()
+            args = logger.info.call_args[0]
+            # aligned must be False when target_dir is None.
+            self.assertFalse(args[-1])
+
+    def test_no_target_cwd_skips_dir_lookup(self) -> None:
+        # When ``target_cwd`` is blank, claude_project_dir_for_cwd is
+        # NOT called (covers the ``target_cwd else None`` branch).
+        with patch(
+            'claude_core_lib.claude_core_lib.session.history.find_session_file',
+            return_value=Path('/some/source.jsonl'),
+        ), patch(
+            'claude_core_lib.claude_core_lib.session.index.claude_project_dir_for_cwd',
+        ) as mock_dir, patch.object(self.manager, 'logger', MagicMock()) as logger:
+            self.manager._log_resume_jsonl_state(
+                normalized_task_id='PROJ-1',
+                resume_session_id='abc',
+                target_cwd='',
+            )
+            mock_dir.assert_not_called()
+            logger.info.assert_called()
+
+
+class DiscardIfSessionIdDriftedTerminateTests(unittest.TestCase):
+    """Lines 1100, 1112-1113 (in manager.py):
+    ``_discard_if_session_id_drifted_locked`` returns ``False`` when
+    the pinned id is blank (line 1100), and logs+swallows when
+    terminate() blows up after id drift (lines 1112-1113)."""
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.state_dir = Path(self._tmp.name)
+        self.manager = ClaudeSessionManager(
+            state_dir=self.state_dir,
+            session_factory=lambda **kw: _FakeStreamingSession(**kw),
+        )
+
+    def test_blank_pinned_id_returns_false(self) -> None:
+        # Plant a record with NO agent_session_id → pinned_id is blank
+        # → line 1100 short-circuits with ``return False``.
+        record = PlanningSessionRecord(task_id='PROJ-D', agent_session_id='')
+        lookup_key = self.manager._lookup_key('PROJ-D')
+        self.manager._records[lookup_key] = record
+        session = SimpleNamespace(
+            is_alive=True,
+            agent_session_id='live-id',
+        )
+        self.manager._sessions[lookup_key] = session
+        result = self.manager._discard_if_session_id_drifted_locked(
+            lookup_key, 'PROJ-D', session,
+        )
+        self.assertFalse(result)
+        # Session should still be in registry (not popped).
+        self.assertIn(lookup_key, self.manager._sessions)
+
+    def test_terminate_failure_is_logged_and_swallowed(self) -> None:
+        # Pinned id != live id → terminate is called. If terminate
+        # raises, _discard logs via exception() and returns True
+        # (the session was still dropped from the registry).
+        record = PlanningSessionRecord(
+            task_id='PROJ-D', agent_session_id='pinned-id',
+        )
+        lookup_key = self.manager._lookup_key('PROJ-D')
+        self.manager._records[lookup_key] = record
+        session = MagicMock()
+        session.is_alive = True
+        session.agent_session_id = 'different-live-id'
+        session.terminate.side_effect = RuntimeError('terminate failed')
+        self.manager._sessions[lookup_key] = session
+        with patch.object(self.manager, 'logger', MagicMock()) as logger:
+            result = self.manager._discard_if_session_id_drifted_locked(
+                lookup_key, 'PROJ-D', session,
+            )
+        self.assertTrue(result)
+        # session dropped from registry
+        self.assertNotIn(lookup_key, self.manager._sessions)
+        # exception() got called for the terminate failure
+        logger.exception.assert_called_once()
+
+
 class DeletePersistedRecordGlobOSErrorTests(unittest.TestCase):
     """Lines 890-893: when ``Path.glob('*.json')`` raises OSError
     (directory listing failed mid-traversal), the helper must fall

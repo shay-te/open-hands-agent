@@ -1179,7 +1179,12 @@ class OpenHandsClient(RetryingClientBase):
                 continue
             if isinstance(payload, dict):
                 return payload
-        if candidates:
+        if candidates:  # pragma: no branch
+            # Always true when we reach this line: ``candidates`` is
+            # seeded with ``text`` on line 1161 and we only reach here
+            # after the ``not text`` guard above returned. Kept as a
+            # belt-and-braces check so a future refactor can't silently
+            # drop the warning if the seeding logic changes.
             logger.warning(
                 'failed to parse OpenHands result JSON from message: %s',
                 condensed_text(message_text),

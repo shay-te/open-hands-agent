@@ -577,6 +577,28 @@ class JiraClientAdfToTextTests(unittest.TestCase):
         result = JiraClient._adf_to_text(node)
         self.assertEqual(result, 'Title')
 
+    def test_handles_dict_node_whose_content_is_not_a_list(self) -> None:
+        # Branch 480->485: ``content`` is present but not a list (e.g.
+        # malformed payload sends a string). The list-walk is skipped
+        # and only the top-level ``text`` field is returned.
+        node = {'type': 'paragraph', 'text': 'just text', 'content': 'oops'}
+        result = JiraClient._adf_to_text(node)
+        self.assertEqual(result, 'just text')
+
+    def test_skips_content_items_that_resolve_to_empty_text(self) -> None:
+        # Branch 483->481: an item in ``content`` resolves to empty
+        # text (e.g. an empty string node) — loop continues without
+        # appending so it doesn't pollute the joined output.
+        node = {
+            'type': 'paragraph',
+            'content': [
+                {'type': 'text', 'text': ''},        # empty → skipped
+                {'type': 'text', 'text': 'kept'},
+            ],
+        }
+        result = JiraClient._adf_to_text(node)
+        self.assertEqual(result, 'kept')
+
 
 class JiraClientAttachmentTests(unittest.TestCase):
     def test_is_text_attachment_for_text_mime(self) -> None:
@@ -748,6 +770,13 @@ class JiraClientStaticHelpersTests(unittest.TestCase):
     def test_task_tags_returns_empty_for_non_list(self) -> None:
         self.assertEqual(JiraClient._task_tags(None), [])
 
+    def test_task_tags_skips_entries_that_normalize_to_empty(self) -> None:
+        # Branch 414->407: a tag value normalizes to '' (e.g. None,
+        # whitespace-only string, or dict with no name/label/text) —
+        # loop back without appending. Real tags still come through.
+        result = JiraClient._task_tags([None, '   ', {'foo': 'bar'}, 'kept'])
+        self.assertEqual(result, ['kept'])
+
     def test_json_items_uses_issues_key(self) -> None:
         response = mock_response(json_data={'issues': [{'key': 'A-1'}]})
         result = JiraClient._json_items(response, items_key='issues')
@@ -757,6 +786,14 @@ class JiraClientStaticHelpersTests(unittest.TestCase):
         response = mock_response(json_data={'other': []})
         result = JiraClient._json_items(response, items_key='issues')
         self.assertEqual(result, [])
+
+    def test_json_items_without_items_key_returns_list_payload(self) -> None:
+        # Branch 421->425: ``items_key`` is empty (default) — payload
+        # (already a list) is returned without the dict-extraction
+        # step.
+        response = mock_response(json_data=[{'key': 'A-1'}, {'key': 'A-2'}])
+        result = JiraClient._json_items(response)
+        self.assertEqual(result, [{'key': 'A-1'}, {'key': 'A-2'}])
 
     def test_safe_dict_returns_dict(self) -> None:
         result = JiraClient._safe_dict({'author': {'name': 'bob'}}, 'author')
@@ -931,6 +968,19 @@ class JiraClientDefensiveBranchTests(unittest.TestCase):
         with patch.object(client, '_get_with_retry', return_value=response):
             t = client._find_transition('ACME-1', 'In Progress')
         self.assertEqual(t['id'], '21')
+
+    def test_find_transition_matches_when_target_is_not_a_dict(self) -> None:
+        # Branch 182->184: ``to`` (target) is not a dict — target_name
+        # stays '' and the matcher still hits on transition_name.
+        client = self._client()
+        response = mock_response(json_data={
+            'transitions': [
+                {'id': '7', 'name': 'In Progress', 'to': 'not-a-dict'},
+            ],
+        })
+        with patch.object(client, '_get_with_retry', return_value=response):
+            t = client._find_transition('ACME-2', 'In Progress')
+        self.assertEqual(t['id'], '7')
 
     def test_to_record_coerces_non_dict_fields_to_empty(self) -> None:
         # Line 156: ``fields`` isn't a dict → fall back to {}.

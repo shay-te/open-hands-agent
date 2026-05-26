@@ -74,6 +74,19 @@ class ConflictedPathsTests(unittest.TestCase):
                 ['src/auth.py'],
             )
 
+    def test_skips_lines_with_blank_path_after_tab(self) -> None:
+        # The line has a tab but the segment after it is whitespace —
+        # ``path`` strips to '' and must not be added to the result set.
+        sample = (
+            '100644 aaaa 2\t   \n'
+            '100644 bbbb 2\tvalid.py\n'
+        )
+        with patch.object(git_diff_utils, 'run_git', return_value=sample):
+            self.assertEqual(
+                git_diff_utils.conflicted_paths('/repo'),
+                ['valid.py'],
+            )
+
 
 if __name__ == '__main__':
     unittest.main()

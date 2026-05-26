@@ -249,6 +249,41 @@ class GitLabClientListPullRequestCommentsTests(unittest.TestCase):
         self.assertEqual(comments[0].line_type, 'removed')
         self.assertEqual(comments[0].commit_sha, 'def456')
 
+    def test_position_present_without_new_or_old_line(self) -> None:
+        # Branch 179->182: ``position`` is truthy and ``new_line`` is
+        # None, then ``old_line`` is also None → skip the elif body
+        # and continue straight to the commit_sha assignment. file_path
+        # is captured but line_number stays the default empty string.
+        client = GitLabClient('https://gitlab.example/api/v4', 'gl-token')
+        response = mock_response(
+            json_data=[
+                {
+                    'id': 'discussion-3b',
+                    'resolved': False,
+                    'notes': [
+                        {
+                            'id': 77,
+                            'body': 'File-level note',
+                            'author': {'username': 'reviewer'},
+                            'position': {
+                                'new_path': 'src/main.py',
+                                'head_sha': 'sha-only',
+                            },
+                        }
+                    ],
+                }
+            ]
+        )
+
+        with patch.object(client, '_get', return_value=response):
+            comments = client.list_pull_request_comments('group/subgroup', 'repo', '5')
+
+        self.assertEqual(len(comments), 1)
+        self.assertEqual(comments[0].file_path, 'src/main.py')
+        self.assertEqual(comments[0].line_number, '')
+        self.assertEqual(comments[0].line_type, '')
+        self.assertEqual(comments[0].commit_sha, 'sha-only')
+
     def test_excludes_notes_without_id(self) -> None:
         client = GitLabClient('https://gitlab.example/api/v4', 'gl-token')
         response = mock_response(
@@ -489,6 +524,28 @@ class GitLabClientDefensiveBranchTests(unittest.TestCase):
         ):
             result = client._discussion_id_for_comment('grp', 'repo', '17', 'note-id')
         self.assertEqual(result, 'disc-1')
+
+    def test_discussion_id_continues_loop_when_first_discussion_has_no_match(self) -> None:
+        # Branch 249->245: the ``any(...)`` check at line 249 returns
+        # False for the first discussion, so the loop continues to the
+        # next iteration (back-edge to line 245).
+        client = GitLabClient('https://gitlab.example/api/v4', 'gl-token')
+        non_matching_discussion = {
+            'id': 'disc-other',
+            'notes': [{'id': 'wrong-note-id', 'body': 'unrelated'}],
+        }
+        matching_discussion = {
+            'id': 'disc-target',
+            'notes': [{'id': 'target-note-id', 'body': 'match'}],
+        }
+        with patch.object(
+            client, '_discussion_payload',
+            return_value=[non_matching_discussion, matching_discussion],
+        ):
+            result = client._discussion_id_for_comment(
+                'grp', 'repo', '17', 'target-note-id',
+            )
+        self.assertEqual(result, 'disc-target')
 
 
 class GitLabIssuesClientJsonItemsTests(unittest.TestCase):

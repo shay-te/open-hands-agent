@@ -670,6 +670,13 @@ class BitbucketIssuesClientDefensiveBranchTests(unittest.TestCase):
         result = BitbucketIssuesClient._json_items(response, items_key='values')
         self.assertEqual(result, [])
 
+    def test_json_items_without_items_key_returns_list_payload(self) -> None:
+        # Branch 308->312: no items_key — payload (a list) is returned
+        # directly without the dict-extraction step.
+        response = mock_response(json_data=[{'a': 1}, {'b': 2}])
+        result = BitbucketIssuesClient._json_items(response)
+        self.assertEqual(result, [{'a': 1}, {'b': 2}])
+
     def test_build_comment_entries_skips_non_dict_and_blank(self) -> None:
         # Lines 330, 333: non-dict and blank-body entries are skipped.
         result = BitbucketIssuesClient._build_comment_entries(

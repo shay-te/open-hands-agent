@@ -183,7 +183,7 @@ def _branch_from_ls_remote(cwd: str) -> str:
             continue
         # ``ref: refs/heads/<branch>\tHEAD`` → grab the branch name.
         ref_part = line.split('\t', 1)[0]
-        if ':' not in ref_part:
+        if ':' not in ref_part:  # pragma: no cover - defensive; ``line`` starts with ``ref:`` so the prefix always contains ':'.
             continue
         ref = ref_part.split(':', 1)[1].strip()
         prefix = 'refs/heads/'

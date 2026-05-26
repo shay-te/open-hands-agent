@@ -2462,6 +2462,131 @@ class OpenHandsClientDefensiveBranchTests(unittest.TestCase):
             result = client._conversation_failure_detail('conv-id', {})
         self.assertEqual(result, '')
 
+    def test_repository_local_paths_skips_blank_paths(self) -> None:
+        # Line 383->381: ``if path:`` falsy branch — repo with a blank
+        # local_path is skipped without breaking the for-loop.
+        prepared = types.SimpleNamespace(
+            repositories=[
+                types.SimpleNamespace(local_path='   '),
+                types.SimpleNamespace(local_path=''),
+                types.SimpleNamespace(local_path='/wks/PROJ-1/app'),
+            ],
+        )
+        self.assertEqual(
+            OpenHandsClient._repository_local_paths(prepared),
+            ['/wks/PROJ-1/app'],
+        )
+
+    def test_stop_all_conversations_skips_entries_without_id(self) -> None:
+        # Line 533->531: ``if conversation_id:`` falsy — a conversation
+        # dict missing an ``id`` is silently skipped (deletion would
+        # 404). Other conversations still get deleted.
+        client = self._client()
+        deleted: list[str] = []
+        with patch.object(
+            client, '_shutdown_conversations',
+            return_value=[{'id': ''}, {'no_id_key': 1}, {'id': 'c-keep'}],
+        ), patch.object(
+            client, '_delete_conversation',
+            side_effect=lambda cid: deleted.append(cid),
+        ), patch.object(
+            client, '_wait_for_conversations_to_stop',
+        ):
+            client.stop_all_conversations()
+        self.assertEqual(deleted, ['c-keep'])
+
+    def test_wait_for_conversations_to_stop_with_zero_max_attempts(self) -> None:
+        # Line 551->564: ``range(self._max_poll_attempts)`` empty when
+        # max=0; loop body never runs, jump straight to the closing
+        # warning.
+        client = self._client()
+        client._max_poll_attempts = 0
+        with patch.object(client, '_shutdown_conversations') as mock_shut, \
+             patch.object(client, 'logger') as mock_logger:
+            client._wait_for_conversations_to_stop()
+        mock_shut.assert_not_called()
+        mock_logger.warning.assert_called()
+
+    def test_wait_for_conversation_result_skips_highlight_logging_after_disable(self) -> None:
+        # Line 764->770: ``if highlight_logging_enabled:`` falsy path.
+        # Once the highlight logger reports a fetch failure (returns
+        # False), the poll loop stops calling it and just sleeps until
+        # the conversation completes.
+        client = self._client()
+        client._max_poll_attempts = 4
+        client._poll_interval_seconds = 0
+        # Two ACTIVE polls then a terminal status.
+        statuses = iter([
+            {'execution_status': 'RUNNING'},
+            {'execution_status': 'RUNNING'},
+            {'execution_status': 'COMPLETED'},
+        ])
+        highlight_calls: list[int] = []
+
+        def fake_highlight(*_args, **_kwargs):
+            highlight_calls.append(1)
+            return False  # disables future logging
+
+        with patch.object(
+            client, '_get_conversation', side_effect=lambda cid: next(statuses),
+        ), patch.object(
+            client, '_log_conversation_highlights', side_effect=fake_highlight,
+        ), patch.object(
+            client, '_get_result_payload',
+            return_value={ImplementationFields.SUCCESS: True},
+        ):
+            result = client._wait_for_conversation_result('conv-id', 'title')
+        # Highlight logger called only ONCE — second poll skipped via
+        # the 764->770 branch.
+        self.assertEqual(len(highlight_calls), 1)
+        self.assertTrue(result[ImplementationFields.SUCCESS])
+
+    def test_conversation_failure_message_without_detail(self) -> None:
+        # Line 784->786: ``if detail:`` falsy — empty detail means we
+        # log + return the status-only message.
+        client = self._client()
+        with patch.object(
+            client, '_conversation_failure_detail', return_value='',
+        ), patch.object(client, 'logger') as mock_logger:
+            message = client._conversation_failure_message(
+                'conv-id', 'FAILED', {},
+            )
+        self.assertEqual(
+            message, 'openhands conversation failed with status: FAILED',
+        )
+        mock_logger.error.assert_called()
+
+    def test_event_highlight_key_with_non_dict_tool_call(self) -> None:
+        # Line 964->966: ``isinstance(tool_call, dict)`` falsy — when
+        # ``tool_call`` is anything other than a dict the arguments
+        # part is simply omitted from the dedup key.
+        client = self._client()
+        # No id → falls through to the composite-key path; tool_call is
+        # a string (truthy but not a dict) so the branch is taken.
+        event = {
+            'kind': 'ActionEvent',
+            'source': 'agent',
+            'tool_name': 'execute_bash',
+            'tool_call': 'not a dict',
+        }
+        result = client._event_highlight_key(event)
+        self.assertIn('ActionEvent', result)
+        self.assertIn('agent', result)
+        self.assertIn('execute_bash', result)
+        # The composite key has exactly 4 segments (no arguments piece
+        # appended because the branch was skipped).
+        self.assertEqual(result.count('|'), 3)
+
+    def test_parse_result_json_skips_non_dict_candidates(self) -> None:
+        # Line 1180->1175: ``json.loads`` succeeds but yields a non-dict
+        # (e.g. a JSON list); ``isinstance(payload, dict)`` falsy so the
+        # for-loop continues to the next candidate. The valid trailing
+        # JSON object then parses cleanly.
+        text = 'pre [1, 2, 3] mid {"success": true, "summary": "ok"} end'
+        result = OpenHandsClient._parse_result_json(text)
+        self.assertIsNotNone(result)
+        self.assertTrue(result.get('success'))
+
 
 if __name__ == '__main__':
     unittest.main()

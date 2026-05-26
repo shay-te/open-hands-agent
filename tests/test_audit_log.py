@@ -114,6 +114,28 @@ class HelperRoundTripTests(unittest.TestCase):
         self.assertEqual(len(records), 1)
         self.assertEqual(records[0]['task_id'], 'PROJ-2')
 
+    def test_non_dict_json_line_is_skipped(self) -> None:
+        # Line 131: ``if isinstance(record, dict):`` — a JSON line
+        # that parses cleanly but is a list / string / number must
+        # be dropped, not appended as-is. Defensive guard: the
+        # reader only knows how to print dict-shaped records.
+        tmp, path = _tmp_path()
+        self.addCleanup(tmp.cleanup)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            json.dumps(['not', 'a', 'dict']) + '\n'
+            + json.dumps('also not a dict') + '\n'
+            + json.dumps({
+                'event': EVENT_TASK_COMPLETED,
+                'task_id': 'PROJ-3',
+                'outcome': OUTCOME_SUCCESS,
+            }) + '\n',
+            encoding='utf-8',
+        )
+        records = read_audit_records(path=path)
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0]['task_id'], 'PROJ-3')
+
     def test_default_path_uses_env_override(self) -> None:
         with patch.dict(
             os.environ,
@@ -204,6 +226,49 @@ class HookIntegrationTests(unittest.TestCase):
         self.assertEqual(record['branch'], 'feature/proj-1')
         self.assertIn('https://example.com/pr/17', record['pr_url'])
         self.assertEqual(record['outcome'], OUTCOME_SUCCESS)
+
+    def test_publisher_helper_records_when_prepared_task_is_none(self) -> None:
+        # Branch 611->617: ``if prepared_task is not None`` is False — the
+        # repositories/branch block is skipped and we go straight to the
+        # PR-URL collection. The record still lands with empty repos.
+        from kato_core_lib.data_layers.service.task_publisher import (
+            _record_task_completed,
+        )
+        task = SimpleNamespace(id='PROJ-NONE', summary='ad-hoc fix')
+        _record_task_completed(task, None, [{'url': 'https://x.example/pr/1'}])
+        records = read_audit_records(path=self.path)
+        self.assertEqual(len(records), 1)
+        record = records[0]
+        self.assertEqual(record['task_id'], 'PROJ-NONE')
+        self.assertEqual(record['repositories'], [])
+        self.assertEqual(record['branch'], '')
+        self.assertIn('https://x.example/pr/1', record['pr_url'])
+
+    def test_publisher_helper_skips_non_dict_and_blank_url_entries(self) -> None:
+        # Branches 619->618 (entry not a dict → loop continues) and
+        # 621->618 (entry is a dict but url is blank → no append,
+        # loop continues). Only the dict-with-real-url entry contributes
+        # to pr_url.
+        from kato_core_lib.data_layers.service.task_publisher import (
+            _record_task_completed,
+        )
+        task = SimpleNamespace(id='PROJ-MIXED', summary='')
+        prepared = SimpleNamespace(
+            repositories=[SimpleNamespace(id='client')],
+            branch_name='feature/proj-mixed',
+        )
+        pull_requests = [
+            'not a dict',                       # 619->618: skipped
+            42,                                 # 619->618: skipped
+            {'url': ''},                        # 621->618: blank → skipped
+            {'url': None},                      # 621->618: falsy → skipped
+            {'url': 'https://example.com/pr/9'},
+        ]
+        _record_task_completed(task, prepared, pull_requests)
+        records = read_audit_records(path=self.path)
+        self.assertEqual(len(records), 1)
+        # Exactly one URL survives — the dict-with-real-url entry.
+        self.assertEqual(records[0]['pr_url'], 'https://example.com/pr/9')
 
     def test_review_fix_helper_records_completion(self) -> None:
         from kato_core_lib.data_layers.service.review_comment_service import (

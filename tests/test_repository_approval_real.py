@@ -213,6 +213,50 @@ class RepositoryApprovalCorruptionToleranceTests(unittest.TestCase):
         self.assertIsNone(service.is_approved(''))
         self.assertIsNone(service.is_approved('   '))
 
+    def test_lookup_returns_none_when_id_not_in_approved_entries(self) -> None:
+        # Branch 186->185: ``for entry in sidecar.approved`` iterates
+        # entries but none match the queried id → falls through to
+        # ``return None`` after the loop.
+        self.sidecar_path.write_text(
+            json.dumps({
+                'approved': [
+                    {
+                        'repository_id': 'other-repo',
+                        'remote_url': 'https://x/o.git',
+                        'approval_mode': 'restricted',
+                        'approved_by': 'a',
+                        'approved_at': '2026-01-01T00:00:00+00:00',
+                    },
+                ],
+            }),
+            encoding='utf-8',
+        )
+        service = RepositoryApprovalService(self.sidecar_path)
+        self.assertIsNone(service.lookup('missing-repo'))
+
+    def test_second_corrupt_read_does_not_log_warning_again(self) -> None:
+        # Branch 309->317: after the first corrupt read flips
+        # ``_corrupt_warned`` to True, a subsequent corrupt read must
+        # skip the ``self.logger.warning`` call but still return an
+        # empty sidecar. We verify the warning is emitted exactly once.
+        self.sidecar_path.write_text('garbage', encoding='utf-8')
+        service = RepositoryApprovalService(self.sidecar_path)
+        warn_calls: list[tuple] = []
+        service.logger.warning = lambda *args, **kwargs: warn_calls.append(  # type: ignore[assignment]
+            (args, kwargs),
+        )
+        # First read warns.
+        self.assertEqual(service.list_approvals(), ())
+        first_warn_count = len(warn_calls)
+        self.assertGreaterEqual(first_warn_count, 1)
+        # Force a second read that re-enters the parse path. Bumping the
+        # tracked mtime guarantees the cache is dropped without relying
+        # on filesystem timestamp resolution.
+        service._cache_mtime_ns = -1
+        self.assertEqual(service.list_approvals(), ())
+        # Warning count did NOT increase — branch 309->317 was taken.
+        self.assertEqual(len(warn_calls), first_warn_count)
+
 
 class RepositoryApprovalConcurrentApprovalsTests(unittest.TestCase):
     """The internal Lock must keep concurrent approve() from losing entries.

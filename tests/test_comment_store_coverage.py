@@ -107,6 +107,25 @@ class LocalCommentStoreDefensiveTests(unittest.TestCase):
         result = self.store.upsert_remote(updated_record)
         self.assertEqual(result.kato_addressed_sha, 'sha-abc')
 
+    def test_upsert_remote_skips_non_matching_records(self) -> None:
+        """Covers branch 175->174: the predicate (matching remote_id +
+        REMOTE source) is False on a pre-existing record, so the loop
+        keeps scanning before falling through to the append path."""
+        # A local record + a remote record with a different remote_id —
+        # both should be skipped so the new remote record ends up appended.
+        self.store.add(_record('c-local', source=CommentSource.LOCAL.value))
+        self.store.upsert_remote(_record(
+            'c-other', source=CommentSource.REMOTE.value, remote_id='other',
+        ))
+        # Now upsert a brand-new remote_id — neither existing record matches.
+        new_record = _record(
+            'c-new', source=CommentSource.REMOTE.value, remote_id='r-new',
+        )
+        self.store.upsert_remote(new_record)
+        ids = [r.remote_id for r in self.store.list() if r.remote_id]
+        self.assertIn('r-new', ids)
+        self.assertIn('other', ids)
+
     def test_update_status_rejects_unknown_status(self) -> None:
         # Lines 148-152.
         self.store.add(_record())

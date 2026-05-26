@@ -4,6 +4,7 @@ from unittest.mock import Mock, patch
 
 from kato_core_lib.helpers.retry_utils import (
     _retry_delay_seconds,
+    _service_name_from_client_name,
     is_retryable_exception,
     is_retryable_response,
     retry_count,
@@ -134,6 +135,24 @@ class RetryTests(unittest.TestCase):
 
         self.assertEqual(operation.call_count, 3)
         self.assertEqual(mock_sleep.call_count, 2)
+
+    def test_service_name_strips_client_suffix(self) -> None:
+        # Sanity: the suffix-stripping path is hit by the standard
+        # ``FooClient`` naming convention.
+        self.assertEqual(_service_name_from_client_name('YouTrackClient'), 'YouTrack')
+
+    def test_service_name_returns_name_unchanged_without_client_suffix(self) -> None:
+        # Line 137: ``if normalized_name.endswith('Client'):`` False —
+        # caller passed a service name that wasn't suffixed, so the
+        # branch must fall through and return the trimmed value as-is.
+        # Guards the ``OpenHands`` / ``GitHub`` short-name path.
+        self.assertEqual(_service_name_from_client_name('OpenHands'), 'OpenHands')
+
+    def test_service_name_returns_fallback_when_input_blank(self) -> None:
+        # The trailing ``or 'Request'`` keeps log messages readable
+        # even when the client name was empty or whitespace.
+        self.assertEqual(_service_name_from_client_name(''), 'Request')
+        self.assertEqual(_service_name_from_client_name('   '), 'Request')
 
     def test_retry_delay_uses_retry_after_header_for_rate_limits(self) -> None:
         response = type(

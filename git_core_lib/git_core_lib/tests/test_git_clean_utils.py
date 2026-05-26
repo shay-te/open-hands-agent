@@ -31,6 +31,13 @@ class StatusPathsTests(unittest.TestCase):
         out = '?? src/\n'
         self.assertEqual(status_paths(out), ['src'])
 
+    def test_skips_lines_whose_normalized_path_is_empty(self) -> None:
+        # Branch 21->14: ``line[3:]`` resolves to a blank path
+        # (e.g. ``'?? /'`` → ``'/'`` → ``''`` after rstrip) — the
+        # entry must be dropped silently rather than appended.
+        out = '?? /\n M valid.py\n'
+        self.assertEqual(status_paths(out), ['valid.py'])
+
 
 class ValidationReportPathsTests(unittest.TestCase):
     def test_picks_validation_report_files_only(self) -> None:

@@ -626,6 +626,27 @@ class ListSessionsEdgeCaseTests(unittest.TestCase):
         # The locked file gets dropped; no crash.
         self.assertEqual(result, [])
 
+    def test_iter_transcript_paths_skips_jsonl_entries_that_are_not_files(self) -> None:
+        # Branch 143->142: ``glob('*.jsonl')`` can yield a directory
+        # named ``*.jsonl`` (e.g. an accidental mkdir). The is_file()
+        # guard must reject it without yielding so the walker keeps
+        # looking at real transcripts.
+        sessions_dir = self.root / 'enc-cwd'
+        sessions_dir.mkdir()
+        # A directory whose name ends in .jsonl — picked up by glob but
+        # rejected by is_file().
+        (sessions_dir / 'fake-dir.jsonl').mkdir()
+        # A real transcript that must still be discovered.
+        real = sessions_dir / 'real.jsonl'
+        real.write_text(
+            json.dumps({'type': 'user', 'cwd': '/x', 'sessionId': 'real',
+                        'message': {'content': 'hi'}}) + '\n',
+        )
+        result = list_sessions(sessions_root=self.root)
+        ids = [m.agent_session_id for m in result]
+        self.assertIn('real', ids)
+        self.assertNotIn('fake-dir', ids)
+
     def test_parse_metadata_aborts_when_preview_scan_budget_exhausted(self) -> None:
         # Build a JSONL much larger than the preview-scan cap so the loop
         # breaks early. We don't need a real cap — we just confirm the

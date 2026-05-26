@@ -1467,5 +1467,152 @@ class IgnoredParamsLoggingTests(unittest.TestCase):
         logger.info.assert_not_called()
 
 
+# ---------------------------------------------------------------------------
+# Partial-branch coverage for cli_client.py
+# ---------------------------------------------------------------------------
+
+class BuildCommandAdditionalDirsBranchTests(unittest.TestCase):
+    """Line 943->941: ``if normalized_dir:`` falsy — blank entries are
+    silently dropped without emitting ``--add-dir``."""
+
+    def test_blank_additional_dirs_are_skipped(self) -> None:
+        client = CodexCliClient(binary='codex')
+        cmd = client._build_command(
+            additional_dirs=['', '   ', '/repo/real'],
+            agent_session_id='', resolve_binary=False,
+        )
+        # Only the real path makes it through.
+        self.assertEqual(cmd.count('--add-dir'), 1)
+        self.assertIn('/repo/real', cmd)
+
+
+class ParseCompletedProcessWithoutLastMessageFileTests(unittest.TestCase):
+    """Line 976->983: ``if last_message_file:`` falsy — when no
+    ``-o`` file was created (smoke/validate path) the JSONL ``result``
+    field is the only result source."""
+
+    def test_blank_last_message_file_skips_disk_read(self) -> None:
+        client = CodexCliClient(binary='codex')
+        completed = SimpleNamespace(
+            stdout=(
+                '{"type":"item.completed","item":{"type":"agent_message","text":"hi"}}\n'
+            ),
+            stderr='',
+            returncode=0,
+        )
+        # ``last_message_file=''`` — the if-branch must NOT enter and
+        # the result comes purely from JSONL.
+        with patch(
+            'codex_core_lib.codex_core_lib.cli_client.open',
+        ) as mock_open:
+            result = client._parse_completed_process(
+                completed, log_label='x', last_message_file='',
+            )
+        mock_open.assert_not_called()
+        self.assertTrue(result[ImplementationFields.SUCCESS])
+        self.assertEqual(result[ImplementationFields.MESSAGE], 'hi')
+
+
+class SmokeTestSuccessPathTests(unittest.TestCase):
+    """Line 1170->exit: ``if payload.get('is_error'):`` falsy — the
+    happy smoke-test path returns without raising."""
+
+    def test_run_model_access_validation_succeeds_with_clean_jsonl(self) -> None:
+        client = CodexCliClient(binary='codex')
+        # JSONL with NO error event → smoke test passes silently.
+        clean_jsonl = (
+            '{"type":"thread.started","thread_id":"t-1"}\n'
+            '{"type":"item.completed","item":{"type":"agent_message","text":"ok"}}\n'
+        )
+        with patch(
+            'codex_core_lib.codex_core_lib.cli_client.subprocess.run',
+            return_value=_completed(stdout=clean_jsonl, returncode=0),
+        ):
+            client._run_model_access_validation()  # must not raise
+
+
+class AbsorbAgentMessageBlankTextTests(unittest.TestCase):
+    """Line 1277->exit: ``if text:`` falsy — agent_message event with
+    blank text leaves payload untouched."""
+
+    def test_blank_text_does_not_overwrite_result(self) -> None:
+        from codex_core_lib.codex_core_lib.cli_client import _absorb_agent_message
+        payload: dict[str, object] = {'result': 'previous'}
+        _absorb_agent_message(
+            {
+                'type': 'item.completed',
+                'item': {'type': 'agent_message', 'text': ''},
+            },
+            payload,
+        )
+        # Empty text — branch into write skipped, prior value kept.
+        self.assertEqual(payload['result'], 'previous')
+
+    def test_whitespace_text_is_treated_as_empty(self) -> None:
+        from codex_core_lib.codex_core_lib.cli_client import _absorb_agent_message
+        payload: dict[str, object] = {}
+        _absorb_agent_message(
+            {
+                'type': 'item.completed',
+                'item': {'type': 'agent_message', 'text': ''},
+            },
+            payload,
+        )
+        self.assertNotIn('result', payload)
+
+
+class AbsorbErrorBlankExtractTests(unittest.TestCase):
+    """Line 1303->exit: ``if err_text:`` falsy — error event with no
+    extractable text still marks payload as error but doesn't write a
+    ``result`` field."""
+
+    def test_error_event_without_extractable_text_marks_only_is_error(self) -> None:
+        from codex_core_lib.codex_core_lib.cli_client import _absorb_error
+        payload: dict[str, object] = {}
+        # type=='error' triggers is_error_event but the event has no
+        # message/error/item shape → _extract_error_text returns ''.
+        _absorb_error({'type': 'error'}, payload)
+        self.assertTrue(payload['is_error'])
+        self.assertNotIn('result', payload)
+
+
+class ExtractErrorTextLoopExitTests(unittest.TestCase):
+    """Lines 1314->1320 and 1322->1326: for-loops exit naturally when
+    neither candidate key carries a usable string."""
+
+    def test_nested_dict_without_message_or_error_falls_through_to_item(self) -> None:
+        # nested is a dict, but neither 'message' nor 'error' key has a
+        # non-empty string. The for-loop on line 1314 completes; we
+        # then continue to the ``item`` fallback path on line 1320.
+        event = {
+            'error': {'message': '', 'error': 42, 'unrelated': 'x'},
+            'item': {'text': 'recovered from item'},
+        }
+        self.assertEqual(
+            _extract_error_text(event), 'recovered from item',
+        )
+
+    def test_item_dict_without_text_or_message_returns_empty(self) -> None:
+        # item is a dict but neither 'text' nor 'message' has a
+        # non-empty string. Loop on line 1322 completes; line 1326
+        # returns ''.
+        event = {'item': {'other': 'value', 'text': '', 'message': 0}}
+        self.assertEqual(_extract_error_text(event), '')
+
+
+class ReadableMessageFromEnvelopeLoopExitTests(unittest.TestCase):
+    """Line 1359->1363: nested dict present but with no usable string
+    under 'message'/'error' — for-loop exits to the top-level fallback."""
+
+    def test_nested_dict_falls_through_to_top_level_message(self) -> None:
+        envelope = {
+            'error': {'message': '', 'error': 42},
+            'message': 'top level wins',
+        }
+        self.assertEqual(
+            _readable_message_from_envelope(envelope), 'top level wins',
+        )
+
+
 if __name__ == '__main__':
     unittest.main()

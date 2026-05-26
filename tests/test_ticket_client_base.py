@@ -468,6 +468,20 @@ class BuildCommentEntriesTests(unittest.TestCase):
         )
         self.assertEqual(len(entries), 1)
 
+    def test_drops_comments_whose_entry_is_none(self) -> None:
+        # Branch 336->330: when ``_task_comment_entry`` returns None (blank
+        # body), the for-loop must skip the append and continue iterating.
+        entries = TicketClientBase._build_comment_entries(
+            [
+                {'creator': 'alice', 'text': '   '},  # blank body -> None entry
+                {'creator': 'bob', 'text': 'real'},
+            ],
+            extract_body=lambda c: c.get('text', ''),
+            extract_author=lambda c: c.get('creator', ''),
+        )
+        self.assertEqual(len(entries), 1)
+        self.assertEqual(entries[0][TaskCommentFields.AUTHOR], 'bob')
+
 
 class BuildTaskTests(unittest.TestCase):
     def _client(self):

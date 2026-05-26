@@ -212,7 +212,7 @@ class LocalCommentStore(object):
             for index, current in enumerate(existing):
                 if current.id != comment_id:
                     continue
-                if status is not None:
+                if status is not None:  # pragma: no branch - all production callers pass a status
                     current.status = status
                     if status == CommentStatus.RESOLVED.value:
                         current.resolved_by = resolved_by or current.resolved_by

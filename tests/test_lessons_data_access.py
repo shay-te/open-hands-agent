@@ -80,6 +80,40 @@ class LessonsDataAccessTests(unittest.TestCase):
         self.assertEqual(set(all_lessons.keys()), {'PROJ-1', 'PROJ-2'})
         self.assertEqual(all_lessons['PROJ-1'], '- a\n')
 
+    def test_list_per_task_ids_skips_non_md_files_and_subdirectories(self) -> None:
+        # Branch 171->170: ``if entry.is_file() and entry.suffix == '.md':``
+        # false branch — non-md files and subdirectories must be
+        # silently skipped, not appended to the result list.
+        self.dao.write_per_task('PROJ-1', '- a')
+        per_task_dir = self.state_dir / 'lessons'
+        # A stray non-md file (e.g. a backup or unrelated artifact).
+        (per_task_dir / 'README.txt').write_text('noise', encoding='utf-8')
+        # A stray subdirectory (e.g. an attic for old lessons).
+        (per_task_dir / 'archive').mkdir()
+
+        self.assertEqual(self.dao.list_per_task_ids(), ['PROJ-1'])
+
+    def test_read_all_per_task_skips_entries_whose_content_is_none(self) -> None:
+        # Branch 180->178: ``if content is not None:`` false branch —
+        # when ``read_per_task`` returns None (e.g. file disappeared
+        # between the listing and the read), the task id must be
+        # silently skipped in the resulting dict.
+        self.dao.write_per_task('PROJ-1', '- a')
+        self.dao.write_per_task('PROJ-2', '- b')
+
+        original_read_per_task = self.dao.read_per_task
+
+        def _fake_read(task_id: str):
+            if task_id == 'PROJ-1':
+                return None
+            return original_read_per_task(task_id)
+
+        self.dao.read_per_task = _fake_read  # type: ignore[method-assign]
+
+        result = self.dao.read_all_per_task()
+        self.assertEqual(set(result.keys()), {'PROJ-2'})
+        self.assertEqual(result['PROJ-2'], '- b\n')
+
     def test_path_traversal_task_id_is_rejected(self) -> None:
         # Forbidden characters: /, \, .., null. None of these may be
         # used to escape the per-task directory.

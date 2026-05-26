@@ -194,6 +194,69 @@ class WorkspaceDataAccessTests(unittest.TestCase):
         with patch('shutil.rmtree', side_effect=PermissionError('locked')):
             self.data_access.delete('LOCKED-1')
 
+    def test_delete_on_rm_error_chmods_and_retries(self) -> None:
+        # Lines 203-206: ``_on_rm_error`` flips the read-only bit and
+        # retries ``func(path)`` successfully. This is the Windows
+        # "read-only git pack file" recovery path. Driven via a mock:
+        # ``_failing_rmtree`` invokes ``onerror`` with a func that
+        # succeeds on the chmod+retry call, so the callback completes
+        # without re-raising.
+        from unittest.mock import MagicMock, patch
+        self.data_access.ensure_workspace_dir('READONLY-1')
+
+        retry_func = MagicMock()  # Succeeds on retry (no side_effect).
+
+        def _failing_rmtree(path, onerror=None):
+            # Call onerror once — simulates rmtree hitting a locked
+            # file. The callback's chmod-then-retry must succeed and
+            # NOT re-raise, so the outer ``try`` block returns
+            # cleanly on the same attempt.
+            onerror(
+                retry_func,
+                str(path),
+                (PermissionError, PermissionError('locked'), None),
+            )
+
+        with patch('shutil.rmtree', side_effect=_failing_rmtree), \
+                patch('os.chmod') as mock_chmod:
+            self.data_access.delete('READONLY-1')
+
+        # Both legs of the chmod-then-retry recovery fired.
+        mock_chmod.assert_called_once()
+        retry_func.assert_called_once()
+
+    def test_delete_on_rm_error_reraises_original_when_chmod_fails(self) -> None:
+        # Lines 207-209: ``_on_rm_error`` falls into the inner ``except
+        # OSError`` and re-raises ``exc_info[1]`` (the ORIGINAL error)
+        # so the outer rmtree-retry loop sees a meaningful trace
+        # instead of a misleading chmod failure. Patching ``os.chmod``
+        # to raise simulates a filesystem that refuses permission
+        # changes (e.g. read-only mount). The original PermissionError
+        # must surface to the outer loop, which then exhausts its 3
+        # attempts and logs.
+        from unittest.mock import patch
+        self.data_access.ensure_workspace_dir('NOCHMOD-1')
+
+        original_exc = PermissionError('held open')
+
+        def _func_that_raises(_path):
+            raise original_exc
+
+        def _failing_rmtree(path, onerror=None):
+            # Simulate rmtree hitting a file it can't unlink. Call the
+            # error handler exactly as the real shutil.rmtree would.
+            onerror(
+                _func_that_raises,
+                str(path),
+                (PermissionError, original_exc, None),
+            )
+
+        with patch('shutil.rmtree', side_effect=_failing_rmtree), \
+                patch('os.chmod', side_effect=OSError('read-only fs')), \
+                patch('time.sleep'):  # speed up the 3-attempt loop
+            # Should NOT raise — outer except swallows and logs after 3.
+            self.data_access.delete('NOCHMOD-1')
+
 
 if __name__ == '__main__':
     unittest.main()

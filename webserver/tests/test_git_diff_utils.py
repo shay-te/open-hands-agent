@@ -150,6 +150,19 @@ class EnsureBranchCheckedOutTests(unittest.TestCase):
                 git_diff_utils.ensure_branch_checked_out('/repo', 'feature/x'),
             )
 
+    def test_returns_false_when_remote_checkout_fails(self) -> None:
+        # No local ref, remote ref exists, but ``git checkout -b`` fails
+        # (e.g. remote ref vanished between probe and checkout). Must
+        # short-circuit to False rather than falling through to the
+        # post-checkout branch comparison.
+        with patch.object(git_diff_utils, 'current_branch', return_value='master'), \
+             patch.object(git_diff_utils, 'local_branch_exists', return_value=False), \
+             patch.object(git_diff_utils, 'remote_branch_exists', return_value=True), \
+             patch.object(git_diff_utils, 'run_git', return_value=None):
+            self.assertFalse(
+                git_diff_utils.ensure_branch_checked_out('/repo', 'feature/x'),
+            )
+
 
 class DetectDefaultBranchTests(unittest.TestCase):
     def test_uses_local_origin_head_when_set(self) -> None:
@@ -282,6 +295,65 @@ class DiffForCommitTests(unittest.TestCase):
             self.assertEqual(git_diff_utils.diff_for_commit('/repo', 'abc'), '')
 
 
+class BlobSizeAtRefTests(unittest.TestCase):
+    def test_none_when_inputs_blank(self) -> None:
+        # Any of cwd/ref/path being empty short-circuits to None so the
+        # caller (file editor panel) renders an "unknown size" placeholder
+        # instead of erroring.
+        self.assertIsNone(git_diff_utils.blob_size_at_ref('', 'HEAD', 'a.py'))
+        self.assertIsNone(git_diff_utils.blob_size_at_ref('/repo', '', 'a.py'))
+        self.assertIsNone(git_diff_utils.blob_size_at_ref('/repo', 'HEAD', ''))
+
+    def test_none_when_run_git_fails(self) -> None:
+        # ``git cat-file`` returns None when the blob doesn't exist at
+        # the ref (renamed / deleted path). Must propagate as None.
+        with patch.object(git_diff_utils, 'run_git', return_value=None):
+            self.assertIsNone(
+                git_diff_utils.blob_size_at_ref('/repo', 'HEAD', 'a.py'),
+            )
+
+    def test_returns_parsed_size(self) -> None:
+        with patch.object(git_diff_utils, 'run_git', return_value='1234\n'):
+            self.assertEqual(
+                git_diff_utils.blob_size_at_ref('/repo', 'HEAD', 'a.py'),
+                1234,
+            )
+
+    def test_none_when_output_not_integer(self) -> None:
+        # Defensive: if git's output isn't a plain integer (corrupted
+        # output, future format change), fall back to None instead of
+        # raising ValueError up the request stack.
+        with patch.object(git_diff_utils, 'run_git', return_value='not-a-number\n'):
+            self.assertIsNone(
+                git_diff_utils.blob_size_at_ref('/repo', 'HEAD', 'a.py'),
+            )
+
+
+class FileTextAtRefTests(unittest.TestCase):
+    def test_none_when_inputs_blank(self) -> None:
+        # Same short-circuit as ``blob_size_at_ref`` — empty cwd/ref/path
+        # never reaches the git subprocess.
+        self.assertIsNone(git_diff_utils.file_text_at_ref('', 'HEAD', 'a.py'))
+        self.assertIsNone(git_diff_utils.file_text_at_ref('/repo', '', 'a.py'))
+        self.assertIsNone(git_diff_utils.file_text_at_ref('/repo', 'HEAD', ''))
+
+    def test_returns_run_git_output(self) -> None:
+        with patch.object(git_diff_utils, 'run_git', return_value='file body\n'):
+            self.assertEqual(
+                git_diff_utils.file_text_at_ref('/repo', 'HEAD', 'a.py'),
+                'file body\n',
+            )
+
+    def test_strips_leading_slash_from_path(self) -> None:
+        # Repo-relative paths arrive from the UI sometimes with a leading
+        # slash; the safe-path normalization must strip it before composing
+        # the ``<ref>:<path>`` argument.
+        with patch.object(git_diff_utils, 'run_git', return_value='ok') as mock_rg:
+            git_diff_utils.file_text_at_ref('/repo', 'HEAD', '/src/a.py')
+        args = mock_rg.call_args.args[1]
+        self.assertIn('HEAD:src/a.py', args)
+
+
 class ElideOversizedFileDiffsTests(unittest.TestCase):
     def _section(self, path: str, n: int) -> str:
         body = '\n'.join(f'+line {i}' for i in range(n))
@@ -349,6 +421,22 @@ class ElideOversizedFileDiffsTests(unittest.TestCase):
         self.assertIn('diff --git a/src/keep.py', out)
         self.assertIn('diff --git a/build/bundle.js', out)
 
+    def test_oversized_section_without_hunk_is_passed_through(self) -> None:
+        # Binary-stub or rename-only sections have NO ``@@`` line. Even
+        # when they breach the byte cap (huge ``index`` line, GIT-LFS
+        # pointer noise), we leave them as-is — there's no body to elide,
+        # and synthesizing a hunk would corrupt react-diff-view's parse.
+        huge_index = 'x' * (git_diff_utils.TRACKED_FILE_DIFF_BYTE_LIMIT + 10)
+        section = (
+            'diff --git a/big.bin b/big.bin\n'
+            f'index {huge_index}..1234567 100644\n'
+            'Binary files a/big.bin and b/big.bin differ\n'
+        )
+        out = git_diff_utils._elide_oversized_file_diffs(section)
+        # Untouched — no notice injected, original bytes preserved.
+        self.assertEqual(out, section)
+        self.assertNotIn('diff too large to display', out)
+
     def test_diff_against_base_elides_then_appends_untracked(self) -> None:
         huge = self._section(
             'build/x.js', git_diff_utils.TRACKED_FILE_DIFF_LINE_LIMIT + 5,
@@ -362,6 +450,26 @@ class ElideOversizedFileDiffsTests(unittest.TestCase):
         self.assertIn('diff too large to display', out)
         self.assertNotIn('+line 50', out)
         self.assertTrue(out.endswith('diff --git a/u b/u\n'))
+
+
+class UntrackedFilesAsDiffTests(unittest.TestCase):
+    def test_empty_when_run_git_returns_none(self) -> None:
+        with patch.object(git_diff_utils, 'run_git', return_value=None):
+            self.assertEqual(git_diff_utils._untracked_files_as_diff('/repo'), '')
+
+    def test_empty_when_run_git_returns_blank(self) -> None:
+        with patch.object(git_diff_utils, 'run_git', return_value=''):
+            self.assertEqual(git_diff_utils._untracked_files_as_diff('/repo'), '')
+
+    def test_skips_blank_lines(self) -> None:
+        # ``git ls-files`` output with a stray whitespace-only line must
+        # not produce a synthesized hunk for it (path strips to '').
+        with patch.object(git_diff_utils, 'run_git', return_value='\n   \n'), \
+             patch.object(
+                 git_diff_utils, '_synthesize_new_file_hunk',
+                 return_value='SHOULD_NOT_APPEAR',
+             ):
+            self.assertEqual(git_diff_utils._untracked_files_as_diff('/repo'), '')
 
 
 if __name__ == '__main__':

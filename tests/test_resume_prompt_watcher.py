@@ -10,7 +10,9 @@ from __future__ import annotations
 
 import tempfile
 import unittest
+import unittest.mock
 from pathlib import Path
+from types import SimpleNamespace
 
 from agent_core_lib.agent_core_lib.helpers.session_id_utils import AGENT_SESSION_ID
 from kato_core_lib.data_layers.service.resume_prompt_watcher import (
@@ -282,6 +284,172 @@ class ResumePromptWatcherLifecycleTests(unittest.TestCase):
         )
         # Doesn't raise.
         watcher.stop(timeout=0.1)
+
+
+class ResumePromptWatcherDefensivePathsTests(unittest.TestCase):
+    """Coverage for the defensive guards in ``_list_sessions``,
+    ``_records_by_task``, ``_workspace_path_for``, ``_repository_paths``
+    and the ``_run_loop`` exception swallow. These guard against the
+    many ways a partially-initialized manager / workspace_manager can
+    show up in tests, headless boots, and during shutdown."""
+
+    def _make_watcher(self, *, session_manager=None, workspace_manager=None):
+        return ResumePromptWatcher(
+            session_manager=session_manager,
+            workspace_manager=workspace_manager,
+            tick_seconds=1.0,
+        )
+
+    def test_list_sessions_returns_empty_when_manager_lacks_methods(self) -> None:
+        # Manager is non-None but missing ``list_records`` / ``get_session``
+        # → list_sessions returns [].
+        class _Stub(object):
+            pass
+        watcher = self._make_watcher(session_manager=_Stub())
+        self.assertEqual(watcher._list_sessions(), [])
+
+    def test_list_sessions_swallows_list_records_exception(self) -> None:
+        class _Boom(object):
+            def list_records(self):
+                raise RuntimeError('boom')
+            def get_session(self, task_id):
+                return None
+        watcher = self._make_watcher(session_manager=_Boom())
+        self.assertEqual(watcher._list_sessions(), [])
+
+    def test_list_sessions_skips_blank_task_ids(self) -> None:
+        class _Mgr(object):
+            def list_records(self):
+                return [SimpleNamespace(task_id=''),
+                        SimpleNamespace(task_id='T1')]
+            def get_session(self, task_id):
+                return SimpleNamespace(name=f'sess-{task_id}')
+        watcher = self._make_watcher(session_manager=_Mgr())
+        sessions = watcher._list_sessions()
+        # Blank task_id dropped; only T1 remains.
+        self.assertEqual(len(sessions), 1)
+        self.assertEqual(sessions[0][0], 'T1')
+
+    def test_list_sessions_swallows_get_session_exception(self) -> None:
+        class _Mgr(object):
+            def list_records(self):
+                return [SimpleNamespace(task_id='T1')]
+            def get_session(self, task_id):
+                raise RuntimeError('get_session failed')
+        watcher = self._make_watcher(session_manager=_Mgr())
+        sessions = watcher._list_sessions()
+        # Entry still added with session=None.
+        self.assertEqual(len(sessions), 1)
+        self.assertEqual(sessions[0][0], 'T1')
+        self.assertIsNone(sessions[0][1])
+
+    def test_records_by_task_returns_empty_when_manager_is_none(self) -> None:
+        watcher = self._make_watcher(session_manager=None)
+        self.assertEqual(watcher._records_by_task(), {})
+
+    def test_records_by_task_returns_empty_when_list_records_missing(self) -> None:
+        class _Stub(object):
+            pass
+        watcher = self._make_watcher(session_manager=_Stub())
+        self.assertEqual(watcher._records_by_task(), {})
+
+    def test_records_by_task_swallows_list_records_exception(self) -> None:
+        class _Boom(object):
+            def list_records(self):
+                raise RuntimeError('boom')
+        watcher = self._make_watcher(session_manager=_Boom())
+        self.assertEqual(watcher._records_by_task(), {})
+
+    def test_workspace_path_for_returns_none_when_wm_missing(self) -> None:
+        watcher = self._make_watcher(workspace_manager=None)
+        self.assertIsNone(watcher._workspace_path_for('T1'))
+
+    def test_workspace_path_for_returns_none_when_callable_missing(self) -> None:
+        # workspace_manager exists but has no ``workspace_path`` attribute.
+        class _Stub(object):
+            pass
+        watcher = self._make_watcher(workspace_manager=_Stub())
+        self.assertIsNone(watcher._workspace_path_for('T1'))
+
+    def test_workspace_path_for_swallows_exception(self) -> None:
+        class _BoomWM(object):
+            def workspace_path(self, task_id):
+                raise RuntimeError('blew up')
+        watcher = self._make_watcher(workspace_manager=_BoomWM())
+        self.assertIsNone(watcher._workspace_path_for('T1'))
+
+    def test_repository_paths_empty_when_wm_none(self) -> None:
+        watcher = self._make_watcher(workspace_manager=None)
+        self.assertEqual(watcher._repository_paths('T1'), [])
+
+    def test_repository_paths_empty_when_callables_missing(self) -> None:
+        class _Stub(object):
+            pass
+        watcher = self._make_watcher(workspace_manager=_Stub())
+        self.assertEqual(watcher._repository_paths('T1'), [])
+
+    def test_repository_paths_swallows_get_workspace_exception(self) -> None:
+        class _BoomWM(object):
+            def get(self, task_id):
+                raise RuntimeError('get failed')
+            def repository_path(self, task_id, repo_id):
+                return Path(f'/x/{task_id}/{repo_id}')
+        watcher = self._make_watcher(workspace_manager=_BoomWM())
+        self.assertEqual(watcher._repository_paths('T1'), [])
+
+    def test_repository_paths_empty_when_workspace_none(self) -> None:
+        # ``get`` returns None for an unknown task → empty list.
+        class _WM(object):
+            def get(self, task_id):
+                return None
+            def repository_path(self, task_id, repo_id):
+                return Path(f'/x/{task_id}/{repo_id}')
+        watcher = self._make_watcher(workspace_manager=_WM())
+        self.assertEqual(watcher._repository_paths('T1'), [])
+
+    def test_repository_paths_swallows_repo_path_exception(self) -> None:
+        # ``get`` returns a workspace with repo_ids, but repository_path
+        # blows up for one of them → that one is skipped, the rest are kept.
+        class _WS(object):
+            repository_ids = ['good', 'bad']
+
+        class _WM(object):
+            def get(self, task_id):
+                return _WS()
+
+            def repository_path(self, task_id, repo_id):
+                if repo_id == 'bad':
+                    raise RuntimeError('repo path failed')
+                return Path(f'/x/{task_id}/{repo_id}')
+
+        watcher = self._make_watcher(workspace_manager=_WM())
+        paths = watcher._repository_paths('T1')
+        self.assertEqual(len(paths), 1)
+        self.assertIn('good', paths[0])
+
+    def test_run_loop_swallows_tick_exception(self) -> None:
+        # Lines 95-98: tick() raises → ``self.logger.exception`` is
+        # called and the loop continues until the stop_event fires.
+        watcher = self._make_watcher(session_manager=None)
+        watcher._tick_seconds = 0.01
+
+        with unittest.mock.patch.object(
+            watcher, 'tick', side_effect=RuntimeError('tick boom'),
+        ), unittest.mock.patch.object(
+            watcher, 'logger',
+        ) as mock_logger:
+            # Drive the loop manually: ask it to stop almost immediately,
+            # then run the loop on the calling thread.
+            import threading as _th
+            stop_thread = _th.Thread(
+                target=lambda: (
+                    _th.Event().wait(0.05) or watcher._stop_event.set()
+                ),
+            )
+            stop_thread.start()
+            watcher._run_loop()
+            stop_thread.join(timeout=1.0)
+            mock_logger.exception.assert_called()
 
 
 if __name__ == '__main__':

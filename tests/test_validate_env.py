@@ -509,6 +509,18 @@ class ValidateEnvTests(unittest.TestCase):
             )
         self.assertEqual(errors, ['KATO_CLAUDE_TIMEOUT_SECONDS must be at least 60'])
 
+    def test_validate_claude_env_accepts_valid_timeout(self) -> None:
+        """Covers branch 377->384: timeout >= 60 passes the floor check
+        and continues to the max-turns validation block."""
+        with patch('kato_core_lib.validate_env.which', return_value='/usr/local/bin/claude'):
+            errors = validate_claude_env(
+                {
+                    'KATO_CLAUDE_BINARY': 'claude',
+                    'KATO_CLAUDE_TIMEOUT_SECONDS': '120',
+                }
+            )
+        self.assertEqual(errors, [])
+
     def test_validate_claude_env_reports_non_integer_max_turns(self) -> None:
         with patch('kato_core_lib.validate_env.which', return_value='/usr/local/bin/claude'):
             errors = validate_claude_env(

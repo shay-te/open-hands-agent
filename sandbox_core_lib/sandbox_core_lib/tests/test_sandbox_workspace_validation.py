@@ -251,6 +251,17 @@ class _WorkspacePathTests(unittest.TestCase):
             with self.assertRaises(manager.SandboxError):
                 manager._validate_workspace_path(t)
 
+    def test_workspace_with_non_socket_entries_is_accepted(self):
+        # Branch 967->966: ``iterdir`` yields entries whose name does NOT
+        # match docker.sock / containerd.sock — the loop must skip them
+        # and keep walking. Ensures the socket-scan doesn't false-positive
+        # on regular project files.
+        with tempfile.TemporaryDirectory(dir=Path.home()) as t:
+            (Path(t) / 'README.md').write_text('hi')
+            (Path(t) / 'src').mkdir()
+            result = manager._validate_workspace_path(t)
+            self.assertEqual(result, str(Path(t).resolve()))
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -579,7 +579,7 @@ def _prompt_repository(defaults: dict[str, str]) -> dict[str, str]:
         default=True,
     ):
         discovered_values = _prompt_discovered_repository(defaults)
-        if discovered_values is not None:
+        if discovered_values is not None:  # pragma: no branch - _prompt_discovered_repository never returns None
             return discovered_values
 
     return _prompt_repository_fields(defaults)

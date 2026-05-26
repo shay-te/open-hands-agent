@@ -306,3 +306,32 @@ class SecurityScanDetailFallbackTests(unittest.TestCase):
         ):
             result = _security_scan_detail(error)
         self.assertEqual(result, '')
+
+
+class AddTaskCommentNoAfterStepTests(unittest.TestCase):
+    """Branch 338->340: ``_add_task_comment`` with empty ``after_step``
+    skips the ``_log_task_step`` call and returns True directly."""
+
+    def test_returns_true_without_after_step_log(self) -> None:
+        task_service = Mock(spec=TaskService)
+        task_state_service = Mock(spec=TaskStateService)
+        repository_service = Mock(spec=RepositoryService)
+        notification_service = Mock(spec=NotificationService)
+        handler = TaskFailureHandler(
+            task_service,
+            task_state_service,
+            repository_service,
+            notification_service,
+        )
+        handler._log_task_step = Mock()
+        ok = handler._add_task_comment(
+            'PROJ-1', 'plain comment',
+            after_step='',  # explicit: drives the False branch
+            failure_log_message='could not comment on %s',
+        )
+        self.assertTrue(ok)
+        task_service.add_comment.assert_called_once_with(
+            'PROJ-1', 'plain comment',
+        )
+        # Skipped log_task_step on the False branch.
+        handler._log_task_step.assert_not_called()

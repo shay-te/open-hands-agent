@@ -223,6 +223,18 @@ class RepositoryTagsTests(unittest.TestCase):
         )
         self.assertEqual(result, ['backend'])
 
+    def test_skips_tag_with_empty_value_after_prefix(self) -> None:
+        # Branch 448->438: ``if repository_tag:`` false branch — the
+        # tag has the kato:repo: prefix but nothing after it, so the
+        # extracted value is blank and the entry must be skipped.
+        result = RepositoryInventoryService._repository_tags(
+            SimpleNamespace(tags=[
+                'kato:repo:',  # empty after prefix → skip
+                'kato:repo:client',  # valid → include
+            ]),
+        )
+        self.assertEqual(result, ['client'])
+
 
 class ValidateLocalPathTests(unittest.TestCase):
     def test_raises_when_missing(self) -> None:
@@ -285,6 +297,22 @@ class ValidateGitRemoteAuthTests(unittest.TestCase):
                 RepositoryInventoryService._validate_git_remote_auth(
                     SimpleNamespace(id='r', remote_url='git@github.com:o/r.git'),
                 )
+
+    def test_returns_silently_when_ssh_auth_sock_exists(self) -> None:
+        # Branch 482->exit: ``if not os.path.exists(ssh_auth_sock):``
+        # false branch — SSH_AUTH_SOCK points to a real path, so the
+        # method must exit normally (no ValueError).
+        with patch(
+            'kato_core_lib.data_layers.service.repository_inventory_service.shutil.which',
+            return_value='/usr/bin/ssh',
+        ), patch.object(os, 'name', 'posix'), \
+           patch.dict(os.environ,
+                      {'SSH_AUTH_SOCK': '/tmp/ssh-agent.sock'}, clear=False), \
+           patch('os.path.exists', return_value=True):
+            # No exception.
+            RepositoryInventoryService._validate_git_remote_auth(
+                SimpleNamespace(id='r', remote_url='git@github.com:o/r.git'),
+            )
 
 
 class ValidateRepositoryGitAccessTests(unittest.TestCase):

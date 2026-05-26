@@ -209,6 +209,74 @@ class PlanningSessionRunnerTests(unittest.TestCase):
             runner.implement_task(build_task(), prepared_task=prepared)
         self.assertEqual(manager.statuses, [SESSION_STATUS_TERMINATED])
 
+    def test_implement_task_keeps_polling_while_clock_is_under_deadline(self) -> None:
+        # Branch 539->529: when ``poll_event`` returns None AND the
+        # session is still alive AND the clock hasn't reached the
+        # deadline, the loop must continue (back to ``while True``).
+        # We arrange a session that returns None on the first poll
+        # (still alive, clock under deadline → re-enters loop), then
+        # dies on the second poll so the wait exits via the
+        # ``not session.is_alive`` branch.
+        terminal = _terminal(result='settled')
+
+        class _SlowSession:
+            def __init__(self) -> None:
+                self.agent_session_id = 'fake-session-id'
+                self.terminal_event = terminal
+                self._poll_count = 0
+
+            def poll_event(self, timeout: float = 0.0):  # noqa: ARG002
+                self._poll_count += 1
+                # First poll: no event, session still alive (forces the
+                # 539->529 false branch). Subsequent polls: still no
+                # event, but session is no longer alive (line 536 exit).
+                return None
+
+            @property
+            def is_alive(self) -> bool:
+                # Alive on the first poll, dead from the second onward.
+                return self._poll_count <= 1
+
+        class _SlowManager:
+            def __init__(self) -> None:
+                self.statuses: list[str] = []
+                self.start_kwargs: dict | None = None
+                self._session = _SlowSession()
+
+            def start_session(self, **kwargs):
+                self.start_kwargs = kwargs
+                return self._session
+
+            def update_status(self, task_id, status):  # noqa: ARG002
+                self.statuses.append(status)
+
+            def get_session(self, task_id):  # noqa: ARG002
+                return None
+
+            def get_record(self, task_id):  # noqa: ARG002
+                return None
+
+        manager = _SlowManager()
+        # Ensure the clock NEVER reaches the deadline so the wait loop
+        # exits via ``not session.is_alive`` instead of the timeout.
+        # Bump max_wait_seconds high so deadline >> any clock tick.
+        runner = PlanningSessionRunner(
+            session_manager=manager,
+            defaults=self.defaults,
+            max_wait_seconds=10_000.0,
+            clock=lambda: 0.0,
+        )
+        prepared = _FakePrepared([_FakeRepo('client', '/tmp/client')])
+
+        # The session ends without a true terminal event but
+        # ``session.terminal_event`` is wired to ``terminal`` — so the
+        # runner treats it as a successful terminal result.
+        result = runner.implement_task(build_task(), prepared_task=prepared)
+        self.assertTrue(result[ImplementationFields.SUCCESS])
+        # Two polls happened: one with alive=True (539->529), one with
+        # alive=False (line 536 break).
+        self.assertEqual(manager._session._poll_count, 2)
+
     def test_implement_task_raises_session_stopped_when_record_is_terminated(self) -> None:
         # When the user clicks Stop, terminate_session() already sets the
         # record status to TERMINATED before the planning thread wakes up.

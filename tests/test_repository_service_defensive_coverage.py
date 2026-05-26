@@ -707,5 +707,65 @@ class EnsureRepoCheckoutOnTaskBranchPostSyncTests(unittest.TestCase):
                 service._assert_branch_checked_out('/x', 'feat/x')
 
 
+class GetRepositoryIterationTests(unittest.TestCase):
+    """Branch 170->169: ``get_repository`` skips non-matching entries
+    before returning the matching one (the for-loop continues past a
+    repo whose ``id`` doesn't match)."""
+
+    def test_skips_non_matching_repositories(self) -> None:
+        service = _make_service()
+        first = SimpleNamespace(id='other', local_path='/a')
+        second = SimpleNamespace(id='client', local_path='/b')
+        service._ensure_repositories = lambda: [first, second]
+        self.assertIs(service.get_repository('client'), second)
+
+
+class EnsureCleanWorktreeStillDirtyAfterDiscardTests(unittest.TestCase):
+    """Branch 1174->1176: after ``_discard_only_generated_artifacts``
+    succeeds the status is re-read; if it's STILL non-blank we fall
+    through to the warning + RuntimeError (line 1176 onward)."""
+
+    def test_raises_when_status_still_dirty_after_artifact_discard(self) -> None:
+        service = _make_service()
+        service.logger = MagicMock()
+        # First status: dirty. After discard: still dirty (different file
+        # not in the removable set). Must hit the raise path.
+        statuses = [' M build.log\n M src.py\n', ' M src.py\n']
+        with patch.object(service, '_working_tree_status',
+                          side_effect=statuses), \
+             patch.object(service, '_discard_only_generated_artifacts',
+                          return_value=True):
+            with self.assertRaisesRegex(RuntimeError, 'uncommitted changes'):
+                service._ensure_clean_worktree('/x', 'feat/x')
+
+
+class EnsureTaskBranchCheckedOutNoRemoteSyncTests(unittest.TestCase):
+    """Branch 1330->1334: ``_ensure_task_branch_checked_out`` skips the
+    destination-branch sync step when the repository doesn't use remote
+    destination sync (local-only repo) and proceeds straight to the
+    branch creation."""
+
+    def test_skips_remote_sync_when_not_supported(self) -> None:
+        service = _make_service()
+        service._uses_remote_destination_sync = MagicMock(return_value=False)
+        service._checkout_existing_task_branch = MagicMock(return_value=('', False))
+        service._ensure_destination_branch_checked_out = MagicMock(return_value='main')
+        service._sync_destination_branch_to_origin = MagicMock()
+        service._create_task_branch = MagicMock()
+        service._current_branch = MagicMock(return_value='feat/x')
+        repo = SimpleNamespace(id='r', local_path='/x')
+        branch, should_sync = service._ensure_task_branch_checked_out(
+            '/x', 'main', 'feat/x', 'main', repository=repo,
+        )
+        self.assertEqual(branch, 'feat/x')
+        self.assertFalse(should_sync)
+        # Critical: sync helper was NOT invoked when remote sync disabled.
+        service._sync_destination_branch_to_origin.assert_not_called()
+        # But branch creation still ran.
+        service._create_task_branch.assert_called_once_with(
+            '/x', 'feat/x', 'main',
+        )
+
+
 if __name__ == '__main__':
     unittest.main()

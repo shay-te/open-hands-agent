@@ -183,3 +183,105 @@ class AgentStateRegistryTests(unittest.TestCase):
                 }
             ],
         )
+
+    def test_processed_task_pull_requests_returns_empty_when_stored_value_is_not_a_list(self) -> None:
+        # Branch 78->80: stored pull_requests is not a list → fall through to ``return []``.
+        # Bypass mark_task_processed (which always writes a list) by poking the map directly.
+        self.registry.processed_task_map['PROJ-1'] = {
+            StatusFields.STATUS: StatusFields.READY_FOR_REVIEW,
+            PullRequestFields.PULL_REQUESTS: 'not-a-list',
+        }
+
+        self.assertEqual(self.registry.processed_task_pull_requests('PROJ-1'), [])
+
+    def test_tracked_task_ids_skips_blank_task_id_in_pull_request_task_map(self) -> None:
+        # Branch 135->134: ``if task_id:`` falsy branch in the
+        # pull_request_task_map loop → entry skipped, loop continues.
+        self.registry.pull_request_task_map[('client', '17')] = ''
+        self.registry.pull_request_task_map[('client', '18')] = 'PROJ-2'
+
+        self.assertEqual(self.registry.tracked_task_ids(), {'PROJ-2'})
+
+    def test_tracked_task_ids_skips_blank_task_id_in_pr_context(self) -> None:
+        # Branch 140->138: ``if task_id:`` falsy branch in the
+        # pull_request_context_map loop → context skipped, inner loop
+        # continues to the next context.
+        self.registry.pull_request_context_map['17'] = [
+            {
+                PullRequestFields.REPOSITORY_ID: 'client',
+                TaskFields.ID: '   ',  # blank after .strip()
+            },
+            {
+                PullRequestFields.REPOSITORY_ID: 'client',
+                TaskFields.ID: 'PROJ-3',
+            },
+        ]
+
+        self.assertEqual(self.registry.tracked_task_ids(), {'PROJ-3'})
+
+    def test_task_id_for_pull_request_skips_non_list_pull_requests_in_processed_map(self) -> None:
+        # Branch 200->196: ``if not isinstance(pull_requests, list): continue``
+        # → loop moves to the next processed task.
+        self.registry.processed_task_map['PROJ-bad'] = {
+            StatusFields.STATUS: StatusFields.READY_FOR_REVIEW,
+            PullRequestFields.PULL_REQUESTS: 'corrupt-not-a-list',
+        }
+        self.registry.processed_task_map['PROJ-good'] = {
+            StatusFields.STATUS: StatusFields.READY_FOR_REVIEW,
+            PullRequestFields.PULL_REQUESTS: [
+                {
+                    PullRequestFields.ID: '17',
+                    PullRequestFields.REPOSITORY_ID: 'client',
+                }
+            ],
+        }
+
+        self.assertEqual(
+            self.registry.task_id_for_pull_request('17', 'client'),
+            'PROJ-good',
+        )
+
+    def test_task_id_for_pull_request_keeps_scanning_when_entry_does_not_match(self) -> None:
+        # Branch 209->200: inner ``if`` is False → loop continues to the
+        # next pull-request entry in the same processed task before
+        # eventually returning ''.
+        self.registry.processed_task_map['PROJ-1'] = {
+            StatusFields.STATUS: StatusFields.READY_FOR_REVIEW,
+            PullRequestFields.PULL_REQUESTS: [
+                {
+                    PullRequestFields.ID: '99',
+                    PullRequestFields.REPOSITORY_ID: 'backend',
+                },
+                {
+                    PullRequestFields.ID: '100',
+                    PullRequestFields.REPOSITORY_ID: 'client',
+                },
+            ],
+        }
+
+        # Lookup for ('17','client') matches neither entry → falls through
+        # the inner loop without setting pull_request_task_map.
+        self.assertEqual(
+            self.registry.task_id_for_pull_request('17', 'client'), '',
+        )
+        self.assertNotIn(('client', '17'), self.registry.pull_request_task_map)
+
+    def test_task_id_for_pull_request_skips_non_dict_pull_request_entry(self) -> None:
+        # Inner ``if not isinstance(pull_request, dict): continue`` path —
+        # included alongside the 209->200 case so both inner-loop
+        # branches are exercised together.
+        self.registry.processed_task_map['PROJ-1'] = {
+            StatusFields.STATUS: StatusFields.READY_FOR_REVIEW,
+            PullRequestFields.PULL_REQUESTS: [
+                'not-a-dict',
+                {
+                    PullRequestFields.ID: '17',
+                    PullRequestFields.REPOSITORY_ID: 'client',
+                },
+            ],
+        }
+
+        self.assertEqual(
+            self.registry.task_id_for_pull_request('17', 'client'),
+            'PROJ-1',
+        )

@@ -9,6 +9,7 @@ from kato_core_lib.helpers.review_comment_utils import (
     is_mention_comment,
     normalize_comment_context,
     review_comment_from_payload,
+    review_comment_processing_keys,
 )
 
 
@@ -142,3 +143,30 @@ class ReviewCommentUtilsTests(unittest.TestCase):
 
     def test_is_mention_comment_returns_false_for_none_body(self) -> None:
         self.assertFalse(is_mention_comment(ReviewComment('1', '1', 'reviewer', None)))
+
+    def test_review_comment_processing_keys_includes_resolution_target(self) -> None:
+        # Happy path: ``resolution_target_id`` resolves (via fallback
+        # to comment_id) and the composed ``type:id`` key is added.
+        comment = ReviewComment(
+            pull_request_id='17',
+            comment_id='42',
+            author='reviewer',
+            body='please rename',
+        )
+        keys = review_comment_processing_keys(comment)
+        self.assertIn('42', keys)
+        self.assertIn('comment:42', keys)
+
+    def test_review_comment_processing_keys_omits_composed_key_when_id_blank(self) -> None:
+        # Line 163: ``if resolution_target_id:`` False — both the
+        # explicit resolution target and the comment_id fallback are
+        # empty, so we must not add a useless ``type:`` (no id) key.
+        # The trailing comprehension drops the empty primary id too,
+        # leaving an empty set.
+        comment = ReviewComment(
+            pull_request_id='17',
+            comment_id='',
+            author='reviewer',
+            body='please rename',
+        )
+        self.assertEqual(review_comment_processing_keys(comment), set())

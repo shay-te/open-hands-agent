@@ -386,6 +386,192 @@ class RecoverOrphanWorkspacesTests(unittest.TestCase):
         app.logger.info.assert_called()
 
 
+class RecoverOrphanWorkspacesEmptyAdoptedTests(unittest.TestCase):
+    """Line 575->exit partial: when ``recover_orphan_workspaces`` returns
+    an empty/falsy list, the function exits without logging info."""
+
+    def test_no_log_when_no_workspaces_adopted(self) -> None:
+        recovery = MagicMock()
+        # Empty list is falsy — the ``if adopted:`` branch falls through.
+        recovery.recover_orphan_workspaces.return_value = []
+        app = SimpleNamespace(
+            workspace_recovery_service=recovery, logger=MagicMock(),
+        )
+        main_module._recover_orphan_workspaces(app)
+        # Recovery was attempted but no info log because nothing was adopted.
+        recovery.recover_orphan_workspaces.assert_called_once()
+        app.logger.info.assert_not_called()
+
+    def test_log_uses_singular_for_one_workspace(self) -> None:
+        # Lines 577-580: covers the ``'' if len(adopted) == 1 else 's'``
+        # singular branch.
+        recovery = MagicMock()
+        recovery.recover_orphan_workspaces.return_value = ['only_one']
+        app = SimpleNamespace(
+            workspace_recovery_service=recovery, logger=MagicMock(),
+        )
+        main_module._recover_orphan_workspaces(app)
+        app.logger.info.assert_called_once()
+        # The log includes the count "1".
+        args = app.logger.info.call_args[0]
+        self.assertEqual(args[1], 1)
+
+
+class ResumeStreamingSessionsCwdFallbackTests(unittest.TestCase):
+    """Line 459 partial: ``candidate.is_dir()`` False path — the loop
+    over ``repository_ids`` should continue to the next candidate when
+    a repository_path returns a path that is not a directory."""
+
+    def test_falls_through_when_first_repo_path_is_not_a_dir(self) -> None:
+        # repository_ids = ['gone', 'present']. First .is_dir() returns
+        # False (loop continues), second returns True (cwd captured).
+        candidate_gone = SimpleNamespace(is_dir=MagicMock(return_value=False))
+        candidate_present = SimpleNamespace(
+            is_dir=MagicMock(return_value=True),
+            __str__=lambda self: '/wks/PROJ-1/present',
+        )
+        # Wire a workspace_manager that returns different candidates per id.
+        def repo_path(task_id, repo_id):
+            return candidate_gone if repo_id == 'gone' else candidate_present
+
+        workspace_manager = SimpleNamespace(
+            list_workspaces=MagicMock(return_value=[
+                SimpleNamespace(
+                    task_id='PROJ-1',
+                    task_summary='',
+                    status='active',
+                    cwd='',
+                    repository_ids=['gone', 'present'],
+                ),
+            ]),
+            repository_path=MagicMock(side_effect=repo_path),
+        )
+        session_manager = SimpleNamespace(start_session=MagicMock())
+        app = SimpleNamespace(
+            logger=MagicMock(),
+            session_manager=session_manager,
+            workspace_manager=workspace_manager,
+            planning_session_runner=None,
+        )
+        main_module._resume_streaming_sessions(app)
+        # start_session was called once with cwd pulled from the SECOND
+        # candidate (the first one had is_dir=False).
+        session_manager.start_session.assert_called_once()
+        kwargs = session_manager.start_session.call_args.kwargs
+        # cwd is str(present) — non-empty.
+        self.assertTrue(kwargs['cwd'])
+        # First candidate was inspected (is_dir called).
+        candidate_gone.is_dir.assert_called()
+
+
+class ShutdownHookWatcherTests(unittest.TestCase):
+    """Lines 701-704 (main.py): the shutdown hook stops the resume_prompt
+    watcher if one is attached, swallowing exceptions from .stop()."""
+
+    def test_handler_stops_watcher_when_attached(self) -> None:
+        watcher = MagicMock()
+        app = SimpleNamespace(
+            service=MagicMock(),
+            logger=MagicMock(),
+            resume_prompt_watcher=watcher,
+        )
+        original_sigint = signal.getsignal(signal.SIGINT)
+        try:
+            main_module._register_shutdown_hook(app)
+            handler = signal.getsignal(signal.SIGINT)
+            with self.assertRaises(SystemExit):
+                handler(signal.SIGINT, None)
+            watcher.stop.assert_called_once()
+        finally:
+            signal.signal(signal.SIGINT, original_sigint)
+
+    def test_handler_swallows_watcher_stop_exception(self) -> None:
+        # Lines 701-704: watcher.stop() blows up → exception logged
+        # but the shutdown continues to service.shutdown().
+        watcher = MagicMock()
+        watcher.stop.side_effect = RuntimeError('watcher stop boom')
+        service = MagicMock()
+        app = SimpleNamespace(
+            service=service,
+            logger=MagicMock(),
+            resume_prompt_watcher=watcher,
+        )
+        original_sigint = signal.getsignal(signal.SIGINT)
+        try:
+            main_module._register_shutdown_hook(app)
+            handler = signal.getsignal(signal.SIGINT)
+            with self.assertRaises(SystemExit):
+                handler(signal.SIGINT, None)
+            # The watcher.stop failure was logged.
+            app.logger.exception.assert_any_call(
+                'error stopping resume_prompt watcher',
+            )
+            # And shutdown still ran on the service.
+            service.shutdown.assert_called_once()
+        finally:
+            signal.signal(signal.SIGINT, original_sigint)
+
+
+class StartResumePromptWatcherTests(unittest.TestCase):
+    """Lines 896-901: when ``build_and_start_resume_prompt_watcher``
+    raises, the function logs via exception() and returns without
+    setting ``app.resume_prompt_watcher``."""
+
+    def test_no_op_when_session_manager_missing(self) -> None:
+        # Lines 882-887: session_manager is None → info log + return.
+        app = SimpleNamespace(
+            session_manager=None,
+            workspace_manager=MagicMock(),
+            logger=MagicMock(),
+        )
+        main_module._start_resume_prompt_watcher(app)
+        app.logger.info.assert_called_once()
+        self.assertFalse(hasattr(app, 'resume_prompt_watcher'))
+
+    def test_no_op_when_workspace_manager_missing(self) -> None:
+        app = SimpleNamespace(
+            session_manager=MagicMock(),
+            workspace_manager=None,
+            logger=MagicMock(),
+        )
+        main_module._start_resume_prompt_watcher(app)
+        app.logger.info.assert_called_once()
+        self.assertFalse(hasattr(app, 'resume_prompt_watcher'))
+
+    def test_attaches_watcher_to_app_on_success(self) -> None:
+        # Happy path: builder returns a watcher → stored on app.
+        app = SimpleNamespace(
+            session_manager=MagicMock(),
+            workspace_manager=MagicMock(),
+            logger=MagicMock(),
+        )
+        fake_watcher = MagicMock()
+        with patch(
+            'kato_core_lib.data_layers.service.resume_prompt_watcher'
+            '.build_and_start_resume_prompt_watcher',
+            return_value=fake_watcher,
+        ):
+            main_module._start_resume_prompt_watcher(app)
+        self.assertIs(app.resume_prompt_watcher, fake_watcher)
+
+    def test_exception_during_build_is_logged_and_swallowed(self) -> None:
+        # Lines 896-901: builder raises → exception() log + return.
+        app = SimpleNamespace(
+            session_manager=MagicMock(),
+            workspace_manager=MagicMock(),
+            logger=MagicMock(),
+        )
+        with patch(
+            'kato_core_lib.data_layers.service.resume_prompt_watcher'
+            '.build_and_start_resume_prompt_watcher',
+            side_effect=RuntimeError('builder boom'),
+        ):
+            main_module._start_resume_prompt_watcher(app)
+        # exception was logged and the attribute was NOT set.
+        app.logger.exception.assert_called_once()
+        self.assertFalse(hasattr(app, 'resume_prompt_watcher'))
+
+
 class StartPlanningWebserverTests(unittest.TestCase):
     def test_skips_when_disabled_via_env(self) -> None:
         # Line 521-522.

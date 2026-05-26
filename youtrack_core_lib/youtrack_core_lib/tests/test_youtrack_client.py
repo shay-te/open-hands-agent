@@ -956,6 +956,25 @@ class YouTrackClientDefensiveBranchTests(unittest.TestCase):
             tags = client._task_tags('PROJ-1')
         self.assertEqual(tags, ['bug', 'urgent'])
 
+    def test_task_tags_skips_entries_with_blank_name(self) -> None:
+        # Branch 285->281: ``tag_name`` normalizes to '' (missing name
+        # key, ``None`` value, or whitespace-only) — loop back without
+        # appending. A real tag in the same payload still comes
+        # through, proving the loop continues correctly.
+        client = self._client()
+        response = mock_response(
+            json_data=[
+                {'name': None},          # None → ''
+                {'name': '   '},         # whitespace → ''
+                {'foo': 'no-name-key'},  # missing key → ''
+                {'name': 'kept'},
+            ],
+        )
+        response.raise_for_status = lambda: None
+        with patch.object(client, '_get_with_retry', return_value=response):
+            tags = client._task_tags('PROJ-1')
+        self.assertEqual(tags, ['kept'])
+
     def test_format_screenshot_skips_non_dict(self) -> None:
         # Line 434: non-dict attachment → skip in _format_screenshot_attachments.
         client = self._client()

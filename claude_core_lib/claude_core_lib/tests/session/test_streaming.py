@@ -1696,5 +1696,67 @@ class StreamingClaudeSessionCredentialOutputScanTests(unittest.TestCase):
         self.assertIn('residual #16', joined)
 
 
+class StreamingPartialBranchTests(unittest.TestCase):
+    """Cover the if-falsy branches in :mod:`streaming` so the coverage
+    report doesn't have partial-branch holes around defensive shrugs."""
+
+    def _session(self) -> StreamingClaudeSession:
+        return StreamingClaudeSession(task_id='PROJ-BR', cwd='/tmp')
+
+    def test_build_command_falls_back_to_binary_name_when_which_returns_none(self) -> None:
+        # Branch 776->778: the ``binary_path = shutil.which(...) or self._binary``
+        # short-circuit when ``shutil.which`` returns ``None`` (binary
+        # not on PATH). The literal ``self._binary`` is used as-is so
+        # the subprocess can surface a clean OSError instead of a None
+        # crash inside Popen.
+        session = StreamingClaudeSession(
+            task_id='PROJ-BR', cwd='/tmp', binary='claude-not-on-path',
+        )
+        with patch(
+            'claude_core_lib.claude_core_lib.session.streaming.shutil.which',
+            return_value=None,
+        ):
+            cmd = session._build_command()
+        # First arg is the binary literal — ``shutil.which`` came back
+        # empty so the bare name was used.
+        self.assertEqual(cmd[0], 'claude-not-on-path')
+
+    def test_scan_terminal_for_credentials_clean_text_logs_nothing(self) -> None:
+        # Branch 942->exit: phishing block (and credential block) do
+        # not fire when the result text is innocuous. The method
+        # returns naturally without ever calling logger.warning.
+        session = self._session()
+        session.logger = MagicMock()
+        # Non-blank, non-credential, non-phishing text.
+        terminal = SessionEvent(raw={
+            'type': 'result', 'subtype': 'final',
+            'is_error': False,
+            'result': 'all tests passed, nothing to report',
+        })
+        session._scan_terminal_for_credentials(terminal)
+        session.logger.warning.assert_not_called()
+
+    def test_scan_terminal_for_credentials_phishing_only_skips_credential_branch(self) -> None:
+        # Branch 946->942 (logical pair to 942->exit): a result text
+        # that hits phishing patterns but NOT credential patterns still
+        # logs the phishing warning. Locks the fact that the two
+        # detective scans are independent — one firing doesn't suppress
+        # the other. The ``sudo_command`` pattern matches when ``sudo``
+        # follows a ``;`` or newline.
+        session = self._session()
+        session.logger = MagicMock()
+        terminal = SessionEvent(raw={
+            'type': 'result', 'subtype': 'final',
+            'is_error': False,
+            'result': 'first do this thing\nsudo rm -rf / on your host',
+        })
+        session._scan_terminal_for_credentials(terminal)
+        # Phishing warning fired even though no credential pattern matched.
+        calls = ' '.join(
+            str(c.args[0]) for c in session.logger.warning.call_args_list
+        )
+        self.assertIn('PHISHING PATTERN DETECTED', calls)
+
+
 if __name__ == '__main__':
     unittest.main()

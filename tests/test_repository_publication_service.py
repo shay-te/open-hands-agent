@@ -91,6 +91,37 @@ class RepositoryPublicationServiceTests(unittest.TestCase):
             force=True,
         )
 
+    def test_create_pull_request_skips_warning_when_neither_report_nor_description(self) -> None:
+        # Branch 51->57: when both the validation report AND the fallback
+        # description are blank, neither the info-log nor the warning-log
+        # fires — execution falls straight through to ``create_pull_request``.
+        self.repository_service._publish_branch_updates.return_value = ''
+        repository = types.SimpleNamespace(
+            id='client',
+            local_path='/workspace/client',
+            provider_base_url='https://bitbucket.org',
+            owner='workspace',
+            repo_slug='client',
+            token='token',
+            destination_branch='main',
+            **{RepositoryFields.BITBUCKET_API_EMAIL: 'shay.te@gmail.com'},
+        )
+
+        pull_request = self.service.create_pull_request(
+            repository,
+            'client: update flow',
+            'feature/client',
+            description='   ',  # blank after normalization
+            commit_message='Implement client',
+        )
+
+        self.assertEqual(pull_request[PullRequestFields.ID], '17')
+        create_pr_kwargs = (
+            self.repository_service._pull_request_data_access.return_value
+            .create_pull_request.call_args.kwargs
+        )
+        self.assertEqual(create_pr_kwargs['description'], '')
+
     def test_publish_review_fix_delegates_to_repository_service(self) -> None:
         repository = types.SimpleNamespace(id='client')
 

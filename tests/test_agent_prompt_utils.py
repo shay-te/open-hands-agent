@@ -76,6 +76,19 @@ class AgentPromptUtilsTests(unittest.TestCase):
         self.assertEqual(workspace_inventory_block('', None), '')
         self.assertEqual(workspace_inventory_block('', []), '')
 
+    def test_workspace_inventory_block_renders_extras_only_when_cwd_blank(self) -> None:
+        # Line 107: ``if cwd_text:`` is False but ``extra_paths`` is
+        # non-empty (cwd not yet known but additional dirs were
+        # configured). The block still renders — just without the
+        # ``(cwd)`` row — so Claude has the partial repo list to anchor on.
+        block = workspace_inventory_block(
+            cwd='',
+            additional_dirs=['/wks/UNA-2489/ob-love-admin-client'],
+        )
+        self.assertIn('Repositories available in this workspace:', block)
+        self.assertIn('/wks/UNA-2489/ob-love-admin-client', block)
+        self.assertNotIn('(cwd)', block)
+
     def test_workspace_inventory_block_deduplicates_cwd_against_extras(self) -> None:
         # When a caller accidentally passes the cwd in
         # additional_dirs too, the block should not list the same
@@ -213,6 +226,27 @@ class RepositoryScopeTextTests(unittest.TestCase):
         self.assertIn('backend at /wks/backend', out)
         self.assertIn('feat/c from master', out)
         self.assertIn('feat/b from main', out)
+
+    def test_prepared_task_with_blank_branch_keeps_task_branch(self) -> None:
+        # Line 323: when ``prepared_task.branch_name`` is falsy, we
+        # fall through and keep the task-level branch name instead of
+        # overwriting it with the empty prepared value. Guards against
+        # accidentally erasing the branch label when a partially
+        # initialized prepared context shows up.
+        repositories = [
+            SimpleNamespace(id='client', local_path='/wks/client', destination_branch='master'),
+        ]
+        prepared = SimpleNamespace(
+            repositories=repositories,
+            repository_branches={'client': 'feat/c'},
+            branch_name='',
+        )
+        task = SimpleNamespace(
+            id='PROJ-1', branch_name='task-branch',
+            repository_branches={}, repositories=[],
+        )
+        out = repository_scope_text(task, prepared)
+        self.assertIn('task-branch', out)
 
     def test_destination_branch_fallback_text_when_unknown(self) -> None:
         repositories = [
@@ -488,6 +522,36 @@ class ReviewCommentCodeSnippetEdgeBranches(unittest.TestCase):
             ),
             '',
         )
+
+
+class ReviewCommentsBatchTextSnippetBranches(unittest.TestCase):
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.workspace = Path(self._tmp.name)
+
+    def test_batch_text_skips_snippet_when_workspace_lookup_returns_empty(self) -> None:
+        # Line 539: ``if snippet:`` False — workspace_path was passed
+        # so we tried to read a snippet, but the file doesn't exist
+        # in the workspace. We must NOT inject an empty snippet block
+        # under the comment; the body should follow the localization
+        # header directly.
+        from kato_core_lib.helpers.agent_prompt_utils import (
+            review_comments_batch_text,
+        )
+        comment = SimpleNamespace(
+            author='reviewer',
+            body='please rename',
+            file_path='does/not/exist.py',
+            line_number=10,
+            line_type='added',
+            commit_sha='',
+            comment_id='1',
+        )
+        text = review_comments_batch_text([comment], workspace_path=str(self.workspace))
+        # No code block — just localization header + body.
+        self.assertNotIn('Code at line', text)
+        self.assertIn('please rename', text)
 
 
 if __name__ == '__main__':

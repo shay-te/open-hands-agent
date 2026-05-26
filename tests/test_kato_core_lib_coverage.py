@@ -92,6 +92,33 @@ class BuildSecurityScannerServiceTests(unittest.TestCase):
         # Block severities include CRITICAL + HIGH.
         self.assertIn(Severity.CRITICAL, service._config.block_on_severity)
 
+    def test_skips_none_timeout_values_and_safety_fallback(self) -> None:
+        """Covers branch 432->426 (None timeout skipped) and 435->439
+        (no ``safety`` override → no ``npm-audit`` setdefault)."""
+        # ``dependencies`` is None → the per-key ``if value is not None``
+        # check skips it (432->426). ``secrets`` is also None so
+        # ``safety`` never lands in timeout_overrides, exercising the
+        # False branch of ``if 'safety' in timeout_overrides`` (435->439).
+        scanner_cfg = SimpleNamespace(
+            enabled=True,
+            block_on_severity=None,
+            runners=None,
+            timeouts=SimpleNamespace(
+                secrets=None,
+                dependencies=None,
+                code_patterns=15,
+            ),
+        )
+        open_cfg = SimpleNamespace(security_scanner=scanner_cfg)
+        instance = KatoCoreLib.__new__(KatoCoreLib)
+        service = instance._build_security_scanner_service(open_cfg)
+        # bandit (code_patterns) override took effect; safety/npm-audit
+        # kept their defaults because nothing seeded them.
+        timeouts_by_name = {
+            r.name: r.timeout_seconds for r in service._config.runners
+        }
+        self.assertEqual(timeouts_by_name.get('bandit'), 15)
+
 
 class BuildRuntimePostureSupplierTests(unittest.TestCase):
     """Lines 446-452: the supplier closure inspects the live scanner
@@ -122,6 +149,17 @@ class BuildRuntimePostureSupplierTests(unittest.TestCase):
         posture = supplier()
         self.assertFalse(posture.scanner_blocks_at_medium)
         self.assertTrue(posture.docker_mode_on)
+
+    def test_supplier_handles_scanner_without_config(self) -> None:
+        """Covers branch 485->488: scanner present but ``_config`` is None."""
+        scanner = SimpleNamespace(_config=None)
+        supplier = KatoCoreLib._build_runtime_posture_supplier(
+            security_scanner_service=scanner,
+            bypass_permissions=False,
+            docker_mode_on=False,
+        )
+        posture = supplier()
+        self.assertFalse(posture.scanner_blocks_at_medium)
 
 
 class ResolveTicketPlatformConfigTests(unittest.TestCase):

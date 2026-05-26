@@ -787,5 +787,66 @@ class RestoreReviewCommentRepositoryTests(unittest.TestCase):
         service.logger.exception.assert_called_once()
 
 
+class TaskPullRequestTextsNonListCommentsTests(unittest.TestCase):
+    """Branch 372->377: ``_task_pull_request_texts`` skips the for-loop
+    body entirely when ``ALL_COMMENTS`` is not a list (defensive cast)."""
+
+    def test_returns_description_only_when_comments_field_not_a_list(self) -> None:
+        task = SimpleNamespace(description='task body')
+        # Provide a non-list value (e.g. dict, str, None) — the
+        # isinstance check fails and the loop is skipped.
+        setattr(task, TaskCommentFields.ALL_COMMENTS, {'not': 'a list'})
+        result = ReviewCommentService._task_pull_request_texts(task)
+        self.assertEqual(result, ['task body'])
+
+
+class CallFixReviewCommentsStreamingTests(unittest.TestCase):
+    """Branch 697->703: when ``streaming`` is True, the plural_args
+    reassignment (line 698-702) is skipped and the call proceeds with
+    the streaming-style two-tuple plural args."""
+
+    def test_streaming_uses_two_tuple_plural_args(self) -> None:
+        service = _make_service()
+        backend = MagicMock()
+        backend.fix_review_comments.return_value = {'success': True}
+        context = ReviewFixContext(
+            repository_id='r', pull_request_title='',
+            branch_name='feat/x', task_id='T', task_summary='s',
+            agent_session_id='session-id-streaming',
+        )
+        repo = SimpleNamespace(id='r', local_path='/workspace/clone')
+        result = service._call_fix_review_comments_or_fanout(
+            backend, [_comment('c1')], context,
+            streaming=True, mode='fix', repository=repo,
+        )
+        self.assertEqual(result, {'success': True})
+        # The streaming plural_args remains the original two-tuple
+        # ``(comments, branch_name)`` — agent_session_id NOT in args
+        # (it's already part of the streaming session state).
+        call = backend.fix_review_comments.call_args
+        self.assertEqual(len(call.args), 2)
+        # Streaming kwargs include ``repository_local_path``.
+        self.assertEqual(call.kwargs['repository_local_path'], '/workspace/clone')
+
+
+class TaskForWorkspaceCloneSkipNonMatchingTests(unittest.TestCase):
+    """Branch 844->843: ``_task_for_workspace_clone`` iterates past tasks
+    whose ``id`` doesn't match before returning the matching one."""
+
+    def test_skips_tasks_with_non_matching_ids(self) -> None:
+        service = _make_service()
+        wrong = SimpleNamespace(id='OTHER', summary='', description='', tags=[])
+        target = SimpleNamespace(id='T1', summary='right', description='', tags=[])
+        # Both tasks live in the assigned queue; the loop must skip
+        # ``wrong`` (line 844 False → 843) and return ``target``.
+        service._task_service.get_assigned_tasks.return_value = [wrong, target]
+        context = ReviewFixContext(
+            repository_id='r', pull_request_title='',
+            branch_name='b', task_id='T1', task_summary='', agent_session_id='',
+        )
+        result = service._task_for_workspace_clone(context, SimpleNamespace(id='r'))
+        self.assertIs(result, target)
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -295,6 +295,39 @@ class NpmAuditRunTests(unittest.TestCase):
         self.assertEqual(result, [])
         logger.warning.assert_called()
 
+    def test_empty_stdout_without_logger_silently_skipped(self) -> None:
+        # Branch 101->107: ``logger is None`` skips ``logger.warning``
+        # on empty stdout and falls through to ``continue``.
+        with patch('security_scanner_core_lib.security_scanner_core_lib.runners.npm_audit_runner.shutil.which',
+                   return_value='/usr/bin/npm'), \
+             patch('security_scanner_core_lib.security_scanner_core_lib.runners.npm_audit_runner.subprocess.run',
+                   return_value=_mock_subprocess_result(1, '')):
+            result = run(str(self.workspace))
+        self.assertEqual(result, [])
+
+    def test_invalid_json_without_logger_silently_skipped(self) -> None:
+        # Branch 111->116: ``logger is None`` skips ``logger.warning``
+        # on JSONDecodeError and falls through to ``continue``.
+        with patch('security_scanner_core_lib.security_scanner_core_lib.runners.npm_audit_runner.shutil.which',
+                   return_value='/usr/bin/npm'), \
+             patch('security_scanner_core_lib.security_scanner_core_lib.runners.npm_audit_runner.subprocess.run',
+                   return_value=_mock_subprocess_result(1, 'NOT JSON')):
+            result = run(str(self.workspace))
+        self.assertEqual(result, [])
+
+    def test_payload_without_vulnerabilities_or_advisories_skipped(self) -> None:
+        # Branch 127->85: payload has neither a ``vulnerabilities`` dict
+        # nor an ``advisories`` dict — neither extend branch fires and
+        # we loop back to the next project_dir. Locks tolerance for an
+        # unknown npm-audit JSON shape (no findings, no crash).
+        payload = json.dumps({'metadata': {'foo': 'bar'}})
+        with patch('security_scanner_core_lib.security_scanner_core_lib.runners.npm_audit_runner.shutil.which',
+                   return_value='/usr/bin/npm'), \
+             patch('security_scanner_core_lib.security_scanner_core_lib.runners.npm_audit_runner.subprocess.run',
+                   return_value=_mock_subprocess_result(1, payload)):
+            result = run(str(self.workspace))
+        self.assertEqual(result, [])
+
     def test_timeout_seconds_passed_to_subprocess(self) -> None:
         captured = {}
 

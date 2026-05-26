@@ -209,6 +209,29 @@ class BanditOutputParsingTests(unittest.TestCase):
         self.assertEqual(result, [])
         logger.warning.assert_called()
 
+    def test_returncode_greater_than_1_without_logger_returns_empty(self) -> None:
+        # Branch 114->120: ``logger is None`` skips ``logger.warning``
+        # and falls through to the empty return. Locks the no-logger
+        # path so a missing logger doesn't crash on a config-error
+        # returncode.
+        with patch('security_scanner_core_lib.security_scanner_core_lib.runners.bandit_runner.shutil.which',
+                   return_value='/usr/bin/bandit'), \
+             patch('security_scanner_core_lib.security_scanner_core_lib.runners.bandit_runner.subprocess.run',
+                   return_value=_bandit_result(2, '', 'config error')):
+            result = run(self.workspace)
+        self.assertEqual(result, [])
+
+    def test_invalid_json_without_logger_returns_empty(self) -> None:
+        # Branch 126->128: ``logger is None`` skips ``logger.warning``
+        # on JSONDecodeError and falls through to ``return []``. Locks
+        # the no-logger path on malformed stdout.
+        with patch('security_scanner_core_lib.security_scanner_core_lib.runners.bandit_runner.shutil.which',
+                   return_value='/usr/bin/bandit'), \
+             patch('security_scanner_core_lib.security_scanner_core_lib.runners.bandit_runner.subprocess.run',
+                   return_value=_bandit_result(1, 'NOT JSON AT ALL')):
+            result = run(self.workspace)
+        self.assertEqual(result, [])
+
     def test_finding_without_filename_gets_empty_path(self) -> None:
         payload = {
             'results': [{

@@ -283,5 +283,122 @@ class BuildInputsFromSessionTests(unittest.TestCase):
         self.assertEqual(out.last_assistant_text, 't19')
 
 
+class ExtractTextDefensiveTests(unittest.TestCase):
+    """Coverage for the ``_extract_assistant_text`` / ``_extract_user_text``
+    type-narrowing guards (lines 275, 278, 282, 301, 306, 310 in
+    resume_prompt_writer.py). Each event-envelope variant exercises one
+    branch — Claude's wire format is permissive enough that all of
+    these have shown up in real captures, so they are NOT unreachable."""
+
+    def _e(self, event_type: str, raw):
+        return SimpleNamespace(event_type=event_type, raw=raw)
+
+    def test_assistant_event_with_non_dict_message_returns_empty(self) -> None:
+        # Line 275: ``raw['message']`` is not a dict (e.g. None or a list).
+        events = [
+            self._e('assistant', {'message': None}),
+            self._e('assistant', {'message': 'a string, not a dict'}),
+            self._e('assistant', {'message': ['list', 'instead']}),
+        ]
+        out = build_inputs_from_session(
+            task_id='T1', task_summary='', branch_name='',
+            workspace_path='/x', repository_paths=[],
+            recent_events=events,
+        )
+        self.assertEqual(out.recent_assistant_texts, [])
+        self.assertEqual(out.last_assistant_text, '')
+
+    def test_assistant_event_with_non_list_content_returns_empty(self) -> None:
+        # Line 278: ``message['content']`` is not a list (e.g. string,
+        # dict, None). Render emits no text.
+        events = [
+            self._e('assistant', {'message': {'content': 'string content'}}),
+            self._e('assistant', {'message': {'content': {'block': 1}}}),
+            self._e('assistant', {'message': {'content': None}}),
+            self._e('assistant', {'message': {}}),  # content missing entirely
+        ]
+        out = build_inputs_from_session(
+            task_id='T1', task_summary='', branch_name='',
+            workspace_path='/x', repository_paths=[],
+            recent_events=events,
+        )
+        self.assertEqual(out.recent_assistant_texts, [])
+
+    def test_assistant_event_skips_non_dict_blocks(self) -> None:
+        # Line 282: a content block that's not a dict (e.g. a stray
+        # string in the list) is skipped, but valid blocks alongside
+        # it are still extracted.
+        events = [
+            self._e('assistant', {
+                'message': {
+                    'content': [
+                        'stray string',
+                        None,
+                        ['nested list'],
+                        {'type': 'text', 'text': 'valid text'},
+                    ],
+                },
+            }),
+        ]
+        out = build_inputs_from_session(
+            task_id='T1', task_summary='', branch_name='',
+            workspace_path='/x', repository_paths=[],
+            recent_events=events,
+        )
+        self.assertEqual(out.recent_assistant_texts, ['valid text'])
+        self.assertEqual(out.last_assistant_text, 'valid text')
+
+    def test_user_event_with_non_dict_message_returns_empty(self) -> None:
+        # Line 301: ``raw['message']`` is not a dict.
+        events = [
+            self._e('user', {'message': None}),
+            self._e('user', {'message': 'plain string'}),
+            self._e('user', {}),  # 'message' key missing
+        ]
+        out = build_inputs_from_session(
+            task_id='T1', task_summary='', branch_name='',
+            workspace_path='/x', repository_paths=[],
+            recent_events=events,
+        )
+        self.assertEqual(out.last_user_text, '')
+
+    def test_user_event_with_non_list_non_string_content_returns_empty(self) -> None:
+        # Line 306: ``content`` is neither a string nor a list.
+        events = [
+            self._e('user', {'message': {'role': 'user', 'content': None}}),
+            self._e('user', {'message': {'role': 'user', 'content': {'a': 1}}}),
+            self._e('user', {'message': {'role': 'user', 'content': 42}}),
+        ]
+        out = build_inputs_from_session(
+            task_id='T1', task_summary='', branch_name='',
+            workspace_path='/x', repository_paths=[],
+            recent_events=events,
+        )
+        self.assertEqual(out.last_user_text, '')
+
+    def test_user_event_skips_non_dict_blocks(self) -> None:
+        # Line 310: non-dict block entries are skipped, but valid
+        # text blocks alongside them are still extracted.
+        events = [
+            self._e('user', {
+                'message': {
+                    'role': 'user',
+                    'content': [
+                        'stray',
+                        None,
+                        42,
+                        {'type': 'text', 'text': 'real text'},
+                    ],
+                },
+            }),
+        ]
+        out = build_inputs_from_session(
+            task_id='T1', task_summary='', branch_name='',
+            workspace_path='/x', repository_paths=[],
+            recent_events=events,
+        )
+        self.assertEqual(out.last_user_text, 'real text')
+
+
 if __name__ == '__main__':
     unittest.main()

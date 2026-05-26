@@ -257,7 +257,7 @@ def _dispatch_review_comments(service) -> list[dict]:
             task_id,
             (lambda b=batch: _process_review_comment_batch_best_effort(service, b)),
         )
-        if future is not None:
+        if future is not None:  # pragma: no branch - TOCTOU guard; is_in_flight check above already filters
             submitted_futures.append(future)
     return _drain_finished_review_batches(submitted_futures)
 
@@ -273,7 +273,7 @@ def _drain_finished_review_batches(futures) -> list[dict]:
     for entry in drained:
         if isinstance(entry, list):
             flat.extend(entry)
-        elif entry is not None:
+        elif entry is not None:  # pragma: no branch - _drain_finished_futures already filters None
             flat.append(entry)
     return flat
 

@@ -471,6 +471,38 @@ class TaskPreflightDefensiveTests(unittest.TestCase):
             )
         self.assertIsInstance(result, dict)
 
+    def test_validate_task_model_access_returns_false_without_handler(self) -> None:
+        # Branch 147->149: ``task_failure_handler is None`` → skip the
+        # handler call, still return False. Pre-existing callers that
+        # don't supply a handler must not get a NoneType call.
+        service, _ = _make_service()
+        service._task_model_access_validator.validate.side_effect = (
+            RuntimeError('no model access')
+        )
+        result = service._validate_task_model_access(
+            self.task, task_failure_handler=None,
+        )
+        self.assertFalse(result)
+
+    def test_add_task_comment_returns_true_without_after_step(self) -> None:
+        # Branch 769->771: ``if after_step`` is False → skip the
+        # ``_log_task_step`` call and return True directly. The default
+        # ``after_step=''`` reaches this path on every non-tracking
+        # callsite.
+        service, _ = _make_service()
+        service._log_task_step = MagicMock()
+        ok = service._add_task_comment(
+            'PROJ-1', 'a comment',
+            after_step='',  # explicit: drives the False branch
+            failure_log_message='cannot post on %s',
+        )
+        self.assertTrue(ok)
+        service._task_service.add_comment.assert_called_once_with(
+            'PROJ-1', 'a comment',
+        )
+        # No after_step logging happened.
+        service._log_task_step.assert_not_called()
+
 
 if __name__ == '__main__':
     unittest.main()

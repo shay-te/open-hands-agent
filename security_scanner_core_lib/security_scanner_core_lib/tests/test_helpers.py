@@ -105,6 +105,19 @@ class IterWorkspaceFilesTests(unittest.TestCase):
         results = list(iter_workspace_files(self.workspace))
         self.assertIn(f, results)
 
+    def test_skips_broken_symlinks_that_are_neither_dir_nor_file(self) -> None:
+        # Branch 63->58: a child that is neither ``is_dir()`` nor
+        # ``is_file()`` (broken symlink → both return False) must be
+        # skipped silently rather than crashing or yielded. Locks the
+        # walker's tolerance for stray dangling links in repos.
+        import os
+        real = self._make_file('real.py', 'x=1')
+        broken = self.workspace / 'broken_link'
+        os.symlink(str(self.workspace / 'does_not_exist'), str(broken))
+        results = list(iter_workspace_files(self.workspace))
+        self.assertIn(real, results)
+        self.assertNotIn(broken, results)
+
 
 class WorkspaceRelativeTests(unittest.TestCase):
     def setUp(self) -> None:

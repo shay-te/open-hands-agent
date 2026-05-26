@@ -823,6 +823,33 @@ class RecordSpawnFailModesTests(unittest.TestCase):
         logger.warning.assert_called_once()
         self.assertIn('audit', captured_stderr.getvalue().lower())
 
+    def test_audit_failure_default_without_logger_only_warns_stderr(self) -> None:
+        # Branch 1609->1619: ``logger is None`` skips ``logger.warning``
+        # and falls through to the audit-shipping call. Stderr warning
+        # must still fire so the operator sees the audit gap.
+        with tempfile.TemporaryDirectory() as td:
+            target = Path(td) / 'audit.log'
+            captured_stderr = io.StringIO()
+            real_os_open = os.open
+
+            def fail_on_log_open(path, *a, **kw):
+                if path == str(target) and a and (a[0] & os.O_APPEND):
+                    raise OSError('disk full')
+                return real_os_open(path, *a, **kw)
+
+            with patch('os.open', side_effect=fail_on_log_open), \
+                 patch.object(manager, '_image_digest', return_value=''), \
+                 patch.object(sys, 'stderr', new=captured_stderr):
+                # No logger passed — exercises the False branch of
+                # ``if logger is not None`` at the audit-write warn path.
+                record_spawn(
+                    task_id='T',
+                    container_name='kato-sandbox-T-0001',
+                    workspace_path='/tmp/x',
+                    audit_log_path=target,
+                )
+        self.assertIn('audit', captured_stderr.getvalue().lower())
+
 
 # --------------------------------------------------------------------------
 # _DigestLookupError + _image_digest + _image_digest_strict

@@ -242,6 +242,47 @@ class DetectSecretsDefensiveBranchTests(unittest.TestCase):
         # .git directory is excluded.
         self.assertNotIn('config', files)
 
+    def test_scan_file_exception_without_logger_continues_silently(self) -> None:
+        # Branch 108->113: ``logger is None`` skips ``logger.debug`` and
+        # falls through to ``continue``. Locks the no-logger tolerance
+        # path on a binary-file scan failure.
+        (self.workspace / 'bad.bin').write_bytes(b'\x00\x01\x02')
+        mock_collection_instance = MagicMock()
+        mock_collection_instance.scan_file.side_effect = RuntimeError('boom')
+        mock_collection_instance.__iter__ = MagicMock(return_value=iter([]))
+        mock_collection_class = MagicMock(return_value=mock_collection_instance)
+        mock_settings_ctx = MagicMock()
+        mock_settings_ctx.__enter__ = MagicMock(return_value=None)
+        mock_settings_ctx.__exit__ = MagicMock(return_value=False)
+        mock_default_settings = MagicMock(return_value=mock_settings_ctx)
+        mock_ds = MagicMock(SecretsCollection=mock_collection_class)
+        mock_ds_settings = MagicMock(default_settings=mock_default_settings)
+        with patch.dict('sys.modules', {
+            'detect_secrets': mock_ds,
+            'detect_secrets.settings': mock_ds_settings,
+        }):
+            from security_scanner_core_lib.security_scanner_core_lib.runners.detect_secrets_runner import (
+                run as run_detect_secrets,
+            )
+            # No logger passed — exercises the False branch.
+            result = run_detect_secrets(str(self.workspace))
+        self.assertEqual(result, [])
+
+    def test_files_to_scan_skips_broken_symlinks(self) -> None:
+        # Branch 147->142: a child that is neither dir nor file (broken
+        # symlink) must be skipped so the walker keeps going. Locks the
+        # tolerance path against stray dangling links inside a repo.
+        import os
+        from security_scanner_core_lib.security_scanner_core_lib.runners.detect_secrets_runner import (
+            _files_to_scan,
+        )
+        (self.workspace / 'real.py').write_text('hi')
+        broken = self.workspace / 'broken_link'
+        os.symlink(str(self.workspace / 'does_not_exist'), str(broken))
+        files = sorted(p.name for p in _files_to_scan(self.workspace))
+        self.assertIn('real.py', files)
+        self.assertNotIn('broken_link', files)
+
 
 if __name__ == '__main__':
     unittest.main()

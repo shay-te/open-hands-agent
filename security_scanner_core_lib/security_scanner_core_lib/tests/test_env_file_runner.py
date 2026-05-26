@@ -109,6 +109,16 @@ class RunEnvFileScannerTests(unittest.TestCase):
         self.assertEqual(findings, [])
         mock_logger.warning.assert_called()
 
+    def test_oserror_reading_env_file_without_logger_silently_skipped(self) -> None:
+        # Branch 175->177: ``logger is None`` skips the ``logger.warning``
+        # call and falls through to ``continue``. Locks the no-logger
+        # tolerance on a read failure (e.g. permission-locked .env).
+        env_file = self.workspace / '.env'
+        env_file.write_text('TOKEN=real-credential-string-here\n')
+        with patch.object(Path, 'read_text', side_effect=PermissionError('locked')):
+            findings = run(str(self.workspace))
+        self.assertEqual(findings, [])
+
     def test_unparseable_lines_skipped(self) -> None:
         # Line 181: ``parsed is None`` → continue. Mix valid and invalid lines.
         env_file = self.workspace / '.env'

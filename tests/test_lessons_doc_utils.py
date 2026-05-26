@@ -82,6 +82,14 @@ class ReadLessonsFileTests(unittest.TestCase):
         result = read_lessons_file(str(self.tmp_dir), logger=logger)
         self.assertEqual(result, '')
 
+    def test_unreadable_file_without_logger_returns_empty_silently(self) -> None:
+        # Line 83: ``if _active_logger is not None:`` False — when no
+        # logger is plumbed in, an unreadable file must still degrade
+        # to '' instead of bubbling the OSError. Lessons are optional
+        # observability, not a correctness gate.
+        result = read_lessons_file(str(self.tmp_dir))
+        self.assertEqual(result, '')
+
 
 if __name__ == '__main__':
     unittest.main()

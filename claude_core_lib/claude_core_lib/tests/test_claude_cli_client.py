@@ -1520,6 +1520,113 @@ class WindowsNpmShimResolutionTests(unittest.TestCase):
         self.assertEqual(argv, ['node.exe', 'bin.js'])
 
 
+class BuildCommandPartialBranchTests(unittest.TestCase):
+    """Cover the if-falsy branches in ``_build_command`` so 100% branch
+    coverage holds. These paths are reachable under defensive mocking
+    even though production ``compose_system_prompt`` always returns
+    non-empty (the addenda constants are non-blank)."""
+
+    def test_blank_appended_system_prompt_is_not_emitted(self) -> None:
+        # Branch 923->925: when ``compose_system_prompt`` returns ''
+        # (e.g. all addenda dropped in some future config), the
+        # ``--append-system-prompt`` flag must NOT be passed — the
+        # Claude CLI rejects blank values for that flag.
+        client = ClaudeCliClient(binary='claude', docker_mode_on=False)
+        with patch(
+            'sandbox_core_lib.sandbox_core_lib.system_prompt.compose_system_prompt',
+            return_value='',
+        ):
+            cmd = client._build_command(additional_dirs=[], agent_session_id='')
+        self.assertNotIn('--append-system-prompt', cmd)
+
+    def test_blank_additional_dirs_are_dropped(self) -> None:
+        # Branch 930->928: ``if normalized_dir:`` falsy — blank entries
+        # are silently skipped (``--add-dir ""`` would be a CLI error).
+        client = ClaudeCliClient(binary='claude')
+        cmd = client._build_command(
+            additional_dirs=['', '  ', '/repo/real'],
+            agent_session_id='',
+        )
+        self.assertEqual(cmd.count('--add-dir'), 1)
+        self.assertIn('/repo/real', cmd)
+
+
+class ParseCompletedProcessBlankResultTests(unittest.TestCase):
+    """Branch 1048->1050: ``if result_text:`` falsy — Claude returned a
+    JSON envelope with no ``result`` text. We still emit SUCCESS/summary
+    and the session id, but skip the MESSAGE field."""
+
+    def test_blank_result_text_omits_message_field(self) -> None:
+        client = ClaudeCliClient(binary='claude')
+        completed = _completed(
+            json.dumps({
+                'result': '',
+                'session_id': 'sess-abc',
+                'is_error': False,
+            })
+        )
+        result = client._parse_completed_process(completed, log_label='x')
+        self.assertTrue(result[ImplementationFields.SUCCESS])
+        self.assertNotIn(ImplementationFields.MESSAGE, result)
+        # session_id passes through even when result text is blank.
+        self.assertEqual(
+            result[ImplementationFields.AGENT_SESSION_ID], 'sess-abc',
+        )
+
+
+class WorkingDirectoriesDeduplicationTests(unittest.TestCase):
+    """Branch 1154->1152: ``if local_path and local_path not in
+    repository_paths:`` falsy — when the same path appears twice (or is
+    blank) the loop continues without appending."""
+
+    def test_duplicate_repository_paths_are_deduplicated(self) -> None:
+        client = ClaudeCliClient(binary='claude')
+        prepared = PreparedTaskContext(
+            repositories=[
+                _FakeRepo('a', '/wks/PROJ-1/app'),
+                _FakeRepo('a-dup', '/wks/PROJ-1/app'),  # duplicate path
+                _FakeRepo('b', '/wks/PROJ-1/lib'),
+            ],
+        )
+        primary, extras = client._working_directories(prepared)
+        self.assertEqual(primary, '/wks/PROJ-1/app')
+        # Duplicate dropped; only the second unique path appears as extra.
+        self.assertEqual(extras, ['/wks/PROJ-1/lib'])
+
+    def test_blank_local_paths_are_dropped(self) -> None:
+        # Branch 1154->1152 also exercised via the falsy ``local_path``.
+        client = ClaudeCliClient(binary='claude')
+        prepared = PreparedTaskContext(
+            repositories=[
+                _FakeRepo('blank', ''),
+                _FakeRepo('real', '/wks/PROJ-1/real'),
+            ],
+        )
+        primary, extras = client._working_directories(prepared)
+        self.assertEqual(primary, '/wks/PROJ-1/real')
+        self.assertEqual(extras, [])
+
+
+class RepositoryLocalPathsHelperTests(unittest.TestCase):
+    """Branch 1344->1342 in module-level ``_repository_local_paths``:
+    ``if path:`` falsy — repos with a blank ``local_path`` are skipped."""
+
+    def test_blank_paths_are_skipped(self) -> None:
+        from claude_core_lib.claude_core_lib.cli_client import _repository_local_paths
+        prepared = PreparedTaskContext(
+            repositories=[
+                _FakeRepo('blank', '   '),
+                _FakeRepo('none', ''),
+                _FakeRepo('real', '/wks/PROJ-1/api'),
+            ],
+        )
+        self.assertEqual(_repository_local_paths(prepared), ['/wks/PROJ-1/api'])
+
+    def test_none_prepared_task_returns_empty(self) -> None:
+        from claude_core_lib.claude_core_lib.cli_client import _repository_local_paths
+        self.assertEqual(_repository_local_paths(None), [])
+
+
 class InvestigateTests(unittest.TestCase):
     def test_requires_non_blank_prompt(self) -> None:
         client = ClaudeCliClient(binary='claude')

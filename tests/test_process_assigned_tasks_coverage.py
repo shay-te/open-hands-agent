@@ -243,6 +243,32 @@ class ProcessReviewCommentBatchBestEffortTests(unittest.TestCase):
             [r['comment'] for r in result], ['c1', 'c2'],
         )
 
+    def test_singular_path_skips_none_results(self) -> None:
+        """Covers the ``if single is not None`` False branch (line 191->179).
+
+        ``process_review_comment`` can legitimately return ``None`` when
+        a comment is skipped (e.g. filtered as a non-actionable mention).
+        Those Nones must not leak into the result list.
+        """
+        class _NoBatch:
+            def __init__(self):
+                self.calls = 0
+
+            def process_review_comment(self, _c):
+                self.calls += 1
+                return None  # always skipped
+
+        service = _NoBatch()
+        result = _process_review_comment_batch_best_effort(
+            service,
+            [
+                make_review_comment(comment_id='c1'),
+                make_review_comment(comment_id='c2'),
+            ],
+        )
+        self.assertEqual(result, [])
+        self.assertEqual(service.calls, 2)
+
 
 class DispatchReviewCommentsParallelTests(unittest.TestCase):
     """Real ParallelTaskRunner driving the review-comment dispatch."""

@@ -38,6 +38,7 @@ from pathlib import Path
 
 from sandbox_core_lib.sandbox_core_lib.tls_pin import (
     TlsPinError,
+    _format_first_run_box,
     _read_pin_file,
     _save_pin_file,
     is_pinning_enabled,
@@ -587,6 +588,51 @@ class PinFileFormatTests(unittest.TestCase):
         _save_pin_file(self.pin_path, _FAKE_PRIMARY_PIN)
         second_line = self.pin_path.read_text().splitlines()[1]
         self.assertTrue(second_line.startswith('# pinned:'))
+
+    def test_read_pin_file_returns_none_when_no_pinned_comment(self) -> None:
+        # Branch 284->289: the loop walks ``lines[1:]`` and exits
+        # without ever hitting a ``# pinned:`` line — ``pinned_at``
+        # stays ``None`` and the parser returns successfully. Locks the
+        # backward-compat case where a hand-written file omits the
+        # timestamp comment entirely.
+        self.pin_path.parent.mkdir(parents=True, exist_ok=True)
+        self.pin_path.write_text(f'{_FAKE_PRIMARY_PIN}\n# unrelated note\n')
+        fingerprint, pinned_at = _read_pin_file(self.pin_path)
+        self.assertEqual(fingerprint, _FAKE_PRIMARY_PIN)
+        self.assertIsNone(pinned_at)
+
+    def test_read_pin_file_skips_non_pinned_comment_lines(self) -> None:
+        # Branch 286->284: a comment line that does NOT start with
+        # ``# pinned:`` must be skipped (loop continues to next line)
+        # rather than aborting the parse. Locks tolerance for inline
+        # operator notes above the timestamp.
+        self.pin_path.parent.mkdir(parents=True, exist_ok=True)
+        self.pin_path.write_text(
+            f'{_FAKE_PRIMARY_PIN}\n'
+            '# operator note: rotated 2026-01-01\n'
+            '# pinned: 2026-02-02T03:04:05+00:00\n'
+        )
+        fingerprint, pinned_at = _read_pin_file(self.pin_path)
+        self.assertEqual(fingerprint, _FAKE_PRIMARY_PIN)
+        self.assertEqual(pinned_at, '2026-02-02T03:04:05+00:00')
+
+    def test_first_run_box_truncates_overlong_path(self) -> None:
+        # Line 323: when a row's text exceeds the 66-char inner width
+        # (e.g. an unusually deep ``Saved to:`` path on a CI runner),
+        # it must be truncated to fit the boxed banner rather than
+        # blowing the layout. Locks the truncate branch of ``row()``.
+        long_path = Path('/' + 'long_directory_segment/' * 6 + 'pin')
+        box = _format_first_run_box(long_path)
+        # Banner top/bottom rules stay intact (inner width = 66).
+        self.assertIn('═' * 66, box)
+        # Every emitted line stays the same width — no overflow.
+        body_lines = [
+            line for line in box.split('\n')
+            if line.startswith('║') and line.endswith('║')
+        ]
+        self.assertTrue(body_lines)  # sanity: rows were emitted
+        widths = {len(line) for line in body_lines}
+        self.assertEqual(widths, {68})  # 66 inner + two ║ borders
 
 
 # --------------------------------------------------------------------------

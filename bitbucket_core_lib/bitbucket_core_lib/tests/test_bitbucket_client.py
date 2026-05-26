@@ -361,6 +361,32 @@ class BitbucketClientTests(unittest.TestCase):
         self.assertEqual(comments[0].line_number, 5)
         self.assertEqual(comments[0].line_type, 'removed')
 
+    def test_list_pull_request_comments_inline_without_to_or_from(self) -> None:
+        # Branch 219->222: ``inline`` is a dict but has neither ``to``
+        # nor ``from`` set → file_path captured but line_number stays
+        # the default empty string.
+        client = BitbucketClient('https://bitbucket.example', 'bb-token')
+        response = mock_response(
+            json_data={
+                'values': [
+                    {
+                        'id': 99,
+                        'content': {'raw': 'Generic comment on file'},
+                        'user': {'display_name': 'reviewer'},
+                        'inline': {'path': 'src/app.py'},
+                    }
+                ]
+            }
+        )
+
+        with patch.object(client, '_get', return_value=response):
+            comments = client.list_pull_request_comments('workspace', 'repo', '42')
+
+        self.assertEqual(len(comments), 1)
+        self.assertEqual(comments[0].file_path, 'src/app.py')
+        self.assertEqual(comments[0].line_number, '')
+        self.assertEqual(comments[0].line_type, '')
+
     def test_list_pull_request_comments_captures_commit_sha(self) -> None:
         client = BitbucketClient('https://bitbucket.example', 'bb-token')
         response = mock_response(

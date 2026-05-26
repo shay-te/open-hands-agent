@@ -558,6 +558,26 @@ class GitHubClientDefensiveBranchTests(unittest.TestCase):
             result = client._thread_id_for_comment('owner', 'repo', '17', '99')
         self.assertEqual(result, 'thread-1')
 
+    def test_thread_id_continues_loop_when_first_thread_has_no_match(self) -> None:
+        # Branch 303->298: the ``any(...)`` check at line 303 returns
+        # False for the first thread, so the loop continues to the
+        # next iteration (back-edge to line 298).
+        client = GitHubClient('https://api.github.com', 'gh-token')
+        non_matching_thread = {
+            'id': 'thread-other',
+            'comments': {'nodes': [{'databaseId': 42}]},
+        }
+        matching_thread = {
+            'id': 'thread-target',
+            'comments': {'nodes': [{'databaseId': 99}]},
+        }
+        with patch.object(
+            client, '_review_thread_nodes',
+            return_value=[non_matching_thread, matching_thread],
+        ):
+            result = client._thread_id_for_comment('owner', 'repo', '17', '99')
+        self.assertEqual(result, 'thread-target')
+
     def test_graphql_returns_payload_when_no_errors(self) -> None:
         # Line 292: the happy path — no ``errors`` key → return the raw payload.
         client = GitHubClient('https://api.github.com', 'gh-token')

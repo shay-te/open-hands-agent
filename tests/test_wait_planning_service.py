@@ -20,5 +20,18 @@ class WaitPlanningServicePromptTests(unittest.TestCase):
         self.assertIn('DO NOT call any tools', prompt)
 
 
+class WaitPlanningTagDetectionTests(unittest.TestCase):
+    def test_task_with_unrelated_tags_is_not_wait_planning(self) -> None:
+        # Branch 85->84: an unrelated tag is encountered, the inner ``if``
+        # is False, and the loop continues to the next iteration before
+        # eventually falling through to ``return False``.
+        task = build_task(tags=['kato:triage:high', 'other-tag', ''])
+        self.assertFalse(WaitPlanningService.task_has_wait_planning_tag(task))
+
+    def test_task_with_wait_planning_tag_returns_true(self) -> None:
+        task = build_task(tags=['unrelated', 'kato:wait-planning'])
+        self.assertTrue(WaitPlanningService.task_has_wait_planning_tag(task))
+
+
 if __name__ == '__main__':
     unittest.main()

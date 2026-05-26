@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 from provider_client_base.provider_client_base.helpers.retry_utils import (
     TRANSIENT_EXCEPTION_NAMES,
     TRANSIENT_STATUS_CODES,
+    _bounded_jitter,
     _operation_details,
     _retry_after_seconds,
     _retry_delay_seconds,
@@ -261,6 +262,43 @@ class RetryDelaySecondsTests(unittest.TestCase):
         with patch('provider_client_base.provider_client_base.helpers.retry_utils.random.uniform', return_value=1.5):
             delay = _retry_delay_seconds(0, r)
         self.assertEqual(delay, 1.5)
+
+
+# ---------------------------------------------------------------------------
+# _bounded_jitter
+# ---------------------------------------------------------------------------
+
+
+class BoundedJitterTests(unittest.TestCase):
+    def test_zero_base_returns_zero_without_calling_random(self):
+        # Line 119: ``upper <= 0`` early-returns 0.0 so we never call
+        # ``random.uniform(0, 0)``. Locks the non-negative jitter
+        # contract — a zero-second ``Retry-After`` must not crash or
+        # add negative slack.
+        with patch(
+            'provider_client_base.provider_client_base.helpers.retry_utils.random.uniform',
+        ) as m:
+            self.assertEqual(_bounded_jitter(0.0), 0.0)
+        m.assert_not_called()
+
+    def test_negative_base_returns_zero(self):
+        # Defensive: a negative base (shouldn't happen, but a bad
+        # ``Retry-After`` string parser could feed one in) must also
+        # short-circuit to 0.0 rather than asking ``random.uniform``
+        # for a negative range.
+        with patch(
+            'provider_client_base.provider_client_base.helpers.retry_utils.random.uniform',
+        ) as m:
+            self.assertEqual(_bounded_jitter(-5.0), 0.0)
+        m.assert_not_called()
+
+    def test_positive_base_uses_random_uniform(self):
+        with patch(
+            'provider_client_base.provider_client_base.helpers.retry_utils.random.uniform',
+            return_value=1.5,
+        ) as m:
+            self.assertEqual(_bounded_jitter(10.0), 1.5)
+        m.assert_called_once()
 
 
 # ---------------------------------------------------------------------------

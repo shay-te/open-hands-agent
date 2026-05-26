@@ -211,6 +211,26 @@ class TriageInconclusiveTests(unittest.TestCase):
         self.assertEqual(result[StatusFields.STATUS], TRIAGE_STATUS_INCONCLUSIVE)
         self.task_service.remove_tag.assert_not_called()
 
+    def test_inconclusive_without_reason_still_records_claude_response(self) -> None:
+        # Branch 158->160: ``reason`` is blank, so the ``Reason:`` line is
+        # not appended — execution proceeds directly to the
+        # ``if claude_response`` check.
+        service = TriageService(
+            task_service=self.task_service,
+            triage_investigator=Mock(),
+        )
+
+        result = service._record_inconclusive(
+            _task_with_tags(TaskTags.TRIAGE_INVESTIGATE),
+            reason='',
+            claude_response='raw model output',
+        )
+
+        self.assertEqual(result[StatusFields.STATUS], TRIAGE_STATUS_INCONCLUSIVE)
+        comment = self.task_service.add_comment.call_args.args[1]
+        self.assertNotIn('Reason:', comment)
+        self.assertIn('raw model output', comment)
+
 
 class TriageUnavailableTests(unittest.TestCase):
     def setUp(self) -> None:
