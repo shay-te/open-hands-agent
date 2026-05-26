@@ -272,6 +272,89 @@ class NoAutoDeletePolicyTests(unittest.TestCase):
         service._terminate_session_silent('T1')
         session.terminate_session.assert_not_called()
 
+    def test_shutdown_kills_subprocesses_without_removing_records(self) -> None:
+        # Triggered by SIGINT/SIGTERM: kato must terminate live
+        # subprocesses (so file handles release) but the on-disk
+        # session record stays. Asserts ``session_manager.shutdown``
+        # is invoked (which internally calls
+        # ``terminate_session(task_id)`` WITHOUT ``remove_record``).
+        # If anyone wires ``remove_record=True`` here in the future,
+        # this test sees a different call signature and fails.
+        session = MagicMock()
+        # ``session_manager.shutdown`` is what AgentService.shutdown
+        # calls; we let the real impl iterate and call terminate_session.
+        # Stand in the real iteration by exposing one task id.
+        session.shutdown.side_effect = lambda: session.terminate_session('T1')
+        service = AgentService(**_kwargs(session_manager=session))
+        service.shutdown()
+        session.shutdown.assert_called_once_with()
+        # Critical: ``remove_record=True`` MUST NOT appear.
+        for call in session.terminate_session.call_args_list:
+            self.assertNotIn('remove_record', call.kwargs)
+            self.assertFalse(call.kwargs.get('remove_record', False))
+
+    def test_provider_switch_flips_orphan_workspaces_to_done_not_delete(self) -> None:
+        # Operator changes ``TASK_PROVIDER`` (e.g. jira → youtrack).
+        # The new provider returns a completely different task set,
+        # so every previously-tracked workspace becomes "stale". The
+        # cleanup path must NOT wipe those clones — they're real work
+        # the operator may still want to review. Status flips to
+        # ``done`` (UI greys the circle); operator wipes manually if
+        # ever desired.
+        from kato_core_lib.data_layers.service.workspace_manager import (
+            WORKSPACE_STATUS_ACTIVE,
+            WORKSPACE_STATUS_DONE,
+        )
+        # Old provider (jira) had JIRA-1 and JIRA-2 in progress.
+        # After switch to youtrack the lists return YT-7 only.
+        task_service = MagicMock()
+        task_service.get_review_tasks.return_value = []
+        task_service.get_assigned_tasks.return_value = [
+            SimpleNamespace(id='YT-7'),
+        ]
+        session = MagicMock()
+        session.get_session.return_value = None
+        session.list_records.return_value = [
+            SimpleNamespace(task_id='JIRA-1'),
+            SimpleNamespace(task_id='JIRA-2'),
+        ]
+        workspace = MagicMock()
+        workspace.list_workspaces.return_value = [
+            SimpleNamespace(
+                task_id='JIRA-1',
+                status=WORKSPACE_STATUS_ACTIVE,
+                updated_at_epoch=1.0,
+            ),
+            SimpleNamespace(
+                task_id='JIRA-2',
+                status=WORKSPACE_STATUS_ACTIVE,
+                updated_at_epoch=1.0,
+            ),
+        ]
+        registry = MagicMock()
+        registry.tracked_task_ids.return_value = set()
+        review_svc = MagicMock()
+        review_svc.state_registry = registry
+        service = AgentService(**_kwargs(
+            task_service=task_service,
+            session_manager=session,
+            workspace_manager=workspace,
+            review_comment_service=review_svc,
+        ))
+        service._review_workspace_ttl_seconds = 60
+        service.logger = MagicMock()
+        service.cleanup_done_tasks()
+        # Neither old-provider workspace is deleted or its session record removed.
+        workspace.delete.assert_not_called()
+        session.terminate_session.assert_not_called()
+        # Both get flipped to ``done`` so the UI dims their tabs.
+        update_calls = workspace.update_status.call_args_list
+        flipped = {
+            call.args[0] for call in update_calls
+            if call.args[1] == WORKSPACE_STATUS_DONE
+        }
+        self.assertEqual(flipped, {'JIRA-1', 'JIRA-2'})
+
 
 class CleanupDoneTasksBootEntrypointTests(unittest.TestCase):
     def test_public_cleanup_delegates_to_internal(self) -> None:
