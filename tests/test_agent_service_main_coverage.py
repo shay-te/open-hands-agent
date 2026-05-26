@@ -158,6 +158,121 @@ class GetNewPullRequestCommentsTests(unittest.TestCase):
         self.assertEqual(result, ['c1'])
 
 
+class NoAutoDeletePolicyTests(unittest.TestCase):
+    """Operator policy invariant — kato NEVER auto-deletes on disk.
+
+    The next person who tries to wire an auto-delete back into the
+    cleanup paths trips these. The only legitimate path that wipes a
+    workspace clone or session record is the operator's explicit
+    ``DELETE /api/sessions/<task_id>/workspace`` route in the
+    webserver. The boot prune (called from ``cleanup_done_tasks``)
+    and the scan-tick prune (called via ``get_new_pull_request_comments``)
+    must only flip workspace status to ``done`` so the UI can grey
+    out the tab's status circle.
+    """
+
+    def _service_with_one_stale_task(self):
+        # Builds a service where exactly one record is stale: the
+        # platform has nothing assigned or in review, but there's a
+        # session record + workspace on disk for ``UNA-STALE``.
+        # ``updated_at_epoch`` is set FAR in the past so the
+        # active/provisioning "freshness" grace doesn't accidentally
+        # protect it from the cleanup path under test.
+        from kato_core_lib.data_layers.service.workspace_manager import (
+            WORKSPACE_STATUS_ACTIVE,
+        )
+        task_service = MagicMock()
+        task_service.get_review_tasks.return_value = []
+        task_service.get_assigned_tasks.return_value = []
+        session = MagicMock()
+        session.list_records.return_value = [
+            SimpleNamespace(task_id='UNA-STALE'),
+        ]
+        workspace = MagicMock()
+        workspace.list_workspaces.return_value = [
+            SimpleNamespace(
+                task_id='UNA-STALE',
+                status=WORKSPACE_STATUS_ACTIVE,
+                updated_at_epoch=1.0,  # ancient → past the TTL grace
+            ),
+        ]
+        registry = MagicMock()
+        registry.tracked_task_ids.return_value = set()
+        review_svc = MagicMock()
+        review_svc.state_registry = registry
+        service = AgentService(**_kwargs(
+            task_service=task_service,
+            session_manager=session,
+            workspace_manager=workspace,
+            review_comment_service=review_svc,
+        ))
+        # Make sure the TTL grace is shorter than ``now - 1.0`` so the
+        # workspace falls into the 'stale' bucket; default config
+        # might leave TTL at 0 (=disabled) which protects everything.
+        service._review_workspace_ttl_seconds = 60
+        service.logger = MagicMock()
+        # The live-session check would treat a MagicMock session as
+        # alive (truthy + ``is_alive`` truthy by default), keeping
+        # the workspace 'protected'. Force it to look gone.
+        session.get_session.return_value = None
+        return service, session, workspace
+
+    def test_boot_cleanup_never_deletes_workspace(self) -> None:
+        service, _session, workspace = self._service_with_one_stale_task()
+        service.cleanup_done_tasks()
+        workspace.delete.assert_not_called()
+
+    def test_boot_cleanup_never_removes_session_record(self) -> None:
+        service, session, _workspace = self._service_with_one_stale_task()
+        service.cleanup_done_tasks()
+        # ``terminate_session`` would kill the live subprocess; with
+        # ``remove_record=True`` it ALSO wipes the on-disk record so
+        # the tab vanishes. Neither variant is allowed from a boot /
+        # scan-tick auto-cleanup path.
+        session.terminate_session.assert_not_called()
+
+    def test_scan_tick_cleanup_never_deletes_workspace(self) -> None:
+        # ``_cleanup_done_task_conversations`` is what runs every
+        # 30s/180s scan tick (called from ``get_new_pull_request_comments``).
+        # Same no-delete invariant must hold.
+        service, _session, workspace = self._service_with_one_stale_task()
+        service._cleanup_done_task_conversations()
+        workspace.delete.assert_not_called()
+
+    def test_scan_tick_cleanup_never_removes_session_record(self) -> None:
+        service, session, _workspace = self._service_with_one_stale_task()
+        service._cleanup_done_task_conversations()
+        session.terminate_session.assert_not_called()
+
+    def test_stale_workspace_gets_marked_done_for_grey_circle(self) -> None:
+        # Positive assertion: instead of deletion, the status flip
+        # (``done``) is what the UI uses to grey out the tab dot.
+        from kato_core_lib.data_layers.service.workspace_manager import (
+            WORKSPACE_STATUS_DONE,
+        )
+        service, _session, workspace = self._service_with_one_stale_task()
+        service.cleanup_done_tasks()
+        workspace.update_status.assert_called_with(
+            'UNA-STALE', WORKSPACE_STATUS_DONE,
+        )
+
+    def test_delete_workspace_silent_is_a_noop(self) -> None:
+        # The old auto-delete helper is kept only as a deprecated
+        # no-op. Calling it must NOT reach the workspace manager —
+        # no matter what the manager would do if invoked.
+        workspace = MagicMock()
+        service = AgentService(**_kwargs(workspace_manager=workspace))
+        service._delete_workspace_silent('T1')
+        workspace.delete.assert_not_called()
+
+    def test_terminate_session_silent_is_a_noop(self) -> None:
+        # Same for the session-record auto-removal helper.
+        session = MagicMock()
+        service = AgentService(**_kwargs(session_manager=session))
+        service._terminate_session_silent('T1')
+        session.terminate_session.assert_not_called()
+
+
 class CleanupDoneTasksBootEntrypointTests(unittest.TestCase):
     def test_public_cleanup_delegates_to_internal(self) -> None:
         service = AgentService(**_kwargs())
@@ -165,11 +280,18 @@ class CleanupDoneTasksBootEntrypointTests(unittest.TestCase):
             service.cleanup_done_tasks()
         c.assert_called_once_with()
 
-    def test_done_task_with_stale_session_record_is_pruned(self) -> None:
-        # Mirrors UNA-1201's exact on-disk shape: a session record
-        # left behind (status 'active', no workspace folder) for a
-        # ticket that's NO LONGER assigned or in review. The boot
-        # prune must delete it so the tab doesn't come back.
+    def test_done_task_with_stale_session_record_is_marked_done_not_deleted(self) -> None:
+        # Operator policy change: NEVER auto-delete a session record.
+        # Mirrors UNA-1201's exact on-disk shape (record left behind
+        # for a ticket no longer assigned or in review). The boot
+        # prune must NOT terminate the session, NOT remove the
+        # record, and NOT touch the workspace folder — it only flips
+        # the workspace status to ``done`` so the UI dims the tab's
+        # status circle. Operator wipes via the explicit DELETE
+        # endpoint when (and if) they want to.
+        from kato_core_lib.data_layers.service.workspace_manager import (
+            WORKSPACE_STATUS_DONE,
+        )
         task_service = MagicMock()
         task_service.get_review_tasks.return_value = []
         task_service.get_assigned_tasks.return_value = []
@@ -178,7 +300,7 @@ class CleanupDoneTasksBootEntrypointTests(unittest.TestCase):
             SimpleNamespace(task_id='UNA-1201', status='active'),
         ]
         workspace = MagicMock()
-        workspace.list_workspaces.return_value = []  # workspace already gone
+        workspace.list_workspaces.return_value = []
         registry = MagicMock()
         registry.tracked_task_ids.return_value = set()
         review_svc = MagicMock()
@@ -191,8 +313,10 @@ class CleanupDoneTasksBootEntrypointTests(unittest.TestCase):
         ))
         service.logger = MagicMock()
         service.cleanup_done_tasks()
-        session.terminate_session.assert_called_once_with(
-            'UNA-1201', remove_record=True,
+        session.terminate_session.assert_not_called()
+        workspace.delete.assert_not_called()
+        workspace.update_status.assert_called_with(
+            'UNA-1201', WORKSPACE_STATUS_DONE,
         )
 
 
@@ -243,7 +367,15 @@ class CleanupDonePlanningSessionsTests(unittest.TestCase):
         service._cleanup_done_planning_sessions({'T1'})
         service.logger.warning.assert_called()
 
-    def test_terminates_stale_sessions(self) -> None:
+    def test_marks_stale_workspaces_done_without_deleting(self) -> None:
+        # Policy: NEVER auto-delete. A workspace whose ticket has
+        # left both assigned and review buckets is flipped to
+        # ``done`` (the UI greys out its status circle) but the
+        # disk clone, the session record, and the tab all stay.
+        # Operator wipes via the explicit DELETE endpoint only.
+        from kato_core_lib.data_layers.service.workspace_manager import (
+            WORKSPACE_STATUS_DONE,
+        )
         task_service = MagicMock()
         task_service.get_assigned_tasks.return_value = []
         session = MagicMock()
@@ -259,7 +391,13 @@ class CleanupDonePlanningSessionsTests(unittest.TestCase):
         ))
         service.logger = MagicMock()
         service._cleanup_done_planning_sessions(set())
-        session.terminate_session.assert_called_with('STALE-1', remove_record=True)
+        # No delete, no record removal, no subprocess kill.
+        session.terminate_session.assert_not_called()
+        workspace.delete.assert_not_called()
+        # Just the status flip so the UI dims the circle.
+        workspace.update_status.assert_called_with(
+            'STALE-1', WORKSPACE_STATUS_DONE,
+        )
 
 
 class StalePlanningTaskIdsTests(unittest.TestCase):
@@ -440,31 +578,65 @@ class ColdActiveWorkspaceCleanupTests(unittest.TestCase):
 
 
 class TerminateSessionSilentTests(unittest.TestCase):
-    def test_noop_when_session_manager_none(self) -> None:
-        service = AgentService(**_kwargs())
-        service._terminate_session_silent('T1')  # no raise
+    # ``_terminate_session_silent`` is now a deprecated no-op (operator
+    # policy: NEVER auto-delete a session record). The previous tests
+    # exercised the old terminate-and-remove behaviour; with the noop
+    # we only assert that no session method is invoked on any path.
 
-    def test_swallows_terminate_exception(self) -> None:
+    def test_does_not_touch_session_manager_even_when_present(self) -> None:
         session = MagicMock()
-        session.terminate_session.side_effect = RuntimeError('fail')
         service = AgentService(**_kwargs(session_manager=session))
         service.logger = MagicMock()
         service._terminate_session_silent('T1')
-        service.logger.exception.assert_called()
+        # Whole point of the no-op: nothing happens to the live
+        # session. The tab + record stay so the UI can grey them out.
+        session.terminate_session.assert_not_called()
+        service.logger.exception.assert_not_called()
 
 
 class DeleteWorkspaceSilentTests(unittest.TestCase):
-    def test_noop_when_workspace_manager_none(self) -> None:
-        service = AgentService(**_kwargs())
-        service._delete_workspace_silent('T1')
+    # ``_delete_workspace_silent`` is now a deprecated no-op (operator
+    # policy: NEVER auto-delete a workspace folder). Callers wanting
+    # to flag a workspace as done use ``_mark_workspace_done_silent``;
+    # the explicit DELETE endpoint stays for operator-triggered wipes.
 
-    def test_swallows_delete_exception(self) -> None:
+    def test_does_not_touch_workspace_manager_even_when_present(self) -> None:
         workspace = MagicMock()
-        workspace.delete.side_effect = RuntimeError('fail')
         service = AgentService(**_kwargs(workspace_manager=workspace))
         service.logger = MagicMock()
         service._delete_workspace_silent('T1')
+        workspace.delete.assert_not_called()
+        service.logger.exception.assert_not_called()
+
+
+class MarkWorkspaceDoneSilentTests(unittest.TestCase):
+    def test_noop_when_workspace_manager_none(self) -> None:
+        service = AgentService(**_kwargs())
+        service._mark_workspace_done_silent('T1')  # no raise
+
+    def test_flips_status_to_done(self) -> None:
+        from kato_core_lib.data_layers.service.workspace_manager import (
+            WORKSPACE_STATUS_DONE,
+        )
+        workspace = MagicMock()
+        service = AgentService(**_kwargs(workspace_manager=workspace))
+        service._mark_workspace_done_silent('T1')
+        workspace.update_status.assert_called_with('T1', WORKSPACE_STATUS_DONE)
+
+    def test_swallows_update_status_exception(self) -> None:
+        workspace = MagicMock()
+        workspace.update_status.side_effect = RuntimeError('fail')
+        service = AgentService(**_kwargs(workspace_manager=workspace))
+        service.logger = MagicMock()
+        service._mark_workspace_done_silent('T1')
         service.logger.exception.assert_called()
+
+    def test_skips_when_manager_has_no_update_status(self) -> None:
+        # Legacy / partial managers (e.g. test doubles without the
+        # method) must not blow up — silent no-op.
+        workspace = SimpleNamespace()  # no ``update_status`` attr
+        service = AgentService(**_kwargs(workspace_manager=workspace))
+        service._mark_workspace_done_silent('T1')  # no raise
 
 
 class UpdateWorkspaceStatusAfterPublishTests(unittest.TestCase):
@@ -1107,33 +1279,43 @@ class CleanupCaseInsensitivityRegressionTests(unittest.TestCase):
         session.terminate_session.assert_not_called()
         workspace.delete.assert_not_called()
 
-    def test_done_task_IS_cleaned_despite_case_mismatch(self) -> None:
-        # Platform: nothing assigned, nothing in review (UNA-1201 is
-        # Done). Record on disk: lower-cased ``una-1201``.
+    def test_done_task_IS_marked_done_despite_case_mismatch(self) -> None:
+        # Policy: NEVER auto-delete. Platform has nothing live; record
+        # on disk is the lower-cased ``una-1201``. The cleanup must
+        # flip the workspace status to ``done`` (using the ORIGINAL
+        # record id so the manager finds it) without terminating the
+        # session or deleting the clone.
+        from kato_core_lib.data_layers.service.workspace_manager import (
+            WORKSPACE_STATUS_DONE,
+        )
         svc, session, workspace = self._service(
             review_ids=[],
             assigned_ids=[],
             record_ids=['una-1201'],
         )
         svc._cleanup_done_task_conversations()
-        # Original (lower-cased) id is used so the manager finds it.
-        session.terminate_session.assert_called_once_with(
-            'una-1201', remove_record=True,
+        session.terminate_session.assert_not_called()
+        workspace.delete.assert_not_called()
+        workspace.update_status.assert_called_with(
+            'una-1201', WORKSPACE_STATUS_DONE,
         )
-        workspace.delete.assert_called_once_with('una-1201')
 
-    def test_action_uses_original_record_id_not_normalised(self) -> None:
-        # Mixed-case record, no live tasks → stale. The terminate /
-        # delete must receive the EXACT stored id, not a lowercased
-        # one (managers match case-sensitively).
-        svc, session, _ws = self._service(
+    def test_status_flip_uses_original_record_id_not_normalised(self) -> None:
+        # Mixed-case record, no live tasks → stale. The status flip
+        # must receive the EXACT stored id, not a lowercased one
+        # (managers match case-sensitively).
+        from kato_core_lib.data_layers.service.workspace_manager import (
+            WORKSPACE_STATUS_DONE,
+        )
+        svc, session, workspace = self._service(
             review_ids=[],
             assigned_ids=[],
             record_ids=['UNA-Mixed-99'],
         )
         svc._cleanup_done_task_conversations()
-        session.terminate_session.assert_called_once_with(
-            'UNA-Mixed-99', remove_record=True,
+        session.terminate_session.assert_not_called()
+        workspace.update_status.assert_called_with(
+            'UNA-Mixed-99', WORKSPACE_STATUS_DONE,
         )
 
     def test_assigned_task_in_review_bucket_case_mix_is_protected(self) -> None:

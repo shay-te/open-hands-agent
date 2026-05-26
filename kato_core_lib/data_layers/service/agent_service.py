@@ -39,6 +39,7 @@ from kato_core_lib.data_layers.service.task_service import TaskService
 from kato_core_lib.data_layers.service.testing_service import TestingService
 from kato_core_lib.data_layers.service.workspace_manager import (
     WORKSPACE_STATUS_ACTIVE,
+    WORKSPACE_STATUS_DONE,
     WORKSPACE_STATUS_ERRORED,
     WORKSPACE_STATUS_PROVISIONING,
     WORKSPACE_STATUS_REVIEW,
@@ -370,15 +371,16 @@ class AgentService(Service):
         self,
         current_review_norm: set[str],
     ) -> None:
-        """Drop planning-UI tabs + workspaces whose ticket has moved to done/closed.
+        """Mark planning-UI tabs whose ticket has moved to done/closed.
 
-        A streaming session and its workspace folder are kept on disk
-        while the ticket is in ``Open`` or in the configured review
-        states. Once the ticket leaves both buckets — i.e. the reviewer
-        marked it done or closed — we terminate the live subprocess (if
-        any), delete the persisted session record, and remove the
-        workspace folder. The tab disappears from the planning UI on
-        the next refresh.
+        Previous behaviour terminated the live subprocess, removed the
+        persisted session record, AND deleted the workspace folder when
+        a ticket left both Open and Review buckets. Operator policy is
+        now NEVER auto-delete anything from disk — the workspace clone,
+        the session record, and the tab all stay. Instead, the
+        workspace status is flipped to ``done`` so the UI renders the
+        status circle greyed-out; the operator decides when (or
+        whether) to wipe the clone via the explicit DELETE endpoint.
         """
         if self._session_manager is None and self._workspace_manager is None:
             return
@@ -396,17 +398,16 @@ class AgentService(Service):
 
         # All three id sources (platform / session records / workspace
         # folders) get normalized to a common case before comparison —
-        # see ``_norm_task_id``. ``_stale_planning_task_ids`` returns
-        # the ORIGINAL record ids so the manager deletes the right one.
+        # see ``_norm_task_id``.
         live_norm = assigned_norm | current_review_norm
         for task_id in self._stale_planning_task_ids(live_norm):
             self.logger.info(
                 'task %s is no longer assigned or in review; '
-                'closing planning session tab + deleting workspace',
+                'marking workspace as done (no delete — operator '
+                'must use the explicit DELETE endpoint)',
                 task_id,
             )
-            self._terminate_session_silent(task_id)
-            self._delete_workspace_silent(task_id)
+            self._mark_workspace_done_silent(task_id)
 
     def _stale_planning_task_ids(self, live_norm: set[str]) -> set[str]:
         """Task ids known to either manager that aren't live anymore.
@@ -532,25 +533,51 @@ class AgentService(Service):
             return 'protected'
         return 'stale'
 
-    def _terminate_session_silent(self, task_id: str) -> None:
-        if self._session_manager is None:
-            return
-        try:
-            self._session_manager.terminate_session(task_id, remove_record=True)
-        except Exception:
-            self.logger.exception(
-                'failed to close planning session for task %s', task_id,
-            )
+    def _terminate_session_silent(self, _task_id: str) -> None:
+        """Deprecated: kept as a no-op for backwards compatibility.
 
-    def _delete_workspace_silent(self, task_id: str) -> None:
+        Operator policy is NEVER auto-delete. The previous behaviour
+        called ``terminate_session(remove_record=True)`` which both
+        killed the live subprocess AND wiped the on-disk session
+        record (so the tab vanished from the planning UI). That
+        violates the policy — the tab must stay (greyed-out via the
+        workspace ``done`` status). Operator wipes via the explicit
+        DELETE workspace endpoint.
+        """
+        # Intentionally a no-op — see ``_mark_workspace_done_silent``.
+
+    def _mark_workspace_done_silent(self, task_id: str) -> None:
+        """Flag a workspace as ``done`` without touching disk.
+
+        Replaces the old ``_delete_workspace_silent`` because the
+        operator policy is now NEVER auto-delete a workspace folder.
+        The status flip is enough for the UI to render the tab's
+        status circle greyed-out; the on-disk clone, the session
+        record, and the tab itself all remain. The operator wipes
+        the clone explicitly via the DELETE workspace endpoint
+        when (and if) they want to.
+        """
         if self._workspace_manager is None:
             return
+        update = getattr(self._workspace_manager, 'update_status', None)
+        if not callable(update):
+            return
         try:
-            self._workspace_manager.delete(task_id)
+            update(task_id, WORKSPACE_STATUS_DONE)
         except Exception:
             self.logger.exception(
-                'failed to delete workspace for task %s', task_id,
+                'failed to mark workspace done for task %s', task_id,
             )
+
+    def _delete_workspace_silent(self, _task_id: str) -> None:
+        """Deprecated: kept as a no-op for backwards compatibility.
+
+        Operator policy is NEVER auto-delete. Callers should use
+        ``_mark_workspace_done_silent`` to flip the status instead.
+        Direct callers of ``workspace_manager.delete`` should be
+        operator-triggered only (the DELETE workspace endpoint).
+        """
+        # Intentionally a no-op — see ``_mark_workspace_done_silent``.
 
     def _update_workspace_status_after_publish(
         self,

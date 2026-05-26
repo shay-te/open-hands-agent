@@ -233,12 +233,15 @@ class RepositoryScopeTextTests(unittest.TestCase):
         # overwriting it with the empty prepared value. Guards against
         # accidentally erasing the branch label when a partially
         # initialized prepared context shows up.
+        # Use an EMPTY ``repository_branches`` map so the fallback at
+        # line 339 (``branch_name`` from the task) is what shows up
+        # in the output — otherwise the per-repo override hides it.
         repositories = [
             SimpleNamespace(id='client', local_path='/wks/client', destination_branch='master'),
         ]
         prepared = SimpleNamespace(
             repositories=repositories,
-            repository_branches={'client': 'feat/c'},
+            repository_branches={},
             branch_name='',
         )
         task = SimpleNamespace(
