@@ -85,6 +85,53 @@ describe('EventLog — local entries', () => {
     render(<EventLog entries={[entry]} />);
     expect(screen.getByText(/1 image attached/)).toBeInTheDocument();
   });
+
+  test('expanded StickyPrompt stays expanded after a new event arrives', () => {
+    // Regression: every StickyPrompt key used to include the
+    // ``window.visible`` index, so any new event that grew (or
+    // window-shifted) the list rewrote keys and React remounted
+    // every prompt — dropping its local ``expanded`` state. With
+    // content-derived keys, the operator's expand click survives
+    // every subsequent message.
+    const longPrompt = (
+      'this prompt is long enough to be collapsible by default — '
+      + 'four lines of text so the > 180-char threshold trips and '
+      + 'the "Click to expand" button appears, letting the test '
+      + 'assert that expansion survives a follow-up event arrival.'
+    );
+    const initial = [_local(BUBBLE_KIND.USER, longPrompt)];
+    const { container, rerender } = render(<EventLog entries={initial} />);
+    const expandButton = container.querySelector(
+      '.chat-sticky-prompt-expand',
+    );
+    expect(expandButton).not.toBeNull();
+    expect(expandButton.getAttribute('aria-expanded')).toBe('false');
+    fireEvent.click(expandButton);
+    expect(
+      container
+        .querySelector('.chat-sticky-prompt-expand')
+        .getAttribute('aria-expanded'),
+    ).toBe('true');
+    // New assistant message arrives — the parent re-renders with
+    // a longer ``entries`` array. The expanded prompt must STAY
+    // expanded; the old (index-based-key) bug collapsed it here.
+    rerender(
+      <EventLog
+        entries={[
+          ...initial,
+          _server({
+            type: CLAUDE_EVENT.ASSISTANT,
+            message: { content: [{ type: 'text', text: 'roger that' }] },
+          }),
+        ]}
+      />,
+    );
+    expect(
+      container
+        .querySelector('.chat-sticky-prompt-expand')
+        .getAttribute('aria-expanded'),
+    ).toBe('true');
+  });
 });
 
 

@@ -254,11 +254,15 @@ function bubblesFor(entry, index, onOpenFile) {
     const display = count > 0
       ? `${text}${text ? '\n' : ''}(${count} image${count === 1 ? '' : 's'} attached)`
       : text;
+    // Stable key derived from content — see ``localKey`` for the
+    // rationale (window-index keys forced React unmounts on every
+    // new event and dropped StickyPrompt expanded state).
+    const key = localKey('local', display);
     if ((entry.kind || BUBBLE_KIND.SYSTEM) === BUBBLE_KIND.USER) {
-      return [<StickyPrompt key={`local-${index}`} text={display} />];
+      return [<StickyPrompt key={key} text={display} />];
     }
     return [
-      <Bubble key={`local-${index}`} kind={entry.kind || BUBBLE_KIND.SYSTEM}>
+      <Bubble key={key} kind={entry.kind || BUBBLE_KIND.SYSTEM}>
         {display}
       </Bubble>,
     ];
@@ -492,7 +496,34 @@ function resultBubbles(raw, index) {
 }
 
 function keyOf(raw, index, slot) {
-  return `${index}:${raw.uuid || raw[AGENT_SESSION_ID] || ''}:${slot}`;
+  // Stable across re-renders. ``index`` is the position in the
+  // current ``window.visible`` array, which SHIFTS every time a new
+  // event arrives (window slides, dedupe collapses entries). Mixing
+  // it into React keys made every existing bubble look "new" on the
+  // next render — React unmounted them and remounted fresh ones,
+  // dropping any local state. Most visible symptom: an expanded
+  // ``StickyPrompt`` collapsed itself every time a new chat message
+  // landed. ``raw.uuid`` is unique per Claude event, so keying off
+  // it (with the slot to disambiguate when one raw produces several
+  // bubbles) is stable. ``index`` is kept only as a last-ditch
+  // fallback for raws lacking both uuid and session id.
+  return `${raw.uuid || raw[AGENT_SESSION_ID] || `noid-${index}`}:${slot}`;
+}
+
+// Stable per-text key for locally-composed entries (typed messages,
+// queued composer drafts). Same motivation as ``keyOf``: don't use
+// the volatile ``index``. Same-content prompts will share a key,
+// which only means React reconciles them as the same node — fine,
+// because the visible result is identical.
+function localKey(prefix, text) {
+  // Hash by length + first/last 24 chars so collisions on long
+  // messages are vanishingly unlikely without paying the cost of a
+  // real hash. Empty text falls back to a fixed token so the key
+  // stays valid.
+  const t = String(text || '');
+  const head = t.slice(0, 24).replace(/[^\w-]+/g, '_');
+  const tail = t.length > 48 ? t.slice(-24).replace(/[^\w-]+/g, '_') : '';
+  return `${prefix}:${t.length}:${head}${tail ? `:${tail}` : ''}`;
 }
 
 
