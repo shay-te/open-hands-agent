@@ -289,6 +289,15 @@ class StreamingClaudeSession(object):
         # ``user_messages_sent <= result_events_received`` to call a
         # session idle.
         self._user_messages_sent = 0
+        # Wall-clock of the most recent ``send_user_message``. Lets
+        # callers tell a genuine in-flight turn (message just sent,
+        # Claude about to respond) apart from a STALLED session (a
+        # message sent long ago that never produced a ``result`` —
+        # the subprocess is alive but no longer processing stdin).
+        # Without this, ``user_messages_sent > result_events_received``
+        # stays true forever on a stalled session and blocks all
+        # comment dispatch. Updated under ``_user_messages_sent_lock``.
+        self._last_user_message_sent_epoch = 0.0
         self._user_messages_sent_lock = threading.Lock()
         self.logger = configure_logger(self.__class__.__name__)
         if self._permission_mode == 'bypassPermissions':
@@ -369,6 +378,19 @@ class StreamingClaudeSession(object):
         """
         with self._user_messages_sent_lock:
             return self._user_messages_sent
+
+    @property
+    def last_user_message_sent_epoch(self) -> float:
+        """Wall-clock of the most recent ``send_user_message``.
+
+        ``0.0`` when no user message has been forwarded yet. Paired
+        with ``user_messages_sent``/``result_events_received`` so a
+        caller can age out a stalled in-flight message (sent long ago,
+        never answered) instead of treating the session as busy
+        forever.
+        """
+        with self._user_messages_sent_lock:
+            return self._last_user_message_sent_epoch
 
     @property
     def result_events_received(self) -> int:
@@ -553,6 +575,7 @@ class StreamingClaudeSession(object):
         # callers (``AgentService._task_has_busy_turn``).
         with self._user_messages_sent_lock:
             self._user_messages_sent += 1
+            self._last_user_message_sent_epoch = time.time()
         self.logger.info(
             'forwarded user message to claude session for task %s '
             '(%s chars, %d image(s))',

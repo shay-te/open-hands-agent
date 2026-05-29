@@ -56,6 +56,7 @@ export default function DiffPane({
   const repoId = openFile?.repoId || '';
   const relativePath = openFile?.relativePath || openFile?.absolutePath || '';
   const openRequestId = openFile?.openRequestId || 0;
+  const focusComment = !!openFile?.focusComment;
 
   const [state, setState] = useState({
     status: 'loading', repoDiffs: [], error: '',
@@ -165,6 +166,29 @@ export default function DiffPane({
       node.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   }, [state.status, repoId, relativePath, openRequestId, totalFiles]);
+
+  // When the operator clicked a file's comment badge (not the name),
+  // go one step further than the file-scroll above: scroll to the
+  // file's first comment thread. Comments load asynchronously, so this
+  // also depends on ``commentsByRepo`` — it re-fires once the threads
+  // render and centres the first one. Until then it falls back to the
+  // file section so the view at least lands on the right file.
+  useEffect(() => {
+    if (!focusComment || state.status !== 'ready' || !relativePath) { return; }
+    const fileNode = fileRefs.current.get(diffAnchorKey(repoId, relativePath))
+      || [...fileRefs.current.entries()].find(
+        ([k]) => k.endsWith(`::${relativePath}`),
+      )?.[1];
+    if (!fileNode) { return; }
+    const thread = fileNode.querySelector('.diff-file-comment-thread');
+    const target = thread || fileNode;
+    if (typeof target.scrollIntoView === 'function') {
+      target.scrollIntoView({ behavior: 'smooth', block: thread ? 'center' : 'start' });
+    }
+  }, [
+    focusComment, state.status, repoId, relativePath, openRequestId,
+    totalFiles, commentsByRepo,
+  ]);
 
   if (state.status === 'loading') {
     return (

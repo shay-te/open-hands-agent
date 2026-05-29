@@ -1,8 +1,13 @@
-* { box-sizing: border-box; }
+/* AUTO-GENERATED from webserver/ui/src/styles/app.scss — do NOT edit   this file directly. Edit the .scss sources and run   `npm run build:css` (in webserver/ui) to recompile. */
+* {
+  box-sizing: border-box;
+}
 
 /* Make HTML `hidden` actually hide elements that override `display` in CSS
  * (e.g. `.modal { display: flex }` would otherwise leak through). */
-[hidden] { display: none !important; }
+[hidden] {
+  display: none !important;
+}
 
 :root {
   --radius-pill: 999px;
@@ -14,13 +19,18 @@
   z-index: var(--sticky-header-z, 4);
 }
 
-html, body { height: 100%; }
+html, body {
+  height: 100%;
+}
+
 /* Safety net: the app is a fixed-viewport 3-column layout — nothing
  * should ever scroll the PAGE horizontally. Without this, a wide
  * child (long monospace agent line, Monaco canvas) could make the
  * body horizontally scrollable and shift the whole UI left when a
  * tab's auto-scroll ran. The grid columns clip their own overflow. */
-html, body { overflow-x: hidden; }
+html, body {
+  overflow-x: hidden;
+}
 
 body {
   margin: 0;
@@ -56,6 +66,7 @@ header #kato-logo {
   object-fit: cover;
   display: block;
 }
+
 /* "Kato" + "Planning UI" sit beside the 28px logo. Sized so the
  * text's cap height visually fills the logo's 28px square — bigger
  * than a typical h1 but the logo would dwarf anything smaller. */
@@ -67,6 +78,7 @@ header h1 {
   align-items: center;
   height: 28px;
 }
+
 header .subtitle {
   color: #a3a3a3;
   font-size: 26px;
@@ -76,6 +88,7 @@ header .subtitle {
   align-items: center;
   height: 28px;
 }
+
 /* Round icon buttons matching the rest of the system (files-tab
  * toolbar, session-header actions). Fixed 32px disc, centred icon,
  * subtle hover. The ``.header-status`` button (the click-to-open
@@ -98,11 +111,13 @@ header button:not(.header-status) {
   flex-shrink: 0;
   transition: background-color 0.12s ease-out, color 0.12s ease-out, border-color 0.12s ease-out;
 }
+
 header button:not(.header-status):hover {
   color: #e5e5e5;
   border-color: #404040;
   background: #1f1f1f;
 }
+
 header button:not(.header-status):disabled {
   opacity: 0.4;
   cursor: not-allowed;
@@ -126,21 +141,25 @@ header .header-status {
   margin-left: 4px;
   margin-right: 4px;
 }
+
 header .header-status.is-error {
   background: rgba(239, 68, 68, 0.12);
   border-color: rgba(239, 68, 68, 0.35);
   color: #fecaca;
 }
+
 header .header-status.is-warn {
   background: rgba(245, 158, 11, 0.12);
   border-color: rgba(245, 158, 11, 0.35);
   color: #fde68a;
 }
+
 header .header-status.is-stale {
   background: rgba(64, 64, 64, 0.20);
   border-color: rgba(64, 64, 64, 0.45);
   color: #a3a3a3;
 }
+
 header .header-status-pulse {
   flex-shrink: 0;
   width: 7px;
@@ -149,21 +168,28 @@ header .header-status-pulse {
   background: #34d399;
   animation: kato-status-pulse 1.6s ease-in-out infinite;
 }
+
 header .header-status.is-error .header-status-pulse {
   background: #ef4444;
   animation: none;
 }
-header .header-status.is-warn .header-status-pulse { background: #f59e0b; }
+
+header .header-status.is-warn .header-status-pulse {
+  background: #f59e0b;
+}
+
 header .header-status.is-stale .header-status-pulse {
   background: #404040;
   animation: none;
 }
+
 header .header-status-text {
   min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
 /* Clickable variant — when the operator can pop the orchestrator
  * activity feed open by clicking the pill. Subtle hover lift +
  * a brighter active state when the feed is currently shown. */
@@ -172,23 +198,32 @@ header button.header-status.is-clickable {
   font-family: inherit;
   text-align: left;
 }
+
 header button.header-status.is-clickable:hover {
   background: rgba(255, 255, 255, 0.08);
   border-color: rgba(255, 255, 255, 0.14);
 }
+
 header button.header-status.is-clickable.is-active {
   background: rgba(10, 132, 255, 0.16);
   border-color: rgba(10, 132, 255, 0.45);
   color: #d6e4ff;
 }
+
 header button.header-status.is-clickable.is-active .header-status-pulse {
   background: #0a84ff;
 }
-@keyframes kato-status-pulse {
-  0%, 100% { opacity: 0.55; transform: scale(1); }
-  50%      { opacity: 1;    transform: scale(1.15); }
-}
 
+@keyframes kato-status-pulse {
+  0%, 100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
 #status-bar {
   display: flex;
   align-items: center;
@@ -210,23 +245,45 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   flex-shrink: 0;
   animation: kato-status-pulse 1.6s ease-in-out infinite;
 }
-#status-bar.is-error #status-bar-pulse { background: #ef4444; animation: none; }
-#status-bar.is-warn  #status-bar-pulse { background: #f59e0b; }
-#status-bar.is-stale #status-bar-pulse { background: #404040; animation: none; }
 
-@keyframes kato-status-pulse {
-  0%, 100% { opacity: 0.4; transform: scale(0.85); }
-  50%      { opacity: 1.0; transform: scale(1.1); }
+#status-bar.is-error #status-bar-pulse {
+  background: #ef4444;
+  animation: none;
 }
 
+#status-bar.is-warn #status-bar-pulse {
+  background: #f59e0b;
+}
+
+#status-bar.is-stale #status-bar-pulse {
+  background: #404040;
+  animation: none;
+}
+
+@keyframes kato-status-pulse {
+  0%, 100% {
+    opacity: 0.4;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+}
 #status-bar-text {
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-#status-bar.is-error #status-bar-text { color: #fecaca; }
-#status-bar.is-warn  #status-bar-text { color: #fde68a; }
+
+#status-bar.is-error #status-bar-text {
+  color: #fecaca;
+}
+
+#status-bar.is-warn #status-bar-text {
+  color: #fde68a;
+}
 
 #status-bar-toggle {
   background: transparent;
@@ -237,7 +294,11 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   cursor: pointer;
   font: inherit;
 }
-#status-bar-toggle:hover { color: #e5e5e5; border-color: #e5e5e5; }
+
+#status-bar-toggle:hover {
+  color: #e5e5e5;
+  border-color: #e5e5e5;
+}
 
 #status-bar-history {
   max-height: 220px;
@@ -250,17 +311,37 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   font-size: 11px;
   color: #a3a3a3;
 }
+
 #status-bar-history .row {
   padding: 2px 0;
   display: flex;
   gap: 10px;
   align-items: baseline;
 }
-#status-bar-history .row.error { color: #fecaca; }
-#status-bar-history .row.warn  { color: #fde68a; }
-#status-bar-history .ts { color: #404040; flex-shrink: 0; }
-#status-bar-history .lvl { color: #404040; min-width: 38px; flex-shrink: 0; }
-#status-bar-history .msg { white-space: pre-wrap; word-break: break-word; }
+
+#status-bar-history .row.error {
+  color: #fecaca;
+}
+
+#status-bar-history .row.warn {
+  color: #fde68a;
+}
+
+#status-bar-history .ts {
+  color: #404040;
+  flex-shrink: 0;
+}
+
+#status-bar-history .lvl {
+  color: #404040;
+  min-width: 38px;
+  flex-shrink: 0;
+}
+
+#status-bar-history .msg {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
 
 /* ───── layout grid ──────────────────────────────────────────────
  *
@@ -277,6 +358,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   max-width: 100vw;
   overflow: hidden;
 }
+
 /* Top-tabs variant (the layout shipped after the iOS rework):
  *
  *   row 1   ┌─────────────────────────────────────────────┐
@@ -301,25 +383,24 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
    * neighbouring columns off-screen and visually overlaps. The
    * 0-min lets the column shrink to whatever the grid told it
    * to be, and its own ``overflow`` handles the excess. */
-  grid-template-columns:
-    minmax(0, var(--left-pane-width, 320px))
-    minmax(0, 1fr)
-    minmax(0, var(--right-pane-width, 420px));
+  grid-template-columns: minmax(0, var(--left-pane-width, 320px)) minmax(0, 1fr) minmax(0, var(--right-pane-width, 420px));
   /* row 1: task tab strip · row 2: full-width task header bar ·
    * row 3: the three panels */
   grid-template-rows: auto auto minmax(0, 1fr);
 }
+
 #layout.has-top-tabs > #tabs-pane {
-  grid-column: 1 / -1;
+  grid-column: 1/-1;
   grid-row: 1;
 }
+
 /* The hoisted task header — spans every column, between the tab
  * strip and the panels. Kept as a grid item (NOT display:none when
  * empty) so the panels stay auto-placed in row 3; an empty div in
  * an ``auto`` row collapses to 0 height, so there's no dead band on
  * the no-task screen. */
 #layout.has-top-tabs > #task-header-slot {
-  grid-column: 1 / -1;
+  grid-column: 1/-1;
   grid-row: 2;
   min-width: 0;
 }
@@ -342,8 +423,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   gap: 8px;
   padding: 10px 14px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  background:
-    linear-gradient(180deg,
+  background: linear-gradient(180deg,
       rgba(28, 28, 30, 0.65) 0%,
       rgba(16, 16, 18, 0.75) 100%);
   -webkit-backdrop-filter: blur(24px) saturate(180%);
@@ -368,15 +448,24 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
    * theirs. */
   box-sizing: border-box;
 }
+
 /* Below this width the segment summary text is more noise than
  * signal — the task ID alone is the operator's anchor. Hide the
  * summary and tighten internal padding so the strip still fits
  * a half-dozen segments + the trailing actions without the
  * chevrons getting clipped. */
 @media (max-width: 880px) {
-  .tabs-pane-top { padding: 8px 8px; gap: 6px; }
-  .tabs-pane-top .tab { padding: 5px 10px 5px 8px; max-width: 160px; }
-  .tabs-pane-top .tab p { display: none; }
+  .tabs-pane-top {
+    padding: 8px 8px;
+    gap: 6px;
+  }
+  .tabs-pane-top .tab {
+    padding: 5px 10px 5px 8px;
+    max-width: 160px;
+  }
+  .tabs-pane-top .tab p {
+    display: none;
+  }
 }
 .tabs-pane-top.is-empty {
   padding-top: 14px;
@@ -403,19 +492,26 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   padding-top: 4px;
   padding-bottom: 4px;
 }
-.tabs-scroller::-webkit-scrollbar { height: 8px; }
+
+.tabs-scroller::-webkit-scrollbar {
+  height: 8px;
+}
+
 .tabs-scroller::-webkit-scrollbar-track {
   background: rgba(255, 255, 255, 0.06);
   border-radius: 4px;
 }
+
 .tabs-scroller::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.32);
   border-radius: 4px;
   border: 1px solid rgba(255, 255, 255, 0.06);
 }
+
 .tabs-scroller::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.50);
 }
+
 .tabs-scroller #tab-list {
   list-style: none;
   margin: 0;
@@ -449,26 +545,34 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   min-width: 0;
   transition: background 120ms ease, border-color 120ms ease, color 120ms ease, transform 90ms ease;
 }
+
 .tabs-pane-top .tab:hover {
   background: rgba(255, 255, 255, 0.10);
   border-color: rgba(255, 255, 255, 0.12);
   color: #f5f5f7;
 }
+
 .tabs-pane-top .tab.active {
   background: rgba(255, 255, 255, 0.18);
   border-color: rgba(255, 255, 255, 0.22);
   color: #ffffff;
-  box-shadow:
-    0 1px 8px rgba(0, 0, 0, 0.45),
-    inset 0 1px 0 rgba(255, 255, 255, 0.10);
+  box-shadow: 0 1px 8px $C-NEUTRAL-00-A45, inset 0 1px 0 $C-NEUTRAL-100-A10;
 }
-.tabs-pane-top .tab:active { transform: scale(0.97); }
-.tabs-pane-top .tab:focus { outline: none; }
+
+.tabs-pane-top .tab:active {
+  transform: scale(0.97);
+}
+
+.tabs-pane-top .tab:focus {
+  outline: none;
+}
+
 .tabs-pane-top .tab strong {
   font-weight: 600;
   font-size: 12px;
   letter-spacing: 0.01em;
 }
+
 .tabs-pane-top .tab p {
   margin: 0;
   color: rgba(245, 245, 247, 0.55);
@@ -478,11 +582,13 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
 .tabs-pane-top .tab .tab-changes-indicator {
   display: inline-flex;
   color: #fbbf24;
   font-size: 10px;
 }
+
 .tabs-pane-top .tab .tab-forget-btn {
   background: transparent;
   border: none;
@@ -507,20 +613,23 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   visibility: hidden;
   transition: background 120ms ease, color 120ms ease;
 }
+
 .tabs-pane-top .tab .tab-forget-btn svg {
   width: 9px;
   height: 9px;
   display: block;
 }
+
 .tabs-pane-top .tab:hover .tab-forget-btn,
 .tabs-pane-top .tab.active .tab-forget-btn {
   visibility: visible;
   /* A faint enclosed disc so the × reads as a button that lives
    * INSIDE the pill, not a stray glyph hanging off the rounded
    * edge. The hover state below deepens it to red. */
-  background: rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.1);
   color: rgba(245, 245, 247, 0.75);
 }
+
 .tabs-pane-top .tab .tab-forget-btn:hover {
   background: rgba(220, 38, 38, 0.85);
   color: #fff7ed;
@@ -553,6 +662,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   visibility: hidden;
   transition: background 120ms ease, color 120ms ease, transform 120ms ease;
 }
+
 .tabs-pane-top .tab .tab-pin-btn svg {
   width: 9px;
   height: 9px;
@@ -562,7 +672,11 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   transform: rotate(45deg);
   transition: transform 120ms ease;
 }
-.tabs-pane-top .tab .tab-pin-btn.is-pinned svg { transform: rotate(0deg); }
+
+.tabs-pane-top .tab .tab-pin-btn.is-pinned svg {
+  transform: rotate(0deg);
+}
+
 .tabs-pane-top .tab:hover .tab-pin-btn,
 .tabs-pane-top .tab.active .tab-pin-btn,
 .tabs-pane-top .tab .tab-pin-btn.is-pinned {
@@ -572,12 +686,14 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   background: rgba(255, 255, 255, 0.10);
   color: rgba(245, 245, 247, 0.75);
 }
+
 .tabs-pane-top .tab .tab-pin-btn.is-pinned {
   /* Stronger fill for the "stuck" state so it reads as a toggle
    * that's currently ON rather than just a hovered button. */
-  background: rgba(10, 132, 255, 0.40);
+  background: rgba(10, 132, 255, 0.4);
   color: #f5f5f7;
 }
+
 .tabs-pane-top .tab .tab-pin-btn:hover {
   background: rgba(10, 132, 255, 0.65);
   color: #fff;
@@ -600,22 +716,18 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   /* Solid panel that mirrors the strip's gradient so scrolling
    * tabs are obscured behind the pinned cluster instead of
    * smearing through it. */
-  background:
-    linear-gradient(180deg,
-      rgba(36, 36, 40, 0.96) 0%,
-      rgba(24, 24, 28, 0.96) 100%);
+  background: linear-gradient(180deg, rgba(36, 36, 40, 0.96) 0%, rgba(24, 24, 28, 0.96) 100%);
   border-color: rgba(255, 255, 255, 0.14);
 }
+
 .tabs-pane-top .tab.is-pinned.active {
   /* Active + pinned = the same brighter background as a normal
    * active tab so the active-state signal isn't overwritten by the
    * pinned-panel base. */
-  background:
-    linear-gradient(180deg,
-      rgba(56, 56, 60, 0.98) 0%,
-      rgba(40, 40, 46, 0.98) 100%);
+  background: linear-gradient(180deg, rgba(56, 56, 60, 0.98) 0%, rgba(36, 36, 40, 0.96) 100%);
   border-color: rgba(255, 255, 255, 0.26);
 }
+
 .tabs-pane-top .tab.needs-attention {
   background: rgba(249, 115, 22, 0.22);
   border-color: rgba(249, 115, 22, 0.55);
@@ -642,6 +754,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   border-width: 1px;
   box-sizing: border-box;
 }
+
 /* The attention spinner ring (`::after`) inherits its size from
  * the dot. When the parent flex shrank the dot the ring became
  * an ellipse too — pinning ``flex-shrink: 0`` above is enough to
@@ -651,6 +764,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 .tabs-pane-top .tab .status-dot.status-attention::after {
   inset: -4px;
 }
+
 .tabs-pane-top .tab .status-dot.is-loading::after {
   inset: -3px;
 }
@@ -675,10 +789,15 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   line-height: 1;
   transition: background 120ms ease, opacity 120ms ease, transform 90ms ease;
 }
+
 .tabs-nav-button:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.13);
 }
-.tabs-nav-button:active:not(:disabled) { transform: scale(0.92); }
+
+.tabs-nav-button:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
 .tabs-nav-button:disabled {
   opacity: 0.28;
   cursor: not-allowed;
@@ -695,6 +814,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   border-left: 1px solid rgba(255, 255, 255, 0.06);
   margin-left: 4px;
 }
+
 .tabs-action {
   flex-shrink: 0;
   width: 32px;
@@ -712,25 +832,32 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   padding: 0;
   transition: background 120ms ease, transform 90ms ease;
 }
+
 .tabs-action:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.16);
 }
-.tabs-action:active:not(:disabled) { transform: scale(0.94); }
+
+.tabs-action:active:not(:disabled) {
+  transform: scale(0.94);
+}
+
 .tabs-action:disabled {
   background: rgba(255, 255, 255, 0.03);
   color: rgba(245, 245, 247, 0.28);
   cursor: not-allowed;
 }
+
 /* Add-task gets a soft blue accent — primary entry point to kato. */
 #tabs-add-task.tabs-action {
   background: rgba(10, 132, 255, 0.85);
   border-color: rgba(10, 132, 255, 0.55);
   color: #f0f9ff;
-  box-shadow: 0 1px 6px rgba(10, 132, 255, 0.35);
+  box-shadow: 0 1px 6px $C-CYAN-52-A35;
 }
+
 #tabs-add-task.tabs-action:hover {
   background: rgba(41, 151, 255, 0.95);
-  box-shadow: 0 1px 10px rgba(10, 132, 255, 0.55);
+  box-shadow: 0 1px 10px $C-CYAN-52-A55;
 }
 
 /* Empty-state copy when no tabs exist yet — sits inline in the
@@ -744,6 +871,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   font-size: 12px;
   white-space: normal;
 }
+
 .tabs-pane-top .empty code {
   background: rgba(255, 255, 255, 0.10);
   padding: 1px 5px;
@@ -761,11 +889,13 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   display: flex;
   flex-direction: column;
 }
+
 #tabs-pane:not(.tabs-pane-top) #tab-list {
   list-style: none;
   margin: 0;
   padding: 0;
 }
+
 #tabs-pane:not(.tabs-pane-top) .tab {
   padding: 10px 16px;
   cursor: pointer;
@@ -775,22 +905,34 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   gap: 8px;
   align-items: start;
 }
-#tabs-pane:not(.tabs-pane-top) .tab:hover { background: #171717; }
-#tabs-pane:not(.tabs-pane-top) .tab:focus { outline: none; }
+
+#tabs-pane:not(.tabs-pane-top) .tab:hover {
+  background: #171717;
+}
+
+#tabs-pane:not(.tabs-pane-top) .tab:focus {
+  outline: none;
+}
+
 #tabs-pane:not(.tabs-pane-top) .tab.active {
   background: #171717;
   border-left-color: #e5e5e5;
 }
-#tabs-pane:not(.tabs-pane-top) .tab strong { display: block; }
+
+#tabs-pane:not(.tabs-pane-top) .tab strong {
+  display: block;
+}
+
 #tabs-pane:not(.tabs-pane-top) .tab p {
   margin: 2px 0 0;
   color: #a3a3a3;
   font-size: 12px;
   grid-column: 2;
 }
+
 #tabs-pane:not(.tabs-pane-top) .tab-forget-btn {
   grid-column: 4;
-  grid-row: 1 / span 2;
+  grid-row: 1/span 2;
   align-self: center;
   background: transparent;
   border: none;
@@ -802,8 +944,12 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   border-radius: 4px;
   visibility: hidden;
 }
+
 #tabs-pane:not(.tabs-pane-top) .tab:hover .tab-forget-btn,
-#tabs-pane:not(.tabs-pane-top) .tab.active .tab-forget-btn { visibility: visible; }
+#tabs-pane:not(.tabs-pane-top) .tab.active .tab-forget-btn {
+  visibility: visible;
+}
+
 #tabs-pane:not(.tabs-pane-top) .tab-forget-btn:hover {
   background: #b91c1c;
   color: #fff7ed;
@@ -820,7 +966,9 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   border: 2px solid #171717;
 }
 
-.status-active       { background: #047857; }   /* green: live session */
+.status-active {
+  background: #047857;
+} /* green: live session */
 .status-active.is-idle-alive {
   /* alive subprocess but the current turn has closed (Claude said
    * "Done") — dim the green so the sidebar visually distinguishes
@@ -828,16 +976,36 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   background: #064e3b;
   opacity: 0.55;
 }
-.status-idle         { background: #404040; }   /* slate: tab present, no subprocess */
-.status-review       { background: #2563eb; }   /* blue:  awaiting review */
-.status-working      { background: #f59e0b; border-color: #92400e; } /* orange: Claude working */
-.status-done         { background: #171717; border-color: #262626; } /* dim */
-.status-terminated   { background: #6b7280; }   /* gray: stopped */
-.status-provisioning { background: #e5e5e5; }   /* white: cloning */
-.status-errored      { background: #b91c1c; }   /* red:   half-broken workspace */
-.status-attention    { background: #f97316; border-color: #7c2d12; } /* orange-red: needs approval */
+
+.status-idle {
+  background: #404040;
+} /* slate: tab present, no subprocess */
+.status-review {
+  background: #2563eb;
+} /* blue:  awaiting review */
+.status-working {
+  background: #f59e0b;
+  border-color: #92400e;
+} /* orange: Claude working */
+.status-done {
+  background: #171717;
+  border-color: #262626;
+} /* dim */
+.status-terminated {
+  background: #6b7280;
+} /* gray: stopped */
+.status-provisioning {
+  background: #e5e5e5;
+} /* white: cloning */
+.status-errored {
+  background: #b91c1c;
+} /* red:   half-broken workspace */
+.status-attention {
+  background: #f97316;
+  border-color: #7c2d12;
+} /* orange-red: needs approval */
 .status-dot.status-attention::after {
-  content: '';
+  content: "";
   position: absolute;
   inset: -6px;
   border-radius: 50%;
@@ -851,8 +1019,9 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 .status-dot.is-loading {
   position: relative;
 }
+
 .status-dot.is-loading::after {
-  content: '';
+  content: "";
   position: absolute;
   inset: -4px;
   border-radius: 50%;
@@ -862,22 +1031,29 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   animation: kato-status-spin 0.9s linear infinite;
   pointer-events: none;
 }
-@keyframes kato-status-spin {
-  to { transform: rotate(360deg); }
-}
 
+@keyframes kato-status-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 .tab.needs-attention {
   border-left-color: #f97316;
   background: rgba(249, 115, 22, 0.11);
 }
+
 .tab.needs-attention .status-dot {
   animation: kato-attention-pulse 1.4s ease-in-out infinite;
 }
-@keyframes kato-attention-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.72); }
-  50%      { box-shadow: 0 0 0 7px rgba(249, 115, 22, 0); }
-}
 
+@keyframes kato-attention-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 $C-ORANGE-53-A72;
+  }
+  50% {
+    box-shadow: 0 0 0 7px $C-ORANGE-53-A00;
+  }
+}
 .empty {
   color: #a3a3a3;
   padding: 16px;
@@ -1012,18 +1188,18 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   justify-content: center;
   font-size: 13px;
   line-height: 1;
-  transition:
-    background 120ms ease,
-    border-color 120ms ease,
-    box-shadow 120ms ease,
-    transform 90ms ease,
-    color 120ms ease;
+  transition: background 120ms ease, border-color 120ms ease, box-shadow 120ms ease, transform 90ms ease, color 120ms ease;
 }
+
 .session-action:hover {
   background: rgba(255, 255, 255, 0.14);
   border-color: rgba(255, 255, 255, 0.20);
 }
-.session-action:active { transform: scale(0.94); }
+
+.session-action:active {
+  transform: scale(0.94);
+}
+
 .session-action:disabled {
   background: rgba(255, 255, 255, 0.03);
   color: rgba(245, 245, 247, 0.28);
@@ -1031,41 +1207,47 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   cursor: not-allowed;
   box-shadow: none;
 }
+
 .session-action.is-primary {
-  background: rgba(5, 150, 105, 0.85);          /* emerald-600 */
+  background: rgba(5, 150, 105, 0.85); /* emerald-600 */
   border-color: rgba(16, 185, 129, 0.65);
   color: #ecfdf5;
-  box-shadow: 0 1px 6px rgba(5, 150, 105, 0.35);
+  box-shadow: 0 1px 6px $C-TEAL-30-A35;
 }
+
 .session-action.is-primary:hover {
   background: rgba(16, 185, 129, 0.95);
-  box-shadow: 0 1px 10px rgba(16, 185, 129, 0.55);
+  box-shadow: 0 1px 10px $C-TEAL-39-A55;
 }
+
 .session-action.is-warning {
-  background: rgba(217, 119, 6, 0.85);          /* amber-600 */
+  background: rgba(217, 119, 6, 0.85); /* amber-600 */
   border-color: rgba(245, 158, 11, 0.65);
   color: #fef3c7;
-  box-shadow: 0 1px 6px rgba(217, 119, 6, 0.35);
+  box-shadow: 0 1px 6px $C-ORANGE-44-A35;
 }
+
 .session-action.is-warning:hover {
   background: rgba(245, 158, 11, 0.95);
-  box-shadow: 0 1px 10px rgba(245, 158, 11, 0.55);
+  box-shadow: 0 1px 10px $C-ORANGE-50-A55;
 }
+
 .session-action.is-danger {
-  background: rgba(185, 28, 28, 0.85);          /* red-700 */
+  background: rgba(185, 28, 28, 0.85); /* red-700 */
   border-color: rgba(220, 38, 38, 0.65);
   color: #fee2e2;
-  box-shadow: 0 1px 6px rgba(185, 28, 28, 0.35);
+  box-shadow: 0 1px 6px $C-RED-42-A35;
 }
+
 .session-action.is-danger:hover {
   background: rgba(220, 38, 38, 0.95);
-  box-shadow: 0 1px 10px rgba(220, 38, 38, 0.55);
+  box-shadow: 0 1px 10px $C-RED-51-A55;
 }
+
 /* Legacy text-button per-id rules (stop / resume / push / pull /
  * etc.) were removed when the round .session-action design landed.
  * Identifiers themselves are still on the elements so tests + dev
  * tools find them by id — only the visual rules moved up. */
-
 #event-log {
   flex: 1;
   overflow-y: auto;
@@ -1080,7 +1262,10 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   flex-direction: column;
   gap: 12px;
 }
-#event-log > :first-child { margin-top: 18px; }
+
+#event-log > :first-child {
+  margin-top: 18px;
+}
 
 /* One operator prompt + every bubble it produced, as a section.
  * This wrapper is the sticky prompt's containing block: CSS sticky
@@ -1108,8 +1293,9 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   margin: 0 -24px;
   background: #0d0d0f;
   border-bottom: 1px solid #1f1f22;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 4px 10px $C-NEUTRAL-00-A35;
 }
+
 .chat-sticky-prompt-toggle {
   display: flex;
   align-items: flex-start;
@@ -1122,6 +1308,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   font: inherit;
   color: #d4d4d4;
 }
+
 .chat-sticky-prompt-label {
   flex-shrink: 0;
   font-size: 10px;
@@ -1131,30 +1318,29 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   color: #6b7280;
   padding-top: 2px;
 }
+
 .chat-sticky-prompt-text-wrap {
   position: relative;
   flex: 1;
   min-width: 0;
 }
+
 .chat-sticky-prompt-text-wrap.is-collapsed {
-  max-height: calc(12.5px * 1.5 * 3);
+  max-height: 56.25px;
   overflow: hidden;
 }
+
 .chat-sticky-prompt-text-wrap.is-collapsed::after {
-  content: '';
+  content: "";
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
   height: 2.5em;
   pointer-events: none;
-  background: linear-gradient(
-    to bottom,
-    rgba(13, 13, 15, 0) 0%,
-    rgba(13, 13, 15, 0.86) 66%,
-    rgba(13, 13, 15, 1) 100%
-  );
+  background: linear-gradient(to bottom, rgba(13, 13, 15, 0.0) 0%, rgba(13, 13, 15, 0.86) 66%, #171717 100%);
 }
+
 .chat-sticky-prompt-text {
   display: block;
   font-size: 12.5px;
@@ -1163,6 +1349,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
 .chat-sticky-prompt-expand {
   bottom: 0;
 }
@@ -1192,12 +1379,14 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   background: #404040;
   flex-shrink: 0;
 }
+
 .bubble-body {
   min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
+
 .bubble-label {
   font-size: 11px;
   letter-spacing: 0.06em;
@@ -1205,14 +1394,27 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   color: #525252;
   font-family: ui-monospace, monospace;
 }
+
 .bubble-content {
   color: #e5e5e5;
 }
 
-.bubble.user .bubble-dot      { background: #a3a3a3; }
-.bubble.user .bubble-content  { color: #e5e5e5; }
-.bubble.assistant .bubble-dot { background: #34d399; }
-.bubble.tool .bubble-dot      { background: #e5e5e5; }
+.bubble.user .bubble-dot {
+  background: #a3a3a3;
+}
+
+.bubble.user .bubble-content {
+  color: #e5e5e5;
+}
+
+.bubble.assistant .bubble-dot {
+  background: #34d399;
+}
+
+.bubble.tool .bubble-dot {
+  background: #e5e5e5;
+}
+
 .bubble.tool .bubble-content {
   font-family: ui-monospace, monospace;
   font-size: 13px;
@@ -1221,19 +1423,27 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   border-radius: 4px;
   padding: 6px 10px;
 }
+
 /* Tool bubbles drop the "TOOL" label entirely — the white dot
    + the ``→ Read filename`` summary inside the content already
    convey "this is a tool call", and the label was the dominant
    source of vertical waste on long chats (each tool event added
    an extra ~16 px line). The other kinds keep their label
    because they are not as visually distinct on their own. */
-.bubble.tool .bubble-label { display: none; }
-.bubble.tool { padding: 2px 0; }
+.bubble.tool .bubble-label {
+  display: none;
+}
+
+.bubble.tool {
+  padding: 2px 0;
+}
+
 .bubble-tool-summary {
   display: block;
   word-break: break-all;
   white-space: pre-wrap;
 }
+
 /* One-click "open this file" affordance next to a tool's path.
  * Inline so it sits right after the path text; subtle until hover
  * so it doesn't compete with the log content. */
@@ -1254,10 +1464,12 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   cursor: pointer;
   transition: background 120ms ease, color 120ms ease;
 }
+
 .bubble-tool-reveal:hover {
   background: rgba(147, 197, 253, 0.22);
   color: #bfdbfe;
 }
+
 /* ----- tool-details code box -----
  *
  * No border (operator asked us to drop it) and intentionally NOT
@@ -1273,25 +1485,23 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   position: relative;
   margin: 6px 0 0 0;
 }
+
 .bubble-tool-details-wrap.is-collapsed {
   max-height: 320px;
   overflow: hidden;
 }
+
 .bubble-tool-details-wrap.is-collapsed::after {
-  content: '';
+  content: "";
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
   height: 96px;
   pointer-events: none;
-  background: linear-gradient(
-    to bottom,
-    rgba(10, 10, 10, 0) 0%,
-    rgba(10, 10, 10, 0.85) 65%,
-    rgba(10, 10, 10, 1) 100%
-  );
+  background: linear-gradient(to bottom, rgba(13, 13, 15, 0.0) 0%, rgba(13, 13, 15, 0.86) 65%, #0a0a0a 100%);
 }
+
 .bubble-tool-details {
   margin: 0;
   padding: 0;
@@ -1307,6 +1517,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
    * wraps via white-space: pre-wrap above. */
   overflow: hidden;
 }
+
 .bubble-tool-details-expand {
   position: absolute;
   right: 10px;
@@ -1320,29 +1531,35 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   border: 1px solid #374151;
   border-radius: 4px;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 4px 12px $C-NEUTRAL-00-A45;
 }
+
 .bubble-tool-details-expand:hover {
   background: #374151;
   border-color: #525252;
 }
+
 .bubble-tool-details-line {
   display: block;
   padding: 0 8px;
   white-space: pre-wrap;
 }
+
 .bubble-tool-details-line.added {
   background: #0a4d2e;
   color: #d1fae5;
 }
+
 .bubble-tool-details-line.removed {
   background: #5d1818;
   color: #fecaca;
 }
+
 .bubble-tool-details-line.separator {
   color: #525252;
   font-style: italic;
 }
+
 .bubble-tool-details-line.context {
   color: #a3a3a3;
 }
@@ -1358,12 +1575,19 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
  * because Claude's long answers (the "what changed" summaries with
  * dense inline-code spans on every line) doubled the bubble height
  * at the previous 1.5/8px values — see the operator screenshot. */
-.bubble.assistant .bubble-content > :first-child { margin-top: 0; }
-.bubble.assistant .bubble-content > :last-child { margin-bottom: 0; }
+.bubble.assistant .bubble-content > :first-child {
+  margin-top: 0;
+}
+
+.bubble.assistant .bubble-content > :last-child {
+  margin-bottom: 0;
+}
+
 .bubble.assistant .bubble-content p {
   margin: 0 0 4px;
   line-height: 1.4;
 }
+
 .bubble.assistant .bubble-content h1,
 .bubble.assistant .bubble-content h2,
 .bubble.assistant .bubble-content h3,
@@ -1375,64 +1599,88 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   color: #f5f5f5;
   line-height: 1.25;
 }
-.bubble.assistant .bubble-content h1 { font-size: 18px; }
-.bubble.assistant .bubble-content h2 { font-size: 16px; }
-.bubble.assistant .bubble-content h3 { font-size: 15px; }
+
+.bubble.assistant .bubble-content h1 {
+  font-size: 18px;
+}
+
+.bubble.assistant .bubble-content h2 {
+  font-size: 16px;
+}
+
+.bubble.assistant .bubble-content h3 {
+  font-size: 15px;
+}
+
 .bubble.assistant .bubble-content h4,
 .bubble.assistant .bubble-content h5,
-.bubble.assistant .bubble-content h6 { font-size: 14px; }
+.bubble.assistant .bubble-content h6 {
+  font-size: 14px;
+}
+
 .bubble.assistant .bubble-content ul,
 .bubble.assistant .bubble-content ol {
   margin: 0 0 4px;
   padding-left: 20px;
 }
+
 .bubble.assistant .bubble-content li {
   /* No inter-item margin — line-height already provides breathing
    * room. Bullets/numbers stay visually paired with their text. */
   margin: 0;
   line-height: 1.4;
 }
+
 .bubble.assistant .bubble-content li + li {
   /* Hair gap between adjacent siblings — keeps multi-line entries
    * distinguishable without bloating short single-line lists. */
   margin-top: 2px;
 }
+
 .bubble.assistant .bubble-content li > p {
   margin: 0;
 }
+
 .bubble.assistant .bubble-content blockquote {
   margin: 0 0 4px;
   padding: 4px 12px;
   border-left: 3px solid #404040;
   color: #a3a3a3;
 }
+
 .bubble.assistant .bubble-content a {
   color: #60a5fa;
   text-decoration: underline;
 }
+
 .bubble.assistant .bubble-content a:hover {
   color: #93c5fd;
 }
+
 .bubble.assistant .bubble-content table {
   border-collapse: collapse;
   margin: 0 0 8px;
   font-size: 13px;
 }
+
 .bubble.assistant .bubble-content th,
 .bubble.assistant .bubble-content td {
   padding: 4px 10px;
   border: 1px solid #262626;
   text-align: left;
 }
+
 .bubble.assistant .bubble-content th {
   background: #171717;
   font-weight: 600;
 }
+
 .bubble.assistant .bubble-content hr {
   margin: 12px 0;
   border: 0;
   border-top: 1px solid #262626;
 }
+
 .bubble.assistant .bubble-content .md-inline-code {
   font-family: ui-monospace, monospace;
   font-size: 12.5px;
@@ -1447,6 +1695,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   border-radius: 3px;
   color: #fcd34d;
 }
+
 .bubble.assistant .bubble-content .md-code-block {
   margin: 6px 0 10px;
   background: #050505;
@@ -1454,6 +1703,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   border-radius: 5px;
   overflow: hidden;
 }
+
 .bubble.assistant .bubble-content .md-code-block-header {
   display: flex;
   align-items: center;
@@ -1462,6 +1712,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   background: #0a0a0a;
   border-bottom: 1px solid #1f1f1f;
 }
+
 .bubble.assistant .bubble-content .md-code-block-lang {
   font-family: ui-monospace, monospace;
   font-size: 11px;
@@ -1469,6 +1720,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   text-transform: lowercase;
   letter-spacing: 0.04em;
 }
+
 .bubble.assistant .bubble-content .md-code-block-copy {
   display: inline-flex;
   align-items: center;
@@ -1484,22 +1736,26 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   font-size: 12px;
   transition: background 0.12s, color 0.12s, border-color 0.12s;
 }
+
 .bubble.assistant .bubble-content .md-code-block-copy:hover {
   background: #171717;
   border-color: #262626;
   color: #f5f5f5;
 }
+
 .bubble.assistant .bubble-content .md-code-block-copy:focus-visible {
   outline: none;
   border-color: #34d399;
   color: #f5f5f5;
 }
+
 .bubble.assistant .bubble-content .md-code-block-pre {
   margin: 0;
   padding: 10px 12px;
   overflow-x: auto;
   background: transparent;
 }
+
 .bubble.assistant .bubble-content .md-code-block-code {
   font-family: ui-monospace, monospace;
   font-size: 12.5px;
@@ -1507,6 +1763,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   color: #e5e5e5;
   white-space: pre;
 }
+
 .bubble-tool-details-toggle {
   display: inline-block;
   margin-top: 4px;
@@ -1519,10 +1776,12 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   border-radius: 3px;
   cursor: pointer;
 }
+
 .bubble-tool-details-toggle:hover {
   color: #e5e5e5;
   border-color: #525252;
 }
+
 .event-log-show-older {
   display: block;
   margin: 8px auto;
@@ -1535,23 +1794,33 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   border-radius: 3px;
   cursor: pointer;
 }
+
 .event-log-show-older:hover {
   color: #e5e5e5;
   border-color: #525252;
 }
+
 .bubble-tool-details-overflow {
   margin: 4px 0 0;
   font-size: 11px;
   color: #d97706;
   font-style: italic;
 }
-.bubble.system .bubble-dot { background: #404040; }
+
+.bubble.system .bubble-dot {
+  background: #404040;
+}
+
 .bubble.system .bubble-content {
   color: #a3a3a3;
   font-size: 12px;
   font-family: ui-monospace, monospace;
 }
-.bubble.error .bubble-dot { background: #ef4444; }
+
+.bubble.error .bubble-dot {
+  background: #ef4444;
+}
+
 .bubble.error .bubble-content {
   color: #fecaca;
   background: #2a0a0a;
@@ -1570,32 +1839,39 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   font-style: italic;
   user-select: none;
 }
+
 .working-indicator-glyph {
   display: inline-block;
   color: #a3a3a3;
   font-style: normal;
   animation: kato-working-spin 2.4s linear infinite;
 }
+
 .working-indicator-phrase {
   min-width: 14ch;
 }
+
 .working-indicator-ellipsis {
   animation: kato-working-pulse 1.2s ease-in-out infinite;
 }
+
 .working-indicator-activity {
   font-size: 11px;
   font-style: normal;
   color: #737373;
   margin-left: 6px;
 }
+
 .working-indicator.is-stalled {
   color: #fbbf24;
   font-style: normal;
 }
+
 .working-indicator.is-stalled .working-indicator-glyph {
   color: #fbbf24;
   animation: none;
 }
+
 .working-indicator-continue {
   margin-left: 10px;
   padding: 3px 10px;
@@ -1609,14 +1885,17 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   cursor: pointer;
   transition: background 120ms ease, color 120ms ease;
 }
+
 .working-indicator-continue:hover {
   background: rgba(251, 191, 36, 0.22);
   color: #fde68a;
 }
+
 .working-indicator.is-waiting-approval {
   color: #fb923c;
   font-style: normal;
 }
+
 .working-indicator.is-waiting-approval .working-indicator-glyph {
   width: 14px;
   height: 14px;
@@ -1629,6 +1908,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   font: 700 10px/1 ui-monospace, monospace;
   animation: kato-attention-pop 1.2s ease-in-out infinite;
 }
+
 .working-indicator-progress {
   position: relative;
   display: inline-block;
@@ -1638,8 +1918,9 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   overflow: hidden;
   background: #3b1d0b;
 }
+
 .working-indicator-progress::after {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0;
   width: 42px;
@@ -1647,23 +1928,39 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   background: linear-gradient(90deg, #f97316, #ef4444);
   animation: kato-approval-progress 1.1s ease-in-out infinite;
 }
+
 @keyframes kato-working-spin {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 @keyframes kato-working-pulse {
-  0%, 100% { opacity: 0.3; }
-  50%      { opacity: 1; }
+  0%, 100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 @keyframes kato-attention-pop {
-  0%, 100% { transform: scale(1); }
-  50%      { transform: scale(1.14); }
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.14);
+  }
 }
 @keyframes kato-approval-progress {
-  0%   { transform: translateX(-48px); }
-  100% { transform: translateX(128px); }
+  0% {
+    transform: translateX(-48px);
+  }
+  100% {
+    transform: translateX(128px);
+  }
 }
-
 /* ───── iOS-style floating glass composer ───────────────────────────
  *
  * The composer floats above the chat as a frosted-glass capsule.
@@ -1674,7 +1971,6 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
  * relative`` — see its base rule above). On a chat tab the operator
  * never has to scroll past it — it stays glued to the bottom while
  * content flows behind it with a real backdrop blur. */
-
 #event-log {
   /* Reserve enough room at the bottom so the last entry — a bubble
    * or the trailing working indicator — isn't obscured by the
@@ -1699,24 +1995,25 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   opacity: 0.18;
   transition: opacity 120ms ease;
 }
+
 #event-log.is-searching .bubble--match {
   opacity: 1;
 }
+
 #event-log.is-searching .bubble--match .bubble-body {
   /* Faint highlight ring so the operator can scan matches
    * without losing the bubble's own kind-color signal. */
-  box-shadow: 0 0 0 2px rgba(10, 132, 255, 0.35);
+  box-shadow: 0 0 0 2px $C-CYAN-52-A35;
   border-radius: 8px;
   transition: box-shadow 120ms ease, background 120ms ease;
 }
+
 /* The one match the prev/next cursor is currently parked on —
  * brighter ring + soft glow so the operator can tell their
  * Enter/Shift-Enter actually moved the cursor without having
  * to count. */
 #event-log.is-searching .bubble--match-current .bubble-body {
-  box-shadow:
-    0 0 0 2px rgba(10, 132, 255, 0.95),
-    0 0 18px rgba(10, 132, 255, 0.35);
+  box-shadow: 0 0 0 2px $C-CYAN-52-A95, 0 0 18px $C-CYAN-52-A35;
   background: rgba(10, 132, 255, 0.06);
 }
 
@@ -1744,11 +2041,16 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   line-height: 1;
   transition: background 120ms ease, border-color 120ms ease, transform 90ms ease;
 }
+
 .chat-search-toggle:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.14);
   border-color: rgba(255, 255, 255, 0.20);
 }
-.chat-search-toggle:active:not(:disabled) { transform: scale(0.94); }
+
+.chat-search-toggle:active:not(:disabled) {
+  transform: scale(0.94);
+}
+
 .chat-search-toggle:disabled {
   /* Search bar is already open — show that this toggle is
    * effectively the "active" state for it, rather than fading it
@@ -1771,31 +2073,29 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   top: var(--chat-search-top, 90px);
   left: 50%;
   transform: translateX(-50%);
-  width: min(720px, calc(100% - 32px));
+  width: min(720px, 100% - 32px);
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 6px 8px 6px 14px;
   border-radius: 22px;
-  background:
-    linear-gradient(180deg,
+  background: linear-gradient(180deg,
       rgba(28, 28, 30, 0.62) 0%,
       rgba(20, 20, 22, 0.55) 100%);
   -webkit-backdrop-filter: blur(28px) saturate(180%);
   backdrop-filter: blur(28px) saturate(180%);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow:
-    0 12px 32px rgba(0, 0, 0, 0.45),
-    0 2px 8px rgba(0, 0, 0, 0.35),
-    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  box-shadow: 0 12px 32px $C-NEUTRAL-00-A45, 0 2px 8px $C-NEUTRAL-00-A35, inset 0 1px 0 $C-NEUTRAL-100-A06;
   z-index: 11;
 }
+
 .chat-search-icon {
   color: rgba(245, 245, 247, 0.7);
   display: inline-flex;
   align-items: center;
   flex-shrink: 0;
 }
+
 .chat-search-input {
   flex: 1;
   min-width: 0;
@@ -1806,7 +2106,11 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   font: inherit;
   padding: 6px 4px;
 }
-.chat-search-input::placeholder { color: rgba(245, 245, 247, 0.42); }
+
+.chat-search-input::placeholder {
+  color: rgba(245, 245, 247, 0.42);
+}
+
 .chat-search-count {
   font-size: 11px;
   color: rgba(245, 245, 247, 0.65);
@@ -1816,10 +2120,12 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   flex-shrink: 0;
   white-space: nowrap;
 }
+
 .chat-search-count.is-empty {
   background: rgba(220, 38, 38, 0.18);
   color: rgba(254, 226, 226, 0.85);
 }
+
 .chat-search-nav,
 .chat-search-close {
   flex-shrink: 0;
@@ -1838,10 +2144,17 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   padding: 0;
   transition: background 120ms ease, transform 90ms ease, color 120ms ease;
 }
+
 .chat-search-nav:hover:not(:disabled),
-.chat-search-close:hover { background: rgba(255, 255, 255, 0.14); }
+.chat-search-close:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
 .chat-search-nav:active:not(:disabled),
-.chat-search-close:active { transform: scale(0.92); }
+.chat-search-close:active {
+  transform: scale(0.92);
+}
+
 .chat-search-nav:disabled {
   color: rgba(245, 245, 247, 0.22);
   cursor: not-allowed;
@@ -1874,7 +2187,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   left: 50%;
   bottom: calc(var(--composer-h, 94px) + 26px);
   transform: translateX(-50%);
-  width: min(720px, calc(100% - 32px));
+  width: min(720px, 100% - 32px);
   list-style: none;
   margin: 0;
   padding: 8px;
@@ -1882,22 +2195,20 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   flex-direction: column;
   gap: 4px;
   border-radius: 18px;
-  background:
-    linear-gradient(180deg,
+  background: linear-gradient(180deg,
       rgba(28, 28, 30, 0.62) 0%,
       rgba(20, 20, 22, 0.55) 100%);
   -webkit-backdrop-filter: blur(28px) saturate(180%);
   backdrop-filter: blur(28px) saturate(180%);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow:
-    0 8px 24px rgba(0, 0, 0, 0.40),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  box-shadow: 0 8px 24px $C-NEUTRAL-00-A40, inset 0 1px 0 $C-NEUTRAL-100-A06;
   z-index: 9;
   max-height: 240px;
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.32) transparent;
 }
+
 .queued-message-row {
   display: flex;
   align-items: center;
@@ -1909,10 +2220,12 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   color: rgba(245, 245, 247, 0.85);
   font-size: 13px;
 }
+
 .queued-message-row:hover {
   background: rgba(255, 255, 255, 0.07);
   border-color: rgba(255, 255, 255, 0.10);
 }
+
 .queued-message-glyph {
   flex-shrink: 0;
   width: 16px;
@@ -1922,7 +2235,12 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   justify-content: center;
   color: rgba(245, 245, 247, 0.55);
 }
-.queued-message-glyph svg { width: 12px; height: 12px; }
+
+.queued-message-glyph svg {
+  width: 12px;
+  height: 12px;
+}
+
 .queued-message-text {
   flex: 1;
   min-width: 0;
@@ -1930,6 +2248,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
 .queued-message-steer {
   flex-shrink: 0;
   display: inline-flex;
@@ -1945,13 +2264,22 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   cursor: pointer;
   transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
 }
+
 .queued-message-steer:hover {
   background: rgba(10, 132, 255, 0.40);
   border-color: rgba(10, 132, 255, 0.55);
   color: #fff;
 }
-.queued-message-steer svg { width: 9px; height: 9px; }
-.queued-message-steer-label { letter-spacing: 0.02em; }
+
+.queued-message-steer svg {
+  width: 9px;
+  height: 9px;
+}
+
+.queued-message-steer-label {
+  letter-spacing: 0.02em;
+}
+
 .queued-message-remove {
   flex-shrink: 0;
   width: 22px;
@@ -1967,12 +2295,16 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   cursor: pointer;
   transition: background 120ms ease, color 120ms ease;
 }
+
 .queued-message-remove:hover {
   background: rgba(220, 38, 38, 0.75);
   color: #fff7ed;
 }
-.queued-message-remove svg { width: 10px; height: 10px; }
 
+.queued-message-remove svg {
+  width: 10px;
+  height: 10px;
+}
 
 #message-form {
   /* The capsule itself — absolute-positioned over the chat. */
@@ -1980,31 +2312,23 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   left: 50%;
   bottom: 18px;
   transform: translateX(-50%);
-  width: min(720px, calc(100% - 32px));
+  width: min(720px, 100% - 32px);
   display: flex;
   flex-direction: column;
   gap: 10px;
   padding: 10px;
   border-radius: 28px;
-
   /* Frosted glass — translucent dark base + backdrop blur + a
    * faint inner highlight makes it read as a physical pane
    * sitting over the chat. */
-  background:
-    linear-gradient(180deg,
-      rgba(28, 28, 30, 0.62) 0%,
-      rgba(20, 20, 22, 0.55) 100%);
+  background: linear-gradient(180deg, rgba(28, 28, 30, 0.62) 0%, rgba(20, 20, 22, 0.55) 100%);
   -webkit-backdrop-filter: blur(28px) saturate(180%);
   backdrop-filter: blur(28px) saturate(180%);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow:
-    /* outer drop shadow — capsule hovers above the chat */
-    0 12px 32px rgba(0, 0, 0, 0.45),
-    0 2px 8px rgba(0, 0, 0, 0.35),
-    /* inner highlight — the glass "edge" */
-    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  box-shadow: 0 12px 32px $C-NEUTRAL-00-A45, 0 2px 8px $C-NEUTRAL-00-A35, inset 0 1px 0 $C-NEUTRAL-100-A06;
   z-index: 10;
 }
+
 #message-form.is-drop-target {
   outline: 2px dashed rgba(251, 191, 36, 0.85);
   outline-offset: -10px;
@@ -2023,6 +2347,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   min-width: 0;
   padding: 0 2px;
 }
+
 .composer-toolbar-left,
 .composer-toolbar-right {
   display: flex;
@@ -2038,6 +2363,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   gap: 6px;
   padding: 0 4px;
 }
+
 .message-attachment {
   position: relative;
   width: 56px;
@@ -2047,12 +2373,14 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
+
 .message-attachment img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
 }
+
 .message-attachment-remove {
   position: absolute;
   top: 3px;
@@ -2071,7 +2399,10 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   align-items: center;
   justify-content: center;
 }
-.message-attachment-remove:hover { background: rgba(185, 28, 28, 0.95); }
+
+.message-attachment-remove:hover {
+  background: rgba(185, 28, 28, 0.95);
+}
 
 /* The textarea — no visible chrome inside the glass capsule.
  * height is driven by JS (scrollHeight) so it grows with the text.
@@ -2095,24 +2426,32 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
 }
-#message-input::placeholder { color: rgba(245, 245, 247, 0.42); }
+
+#message-input::placeholder {
+  color: rgba(245, 245, 247, 0.42);
+}
+
 #message-input:disabled {
   color: rgba(245, 245, 247, 0.32);
   cursor: not-allowed;
 }
+
 /* WebKit: matching slim track + low-contrast thumb that brightens
  * on hover. Same look as Claude/VS Code — visible only when the
  * textarea actually overflows. */
 #message-input::-webkit-scrollbar {
   width: 6px;
 }
+
 #message-input::-webkit-scrollbar-track {
   background: transparent;
 }
+
 #message-input::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.16);
   border-radius: 3px;
 }
+
 #message-input::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.28);
 }
@@ -2136,11 +2475,16 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   justify-content: center;
   transition: background 120ms ease, transform 90ms ease, border-color 120ms ease;
 }
+
 #message-attach:hover {
   background: rgba(255, 255, 255, 0.18);
   border-color: rgba(255, 255, 255, 0.18);
 }
-#message-attach:active { transform: scale(0.94); }
+
+#message-attach:active {
+  transform: scale(0.94);
+}
+
 #message-attach:disabled {
   background: rgba(255, 255, 255, 0.04);
   color: rgba(245, 245, 247, 0.22);
@@ -2159,26 +2503,27 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   border: none;
   padding: 0;
   cursor: pointer;
-  background: #0a84ff;                  /* iOS systemBlue */
-  color: #ffffff;
+  background: #0a84ff; /* iOS systemBlue */
+  color: #f5f5f7;
   font-size: 17px;
   font-weight: 600;
   line-height: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 1px 6px rgba(10, 132, 255, 0.45);
-  transition:
-    background 120ms ease,
-    box-shadow 120ms ease,
-    transform 90ms ease,
-    opacity 120ms ease;
+  box-shadow: 0 1px 6px $C-CYAN-52-A45;
+  transition: background 120ms ease, box-shadow 120ms ease, transform 90ms ease, opacity 120ms ease;
 }
+
 .message-send:hover {
   background: #2997ff;
-  box-shadow: 0 1px 10px rgba(10, 132, 255, 0.6);
+  box-shadow: 0 1px 10px $C-CYAN-52-A60;
 }
-.message-send:active { transform: scale(0.94); }
+
+.message-send:active {
+  transform: scale(0.94);
+}
+
 .message-send:disabled {
   background: rgba(255, 255, 255, 0.10);
   color: rgba(245, 245, 247, 0.32);
@@ -2190,9 +2535,12 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
  * yet; flushes when the turn finishes". */
 .message-send.is-queued {
   background: #f59e0b;
-  box-shadow: 0 1px 10px rgba(245, 158, 11, 0.55);
+  box-shadow: 0 1px 10px $C-ORANGE-50-A55;
 }
-.message-send.is-queued:hover { background: #fbbf24; }
+
+.message-send.is-queued:hover {
+  background: #fbbf24;
+}
 
 /* Compact, pill-shaped model picker living inside the capsule. */
 #message-form #model-selector {
@@ -2210,6 +2558,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   appearance: none;
   -webkit-appearance: none;
 }
+
 #message-form #model-selector:hover {
   background: rgba(255, 255, 255, 0.12);
 }
@@ -2245,7 +2594,13 @@ code {
   overflow: hidden;
 }
 
-.modal-card h2 { margin: 0; font-size: 14px; color: #a3a3a3; font-weight: 500; }
+.modal-card h2 {
+  margin: 0;
+  font-size: 14px;
+  color: #a3a3a3;
+  font-weight: 500;
+}
+
 .modal-head {
   display: flex;
   align-items: baseline;
@@ -2253,6 +2608,7 @@ code {
   border-bottom: 1px solid #171717;
   padding-bottom: 10px;
 }
+
 #permission-tool-name {
   font: 600 18px ui-monospace, monospace;
   color: #e5e5e5;
@@ -2266,16 +2622,19 @@ code {
   font-family: ui-monospace, monospace;
   font-size: 12px;
 }
+
 .permission-field {
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
+
 .permission-field-label {
   color: #a3a3a3;
   font-size: 11px;
   letter-spacing: 0.04em;
 }
+
 .permission-field-value {
   background: #0a0a0a;
   border: 1px solid #171717;
@@ -2288,9 +2647,20 @@ code {
   overflow-y: auto;
 }
 
-.modal-raw { font-size: 11px; color: #525252; }
-.modal-raw summary { cursor: pointer; padding: 2px 0; }
-.modal-raw[open] summary { color: #a3a3a3; }
+.modal-raw {
+  font-size: 11px;
+  color: #525252;
+}
+
+.modal-raw summary {
+  cursor: pointer;
+  padding: 2px 0;
+}
+
+.modal-raw[open] summary {
+  color: #a3a3a3;
+}
+
 .modal-card pre {
   background: #0a0a0a;
   padding: 10px;
@@ -2310,6 +2680,7 @@ code {
   font-size: 12px;
   color: #d4d4d4;
 }
+
 .modal-remember code {
   background: transparent;
   color: #d4d4d4;
@@ -2340,25 +2711,50 @@ code {
   font-weight: 600;
 }
 
-.modal-actions .primary   { background: #047857; color: #fff; }
-.modal-actions .secondary { background: #262626; color: #e5e5e5; }
-.modal-actions .danger    { background: #b91c1c; color: #fff; }
-.modal-actions .primary:hover   { background: #059669; }
-.modal-actions .secondary:hover { background: #404040; }
-.modal-actions .danger:hover    { background: #dc2626; }
+.modal-actions .primary {
+  background: #047857;
+  color: #fff;
+}
+
+.modal-actions .secondary {
+  background: #262626;
+  color: #e5e5e5;
+}
+
+.modal-actions .danger {
+  background: #b91c1c;
+  color: #fff;
+}
+
+.modal-actions .primary:hover {
+  background: #059669;
+}
+
+.modal-actions .secondary:hover {
+  background: #404040;
+}
+
+.modal-actions .danger:hover {
+  background: #dc2626;
+}
 
 /* ───── forget-task hard-confirm dialog ───── */
 #forget-task-name {
   font: 600 16px ui-monospace, monospace;
   color: #e5e5e5;
 }
+
 .forget-task-lead {
   margin: 0;
   font-size: 13px;
   color: #d4d4d4;
   line-height: 1.5;
 }
-.forget-task-lead strong { color: #fff; }
+
+.forget-task-lead strong {
+  color: #fff;
+}
+
 .forget-task-effects {
   margin: 0;
   padding-left: 18px;
@@ -2370,8 +2766,15 @@ code {
   line-height: 1.5;
   overflow-y: auto;
 }
-.forget-task-effects li::marker { color: #525252; }
-.forget-task-effects strong { color: #e5e5e5; }
+
+.forget-task-effects li::marker {
+  color: #525252;
+}
+
+.forget-task-effects strong {
+  color: #e5e5e5;
+}
+
 .forget-task-effects code {
   background: #0a0a0a;
   border: 1px solid #262626;
@@ -2380,6 +2783,7 @@ code {
   font-size: 11.5px;
   color: #d4d4d4;
 }
+
 .forget-task-warning {
   margin: 0;
   border: 1px solid #7f1d1d;
@@ -2390,7 +2794,10 @@ code {
   color: #fca5a5;
   line-height: 1.5;
 }
-.forget-task-warning strong { color: #fecaca; }
+
+.forget-task-warning strong {
+  color: #fecaca;
+}
 
 /* ───── middle pane — Monaco editor (read-only file preview) ───── */
 #editor-pane {
@@ -2402,19 +2809,20 @@ code {
   border-left: 1px solid #171717;
   border-right: 1px solid #171717;
 }
+
 .editor-pane-header {
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 8px 14px;
   border-bottom: 1px solid #2a2a2a;
-  background:
-    linear-gradient(180deg,
+  background: linear-gradient(180deg,
       rgba(28, 28, 30, 0.65) 0%,
       rgba(20, 20, 22, 0.75) 100%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   backdrop-filter: blur(20px) saturate(180%);
 }
+
 .editor-pane-path {
   flex: 1;
   min-width: 0;
@@ -2424,6 +2832,7 @@ code {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
 .editor-pane-readonly-pill {
   flex-shrink: 0;
   font-size: 10px;
@@ -2435,15 +2844,18 @@ code {
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
+
 .editor-pane-body {
   flex: 1;
   min-height: 0;
   position: relative;
 }
+
 .editor-pane-body > section,
 .editor-pane-body > div {
   height: 100%;
 }
+
 .editor-pane-empty {
   display: flex;
   flex-direction: column;
@@ -2455,11 +2867,17 @@ code {
   color: rgba(245, 245, 247, 0.55);
   background: #1e1e1e;
 }
-.editor-pane-empty p { margin: 6px 0; max-width: 420px; }
+
+.editor-pane-empty p {
+  margin: 6px 0;
+  max-width: 420px;
+}
+
 .editor-pane-empty-hint {
   font-size: 12px;
   color: rgba(245, 245, 247, 0.42);
 }
+
 .editor-pane-message {
   padding: 20px;
   font-size: 12px;
@@ -2467,7 +2885,10 @@ code {
   background: #1e1e1e;
   height: 100%;
 }
-.editor-pane-message-error { color: #fca5a5; }
+
+.editor-pane-message-error {
+  color: #fca5a5;
+}
 
 /* Centre-pane diff view (the round diff button on a changed tree
  * row switches the centre column to this). Mirrors the editor-pane
@@ -2487,6 +2908,7 @@ code {
   border-left: 1px solid #171717;
   border-right: 1px solid #171717;
 }
+
 /* The scroll container — explicitly sized by ``inset: 0`` (no flex
  * height resolution to get wrong). Because it is a guaranteed-bounded
  * overflow:auto box, the per-file ``.diff-file-header`` inside it
@@ -2501,13 +2923,20 @@ code {
   padding: 0 6px;
   scroll-behavior: smooth;
 }
+
 /* Every changed file is its own box, stacked here. The left list
  * scroll-to lands on a file; ``scroll-margin-top`` keeps its first
  * lines clear of the sticky header. */
-.diff-pane-repo { margin-bottom: 8px; }
+.diff-pane-repo {
+  margin-bottom: 8px;
+}
+
 /* First box breathing room — in-flow margin (scrolls away), NOT
  * container padding, so it doesn't create a sticky dead-strip. */
-.diff-pane-repo:first-child { margin-top: 10px; }
+.diff-pane-repo:first-child {
+  margin-top: 10px;
+}
+
 /* Plain scrolling group label (multi-repo only) — NOT sticky, so it
  * never competes with the per-file sticky header at top:0. */
 .diff-pane-repo-name {
@@ -2518,12 +2947,14 @@ code {
   background: #1e1e1e;
   border-bottom: 1px solid #2a2a2a;
 }
+
 .diff-pane-file {
   margin-bottom: 16px;
   /* Clear the sticky title (~36px) so a scrolled-to file's first
    * lines aren't hidden under it. */
   scroll-margin-top: 8px;
 }
+
 /* The diff code box: a rounded, bordered card (GitHub/Bitbucket).
  *
  * ``overflow: clip`` (NOT hidden/auto/scroll) is the key: it clips
@@ -2543,6 +2974,7 @@ code {
   overflow: clip;
   background: #050505;
 }
+
 /* The box's title — ATTACHED to the box (its first child), sharing
  * the box's rounded border: rounded top corners, side + bottom
  * edges so it reads as the card header. ``position: sticky`` bounded
@@ -2560,6 +2992,7 @@ code {
   padding: 6px;
   background: #1e1e1e;
 }
+
 .diff-pane .diff-file-header::before {
   content: "";
   position: absolute;
@@ -2570,13 +3003,16 @@ code {
   border: 1px solid #2a2a2a;
   border-radius: 10px 10px 0 0;
 }
+
 .diff-pane .diff-file.is-collapsed .diff-file-header::before {
   border-radius: 10px;
 }
+
 .diff-pane .diff-file-header > * {
   position: relative;
   z-index: 1;
 }
+
 /* The card's sticky header fakes its rounded TOP via the ::before
  * above. The card itself must keep ``overflow: visible`` (clipping
  * it breaks the sticky header), so it can't round its own bottom —
@@ -2591,6 +3027,7 @@ code {
   border-radius: 0 0 10px 10px;
   overflow: hidden;
 }
+
 /* react-diff-view renders the body as ``<table class="diff">`` with
  * ``border-collapse: collapse``. A collapsed-border table is NOT
  * clipped by an ancestor's ``border-radius`` + ``overflow: hidden``
@@ -2604,6 +3041,7 @@ code {
   border-collapse: separate;
   border-spacing: 0;
 }
+
 /* Safari ignores border-radius with ``overflow: clip`` AND won't clip
  * a nested <table> to a rounded ``overflow: hidden`` ancestor — so
  * neither the card nor the wrapper rounds the bottom there. The one
@@ -2623,19 +3061,20 @@ code {
  * Hover gutter ``+`` + line highlight, chip strip above the editor,
  * inline composer below it, and a comments panel at the bottom
  * that reuses the same CommentBubble component as ChangesTab. */
-
 /* Monaco hover decorations (rendered by addDecorations in JS). */
 .monaco-editor .kato-line-hover {
   background: rgba(10, 132, 255, 0.06);
 }
+
 .monaco-editor .kato-add-comment-glyph {
   background: rgba(10, 132, 255, 0.18);
   border-radius: 50%;
   cursor: pointer;
   position: relative;
 }
+
 .monaco-editor .kato-add-comment-glyph::before {
-  content: '+';
+  content: "+";
   position: absolute;
   inset: 0;
   display: flex;
@@ -2646,10 +3085,14 @@ code {
   font-size: 14px;
   line-height: 1;
 }
+
 .monaco-editor .kato-add-comment-glyph:hover {
   background: rgba(10, 132, 255, 0.4);
 }
-.monaco-editor .kato-add-comment-glyph:hover::before { color: #fff; }
+
+.monaco-editor .kato-add-comment-glyph:hover::before {
+  color: #fff;
+}
 
 .editor-pane-chip-strip {
   display: flex;
@@ -2659,6 +3102,7 @@ code {
   border-bottom: 1px solid #2a2a2a;
   background: rgba(20, 20, 22, 0.5);
 }
+
 .editor-pane-chip {
   display: inline-flex;
   align-items: center;
@@ -2673,12 +3117,18 @@ code {
   max-width: 320px;
   transition: background 0.12s, border-color 0.12s;
 }
-.editor-pane-chip:hover { background: #262626; border-color: #525252; }
+
+.editor-pane-chip:hover {
+  background: #262626;
+  border-color: #525252;
+}
+
 .editor-pane-chip-line {
   flex-shrink: 0;
   color: #93c5fd;
   font-weight: 600;
 }
+
 .editor-pane-chip-status {
   flex-shrink: 0;
   font-size: 10px;
@@ -2686,6 +3136,7 @@ code {
   border-radius: var(--radius-pill);
   background: rgba(255, 255, 255, 0.08);
 }
+
 .editor-pane-chip-body {
   flex: 1;
   min-width: 0;
@@ -2694,35 +3145,48 @@ code {
   text-overflow: ellipsis;
   color: #a3a3a3;
 }
+
 .editor-pane-chip.kato-queued .editor-pane-chip-status {
-  background: rgba(245, 158, 11, 0.18); color: #fbbf24;
+  background: rgba(245, 158, 11, 0.18);
+  color: #fbbf24;
 }
+
 .editor-pane-chip.kato-in_progress .editor-pane-chip-status {
-  background: rgba(59, 130, 246, 0.20); color: #93c5fd;
+  background: rgba(59, 130, 246, 0.20);
+  color: #93c5fd;
 }
+
 .editor-pane-chip.kato-addressed .editor-pane-chip-status {
-  background: rgba(34, 197, 94, 0.20); color: #86efac;
+  background: rgba(34, 197, 94, 0.20);
+  color: #86efac;
 }
+
 .editor-pane-chip.kato-failed .editor-pane-chip-status {
-  background: rgba(239, 68, 68, 0.22); color: #fca5a5;
+  background: rgba(239, 68, 68, 0.22);
+  color: #fca5a5;
 }
+
 .editor-pane-chip.status-resolved {
   opacity: 0.65;
 }
+
 .editor-pane-chip.status-resolved .editor-pane-chip-status {
-  background: rgba(34, 197, 94, 0.12); color: #86efac;
+  background: rgba(34, 197, 94, 0.12);
+  color: #86efac;
 }
 
 .editor-pane-composer-wrap {
   border-top: 1px solid #2a2a2a;
   background: rgba(10, 10, 12, 0.5);
 }
+
 .editor-pane-composer-head {
   padding: 6px 14px;
   font: 11px/1.4 ui-monospace, monospace;
   color: #93c5fd;
   border-bottom: 1px solid #2a2a2a;
 }
+
 /* Host node Monaco owns for the inline-comment view zone. The
  * composer is portaled in here; it must sit visually inside the
  * editor at the clicked line, so give it the editor's dark inset
@@ -2735,6 +3199,7 @@ code {
   border-bottom: 1px solid #2a2a2a;
   border-left: 3px solid #3b82f6;
 }
+
 .editor-pane-composer-inline {
   border-top: none;
   background: transparent;
@@ -2747,6 +3212,7 @@ code {
   overflow-y: auto;
   padding: 8px 14px;
 }
+
 .editor-pane-comments-panel-head {
   font: 11px/1.4 ui-monospace, monospace;
   color: #a3a3a3;
@@ -2754,14 +3220,20 @@ code {
   letter-spacing: 0.06em;
   margin-bottom: 8px;
 }
+
 .editor-pane-comment-thread {
   padding: 8px 0;
   border-bottom: 1px solid #2a2a2a;
 }
-.editor-pane-comment-thread:last-child { border-bottom: none; }
+
+.editor-pane-comment-thread:last-child {
+  border-bottom: none;
+}
+
 .editor-pane-comment-anchor {
   margin-bottom: 4px;
 }
+
 .editor-pane-comment-jump {
   background: transparent;
   color: #93c5fd;
@@ -2771,8 +3243,16 @@ code {
   font: 11px/1.2 ui-monospace, monospace;
   cursor: pointer;
 }
-.editor-pane-comment-jump.is-file { color: #a3a3a3; border-color: #404040; cursor: default; }
-.editor-pane-comment-jump:hover { background: rgba(59, 130, 246, 0.10); }
+
+.editor-pane-comment-jump.is-file {
+  color: #a3a3a3;
+  border-color: #404040;
+  cursor: default;
+}
+
+.editor-pane-comment-jump:hover {
+  background: rgba(59, 130, 246, 0.10);
+}
 
 /* Left-panel uniform background — the Files/Changes panel (rendered
  * by RightPane on the LEFT cell of the top-tabs layout) must paint
@@ -2819,31 +3299,34 @@ code {
   background: transparent;
   z-index: 10;
 }
+
 #right-pane-resizer::before {
   /* The actual visible "line" lives in an ::before so the grip
    * stays a generous 6px hit target while the visible blue line
    * is the crisp 2px the operator sees. */
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   bottom: 0;
   left: 2px;
   width: 2px;
   background: transparent;
-  transition:
-    background 120ms ease,
-    box-shadow 120ms ease;
+  transition: background 120ms ease, box-shadow 120ms ease;
 }
+
 #right-pane-resizer:hover::before {
   background: rgba(10, 132, 255, 0.45);
 }
+
 body.kato-resizing #right-pane-resizer::before {
   background: #0a84ff;
-  box-shadow:
-    0 0 0 1px rgba(10, 132, 255, 0.35),
-    0 0 12px rgba(10, 132, 255, 0.55);
+  box-shadow: 0 0 0 1px $C-CYAN-52-A35, 0 0 12px $C-CYAN-52-A55;
 }
-body.kato-resizing { user-select: none; cursor: col-resize; }
+
+body.kato-resizing {
+  user-select: none;
+  cursor: col-resize;
+}
 
 /* Left-pane resizer — mirror of the right-pane one, anchored to the
  * RIGHT edge of the left pane so the operator drags the boundary
@@ -2859,8 +3342,9 @@ body.kato-resizing { user-select: none; cursor: col-resize; }
   background: transparent;
   z-index: 10;
 }
+
 #left-pane-resizer::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   bottom: 0;
@@ -2869,12 +3353,14 @@ body.kato-resizing { user-select: none; cursor: col-resize; }
   background: transparent;
   transition: background 120ms ease, box-shadow 120ms ease;
 }
-#left-pane-resizer:hover::before { background: rgba(10, 132, 255, 0.45); }
+
+#left-pane-resizer:hover::before {
+  background: rgba(10, 132, 255, 0.45);
+}
+
 body.kato-resizing #left-pane-resizer::before {
   background: #0a84ff;
-  box-shadow:
-    0 0 0 1px rgba(10, 132, 255, 0.35),
-    0 0 12px rgba(10, 132, 255, 0.55);
+  box-shadow: 0 0 0 1px $C-CYAN-52-A35, 0 0 12px $C-CYAN-52-A55;
 }
 
 #right-pane-root {
@@ -2903,17 +3389,22 @@ body.kato-resizing #left-pane-resizer::before {
   text-align: center;
   max-width: 280px;
 }
+
 .left-pane-empty-title {
   margin: 0 0 8px 0;
   color: #e5e5e5;
   font-size: 14px;
   font-weight: 600;
 }
+
 .left-pane-empty-hint {
   margin: 0 0 10px 0;
   line-height: 1.5;
 }
-.left-pane-empty-hint:last-child { margin-bottom: 0; }
+
+.left-pane-empty-hint:last-child {
+  margin-bottom: 0;
+}
 
 .right-pane {
   display: flex;
@@ -2942,13 +3433,13 @@ body.kato-resizing #left-pane-resizer::before {
    * (``position: relative`` with no offsets is layout-neutral). */
   position: relative;
   z-index: 2;
-  background:
-    linear-gradient(180deg,
+  background: linear-gradient(180deg,
       rgba(28, 28, 30, 0.55) 0%,
       rgba(20, 20, 22, 0.45) 100%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   backdrop-filter: blur(20px) saturate(180%);
 }
+
 .right-pane-tabs button {
   flex: 1;
   background: rgba(255, 255, 255, 0.05);
@@ -2963,19 +3454,22 @@ body.kato-resizing #left-pane-resizer::before {
   cursor: pointer;
   transition: background 120ms ease, border-color 120ms ease, color 120ms ease, transform 90ms ease;
 }
+
 .right-pane-tabs button:hover {
   background: rgba(255, 255, 255, 0.10);
   border-color: rgba(255, 255, 255, 0.12);
   color: #f5f5f7;
 }
-.right-pane-tabs button:active { transform: scale(0.97); }
+
+.right-pane-tabs button:active {
+  transform: scale(0.97);
+}
+
 .right-pane-tabs button.active {
   background: rgba(255, 255, 255, 0.18);
   border-color: rgba(255, 255, 255, 0.22);
   color: #ffffff;
-  box-shadow:
-    0 1px 6px rgba(0, 0, 0, 0.35),
-    inset 0 1px 0 rgba(255, 255, 255, 0.10);
+  box-shadow: 0 1px 6px $C-NEUTRAL-00-A35, inset 0 1px 0 $C-NEUTRAL-100-A10;
 }
 
 .right-pane-body {
@@ -3013,6 +3507,7 @@ body.kato-resizing #left-pane-resizer::before {
   display: flex;
   align-items: center;
 }
+
 /* Spotlight-style leading glass icon. Sits inside the pill, dims
  * to systemBlue when the field is focused. */
 .files-tab-filter-icon {
@@ -3026,13 +3521,15 @@ body.kato-resizing #left-pane-resizer::before {
   pointer-events: none;
   transition: color 140ms ease;
 }
+
 .files-tab-filter:focus-within .files-tab-filter-icon {
   color: rgba(10, 132, 255, 0.95);
 }
+
 .files-tab-filter-input {
   width: 100%;
   /* Frosted-glass capsule, matching the composer + task pills. */
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.06);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   backdrop-filter: blur(20px) saturate(180%);
   color: #f5f5f7;
@@ -3043,25 +3540,24 @@ body.kato-resizing #left-pane-resizer::before {
   font: inherit;
   font-size: 12px;
   outline: none;
-  transition:
-    background 140ms ease,
-    border-color 140ms ease,
-    box-shadow 140ms ease;
+  transition: background 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
 }
+
 .files-tab-filter-input:focus {
   background: rgba(255, 255, 255, 0.09);
   border-color: rgba(10, 132, 255, 0.65);
   /* Soft iOS focus ring — a halo, not a hard 2px outline. */
-  box-shadow:
-    0 0 0 4px rgba(10, 132, 255, 0.18),
-    0 1px 2px rgba(0, 0, 0, 0.25) inset;
+  box-shadow: 0 0 0 4px $C-CYAN-52-A18, 0 1px 2px $C-NEUTRAL-00-A25 inset;
 }
+
 .files-tab-filter-input::placeholder {
   color: rgba(245, 245, 247, 0.40);
 }
+
 .files-tab-filter-input::-webkit-search-cancel-button {
   display: none;
 }
+
 .files-tab-filter-clear {
   position: absolute;
   right: 6px;
@@ -3081,7 +3577,10 @@ body.kato-resizing #left-pane-resizer::before {
   align-items: center;
   justify-content: center;
 }
-.files-tab-filter-clear:hover { background: rgba(255, 255, 255, 0.22); }
+
+.files-tab-filter-clear:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
 
 /* ───── iOS round icon toolbar — files + changes ────────────────── */
 .files-tab-toolbar,
@@ -3090,6 +3589,7 @@ body.kato-resizing #left-pane-resizer::before {
   display: flex;
   gap: 6px;
 }
+
 .files-tab-icon-btn,
 .changes-tab-icon-btn {
   background: rgba(255, 255, 255, 0.06);
@@ -3107,19 +3607,25 @@ body.kato-resizing #left-pane-resizer::before {
   justify-content: center;
   transition: background 120ms ease, border-color 120ms ease, transform 90ms ease;
 }
+
 .files-tab-icon-btn:hover,
 .changes-tab-icon-btn:hover {
   background: rgba(255, 255, 255, 0.14);
   border-color: rgba(255, 255, 255, 0.18);
   color: #f5f5f7;
 }
+
 .files-tab-icon-btn:active,
-.changes-tab-icon-btn:active { transform: scale(0.94); }
+.changes-tab-icon-btn:active {
+  transform: scale(0.94);
+}
+
 .files-tab-icon-btn:disabled,
 .changes-tab-icon-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
+
 .files-tab-text-btn {
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -3137,12 +3643,17 @@ body.kato-resizing #left-pane-resizer::before {
   justify-content: center;
   transition: background 120ms ease, border-color 120ms ease, color 120ms ease, transform 90ms ease;
 }
+
 .files-tab-text-btn:hover {
   background: rgba(255, 255, 255, 0.14);
   border-color: rgba(255, 255, 255, 0.18);
   color: #f5f5f7;
 }
-.files-tab-text-btn:active { transform: scale(0.94); }
+
+.files-tab-text-btn:active {
+  transform: scale(0.94);
+}
+
 .files-tab-text-btn.active {
   background: rgba(10, 132, 255, 0.22);
   border-color: rgba(10, 132, 255, 0.42);
@@ -3158,6 +3669,7 @@ body.kato-resizing #left-pane-resizer::before {
   overflow: visible;
   background: rgba(255, 255, 255, 0.03);
 }
+
 .files-tab-repo-header {
   display: flex;
   gap: 8px;
@@ -3168,10 +3680,14 @@ body.kato-resizing #left-pane-resizer::before {
   cursor: pointer;
   font-size: 12px;
   font-weight: 600;
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06);
+  box-shadow: 0 1px 0 $C-NEUTRAL-100-A06;
   transition: background 120ms ease;
 }
-.files-tab-repo-header:hover { background: rgba(255, 255, 255, 0.08); }
+
+.files-tab-repo-header:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
 .files-tab-repo-chevron {
   color: rgba(245, 245, 247, 0.65);
   width: 12px;
@@ -3179,7 +3695,12 @@ body.kato-resizing #left-pane-resizer::before {
   align-items: center;
   justify-content: center;
 }
-.files-tab-repo-name { color: #f5f5f7; font-weight: 600; flex: 1; }
+
+.files-tab-repo-name {
+  color: #f5f5f7;
+  font-weight: 600;
+  flex: 1;
+}
 
 /* Per-repo "view commit" affordance + dropdown menu (FilesTab).
  * Round 26px button matching the toolbar's +/-/refresh affordances
@@ -3203,12 +3724,14 @@ body.kato-resizing #left-pane-resizer::before {
   flex-shrink: 0;
   transition: background-color 0.12s ease-out, color 0.12s ease-out, border-color 0.12s ease-out;
 }
+
 .files-tab-repo-commits-btn:hover {
   background: #262626;
   color: #e5e5e5;
   border-color: #404040;
 }
-.files-tab-repo-commits-btn[aria-expanded='true'] {
+
+.files-tab-repo-commits-btn[aria-expanded=true] {
   background: #262626;
   color: #e5e5e5;
   border-color: #525252;
@@ -3219,6 +3742,7 @@ body.kato-resizing #left-pane-resizer::before {
   inset: 0;
   z-index: 5;
 }
+
 .files-tab-commit-menu {
   position: absolute;
   z-index: 10;
@@ -3231,14 +3755,19 @@ body.kato-resizing #left-pane-resizer::before {
   max-height: 360px;
   overflow-y: auto;
   min-width: 280px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 12px $C-NEUTRAL-00-A40;
 }
+
 .files-tab-commit-empty {
   padding: 8px 12px;
   color: #a3a3a3;
   font: 12px/1.4 inherit;
 }
-.files-tab-commit-empty.error { color: #f87171; }
+
+.files-tab-commit-empty.error {
+  color: #f87171;
+}
+
 .files-tab-commit-row {
   display: grid;
   grid-template-columns: 64px 1fr auto;
@@ -3253,16 +3782,22 @@ body.kato-resizing #left-pane-resizer::before {
   color: #d4d4d4;
   font: 12px/1.3 inherit;
 }
-.files-tab-commit-row:hover { background: #262626; }
+
+.files-tab-commit-row:hover {
+  background: #262626;
+}
+
 .files-tab-commit-sha {
   color: #fbbf24;
   font-family: ui-monospace, monospace;
 }
+
 .files-tab-commit-subject {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
 .files-tab-commit-author {
   color: #737373;
   font-size: 11px;
@@ -3277,12 +3812,16 @@ body.kato-resizing #left-pane-resizer::before {
   padding: 4px;
   background: #0f0f0f;
 }
+
 .diff-file-comments-empty {
   color: #737373;
   font-size: 12px;
   margin: 0 0 12px;
 }
-.diff-file-comments-empty.error { color: #f87171; }
+
+.diff-file-comments-empty.error {
+  color: #f87171;
+}
 
 .diff-file-comment-thread {
   border: 1px solid #262626;
@@ -3290,7 +3829,11 @@ body.kato-resizing #left-pane-resizer::before {
   margin-bottom: 4px;
   background: #161616;
 }
-.diff-file-comment-thread.is-resolved { opacity: 0.9; }
+
+.diff-file-comment-thread.is-resolved {
+  opacity: 0.9;
+}
+
 .diff-file-comment-resolved-banner {
   padding: 6px 10px;
   background: #1e3a8a;
@@ -3303,8 +3846,15 @@ body.kato-resizing #left-pane-resizer::before {
   padding: 6px;
   border-bottom: 1px solid #262626;
 }
-.diff-file-comment:last-child { border-bottom: 0; }
-.diff-file-comment.is-collapsed { padding: 6px; }
+
+.diff-file-comment:last-child {
+  border-bottom: 0;
+}
+
+.diff-file-comment.is-collapsed {
+  padding: 6px;
+}
+
 .diff-file-comment.is-reply {
   margin-left: 28px;
   border-left: 2px solid #2f6feb;
@@ -3318,9 +3868,11 @@ body.kato-resizing #left-pane-resizer::before {
   font-size: 12px;
   padding: 0;
 }
+
 .diff-file-comment:not(.is-collapsed) .diff-file-comment-head {
   margin-bottom: 6px;
 }
+
 .diff-file-comment-avatar {
   width: 24px;
   height: 24px;
@@ -3335,7 +3887,12 @@ body.kato-resizing #left-pane-resizer::before {
   flex-shrink: 0;
   user-select: none;
 }
-.diff-file-comment-author { font-weight: 600; color: #e5e5e5; }
+
+.diff-file-comment-author {
+  font-weight: 600;
+  color: #e5e5e5;
+}
+
 .diff-file-comment-source {
   padding: 1px 6px;
   border-radius: var(--radius-pill);
@@ -3345,8 +3902,17 @@ body.kato-resizing #left-pane-resizer::before {
   letter-spacing: 0.04em;
   color: #a3a3a3;
 }
-.diff-file-comment-source.is-local { border-color: #1d4ed8; color: #93c5fd; }
-.diff-file-comment-source.is-remote { border-color: #047857; color: #6ee7b7; }
+
+.diff-file-comment-source.is-local {
+  border-color: #1d4ed8;
+  color: #93c5fd;
+}
+
+.diff-file-comment-source.is-remote {
+  border-color: #047857;
+  color: #6ee7b7;
+}
+
 /* PENDING-style outlined status pill (Bitbucket look). */
 .diff-file-comment-pill {
   padding: 1px 7px;
@@ -3356,12 +3922,32 @@ body.kato-resizing #left-pane-resizer::before {
   font-weight: 700;
   letter-spacing: 0.04em;
 }
-.diff-file-comment-pill.is-queued { color: #c4b5fd; }
-.diff-file-comment-pill.is-in_progress { color: #fbbf24; }
-.diff-file-comment-pill.is-addressed { color: #6ee7b7; }
-.diff-file-comment-pill.is-failed { color: #fca5a5; }
-.diff-file-comment-pill.is-resolved { color: #93c5fd; }
-.diff-file-comment-ago { color: #737373; font-size: 11px; }
+
+.diff-file-comment-pill.is-queued {
+  color: #c4b5fd;
+}
+
+.diff-file-comment-pill.is-in_progress {
+  color: #fbbf24;
+}
+
+.diff-file-comment-pill.is-addressed {
+  color: #6ee7b7;
+}
+
+.diff-file-comment-pill.is-failed {
+  color: #fca5a5;
+}
+
+.diff-file-comment-pill.is-resolved {
+  color: #93c5fd;
+}
+
+.diff-file-comment-ago {
+  color: #737373;
+  font-size: 11px;
+}
+
 /* Reply-count chip in a collapsed root's header (``▸ 2 replies``).
  * Surfaces follow-up traffic on a thread without having to expand it. */
 .diff-file-comment-reply-count {
@@ -3373,6 +3959,7 @@ body.kato-resizing #left-pane-resizer::before {
   padding: 1px 8px;
   margin-left: 4px;
 }
+
 /* Collapse chevron, pushed to the far right Bitbucket-style. */
 .diff-file-comment-collapse {
   margin-left: auto;
@@ -3391,13 +3978,20 @@ body.kato-resizing #left-pane-resizer::before {
   cursor: pointer;
   transition: background 120ms ease, border-color 120ms ease, color 120ms ease, transform 90ms ease;
 }
+
 .diff-file-comment-collapse:hover {
   background: rgba(255, 255, 255, 0.14);
   border-color: rgba(255, 255, 255, 0.18);
   color: #f5f5f7;
 }
-.diff-file-comment-collapse:active { transform: scale(0.96); }
-.diff-file-comment-collapse:focus { outline: none; }
+
+.diff-file-comment-collapse:active {
+  transform: scale(0.96);
+}
+
+.diff-file-comment-collapse:focus {
+  outline: none;
+}
 
 .diff-file-comment-body {
   color: #d4d4d4;
@@ -3405,9 +3999,21 @@ body.kato-resizing #left-pane-resizer::before {
   line-height: 1.5;
   word-break: break-word;
 }
-.diff-file-comment-body .cmt-md-p { margin: 0 0 8px; }
-.diff-file-comment-body .cmt-md-p:last-child { margin-bottom: 0; }
-.diff-file-comment-body .cmt-md-empty { margin: 0; color: #737373; font-style: italic; }
+
+.diff-file-comment-body .cmt-md-p {
+  margin: 0 0 8px;
+}
+
+.diff-file-comment-body .cmt-md-p:last-child {
+  margin-bottom: 0;
+}
+
+.diff-file-comment-body .cmt-md-empty {
+  margin: 0;
+  color: #737373;
+  font-style: italic;
+}
+
 .diff-file-comment-body .cmt-md-code {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 12px;
@@ -3416,6 +4022,7 @@ body.kato-resizing #left-pane-resizer::before {
   border-radius: 3px;
   padding: 0 4px;
 }
+
 .diff-file-comment-body .cmt-md-pre {
   margin: 0 0 8px;
   padding: 8px 10px;
@@ -3427,13 +4034,19 @@ body.kato-resizing #left-pane-resizer::before {
   font-size: 12px;
   white-space: pre;
 }
+
 .diff-file-comment-body .cmt-md-quote {
   margin: 0 0 8px;
   padding: 2px 0 2px 10px;
   border-left: 3px solid #404040;
   color: #a3a3a3;
 }
-.diff-file-comment-body .cmt-md-list { margin: 0 0 8px; padding-left: 20px; }
+
+.diff-file-comment-body .cmt-md-list {
+  margin: 0 0 8px;
+  padding-left: 20px;
+}
+
 /* Section break (``---``) inside Claude's dense replies. Without
  * this the parser fell back to rendering ``---`` as literal text,
  * which let a Claude post run together as one wall of paragraphs. */
@@ -3443,6 +4056,7 @@ body.kato-resizing #left-pane-resizer::before {
   margin: 10px 0;
   height: 0;
 }
+
 /* ATX headings (``# Title`` .. ``###### Title``). Rendered as
  * <h3>–<h6> so they don't compete with the page's primary headings.
  * Tighter top/bottom margin than browser default so multiple
@@ -3453,9 +4067,19 @@ body.kato-resizing #left-pane-resizer::before {
   color: #e5e7eb;
   line-height: 1.3;
 }
-.diff-file-comment-body .cmt-md-h:first-child { margin-top: 0; }
-.diff-file-comment-body .cmt-md-h3 { font-size: 14px; }
-.diff-file-comment-body .cmt-md-h4 { font-size: 13px; }
+
+.diff-file-comment-body .cmt-md-h:first-child {
+  margin-top: 0;
+}
+
+.diff-file-comment-body .cmt-md-h3 {
+  font-size: 14px;
+}
+
+.diff-file-comment-body .cmt-md-h4 {
+  font-size: 13px;
+}
+
 .diff-file-comment-body .cmt-md-h5,
 .diff-file-comment-body .cmt-md-h6 {
   font-size: 12px;
@@ -3463,7 +4087,10 @@ body.kato-resizing #left-pane-resizer::before {
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
-.diff-file-comment-body a { color: #93c5fd; }
+
+.diff-file-comment-body a {
+  color: #93c5fd;
+}
 
 .diff-file-comment-actions {
   margin: 4px 0 0 0;
@@ -3471,6 +4098,7 @@ body.kato-resizing #left-pane-resizer::before {
   align-items: center;
   font-size: 12px;
 }
+
 .diff-file-comment-action {
   background: transparent;
   border: 0;
@@ -3479,14 +4107,21 @@ body.kato-resizing #left-pane-resizer::before {
   padding: 0;
   font: inherit;
 }
+
 /* Bitbucket-style middot separators between actions. */
 .diff-file-comment-action + .diff-file-comment-action::before {
-  content: '·';
+  content: "·";
   color: #525252;
   margin: 0 8px;
 }
-.diff-file-comment-action:hover { text-decoration: underline; }
-.diff-file-comment-action.danger { color: #fca5a5; }
+
+.diff-file-comment-action:hover {
+  text-decoration: underline;
+}
+
+.diff-file-comment-action.danger {
+  color: #fca5a5;
+}
 
 /* ----- formatting toolbar (markdown-source, no WYSIWYG) ----- */
 .diff-file-comments-toolbar {
@@ -3499,6 +4134,7 @@ body.kato-resizing #left-pane-resizer::before {
   border-radius: 4px 4px 0 0;
   background: #0f0f0f;
 }
+
 .diff-file-comments-toolbar-btn {
   min-width: 26px;
   height: 26px;
@@ -3510,11 +4146,17 @@ body.kato-resizing #left-pane-resizer::before {
   cursor: pointer;
   font: 12px/1 ui-monospace, monospace;
 }
+
 .diff-file-comments-toolbar-btn:hover:not(:disabled) {
   background: #1f1f1f;
   color: #e5e5e5;
 }
-.diff-file-comments-toolbar-btn:disabled { opacity: 0.4; cursor: default; }
+
+.diff-file-comments-toolbar-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 .diff-file-comments-toolbar + .diff-file-comments-textarea {
   border-radius: 0 0 4px 4px;
 }
@@ -3525,11 +4167,13 @@ body.kato-resizing #left-pane-resizer::before {
   padding: 8px;
   background: #131313;
 }
+
 .diff-file-comments-reply-hint {
   font-size: 11px;
   color: #737373;
   margin-bottom: 6px;
 }
+
 .diff-file-comments-cancel-reply {
   background: transparent;
   border: 0;
@@ -3538,6 +4182,7 @@ body.kato-resizing #left-pane-resizer::before {
   font: inherit;
   padding: 0;
 }
+
 .diff-file-comments-textarea {
   width: 100%;
   min-height: 64px;
@@ -3560,15 +4205,18 @@ body.kato-resizing #left-pane-resizer::before {
   resize: vertical;
   box-sizing: border-box;
 }
+
 .diff-file-comments-textarea:focus {
   outline: none;
   border-color: #2563eb;
 }
+
 .diff-file-comments-form-actions {
   margin-top: 8px;
   display: flex;
   justify-content: flex-end;
 }
+
 /* Round pill buttons, matching the app's other action buttons
  * (border-radius:999px, 12px, soft transitions). */
 .diff-file-comments-submit {
@@ -3581,8 +4229,15 @@ body.kato-resizing #left-pane-resizer::before {
   cursor: pointer;
   transition: background 120ms ease, border-color 120ms ease, transform 90ms ease;
 }
-.diff-file-comments-submit:hover:not(:disabled) { background: #2563eb; }
-.diff-file-comments-submit:active:not(:disabled) { transform: scale(0.96); }
+
+.diff-file-comments-submit:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+.diff-file-comments-submit:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
 .diff-file-comments-submit:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -3596,6 +4251,7 @@ body.kato-resizing #left-pane-resizer::before {
   border-bottom: 1px solid #262626;
   padding: 0;
 }
+
 .diff-line-comments-host .diff-file-comment-thread {
   border-radius: 0;
   border-left: 0;
@@ -3603,6 +4259,7 @@ body.kato-resizing #left-pane-resizer::before {
   margin-bottom: 0;
   border-top: 0;
 }
+
 .diff-line-comments-host .diff-file-comment-thread + .diff-file-comment-thread {
   border-top: 1px solid #1f1f1f;
 }
@@ -3619,6 +4276,7 @@ body.kato-resizing #left-pane-resizer::before {
   cursor: pointer;
   position: relative;
 }
+
 /* Bitbucket-style add-comment affordance.
  *
  * react-diff-view unified mode: each row has TWO gutter <td>s, both
@@ -3639,7 +4297,7 @@ body.kato-resizing #left-pane-resizer::before {
  * so half a line is ~9px from the cell top → centers the 20px badge
  * on the first visual row regardless of wrap. */
 .diff-line:hover .diff-gutter + .diff-gutter::after {
-  content: '+';
+  content: "+";
   position: absolute;
   top: 9px;
   left: 50%;
@@ -3656,10 +4314,14 @@ body.kato-resizing #left-pane-resizer::before {
   pointer-events: none;
   z-index: 2;
 }
+
 /* For delete lines: suppress the new-side (2nd) gutter badge, show on old-side (1st). */
-.diff-line:hover .diff-gutter-delete + .diff-gutter-delete::after { content: none; }
+.diff-line:hover .diff-gutter-delete + .diff-gutter-delete::after {
+  content: none;
+}
+
 .diff-line:hover .diff-gutter-delete:first-child::after {
-  content: '+';
+  content: "+";
   position: absolute;
   top: 9px;
   left: 50%;
@@ -3697,12 +4359,16 @@ body.kato-resizing #left-pane-resizer::before {
   margin-right: 8px;
   transition: background 120ms ease, border-color 120ms ease, color 120ms ease, transform 90ms ease;
 }
+
 .diff-file-comments-cancel:hover {
   background: rgba(255, 255, 255, 0.1);
   border-color: rgba(255, 255, 255, 0.16);
   color: #f5f5f7;
 }
-.diff-file-comments-cancel:active { transform: scale(0.96); }
+
+.diff-file-comments-cancel:active {
+  transform: scale(0.96);
+}
 
 /* iOS-style pill buttons living inside the diff cards.
  *
@@ -3728,6 +4394,7 @@ body.kato-resizing #left-pane-resizer::before {
   cursor: pointer;
   transition: background 120ms ease, border-color 120ms ease, color 120ms ease, transform 90ms ease;
 }
+
 .diff-repo-sync-comments:hover:not(:disabled),
 .diff-file-collapse-toggle:hover:not(:disabled),
 .diff-file-add-file-comment:hover:not(:disabled) {
@@ -3735,15 +4402,20 @@ body.kato-resizing #left-pane-resizer::before {
   border-color: rgba(255, 255, 255, 0.18);
   color: #f5f5f7;
 }
+
 .diff-repo-sync-comments:active:not(:disabled),
 .diff-file-collapse-toggle:active:not(:disabled),
-.diff-file-add-file-comment:active:not(:disabled) { transform: scale(0.96); }
+.diff-file-add-file-comment:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
 .diff-repo-sync-comments:disabled,
 .diff-file-collapse-toggle:disabled,
 .diff-file-add-file-comment:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
 /* Icon-only expand/collapse chevron in the file header. */
 .diff-file-collapse-toggle.is-icon {
   width: 26px;
@@ -3754,7 +4426,11 @@ body.kato-resizing #left-pane-resizer::before {
 
 /* Commit-diff modal — wider scrim than the adopt-session modal so
  * file diffs don't squash horizontally. */
-.commit-diff-modal { max-width: 90vw; width: 1100px; }
+.commit-diff-modal {
+  max-width: 90vw;
+  width: 1100px;
+}
+
 .commit-diff-modal-body {
   max-height: 70vh;
   overflow-y: auto;
@@ -3768,6 +4444,7 @@ body.kato-resizing #left-pane-resizer::before {
   overflow: visible;
   background: transparent;
 }
+
 .diff-repo-header {
   display: flex;
   gap: 8px;
@@ -3779,7 +4456,11 @@ body.kato-resizing #left-pane-resizer::before {
   font-weight: 600;
   transition: background 120ms ease;
 }
-.diff-repo-header:hover { background: rgba(255, 255, 255, 0.08); }
+
+.diff-repo-header:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
 .diff-repo-chevron {
   color: rgba(245, 245, 247, 0.65);
   width: 12px;
@@ -3787,9 +4468,21 @@ body.kato-resizing #left-pane-resizer::before {
   align-items: center;
   justify-content: center;
 }
-.diff-repo-name { color: #f5f5f7; font-weight: 600; }
-.diff-repo-range { color: rgba(245, 245, 247, 0.42); margin-left: auto; font-weight: 400; }
-.diff-repo-body { padding: 6px 8px 10px; }
+
+.diff-repo-name {
+  color: #f5f5f7;
+  font-weight: 600;
+}
+
+.diff-repo-range {
+  color: rgba(245, 245, 247, 0.42);
+  margin-left: auto;
+  font-weight: 400;
+}
+
+.diff-repo-body {
+  padding: 6px 8px 10px;
+}
 
 .diff-tree-summary {
   display: flex;
@@ -3798,11 +4491,13 @@ body.kato-resizing #left-pane-resizer::before {
   margin-bottom: 10px;
   padding: 0 4px;
 }
+
 .diff-tree-title {
   color: #f5f5f7;
   font-size: 15px;
   font-weight: 700;
 }
+
 .diff-line-stats {
   margin-left: auto;
   display: inline-flex;
@@ -3810,13 +4505,16 @@ body.kato-resizing #left-pane-resizer::before {
   border-radius: 3px;
   font: 700 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
 }
+
 .diff-line-stat {
   padding: 5px 7px;
 }
+
 .diff-line-stat.is-add {
   color: #7ee7bc;
   background: rgba(16, 111, 74, 0.42);
 }
+
 .diff-line-stat.is-delete {
   color: #ff9a95;
   background: rgba(127, 29, 29, 0.46);
@@ -3840,15 +4538,61 @@ body.kato-resizing #left-pane-resizer::before {
   color: #c8c8cd;
   font: 600 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
 }
-.tree-row-comments svg { width: 11px; height: 11px; }
+
+.tree-row-comments svg {
+  width: 11px;
+  height: 11px;
+}
+
+/* Clickable badge: distinct from clicking the file name. Clicking it
+ * opens the diff and scrolls to the comment thread. */
+.tree-row-comments.is-clickable {
+  cursor: pointer;
+}
+
+.tree-row-comments.is-clickable:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.tree-row-comments.is-clickable:focus-visible {
+  outline: 1px solid currentColor;
+  outline-offset: 1px;
+}
+
+/* Tint the badge by the most-urgent kato_status across the file's open
+ * threads (see buildFilesCommentMeta), matching the .diff-file-comment-pill
+ * colours so the file tree and the comment widgets read the same. */
+.tree-row-comments.is-queued {
+  color: #c4b5fd;
+  border-color: rgba(196, 181, 253, 0.4);
+}
+
+.tree-row-comments.is-in_progress {
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.4);
+}
+
+.tree-row-comments.is-addressed {
+  color: #6ee7b7;
+  border-color: rgba(110, 231, 183, 0.4);
+}
+
+.tree-row-comments.is-failed {
+  color: #fca5a5;
+  border-color: rgba(252, 165, 165, 0.4);
+}
+
 .tree-row-comments + .diff-line-stats,
-.tree-row-comments + .tree-row-line-stats { margin-left: 8px; }
+.tree-row-comments + .tree-row-line-stats {
+  margin-left: 8px;
+}
 
 .diff-file-tree {
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
+
 .diff-file-tree-row {
   --depth: 0;
   position: relative;
@@ -3857,7 +4601,7 @@ body.kato-resizing #left-pane-resizer::before {
   gap: 8px;
   min-height: 26px;
   width: 100%;
-  padding: 3px 8px 3px calc(4px + (var(--depth) * 22px));
+  padding: 3px 8px 3px calc(4px + var(--depth) * 22px);
   border: 0;
   border-radius: 4px;
   background: transparent;
@@ -3865,20 +4609,28 @@ body.kato-resizing #left-pane-resizer::before {
   font: 700 14px/1.25 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   text-align: left;
 }
+
 .diff-file-tree-row.is-file {
   cursor: pointer;
 }
+
 .diff-file-tree-row.is-file:hover {
   background: #1f1f21;
 }
+
 .diff-file-tree-row.selected {
   background: #183252;
   color: #66a6ff;
 }
+
 .diff-file-tree-row.is-file.selected:hover {
   background: #183252;
 }
-.diff-file-tree-row.conflicted .diff-file-tree-label { color: #fbbf24; }
+
+.diff-file-tree-row.conflicted .diff-file-tree-label {
+  color: #fbbf24;
+}
+
 .diff-file-tree-guide {
   position: absolute;
   left: 22px;
@@ -3891,19 +4643,13 @@ body.kato-resizing #left-pane-resizer::before {
   bottom: 0;
   width: calc(var(--depth) * 22px);
   pointer-events: none;
-  background-image: repeating-linear-gradient(
-    to right,
-    transparent 0,
-    transparent 1px,
-    rgba(255, 255, 255, 0.12) 1px,
-    rgba(255, 255, 255, 0.12) 2px,
-    transparent 2px,
-    transparent 22px
-  );
+  background-image: repeating-linear-gradient(to right, transparent 0, transparent 1px, rgba(255, 255, 255, 0.1) 1px, rgba(255, 255, 255, 0.1) 2px, transparent 2px, transparent 22px);
 }
+
 .diff-file-tree-row[style*="--depth: 0"] .diff-file-tree-guide {
   display: none;
 }
+
 .diff-file-tree-chevron {
   width: 16px;
   color: #a8a8ad;
@@ -3911,44 +4657,55 @@ body.kato-resizing #left-pane-resizer::before {
   justify-content: center;
   flex-shrink: 0;
 }
+
 .diff-file-tree-label {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
 .files-changed-tree-wrap {
   padding: 8px 6px 12px;
 }
+
 .files-tree-summary {
   margin: 0 4px 10px;
 }
+
 .files-changed-tree-row {
   font-size: 15px;
   min-height: 32px;
 }
+
 .files-changed-tree-folder {
   color: #a8a8ad;
   font-size: 15px;
   font-weight: 600;
 }
+
 .files-changed-tree-label {
   font-weight: 750;
 }
+
 .files-changed-tree-row.kind-add .files-changed-tree-label {
   color: #8af2c4;
 }
+
 .files-changed-tree-row.kind-delete .files-changed-tree-label {
   color: #ff9a95;
 }
+
 .files-changed-tree-row.kind-modify .files-changed-tree-label,
 .files-changed-tree-row.kind-rename .files-changed-tree-label,
 .files-changed-tree-row.kind-copy .files-changed-tree-label {
   color: #f0b45e;
 }
+
 .files-changed-tree-row.selected .files-changed-tree-label {
   color: #66a6ff;
 }
+
 .files-changed-tree-row .diff-line-stats {
   margin-left: auto;
   flex-shrink: 0;
@@ -3973,11 +4730,16 @@ body.kato-resizing #left-pane-resizer::before {
   cursor: pointer;
   transition: background 100ms ease;
 }
-.diff-file-row:hover { background: rgba(255, 255, 255, 0.06); }
+
+.diff-file-row:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
 .diff-file-row:focus-visible {
   outline: 2px solid rgba(74, 222, 128, 0.55);
   outline-offset: -2px;
 }
+
 .diff-file-row-kind {
   flex-shrink: 0;
   width: 19px;
@@ -3992,11 +4754,28 @@ body.kato-resizing #left-pane-resizer::before {
   color: #d4d4d4;
   background: rgba(255, 255, 255, 0.07);
 }
-.diff-file-row-kind.kind-add { color: #2ed38f; background: rgba(16, 111, 74, 0.42); }
-.diff-file-row-kind.kind-delete { color: #ff8b86; background: rgba(127, 29, 29, 0.46); }
-.diff-file-row-kind.kind-modify { color: #f59e0b; background: rgba(180, 83, 9, 0.22); }
+
+.diff-file-row-kind.kind-add {
+  color: #2ed38f;
+  background: rgba(16, 111, 74, 0.42);
+}
+
+.diff-file-row-kind.kind-delete {
+  color: #ff8b86;
+  background: rgba(127, 29, 29, 0.46);
+}
+
+.diff-file-row-kind.kind-modify {
+  color: #f59e0b;
+  background: rgba(180, 83, 9, 0.22);
+}
+
 .diff-file-row-kind.kind-rename,
-.diff-file-row-kind.kind-copy { color: #f59e0b; background: rgba(180, 83, 9, 0.22); }
+.diff-file-row-kind.kind-copy {
+  color: #f59e0b;
+  background: rgba(180, 83, 9, 0.22);
+}
+
 .diff-file-row-path {
   flex: 1;
   min-width: 0;
@@ -4004,7 +4783,11 @@ body.kato-resizing #left-pane-resizer::before {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.diff-file-row.conflicted .diff-file-row-path { color: #fbbf24; }
+
+.diff-file-row.conflicted .diff-file-row-path {
+  color: #fbbf24;
+}
+
 .diff-file-row-conflict {
   flex-shrink: 0;
   display: inline-flex;
@@ -4024,9 +4807,14 @@ body.kato-resizing #left-pane-resizer::before {
   overflow-y: auto;
   overflow-x: hidden;
   font-size: 13px;
-  /* react-arborist sets row paddingLeft inline; pad the body instead. */
+  /* react-arborist sets row paddingLeft inline; pad the body instead.
+   * The right pad matches the header/toolbar's 12px inset so the repo
+   * group boxes end on the same vertical line as the toolbar actions
+   * instead of running flush to the panel edge. */
   padding-left: 14px;
+  padding-right: 12px;
 }
+
 .files-tab-context-menu,
 .diff-file-context-menu {
   position: fixed;
@@ -4036,8 +4824,9 @@ body.kato-resizing #left-pane-resizer::before {
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 8px;
   background: #171719;
-  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 18px 45px $C-NEUTRAL-00-A45;
 }
+
 .files-tab-context-menu-item,
 .diff-file-context-menu-item {
   width: 100%;
@@ -4052,6 +4841,7 @@ body.kato-resizing #left-pane-resizer::before {
   text-align: left;
   cursor: pointer;
 }
+
 .files-tab-context-menu-item:hover,
 .files-tab-context-menu-item:focus-visible,
 .diff-file-context-menu-item:hover,
@@ -4060,10 +4850,12 @@ body.kato-resizing #left-pane-resizer::before {
   background: rgba(96, 165, 250, 0.18);
   color: #f5f5f7;
 }
+
 .diff-file-context-menu-item:disabled {
   cursor: default;
   opacity: 0.45;
 }
+
 .diff-file-context-menu-item:disabled:hover {
   background: transparent;
   color: #e5e5e7;
@@ -4075,6 +4867,7 @@ body.kato-resizing #left-pane-resizer::before {
   color: #a3a3a3;
   font-size: 13px;
 }
+
 .files-tab-message.error,
 .changes-tab-message.error {
   color: #fecaca;
@@ -4095,11 +4888,16 @@ body.kato-resizing #left-pane-resizer::before {
   font: 700 14px/1.25 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   transition: background 90ms ease;
 }
-.tree-row:hover { background: rgba(255, 255, 255, 0.06); }
+
+.tree-row:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
 .tree-row.selected {
   background: rgba(34, 95, 171, 0.38);
   color: #66a6ff;
 }
+
 .tree-row-level-guides {
   position: absolute;
   left: 0;
@@ -4107,14 +4905,9 @@ body.kato-resizing #left-pane-resizer::before {
   bottom: -4px;
   width: calc(var(--level) * 14px);
   pointer-events: none;
-  background-image: repeating-linear-gradient(
-    to right,
-    transparent 0,
-    transparent 13px,
-    rgba(255, 255, 255, 0.13) 13px,
-    rgba(255, 255, 255, 0.13) 14px
-  );
+  background-image: repeating-linear-gradient(to right, transparent 0, transparent 13px, rgba(255, 255, 255, 0.1) 13px, rgba(255, 255, 255, 0.1) 14px);
 }
+
 .tree-row-chevron {
   width: 16px;
   color: #a8a8ad;
@@ -4123,7 +4916,11 @@ body.kato-resizing #left-pane-resizer::before {
   align-items: center;
   justify-content: center;
 }
-.tree-row-chevron-placeholder { visibility: hidden; }
+
+.tree-row-chevron-placeholder {
+  visibility: hidden;
+}
+
 .tree-row-icon {
   width: 12px;
   color: rgba(245, 245, 247, 0.78);
@@ -4132,15 +4929,25 @@ body.kato-resizing #left-pane-resizer::before {
   align-items: center;
   justify-content: center;
 }
-.tree-row.selected .tree-row-icon { color: #f5f5f7; }
-.tree-row-kind { flex-shrink: 0; }
+
+.tree-row.selected .tree-row-icon {
+  color: #f5f5f7;
+}
+
+.tree-row-kind {
+  flex-shrink: 0;
+}
+
 .tree-row-name {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   color: #b8b8bd;
 }
-.tree-row.selected .tree-row-name { color: #66a6ff; }
+
+.tree-row.selected .tree-row-name {
+  color: #66a6ff;
+}
 
 /* Changes tab */
 .changes-tab-body {
@@ -4157,6 +4964,7 @@ body.kato-resizing #left-pane-resizer::before {
   overflow: hidden;
   background: rgba(255, 255, 255, 0.025);
 }
+
 .diff-file-header {
   display: flex;
   gap: 8px;
@@ -4167,6 +4975,7 @@ body.kato-resizing #left-pane-resizer::before {
   font-family: ui-monospace, monospace;
   color: #f5f5f7;
 }
+
 .diff-file-conflicted {
   flex-shrink: 0;
   display: inline-flex;
@@ -4179,6 +4988,7 @@ body.kato-resizing #left-pane-resizer::before {
   color: #fbbf24;
   font-size: 11px;
 }
+
 /* Add-file-comment sits on its own row inside the comments
  * stack, so override the ``margin-left: auto`` (which would
  * push it to the right edge of a header it isn't inside of). */
@@ -4189,6 +4999,7 @@ body.kato-resizing #left-pane-resizer::before {
 .tree-row.conflicted .tree-row-name {
   color: #fbbf24;
 }
+
 .tree-row-conflict {
   display: inline-flex;
   align-items: center;
@@ -4201,16 +5012,20 @@ body.kato-resizing #left-pane-resizer::before {
   flex-shrink: 0;
   font-size: 11px;
 }
+
 .tree-row.changed .tree-row-name {
   color: #b8b8bd;
 }
+
 .tree-row.changed-ancestor .tree-row-name {
   color: #a8a8ad;
 }
+
 .tree-row-line-stats {
   margin-left: auto;
   flex-shrink: 0;
 }
+
 .tree-row-diff-btn {
   margin-left: auto;
   flex-shrink: 0;
@@ -4229,17 +5044,23 @@ body.kato-resizing #left-pane-resizer::before {
   opacity: 0;
   transition: opacity 100ms ease, background 100ms ease, color 100ms ease;
 }
+
 .tree-row:hover .tree-row-diff-btn,
-.tree-row.selected .tree-row-diff-btn { opacity: 1; }
+.tree-row.selected .tree-row-diff-btn {
+  opacity: 1;
+}
+
 .tree-row-diff-btn:hover {
   background: rgba(74, 222, 128, 0.16);
   color: #4ade80;
 }
+
 .tree-row-diff-btn:focus-visible {
   opacity: 1;
   outline: 2px solid rgba(74, 222, 128, 0.6);
   outline-offset: 1px;
 }
+
 .tree-row-changed {
   /* No longer the auto-margin anchor: when the diff button is
    * present it owns ``margin-left: auto`` and the badge just trails
@@ -4259,10 +5080,12 @@ body.kato-resizing #left-pane-resizer::before {
   font-size: 10px;
   letter-spacing: 0.05em;
 }
+
 .diff-file-header .diff-file-collapse-toggle {
   margin-left: 0;
   flex-shrink: 0;
 }
+
 .diff-file-path {
   display: inline-flex;
   align-items: center;
@@ -4270,6 +5093,7 @@ body.kato-resizing #left-pane-resizer::before {
   overflow: hidden;
   color: #e5e5e5;
 }
+
 .diff-file-path-button {
   flex: 1;
   border: 0;
@@ -4281,6 +5105,7 @@ body.kato-resizing #left-pane-resizer::before {
   cursor: pointer;
   appearance: none;
 }
+
 .diff-file-header .diff-file-path-button {
   width: auto;
   height: auto;
@@ -4292,31 +5117,37 @@ body.kato-resizing #left-pane-resizer::before {
   color: inherit;
   -webkit-appearance: none;
 }
+
 .diff-file-header .diff-file-path-button:hover {
   border: 0;
   background: transparent;
   box-shadow: none;
 }
+
 .diff-file-path-button:hover .diff-file-path-segment,
 .diff-file-path-button:focus-visible .diff-file-path-segment {
   color: #8ab4ff;
 }
+
 .diff-file-header .diff-file-path-button:focus,
 .diff-file-path-button:focus-visible {
   outline: none;
   box-shadow: none;
 }
+
 .diff-file-path-part {
   display: inline-flex;
   align-items: center;
   min-width: 0;
 }
+
 .diff-file-path-segment {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
 .diff-file-path-separator {
   margin: 0 10px;
   color: #a3a3a3;
@@ -4334,7 +5165,7 @@ body.kato-resizing #left-pane-resizer::before {
   /* Gutter == code for changed lines: a brighter gutter shade made
    * the columns read as vertical stripes / a grid. Same colour on
    * both = each added/deleted line is ONE solid block, no grid. */
-  --diff-gutter-insert-background-color: #1d2b27;
+  --diff-gutter-insert-background-color: #262626;
   --diff-gutter-delete-background-color: #2d1f22;
   --diff-code-insert-background-color: #1d2b27;
   --diff-code-delete-background-color: #2d1f22;
@@ -4343,6 +5174,7 @@ body.kato-resizing #left-pane-resizer::before {
   --diff-gutter-selected-background-color: #262626;
   --diff-code-selected-background-color: #262626;
 }
+
 /* Bitbucket-style line numbers: muted but readable (the old #525252
  * was too dark to scan), monospace, right-aligned (react-diff-view
  * default). Subtle enough that the code stays the focal point. */
@@ -4350,13 +5182,19 @@ body.kato-resizing #left-pane-resizer::before {
   color: #7d8590;
   font-variant-numeric: tabular-nums;
 }
-.diff-file .diff { font-size: 12px; }
+
+.diff-file .diff {
+  font-size: 12px;
+}
+
 .diff-file .diff-context-expander {
   background: #2f3033;
 }
+
 .diff-file .diff-context-expander-cell {
   padding: 0;
 }
+
 .diff-context-expander-inner {
   display: flex;
   align-items: center;
@@ -4370,6 +5208,7 @@ body.kato-resizing #left-pane-resizer::before {
   font-family: ui-monospace, monospace;
   font-size: 12px;
 }
+
 .diff-context-expander-btn {
   display: inline-flex;
   align-items: center;
@@ -4383,15 +5222,18 @@ body.kato-resizing #left-pane-resizer::before {
   cursor: pointer;
   font: inherit;
 }
+
 .diff-context-expander-btn:hover:not(:disabled) {
   color: #e5e7eb;
   background: rgba(255, 255, 255, 0.08);
   border-color: rgba(255, 255, 255, 0.14);
 }
+
 .diff-context-expander-btn:disabled {
   opacity: 0.45;
   cursor: progress;
 }
+
 .diff-context-expander-label {
   color: #b6bac3;
 }
@@ -4404,33 +5246,96 @@ body.kato-resizing #left-pane-resizer::before {
  * styled — anything unrecognised renders as default text. */
 .diff-file .token.comment,
 .diff-file .token.prolog,
-.diff-file .token.cdata { color: #6b7280; font-style: italic; }
-.diff-file .token.keyword { color: #ff9b91; }
+.diff-file .token.cdata {
+  color: #6b7280;
+  font-style: italic;
+}
+
+.diff-file .token.keyword {
+  color: #ff9b91;
+}
+
 .diff-file .token.boolean,
 .diff-file .token.constant,
-.diff-file .token.atrule { color: #ff9b91; }
-.diff-file .token.tag { color: #579dff; }
-.diff-file .token.string { color: #f5cd47; }
-.diff-file .token.attr-value { color: #f5cd47; }
-.diff-file .token.template-string { color: #f5cd47; }
+.diff-file .token.atrule {
+  color: #ff9b91;
+}
+
+.diff-file .token.tag {
+  color: #579dff;
+}
+
+.diff-file .token.string {
+  color: #f5cd47;
+}
+
+.diff-file .token.attr-value {
+  color: #f5cd47;
+}
+
+.diff-file .token.template-string {
+  color: #f5cd47;
+}
+
 .diff-file .token.number,
-.diff-file .token.unit { color: #fcd34d; }
+.diff-file .token.unit {
+  color: #fcd34d;
+}
+
 .diff-file .token.function,
-.diff-file .token.class-name { color: #79f2c0; }
-.diff-file .token.attr-name { color: #79f2c0; }
-.diff-file .token.property { color: #79f2c0; }
-.diff-file .token.property-access { color: #79f2c0; }
-.diff-file .token.selector { color: #579dff; }
-.diff-file .token.variable { color: #cce0ff; }
+.diff-file .token.class-name {
+  color: #79f2c0;
+}
+
+.diff-file .token.attr-name {
+  color: #79f2c0;
+}
+
+.diff-file .token.property {
+  color: #79f2c0;
+}
+
+.diff-file .token.property-access {
+  color: #79f2c0;
+}
+
+.diff-file .token.selector {
+  color: #579dff;
+}
+
+.diff-file .token.variable {
+  color: #cce0ff;
+}
+
 .diff-file .token.operator,
-.diff-file .token.punctuation { color: #cbd5e1; }
-.diff-file .token.regex { color: #f472b6; }
+.diff-file .token.punctuation {
+  color: #cbd5e1;
+}
+
+.diff-file .token.regex {
+  color: #f472b6;
+}
+
 .diff-file .token.builtin,
-.diff-file .token.symbol { color: #67e8f9; }
-.diff-file .token.deleted { color: #fca5a5; }
-.diff-file .token.inserted { color: #86efac; }
-.diff-file .token.italic { font-style: italic; }
-.diff-file .token.bold { font-weight: 600; }
+.diff-file .token.symbol {
+  color: #67e8f9;
+}
+
+.diff-file .token.deleted {
+  color: #fca5a5;
+}
+
+.diff-file .token.inserted {
+  color: #86efac;
+}
+
+.diff-file .token.italic {
+  font-style: italic;
+}
+
+.diff-file .token.bold {
+  font-weight: 600;
+}
 
 /* Bypass-permissions safety banner — visible at the very top of the page
  * whenever KATO_CLAUDE_BYPASS_PERMISSIONS=true. Red so the operator cannot
@@ -4449,6 +5354,7 @@ body.kato-resizing #left-pane-resizer::before {
   top: 0;
   z-index: 50;
 }
+
 .kato-safety-banner__icon {
   display: inline-flex;
   align-items: center;
@@ -4462,8 +5368,15 @@ body.kato-resizing #left-pane-resizer::before {
   font-size: 14px;
   flex-shrink: 0;
 }
-.kato-safety-banner__text { flex: 1; }
-.kato-safety-banner strong { color: #ffffff; letter-spacing: 0.02em; }
+
+.kato-safety-banner__text {
+  flex: 1;
+}
+
+.kato-safety-banner strong {
+  color: #ffffff;
+  letter-spacing: 0.02em;
+}
 
 /* Orchestrator activity feed — fills the right pane when no task is selected */
 .orchestrator-feed {
@@ -4472,6 +5385,7 @@ body.kato-resizing #left-pane-resizer::before {
   height: 100%;
   background: #050505;
 }
+
 .orchestrator-feed-header {
   display: flex;
   align-items: center;
@@ -4481,6 +5395,7 @@ body.kato-resizing #left-pane-resizer::before {
   border-bottom: 1px solid #171717;
   flex-shrink: 0;
 }
+
 /* Match the chat's task-name (#session-task-id <strong>): same
  * bold white, same sans-serif body size — so the two panes' titles
  * read as siblings, not "title vs muted monospace label". */
@@ -4494,6 +5409,7 @@ body.kato-resizing #left-pane-resizer::before {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
 .orchestrator-feed-close {
   display: inline-flex;
   align-items: center;
@@ -4508,11 +5424,13 @@ body.kato-resizing #left-pane-resizer::before {
   flex-shrink: 0;
   transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
 }
+
 .orchestrator-feed-close:hover {
   background: rgba(255, 255, 255, 0.10);
   border-color: rgba(255, 255, 255, 0.18);
   color: #f5f5f7;
 }
+
 .orchestrator-feed-empty {
   padding: 16px;
   color: #525252;
@@ -4520,12 +5438,14 @@ body.kato-resizing #left-pane-resizer::before {
   line-height: 1.5;
   font-family: ui-monospace, monospace;
 }
+
 .orchestrator-feed-body {
   flex: 1;
   overflow-y: auto;
   font-family: ui-monospace, monospace;
   font-size: 12px;
 }
+
 .orchestrator-feed-row {
   display: grid;
   grid-template-columns: 70px 40px 1fr;
@@ -4534,7 +5454,11 @@ body.kato-resizing #left-pane-resizer::before {
   border-bottom: 1px solid #0d0d0d;
   color: #d4d4d4;
 }
-.orchestrator-feed-row .ts { color: #525252; }
+
+.orchestrator-feed-row .ts {
+  color: #525252;
+}
+
 .orchestrator-feed-row .lvl {
   font-weight: 600;
   text-align: center;
@@ -4544,26 +5468,40 @@ body.kato-resizing #left-pane-resizer::before {
   height: fit-content;
   line-height: 1.4;
 }
+
 .orchestrator-feed-row .lvl-info {
   color: #93c5fd;
   background: rgba(59, 130, 246, 0.12);
 }
+
 .orchestrator-feed-row .lvl-warn,
 .orchestrator-feed-row .lvl-warning {
   color: #fbbf24;
   background: rgba(245, 158, 11, 0.15);
 }
+
 .orchestrator-feed-row .lvl-error {
   color: #f87171;
   background: rgba(239, 68, 68, 0.18);
 }
+
 .orchestrator-feed-row .lvl-debug {
   color: #a78bfa;
   background: rgba(139, 92, 246, 0.12);
 }
-.orchestrator-feed-row .msg { color: #e5e5e5; word-break: break-word; }
-.orchestrator-feed-row.warn .msg { color: #fde68a; }
-.orchestrator-feed-row.error .msg { color: #fecaca; }
+
+.orchestrator-feed-row .msg {
+  color: #e5e5e5;
+  word-break: break-word;
+}
+
+.orchestrator-feed-row.warn .msg {
+  color: #fde68a;
+}
+
+.orchestrator-feed-row.error .msg {
+  color: #fecaca;
+}
 
 /* Inline tokens highlighted inside each message body. The palette
  * is meant to scan at a glance: blue/cyan for "addresses", green
@@ -4574,16 +5512,31 @@ body.kato-resizing #left-pane-resizer::before {
   text-decoration: underline;
   text-decoration-color: rgba(103, 232, 249, 0.4);
 }
-.orchestrator-feed-row .tok-path { color: #86efac; }
-.orchestrator-feed-row .tok-addr { color: #38bdf8; font-weight: 500; }
-.orchestrator-feed-row .tok-time { color: #c4b5fd; }
+
+.orchestrator-feed-row .tok-path {
+  color: #86efac;
+}
+
+.orchestrator-feed-row .tok-addr {
+  color: #38bdf8;
+  font-weight: 500;
+}
+
+.orchestrator-feed-row .tok-time {
+  color: #c4b5fd;
+}
+
 .orchestrator-feed-row .tok-progress {
   color: #fbbf24;
   background: rgba(245, 158, 11, 0.10);
   border-radius: 3px;
   padding: 0 4px;
 }
-.orchestrator-feed-row .tok-num { color: #fcd34d; }
+
+.orchestrator-feed-row .tok-num {
+  color: #fcd34d;
+}
+
 .orchestrator-feed-row .tok-code {
   font-family: ui-monospace, monospace;
   color: #fbcfe8;
@@ -4591,6 +5544,7 @@ body.kato-resizing #left-pane-resizer::before {
   padding: 0 4px;
   border-radius: 3px;
 }
+
 .orchestrator-feed-footer {
   padding: 8px 12px;
   border-top: 1px solid #171717;
@@ -4607,7 +5561,6 @@ body.kato-resizing #left-pane-resizer::before {
  * Done (#session-finish) carries .is-primary for the green accent,
  * Stop carries .is-danger, Resume carries .is-warning. The other
  * actions stay neutral. */
-
 .claude-status {
   font: 11px/1 ui-monospace, monospace;
   padding: 3px 8px;
@@ -4617,31 +5570,42 @@ body.kato-resizing #left-pane-resizer::before {
   background: #0a0a0a;
   flex-shrink: 0;
 }
+
 .claude-status-working {
   color: #fde68a;
   border-color: #b45309;
   background: #1c1207;
 }
+
 .claude-status-approval {
   color: #fed7aa;
   border-color: #f97316;
   background: #2a0f05;
 }
+
 .claude-status-idle,
 .claude-status-streaming {
   color: #86efac;
   border-color: #166534;
   background: #06140a;
 }
+
 .claude-status-connecting,
 .claude-status-provisioning {
   color: #93c5fd;
   border-color: #1d4ed8;
   background: #07112a;
 }
+
 .claude-status-sleeping,
-.claude-status-closed { color: #737373; }
-.claude-status-missing { color: #fca5a5; border-color: #7f1d1d; }
+.claude-status-closed {
+  color: #737373;
+}
+
+.claude-status-missing {
+  color: #fca5a5;
+  border-color: #7f1d1d;
+}
 
 /* Always-visible Claude session id, next to the status chip — so the
  * operator can eyeball it across a restart (resume keeps the same
@@ -4654,6 +5618,20 @@ body.kato-resizing #left-pane-resizer::before {
   flex-shrink: 0;
   user-select: text;
   cursor: text;
+}
+
+/* The same badge rendered ALSO next to the ``Claude: <status>``
+ * chip on the right side of the header — see ``SessionHeader.jsx``
+ * (``sessionIdBadgeRight``). Slightly stronger color + a tinted
+ * pill so it reads as "linked to the status next to me", not as
+ * an afterthought. */
+.claude-session-id.is-aside-status {
+  color: #a3a3a3;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 999px;
+  padding: 3px 8px;
+  margin-left: 2px;
 }
 
 /* ----- toasts -----
@@ -4676,6 +5654,7 @@ body.kato-resizing #left-pane-resizer::before {
   pointer-events: none;
   max-width: calc(100vw - 48px);
 }
+
 .toast {
   pointer-events: auto;
   display: flex;
@@ -4689,28 +5668,55 @@ body.kato-resizing #left-pane-resizer::before {
   padding: 10px 14px;
   min-width: 320px;
   max-width: 560px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 8px 24px $C-NEUTRAL-00-A50;
   animation: kato-toast-slide 0.18s ease-out;
   cursor: pointer;
   font: 13px/1.5 -apple-system, system-ui, sans-serif;
 }
+
 .toast:focus-visible {
   outline: 2px solid #2563eb;
   outline-offset: 2px;
 }
-.toast-success { border-left-color: #10b981; }
-.toast-error   { border-left-color: #ef4444; }
-.toast-warning { border-left-color: #f59e0b; }
-.toast-info    { border-left-color: #3b82f6; }
+
+.toast-success {
+  border-left-color: #10b981;
+}
+
+.toast-error {
+  border-left-color: #ef4444;
+}
+
+.toast-warning {
+  border-left-color: #f59e0b;
+}
+
+.toast-info {
+  border-left-color: #3b82f6;
+}
+
 .toast-glyph {
   font-size: 16px;
   line-height: 1.3;
   flex-shrink: 0;
 }
-.toast-success .toast-glyph { color: #34d399; }
-.toast-error   .toast-glyph { color: #f87171; }
-.toast-warning .toast-glyph { color: #fbbf24; }
-.toast-info    .toast-glyph { color: #60a5fa; }
+
+.toast-success .toast-glyph {
+  color: #34d399;
+}
+
+.toast-error .toast-glyph {
+  color: #f87171;
+}
+
+.toast-warning .toast-glyph {
+  color: #fbbf24;
+}
+
+.toast-info .toast-glyph {
+  color: #60a5fa;
+}
+
 .toast-body {
   display: flex;
   flex-direction: column;
@@ -4718,11 +5724,13 @@ body.kato-resizing #left-pane-resizer::before {
   min-width: 0;
   flex: 1;
 }
+
 .toast-title {
   font-weight: 600;
   font-size: 13px;
   letter-spacing: 0.01em;
 }
+
 .toast-message {
   margin: 0;
   font-family: inherit;
@@ -4731,6 +5739,7 @@ body.kato-resizing #left-pane-resizer::before {
   word-break: break-word;
   color: #e5e7eb;
 }
+
 .toast-close {
   background: transparent;
   border: 0;
@@ -4742,12 +5751,21 @@ body.kato-resizing #left-pane-resizer::before {
   flex-shrink: 0;
   margin-left: 4px;
 }
-.toast-close:hover { color: #f9fafb; }
-@keyframes kato-toast-slide {
-  from { transform: translateY(-12px); opacity: 0; }
-  to   { transform: translateY(0); opacity: 1; }
+
+.toast-close:hover {
+  color: #f9fafb;
 }
 
+@keyframes kato-toast-slide {
+  from {
+    transform: translateY(-12px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
 /* ----- custom tooltips -----
  * The browser-native ``title`` tooltip waits ~1.5s and renders in a
  * tiny system font. Buttons in kato use ``data-tooltip`` instead so
@@ -4755,7 +5773,10 @@ body.kato-resizing #left-pane-resizer::before {
  * tooltips on non-button elements (like the status dot ``<span>``)
  * are left alone — they're cheap and good enough for static labels.
  */
-[data-tooltip] { position: relative; }
+[data-tooltip] {
+  position: relative;
+}
+
 [data-tooltip]:hover::after,
 [data-tooltip]:focus-visible::after {
   content: attr(data-tooltip);
@@ -4774,16 +5795,17 @@ body.kato-resizing #left-pane-resizer::before {
   max-width: 320px;
   width: max-content;
   border: 1px solid #374151;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 6px 16px $C-NEUTRAL-00-A45;
   z-index: 1000;
   pointer-events: none;
   opacity: 0;
   animation: kato-tooltip-fade 0.12s ease-out 0.03s forwards;
   text-align: left;
 }
+
 [data-tooltip]:hover::before,
 [data-tooltip]:focus-visible::before {
-  content: '';
+  content: "";
   position: absolute;
   top: calc(100% + 2px);
   left: 50%;
@@ -4795,11 +5817,13 @@ body.kato-resizing #left-pane-resizer::before {
   opacity: 0;
   animation: kato-tooltip-fade 0.12s ease-out 0.03s forwards;
 }
+
 [data-tooltip].tooltip-above:hover::after,
 [data-tooltip].tooltip-above:focus-visible::after {
   top: auto;
   bottom: calc(100% + 8px);
 }
+
 [data-tooltip].tooltip-above:hover::before,
 [data-tooltip].tooltip-above:focus-visible::before {
   top: auto;
@@ -4807,6 +5831,7 @@ body.kato-resizing #left-pane-resizer::before {
   border-bottom-color: transparent;
   border-top-color: #1f2937;
 }
+
 [data-tooltip][disabled]:hover::after,
 [data-tooltip][disabled]:hover::before,
 [data-tooltip]:disabled:hover::after,
@@ -4815,6 +5840,7 @@ body.kato-resizing #left-pane-resizer::before {
    * usually how the operator learns *why* the button is disabled. */
   animation: kato-tooltip-fade 0.12s ease-out 0.03s forwards;
 }
+
 /* …but a disabled control dims itself with element ``opacity``, and
  * CSS opacity on the host also fades its ::after/::before — so the
  * tooltip rendered see-through (the reported bug). Keep any
@@ -4828,6 +5854,7 @@ body.kato-resizing #left-pane-resizer::before {
    * faded — that's the whole point of this fix. */
   opacity: 1 !important;
 }
+
 [data-tooltip]:disabled > *,
 [data-tooltip][disabled] > * {
   opacity: 0.4;
@@ -4851,12 +5878,14 @@ body.kato-resizing #left-pane-resizer::before {
   transform: none;
   max-width: 220px;
 }
+
 [data-tooltip].tooltip-end:hover::before,
 [data-tooltip].tooltip-end:focus-visible::before {
   left: auto;
   right: 6px;
   transform: none;
 }
+
 /* Combo: above + end (e.g. for buttons near bottom-right corners). */
 [data-tooltip].tooltip-above.tooltip-end:hover::after,
 [data-tooltip].tooltip-above.tooltip-end:focus-visible::after {
@@ -4867,6 +5896,7 @@ body.kato-resizing #left-pane-resizer::before {
   transform: none;
   max-width: 220px;
 }
+
 [data-tooltip].tooltip-above.tooltip-end:hover::before,
 [data-tooltip].tooltip-above.tooltip-end:focus-visible::before {
   top: auto;
@@ -4877,11 +5907,16 @@ body.kato-resizing #left-pane-resizer::before {
   border-bottom-color: transparent;
   border-top-color: #1f2937;
 }
+
 @keyframes kato-tooltip-fade {
-  to { opacity: 1; }
+  to {
+    opacity: 1;
+  }
+}
+.notification-settings {
+  position: relative;
 }
 
-.notification-settings { position: relative; }
 .notification-settings > button {
   background: transparent;
   color: #a3a3a3;
@@ -4899,12 +5934,18 @@ body.kato-resizing #left-pane-resizer::before {
   flex-shrink: 0;
   transition: background-color 0.12s ease-out, color 0.12s ease-out, border-color 0.12s ease-out;
 }
+
 .notification-settings > button:hover {
   color: #e5e5e5;
   border-color: #404040;
   background: #1f1f1f;
 }
-.notification-settings > button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.notification-settings > button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .notification-settings-popover {
   position: absolute;
   top: calc(100% + 6px);
@@ -4919,8 +5960,9 @@ body.kato-resizing #left-pane-resizer::before {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 6px 20px $C-NEUTRAL-00-A40;
 }
+
 .notification-settings-row {
   display: flex;
   align-items: center;
@@ -4930,28 +5972,30 @@ body.kato-resizing #left-pane-resizer::before {
   cursor: pointer;
   user-select: none;
 }
+
 /* iOS-style toggle switch — the underlying ``<input type="checkbox">``
  * stays a real checkbox for semantics + keyboard accessibility, but
  * we hide it visually and render a custom slider in its place. Off
  * = dark slate track, white knob on the left. On = blue track, knob
  * slid right. Clear at-a-glance state, no more "did I check that?"
  * after the operator squints at a faint native check mark. */
-.notification-settings-row input[type="checkbox"] {
+.notification-settings-row input[type=checkbox] {
   appearance: none;
   -webkit-appearance: none;
   width: 36px;
   height: 20px;
   border-radius: 999px;
-  background: #2a2a2d;
-  border: 1px solid #3a3a3d;
+  background: #262626;
+  border: 1px solid #404040;
   position: relative;
   cursor: pointer;
   transition: background 0.18s ease-out, border-color 0.18s ease-out;
   flex-shrink: 0;
   margin: 0;
 }
-.notification-settings-row input[type="checkbox"]::before {
-  content: '';
+
+.notification-settings-row input[type=checkbox]::before {
+  content: "";
   position: absolute;
   top: 1px;
   left: 1px;
@@ -4959,38 +6003,46 @@ body.kato-resizing #left-pane-resizer::before {
   height: 16px;
   border-radius: 50%;
   background: #f5f5f7;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 1px 3px $C-NEUTRAL-00-A45;
   transition: transform 0.18s ease-out, background 0.18s ease-out;
 }
-.notification-settings-row input[type="checkbox"]:checked {
+
+.notification-settings-row input[type=checkbox]:checked {
   background: #0a84ff;
   border-color: #0a84ff;
 }
-.notification-settings-row input[type="checkbox"]:checked::before {
+
+.notification-settings-row input[type=checkbox]:checked::before {
   transform: translateX(16px);
 }
-.notification-settings-row input[type="checkbox"]:focus-visible {
+
+.notification-settings-row input[type=checkbox]:focus-visible {
   outline: 2px solid rgba(10, 132, 255, 0.5);
   outline-offset: 2px;
 }
-.notification-settings-row input[type="checkbox"]:disabled {
+
+.notification-settings-row input[type=checkbox]:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
-.notification-settings-row input[type="checkbox"]:disabled + span {
+
+.notification-settings-row input[type=checkbox]:disabled + span {
   opacity: 0.5;
 }
+
 .notification-settings-master {
   font-weight: 600;
   color: #e5e5e5;
   justify-content: space-between;
   padding: 10px 4px;
 }
+
 .notification-settings-master-label {
   display: inline-flex;
   align-items: center;
   gap: 10px;
 }
+
 .notification-settings-master-state {
   display: inline-block;
   padding: 1px 8px;
@@ -5002,17 +6054,18 @@ body.kato-resizing #left-pane-resizer::before {
   background: rgba(255, 255, 255, 0.06);
   color: #a3a3a3;
 }
-.notification-settings-master input[type="checkbox"]:checked
-  ~ .notification-settings-master-state,
-.notification-settings-master:has(input[type="checkbox"]:checked)
-  .notification-settings-master-state {
-  background: rgba(10, 132, 255, 0.20);
+
+.notification-settings-master input[type=checkbox]:checked ~ .notification-settings-master-state,
+.notification-settings-master:has(input[type=checkbox]:checked) .notification-settings-master-state {
+  background: rgba(10, 132, 255, 0.18);
   color: #93c5fd;
 }
+
 .notification-settings-divider {
   border-top: 1px solid #171717;
   margin: 4px 0;
 }
+
 .notification-settings-hint {
   font-size: 12px;
   color: #fbbf24;
@@ -5021,7 +6074,7 @@ body.kato-resizing #left-pane-resizer::before {
 
 .tab-changes-indicator {
   grid-column: 3;
-  grid-row: 1 / span 2;
+  grid-row: 1/span 2;
   align-self: center;
   color: #fbbf24;
   font-size: 14px;
@@ -5040,6 +6093,7 @@ body.kato-resizing #left-pane-resizer::before {
   justify-content: center;
   z-index: 1000;
 }
+
 .adopt-session-modal {
   background: #171717;
   border: 1px solid #262626;
@@ -5051,6 +6105,7 @@ body.kato-resizing #left-pane-resizer::before {
   color: #e5e5e5;
   font-size: 13px;
 }
+
 .adopt-session-modal-header {
   display: flex;
   justify-content: space-between;
@@ -5058,12 +6113,14 @@ body.kato-resizing #left-pane-resizer::before {
   padding: 12px 16px;
   border-bottom: 1px solid #262626;
 }
+
 .adopt-session-modal-header h2 {
   margin: 0;
   font-size: 14px;
   font-weight: 500;
   color: #e5e5e5;
 }
+
 .adopt-session-close {
   background: none;
   border: none;
@@ -5073,19 +6130,25 @@ body.kato-resizing #left-pane-resizer::before {
   padding: 0;
   line-height: 1;
 }
-.adopt-session-close:hover { color: #e5e5e5; }
+
+.adopt-session-close:hover {
+  color: #e5e5e5;
+}
+
 .adopt-session-modal-help {
   margin: 12px 16px 0 16px;
   font-size: 12px;
   color: #a3a3a3;
   line-height: 1.5;
 }
+
 .adopt-session-modal-help code {
   background: #262626;
   padding: 1px 4px;
   border-radius: 3px;
   font-size: 11px;
 }
+
 .adopt-session-search {
   margin: 12px 16px;
   padding: 6px 8px;
@@ -5095,10 +6158,12 @@ body.kato-resizing #left-pane-resizer::before {
   color: #e5e5e5;
   font: inherit;
 }
+
 .adopt-session-search:focus {
   outline: none;
   border-color: #404040;
 }
+
 .adopt-session-list {
   flex: 1;
   overflow-y: auto;
@@ -5107,13 +6172,18 @@ body.kato-resizing #left-pane-resizer::before {
   flex-direction: column;
   gap: 4px;
 }
+
 .adopt-session-empty {
   padding: 24px;
   text-align: center;
   color: #737373;
   font-size: 12px;
 }
-.adopt-session-error { color: #f87171; }
+
+.adopt-session-error {
+  color: #f87171;
+}
+
 .adopt-session-row {
   text-align: left;
   background: #0a0a0a;
@@ -5127,16 +6197,23 @@ body.kato-resizing #left-pane-resizer::before {
   flex-direction: column;
   gap: 4px;
 }
-.adopt-session-row:hover { background: #171717; border-color: #404040; }
+
+.adopt-session-row:hover {
+  background: #171717;
+  border-color: #404040;
+}
+
 .adopt-session-row.is-selected {
   background: #1a1a1a;
   border-color: #fbbf24;
 }
+
 .adopt-session-row-top {
   display: flex;
   justify-content: space-between;
   gap: 12px;
 }
+
 .adopt-session-cwd {
   font-family: monospace;
   color: #d4d4d4;
@@ -5145,11 +6222,13 @@ body.kato-resizing #left-pane-resizer::before {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
 .adopt-session-meta {
   font-size: 11px;
   color: #737373;
   flex-shrink: 0;
 }
+
 .adopt-session-preview {
   color: #a3a3a3;
   font-size: 12px;
@@ -5160,6 +6239,7 @@ body.kato-resizing #left-pane-resizer::before {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
 }
+
 .adopt-session-id {
   font-family: ui-monospace, monospace;
   font-size: 10px;
@@ -5168,28 +6248,36 @@ body.kato-resizing #left-pane-resizer::before {
   cursor: copy;
   word-break: break-all;
 }
-.adopt-session-id:hover { color: #a3a3a3; }
+
+.adopt-session-id:hover {
+  color: #a3a3a3;
+}
+
 .adopt-session-badges {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
 }
+
 .adopt-session-badge {
   font-size: 10px;
   padding: 1px 6px;
   border-radius: var(--radius-pill);
   font-weight: 500;
 }
+
 .adopt-session-badge.in-use {
   background: #422006;
   color: #fbbf24;
   border: 1px solid #78350f;
 }
+
 .adopt-session-badge.adopted {
   background: #052e16;
   color: #4ade80;
   border: 1px solid #14532d;
 }
+
 .adopt-session-modal-footer {
   display: flex;
   justify-content: flex-end;
@@ -5197,6 +6285,7 @@ body.kato-resizing #left-pane-resizer::before {
   padding: 12px 16px;
   border-top: 1px solid #262626;
 }
+
 .adopt-session-cancel,
 .adopt-session-confirm {
   background: #262626;
@@ -5207,15 +6296,18 @@ body.kato-resizing #left-pane-resizer::before {
   cursor: pointer;
   font: inherit;
 }
+
 .adopt-session-confirm {
   background: #1f3a8a;
   border-color: #1d4ed8;
 }
+
 .adopt-session-confirm:disabled,
 .adopt-session-cancel:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
 .adopt-session-confirm:not(:disabled):hover {
   background: #1d4ed8;
 }
@@ -5226,7 +6318,6 @@ body.kato-resizing #left-pane-resizer::before {
  * under tabs. Triggered by the gear icon in the Header. Replaces
  * the old NotificationSettings popover — same controls now live in
  * the 'Notifications' tab. */
-
 .settings-drawer-backdrop {
   position: fixed;
   inset: 0;
@@ -5236,6 +6327,7 @@ body.kato-resizing #left-pane-resizer::before {
   pointer-events: none;
   transition: opacity 0.18s ease-out;
 }
+
 .settings-drawer-backdrop.is-open {
   opacity: 1;
   pointer-events: auto;
@@ -5249,13 +6341,14 @@ body.kato-resizing #left-pane-resizer::before {
   width: min(720px, 100vw);
   background: #0f0f10;
   border-left: 1px solid #262626;
-  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.55);
+  box-shadow: -8px 0 32px $C-NEUTRAL-00-A55;
   z-index: 1000;
   display: flex;
   flex-direction: column;
   transform: translateX(100%);
   transition: transform 0.22s ease-out;
 }
+
 .settings-drawer.is-open {
   transform: translateX(0);
 }
@@ -5267,12 +6360,14 @@ body.kato-resizing #left-pane-resizer::before {
   padding: 14px 18px;
   border-bottom: 1px solid #262626;
 }
+
 .settings-drawer-head h2 {
   margin: 0;
   font-size: 16px;
   color: #f5f5f7;
   flex: 1;
 }
+
 .settings-drawer-close {
   background: transparent;
   border: 1px solid #262626;
@@ -5287,6 +6382,7 @@ body.kato-resizing #left-pane-resizer::before {
   align-items: center;
   justify-content: center;
 }
+
 .settings-drawer-close:hover {
   color: #e5e5e5;
   border-color: #525252;
@@ -5301,6 +6397,7 @@ body.kato-resizing #left-pane-resizer::before {
   border-bottom: 1px solid #262626;
   background: #0a0a0a;
 }
+
 .settings-drawer-tab {
   background: transparent;
   border: 1px solid transparent;
@@ -5311,10 +6408,12 @@ body.kato-resizing #left-pane-resizer::before {
   cursor: pointer;
   transition: background 0.12s, color 0.12s, border-color 0.12s;
 }
+
 .settings-drawer-tab:hover {
   color: #e5e5e5;
   background: rgba(255, 255, 255, 0.04);
 }
+
 .settings-drawer-tab.is-active {
   background: rgba(10, 132, 255, 0.18);
   border-color: rgba(10, 132, 255, 0.45);
@@ -5331,17 +6430,20 @@ body.kato-resizing #left-pane-resizer::before {
 .settings-drawer-panel-head {
   margin: 0 0 14px 0;
 }
+
 .settings-drawer-panel-head h3 {
   margin: 0 0 6px 0;
   font-size: 15px;
   color: #f5f5f7;
 }
+
 .settings-drawer-panel-head p {
   margin: 0;
   font-size: 12px;
   color: #a3a3a3;
   line-height: 1.5;
 }
+
 .settings-drawer-panel-head code {
   background: rgba(255, 255, 255, 0.06);
   padding: 1px 5px;
@@ -5355,15 +6457,18 @@ body.kato-resizing #left-pane-resizer::before {
   gap: 6px;
   margin-bottom: 14px;
 }
+
 .settings-drawer-field-label {
   font-size: 12px;
   color: #d4d4d4;
 }
+
 .settings-drawer-field-hint {
   font-size: 11px;
   color: #737373;
   line-height: 1.4;
 }
+
 .settings-drawer-field-hint code {
   background: rgba(255, 255, 255, 0.05);
   padding: 1px 4px;
@@ -5379,9 +6484,10 @@ body.kato-resizing #left-pane-resizer::before {
   font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
   outline: none;
 }
+
 .settings-drawer-input:focus {
   border-color: #0a84ff;
-  box-shadow: 0 0 0 2px rgba(10, 132, 255, 0.25);
+  box-shadow: 0 0 0 2px $C-CYAN-52-A22;
 }
 
 .settings-drawer-status-row {
@@ -5394,22 +6500,41 @@ body.kato-resizing #left-pane-resizer::before {
   background: rgba(255, 255, 255, 0.02);
   margin-bottom: 14px;
 }
-.settings-drawer-kv { display: flex; flex-direction: column; gap: 2px; }
+
+.settings-drawer-kv {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 .settings-drawer-kv-key {
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: #737373;
 }
+
 .settings-drawer-kv-value {
   font: 12px/1.4 ui-monospace, monospace;
   color: #e5e5e5;
   word-break: break-all;
 }
-.settings-drawer-kv-value.source-env { color: #67e8f9; }
-.settings-drawer-kv-value.source-kato_settings { color: #93c5fd; }
-.settings-drawer-kv-value.source-env_file { color: #86efac; }
-.settings-drawer-kv-value.source-unset { color: #f87171; }
+
+.settings-drawer-kv-value.source-env {
+  color: #67e8f9;
+}
+
+.settings-drawer-kv-value.source-kato_settings {
+  color: #93c5fd;
+}
+
+.settings-drawer-kv-value.source-env_file {
+  color: #86efac;
+}
+
+.settings-drawer-kv-value.source-unset {
+  color: #f87171;
+}
 
 .settings-drawer-actions {
   display: flex;
@@ -5417,6 +6542,7 @@ body.kato-resizing #left-pane-resizer::before {
   justify-content: flex-end;
   margin-bottom: 12px;
 }
+
 .settings-drawer-action-primary,
 .settings-drawer-action-secondary {
   padding: 7px 16px;
@@ -5425,25 +6551,30 @@ body.kato-resizing #left-pane-resizer::before {
   cursor: pointer;
   border: 1px solid;
 }
+
 .settings-drawer-action-primary {
   background: #0a84ff;
   border-color: #0a84ff;
   color: #fff;
 }
+
 .settings-drawer-action-primary:hover:not(:disabled) {
   background: #1d4ed8;
   border-color: #1d4ed8;
 }
+
 .settings-drawer-action-primary:disabled,
 .settings-drawer-action-secondary:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
+
 .settings-drawer-action-secondary {
   background: transparent;
   border-color: #404040;
   color: #a3a3a3;
 }
+
 .settings-drawer-action-secondary:hover:not(:disabled) {
   color: #e5e5e5;
   border-color: #525252;
@@ -5463,6 +6594,7 @@ body.kato-resizing #left-pane-resizer::before {
   color: #a3a3a3;
   padding: 14px 0;
 }
+
 .settings-drawer-message.is-error {
   color: #fca5a5;
 }
@@ -5472,6 +6604,7 @@ body.kato-resizing #left-pane-resizer::before {
   flex-direction: column;
   gap: 4px;
 }
+
 .notifications-settings-kinds-head {
   font-size: 11px;
   color: #737373;
@@ -5480,7 +6613,6 @@ body.kato-resizing #left-pane-resizer::before {
   margin: 8px 0 4px 0;
 }
 
-
 /* Settings drawer — repository approvals table + per-row controls. */
 .settings-drawer-approvals-table {
   width: 100%;
@@ -5488,6 +6620,7 @@ body.kato-resizing #left-pane-resizer::before {
   font-size: 12px;
   margin-bottom: 12px;
 }
+
 .settings-drawer-approvals-table thead th {
   text-align: left;
   font-size: 10px;
@@ -5497,26 +6630,31 @@ body.kato-resizing #left-pane-resizer::before {
   padding: 6px 8px;
   border-bottom: 1px solid #262626;
 }
+
 .settings-drawer-approvals-table tbody td {
   padding: 8px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
   vertical-align: top;
 }
+
 .settings-drawer-approvals-table tr.has-drift {
   background: rgba(245, 158, 11, 0.04);
 }
+
 .settings-drawer-approval-id {
   font-weight: 600;
   color: #f5f5f7;
   font-size: 13px;
   word-break: break-all;
 }
+
 .settings-drawer-approval-url {
   font: 11px/1.4 ui-monospace, monospace;
   color: #737373;
   margin-top: 2px;
   word-break: break-all;
 }
+
 .settings-drawer-approval-drift {
   margin-top: 6px;
   padding: 6px 8px;
@@ -5527,30 +6665,34 @@ body.kato-resizing #left-pane-resizer::before {
   font-size: 11px;
   line-height: 1.5;
 }
+
 .settings-drawer-approval-drift code {
   background: rgba(0, 0, 0, 0.30);
   padding: 1px 4px;
   border-radius: 3px;
 }
+
 .settings-drawer-approval-toggle {
   display: inline-flex;
   cursor: pointer;
 }
-.settings-drawer-approval-toggle input[type="checkbox"] {
+
+.settings-drawer-approval-toggle input[type=checkbox] {
   appearance: none;
   -webkit-appearance: none;
   width: 36px;
   height: 20px;
   border-radius: 999px;
-  background: #2a2a2d;
-  border: 1px solid #3a3a3d;
+  background: #262626;
+  border: 1px solid #404040;
   position: relative;
   cursor: pointer;
   transition: background 0.18s ease-out, border-color 0.18s ease-out;
   margin: 0;
 }
-.settings-drawer-approval-toggle input[type="checkbox"]::before {
-  content: '';
+
+.settings-drawer-approval-toggle input[type=checkbox]::before {
+  content: "";
   position: absolute;
   top: 1px;
   left: 1px;
@@ -5558,16 +6700,19 @@ body.kato-resizing #left-pane-resizer::before {
   height: 16px;
   border-radius: 50%;
   background: #f5f5f7;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 1px 3px $C-NEUTRAL-00-A45;
   transition: transform 0.18s ease-out;
 }
-.settings-drawer-approval-toggle input[type="checkbox"]:checked {
+
+.settings-drawer-approval-toggle input[type=checkbox]:checked {
   background: #34d399;
   border-color: #34d399;
 }
-.settings-drawer-approval-toggle input[type="checkbox"]:checked::before {
+
+.settings-drawer-approval-toggle input[type=checkbox]:checked::before {
   transform: translateX(16px);
 }
+
 .settings-drawer-source {
   display: inline-block;
   font-size: 10px;
@@ -5578,35 +6723,75 @@ body.kato-resizing #left-pane-resizer::before {
   background: rgba(255, 255, 255, 0.05);
   color: #a3a3a3;
 }
-.settings-drawer-source.source-inventory { color: #93c5fd; background: rgba(59, 130, 246, 0.10); }
-.settings-drawer-source.source-checkout { color: #86efac; background: rgba(34, 197, 94, 0.10); }
-.settings-drawer-source.source-workspace { color: #c4b5fd; background: rgba(139, 92, 246, 0.10); }
-.settings-drawer-source.source-orphan { color: #fca5a5; background: rgba(239, 68, 68, 0.08); }
-.settings-drawer-source.source-env { color: #67e8f9; background: rgba(6, 182, 212, 0.10); }
-.settings-drawer-source.source-kato_settings { color: #93c5fd; background: rgba(59, 130, 246, 0.12); }
-.settings-drawer-source.source-env_file { color: #86efac; background: rgba(34, 197, 94, 0.10); }
-.settings-drawer-source.source-unset { color: #737373; }
-.settings-drawer-input.is-compact { padding: 4px 8px; font-size: 12px; }
+
+.settings-drawer-source.source-inventory {
+  color: #93c5fd;
+  background: rgba(59, 130, 246, 0.10);
+}
+
+.settings-drawer-source.source-checkout {
+  color: #86efac;
+  background: rgba(34, 197, 94, 0.10);
+}
+
+.settings-drawer-source.source-workspace {
+  color: #c4b5fd;
+  background: rgba(139, 92, 246, 0.10);
+}
+
+.settings-drawer-source.source-orphan {
+  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.settings-drawer-source.source-env {
+  color: #67e8f9;
+  background: rgba(6, 182, 212, 0.10);
+}
+
+.settings-drawer-source.source-kato_settings {
+  color: #93c5fd;
+  background: rgba(59, 130, 246, 0.12);
+}
+
+.settings-drawer-source.source-env_file {
+  color: #86efac;
+  background: rgba(34, 197, 94, 0.10);
+}
+
+.settings-drawer-source.source-unset {
+  color: #737373;
+}
+
+.settings-drawer-input.is-compact {
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
 .settings-drawer-fields {
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
+
 .settings-drawer-divider {
   border-top: 1px solid #262626;
   margin: 14px 0;
 }
+
 .settings-drawer-field-label {
   display: flex;
   align-items: center;
   gap: 8px;
 }
+
 .settings-drawer-field-label code {
   background: rgba(255, 255, 255, 0.05);
   padding: 1px 5px;
   border-radius: 3px;
   font-size: 11px;
 }
+
 .settings-drawer-field-info {
   display: inline-flex;
   align-items: center;
@@ -5623,10 +6808,12 @@ body.kato-resizing #left-pane-resizer::before {
   flex-shrink: 0;
   user-select: none;
 }
+
 .settings-drawer-field-info:hover {
   background: rgba(255, 255, 255, 0.14);
   color: #f5f5f7;
 }
+
 /* Portal tooltip for ⓘ icons — rendered at document.body to escape
  * the .settings-drawer-body overflow:auto clipping boundary. */
 .settings-field-tooltip {
@@ -5644,16 +6831,14 @@ body.kato-resizing #left-pane-resizer::before {
   width: max-content;
   text-align: left;
   border: 1px solid #374151;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 6px 16px $C-NEUTRAL-00-A45;
   z-index: 9999;
   pointer-events: none;
 }
 
-
 /* ===== Schema-driven settings panels (General / Claude agent /
  * Sandbox / Security scanner / Email & Slack / OpenHands / Docker /
  * AWS). Generic field rows rendered by SchemaSettingsPanel. ===== */
-
 .settings-drawer-section-warning {
   margin: 0 0 14px 0;
   padding: 10px 12px;
@@ -5678,10 +6863,11 @@ body.kato-resizing #left-pane-resizer::before {
   align-items: center;
   column-gap: 12px;
 }
+
 .settings-drawer-field.is-toggle-row .settings-drawer-field-hint,
 .settings-drawer-field.is-toggle-row .settings-drawer-field-warning,
 .settings-drawer-field.is-toggle-row .settings-drawer-field-danger {
-  grid-column: 1 / -1;
+  grid-column: 1/-1;
 }
 
 /* iOS-style switch for bool fields — matches the Notifications tab. */
@@ -5699,8 +6885,9 @@ body.kato-resizing #left-pane-resizer::before {
   margin: 0;
   transition: background 0.16s ease-out, border-color 0.16s ease-out;
 }
+
 .settings-drawer-toggle::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 1px;
   left: 1px;
@@ -5708,14 +6895,18 @@ body.kato-resizing #left-pane-resizer::before {
   height: 18px;
   border-radius: 50%;
   background: #f5f5f7;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 1px 3px $C-NEUTRAL-00-A45;
   transition: transform 0.16s ease-out;
 }
+
 .settings-drawer-toggle:checked {
   background: #0a84ff;
   border-color: #0a84ff;
 }
-.settings-drawer-toggle:checked::before { transform: translateX(16px); }
+
+.settings-drawer-toggle:checked::before {
+  transform: translateX(16px);
+}
 
 /* Danger fields (KATO_CLAUDE_BYPASS_PERMISSIONS et al). */
 .settings-drawer-field.is-danger {
@@ -5724,6 +6915,7 @@ body.kato-resizing #left-pane-resizer::before {
   padding: 10px 12px;
   background: rgba(239, 68, 68, 0.04);
 }
+
 .settings-drawer-field.is-danger .settings-drawer-toggle:checked {
   background: #dc2626;
   border-color: #dc2626;
@@ -5734,6 +6926,7 @@ body.kato-resizing #left-pane-resizer::before {
   line-height: 1.5;
   color: #fbbf24;
 }
+
 .settings-drawer-field-danger {
   font-size: 11px;
   line-height: 1.5;
@@ -5754,9 +6947,7 @@ body.kato-resizing #left-pane-resizer::before {
   border: 1px solid #2b2f37;
   border-radius: 10px;
   padding: 12px 14px;
-  box-shadow:
-    0 8px 28px rgba(0, 0, 0, 0.55),
-    0 0 0 1px rgba(255, 255, 255, 0.02) inset;
+  box-shadow: 0 8px 28px $C-NEUTRAL-00-A55, 0 0 0 1px $C-NEUTRAL-100-A06 inset;
   color: #e5e7eb;
   font-size: 12px;
   line-height: 1.5;
@@ -5764,13 +6955,20 @@ body.kato-resizing #left-pane-resizer::before {
   opacity: 0;
   animation: kato-tooltip-fade 0.14s ease-out forwards;
 }
+
 .tab-tooltip.is-measuring {
   /* Off-screen first paint while JS measures height — no flash. */
   opacity: 0;
   animation: none;
 }
-.tab-tooltip.is-above { transform-origin: bottom left; }
-.tab-tooltip.is-below { transform-origin: top left; }
+
+.tab-tooltip.is-above {
+  transform-origin: bottom left;
+}
+
+.tab-tooltip.is-below {
+  transform-origin: top left;
+}
 
 .tab-tooltip-head {
   display: flex;
@@ -5778,6 +6976,7 @@ body.kato-resizing #left-pane-resizer::before {
   gap: 8px;
   margin-bottom: 6px;
 }
+
 .tab-tooltip-dot {
   width: 8px;
   height: 8px;
@@ -5785,20 +6984,43 @@ body.kato-resizing #left-pane-resizer::before {
   flex-shrink: 0;
   background: #6b7280;
 }
-.tab-tooltip-dot.status-active { background: #34d399; }
-.tab-tooltip-dot.status-working { background: #f59e0b; }
-.tab-tooltip-dot.status-attention { background: #f59e0b; }
-.tab-tooltip-dot.status-provisioning { background: #60a5fa; }
-.tab-tooltip-dot.status-review { background: #60a5fa; }
-.tab-tooltip-dot.status-done { background: #34d399; }
+
+.tab-tooltip-dot.status-active {
+  background: #34d399;
+}
+
+.tab-tooltip-dot.status-working {
+  background: #f59e0b;
+}
+
+.tab-tooltip-dot.status-attention {
+  background: #f59e0b;
+}
+
+.tab-tooltip-dot.status-provisioning {
+  background: #60a5fa;
+}
+
+.tab-tooltip-dot.status-review {
+  background: #60a5fa;
+}
+
+.tab-tooltip-dot.status-done {
+  background: #34d399;
+}
+
 .tab-tooltip-dot.status-errored,
-.tab-tooltip-dot.status-error { background: #ef4444; }
+.tab-tooltip-dot.status-error {
+  background: #ef4444;
+}
+
 .tab-tooltip-id {
   font-size: 13px;
   font-weight: 700;
   color: #f9fafb;
   letter-spacing: 0.01em;
 }
+
 .tab-tooltip-badge {
   margin-left: auto;
   font-size: 10px;
@@ -5809,17 +7031,25 @@ body.kato-resizing #left-pane-resizer::before {
   background: rgba(255, 255, 255, 0.06);
   color: #9ca3af;
 }
+
 .tab-tooltip-badge.is-work {
-  background: rgba(52, 211, 153, 0.16); color: #6ee7b7;
+  background: rgba(52, 211, 153, 0.16);
+  color: #6ee7b7;
 }
+
 .tab-tooltip-badge.is-idle {
-  background: rgba(96, 165, 250, 0.16); color: #93c5fd;
+  background: rgba(96, 165, 250, 0.16);
+  color: #93c5fd;
 }
+
 .tab-tooltip-badge.is-sleep {
-  background: rgba(148, 163, 184, 0.16); color: #cbd5e1;
+  background: rgba(148, 163, 184, 0.16);
+  color: #cbd5e1;
 }
+
 .tab-tooltip-badge.is-wait {
-  background: rgba(245, 158, 11, 0.18); color: #fcd34d;
+  background: rgba(245, 158, 11, 0.18);
+  color: #fcd34d;
 }
 
 .tab-tooltip-summary {
@@ -5842,7 +7072,11 @@ body.kato-resizing #left-pane-resizer::before {
   column-gap: 12px;
   row-gap: 4px;
 }
-.tab-tooltip-row { display: contents; }
+
+.tab-tooltip-row {
+  display: contents;
+}
+
 .tab-tooltip-row dt {
   color: #6b7280;
   font-size: 10px;
@@ -5850,14 +7084,21 @@ body.kato-resizing #left-pane-resizer::before {
   letter-spacing: 0.06em;
   padding-top: 1px;
 }
+
 .tab-tooltip-row dd {
   margin: 0;
   color: #e5e7eb;
   word-break: break-word;
 }
-.tab-tooltip-row dd.tone-warn { color: #fcd34d; }
-.tab-tooltip-row dd.tone-error { color: #fca5a5; }
 
-:where([class*="badge"], [class*="chip"], [class*="pill"]) {
+.tab-tooltip-row dd.tone-warn {
+  color: #fcd34d;
+}
+
+.tab-tooltip-row dd.tone-error {
+  color: #fca5a5;
+}
+
+:where([class*=badge], [class*=chip], [class*=pill]) {
   border-radius: var(--radius-pill);
 }

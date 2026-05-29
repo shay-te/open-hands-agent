@@ -316,7 +316,11 @@ class DrainQueuedCommentsUnderConcurrentSubmissionTests(unittest.TestCase):
                 deadline = time.time() + 10.0
                 while time.time() < deadline:
                     service.drain_all_queued_task_comments()
-                    if stop.is_set() and shared_store.queue_size() == 0:
+                    # Strict one-at-a-time: only one comment is dispatched
+                    # (IN_PROGRESS) at a time and nothing completes its turn
+                    # in this harness, so the queue never empties. Exit once
+                    # inserts are done and a final drain pass has run.
+                    if stop.is_set():
                         return
                     time.sleep(0.001)
 
@@ -330,15 +334,31 @@ class DrainQueuedCommentsUnderConcurrentSubmissionTests(unittest.TestCase):
             self.assertFalse(t_d.is_alive())
 
         # Strong post-conditions with the shared store: every inserted
-        # comment is on disk, none stuck QUEUED, JSON readable.
+        # comment is on disk, JSON readable, and the strict one-at-a-time
+        # serializer held — at most ONE comment is IN_PROGRESS so a single
+        # agent turn's result can never be attributed to two comments. The
+        # rest correctly WAIT in QUEUED behind the in-flight one (no turn
+        # completes in this harness, so they stay QUEUED — expected, not
+        # "stuck"; in production each completes and releases the next).
         on_disk = {c.id: c.kato_status for c in shared_store.list()}
         self.assertEqual(len(on_disk), len(inserted_ids),
                          'inserter and on-disk count diverged')
+        in_progress = [cid for cid, s in on_disk.items()
+                       if s == KatoCommentStatus.IN_PROGRESS.value]
+        self.assertLessEqual(
+            len(in_progress), 1,
+            f'serializer broke: more than one comment IN_PROGRESS {in_progress}',
+        )
+        valid = {
+            KatoCommentStatus.QUEUED.value,
+            KatoCommentStatus.IN_PROGRESS.value,
+        }
         for comment_id in inserted_ids:
             self.assertIn(comment_id, on_disk)
-            self.assertNotEqual(
-                on_disk[comment_id], KatoCommentStatus.QUEUED.value,
-                f'comment {comment_id} stuck QUEUED after race',
+            self.assertIn(
+                on_disk[comment_id], valid,
+                f'comment {comment_id} in unexpected status '
+                f'{on_disk[comment_id]} after race',
             )
 
     def test_cross_instance_writes_both_survive_with_shared_locking(self) -> None:

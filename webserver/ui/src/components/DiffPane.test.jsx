@@ -36,6 +36,9 @@ vi.mock('./DiffFileWithComments.jsx', () => ({
       data-conflicted={String(!!props.conflicted)}
       data-comments={String((props.comments || []).length)}
     >
+      {(props.comments || []).length > 0 && (
+        <article className="diff-file-comment-thread" data-testid="comment-thread" />
+      )}
       <button
         type="button"
         onClick={() => props.onFocusInTree({
@@ -182,6 +185,31 @@ describe('DiffPane — renders ALL files, scrolls to the target', () => {
       const target = container.querySelector('[data-diff-key="backend::api/auth.py"]');
       expect(target).toBeInTheDocument();
       expect(target.scrollIntoView).toHaveBeenCalled();
+    });
+  });
+
+  test('focusComment scrolls to the file\'s first comment thread', async () => {
+    fetchDiff.mockResolvedValue({ diffs: [] });
+    parseRepoDiffs.mockReturnValue(_repoDiffs());
+    fetchTaskComments.mockImplementation((_taskId, rid) => Promise.resolve(
+      rid === 'backend'
+        ? { ok: true, body: { comments: [{ id: 'c1', file_path: 'api/auth.py' }] } }
+        : { ok: true, body: { comments: [] } },
+    ));
+    const { container } = render(
+      <DiffPane
+        openFile={_open({
+          relativePath: 'api/auth.py', repoId: 'backend', focusComment: true,
+        })}
+      />,
+    );
+    await screen.findAllByTestId('diff-file');
+    await waitFor(() => {
+      const thread = container.querySelector(
+        '[data-diff-key="backend::api/auth.py"] .diff-file-comment-thread',
+      );
+      expect(thread).toBeInTheDocument();
+      expect(thread.scrollIntoView).toHaveBeenCalled();
     });
   });
 

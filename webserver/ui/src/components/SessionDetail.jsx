@@ -431,6 +431,7 @@ export default function SessionDetail({
           searchCurrentIndex={searchCurrentIndex}
           onSearchMatchCount={handleSearchMatchCount}
           onOpenFile={onOpenFile}
+          liveAgentSessionId={String(session?.[AGENT_SESSION_ID] || '')}
           footer={
             <WorkingIndicator
               active={stream.turnInFlight || !!stream.pendingPermission}

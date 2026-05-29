@@ -1,4 +1,6 @@
-import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState,
+} from 'react';
 import { Tree } from 'react-arborist';
 import {
   fetchDiff,
@@ -40,9 +42,26 @@ const EMPTY_DIFF_META = new Map();
 const EMPTY_COMMENT_META = new Map();
 const EMPTY_STATS = { added: 0, deleted: 0 };
 
-// repoKey -> Map(repo-relative file path -> open thread count). A
+// Most-attention-needing kato_status first. The file-tree badge tints
+// to whichever status wins across a file's open threads, so a glance
+// tells the operator "this file has a FAILED comment" over a merely
+// addressed one. Statuses not in this list (idle / unknown) leave the
+// badge its neutral colour. Matches the .diff-file-comment-pill colours.
+const COMMENT_STATUS_PRECEDENCE = ['failed', 'queued', 'in_progress', 'addressed'];
+
+function moreUrgentCommentStatus(a, b) {
+  const rank = (status) => {
+    const index = COMMENT_STATUS_PRECEDENCE.indexOf(status);
+    return index === -1 ? COMMENT_STATUS_PRECEDENCE.length : index;
+  };
+  return rank(b) < rank(a) ? b : a;
+}
+
+// repoKey -> Map(repo-relative file path -> { count, status }). A
 // "thread" is a top-of-thread comment (``parent_id`` empty); replies
 // don't add to the count, matching the Bitbucket 💬 N convention.
+// ``status`` is the most-urgent kato_status across the file's open
+// threads (see COMMENT_STATUS_PRECEDENCE), used to tint the badge.
 export function buildFilesCommentMeta(comments) {
   const byRepo = new Map();
   for (const comment of comments || []) {
@@ -54,7 +73,13 @@ export function buildFilesCommentMeta(comments) {
     const key = repoId || '';
     let fileMap = byRepo.get(key);
     if (!fileMap) { fileMap = new Map(); byRepo.set(key, fileMap); }
-    fileMap.set(filePath, (fileMap.get(filePath) || 0) + 1);
+    const prev = fileMap.get(filePath) || { count: 0, status: '' };
+    fileMap.set(filePath, {
+      count: prev.count + 1,
+      status: moreUrgentCommentStatus(
+        prev.status, String(comment?.kato_status || '').trim(),
+      ),
+    });
   }
   return byRepo;
 }
@@ -101,6 +126,14 @@ export default function FilesTab({
   const inFlightRef = useRef(false);
   const containerRef = useRef(null);
   const filterInputRef = useRef(null);
+  // Last scroll offset the operator left the tree at. The 5s auto-poll
+  // and the ~1.2s workspace-version bump both replace ``state.trees``
+  // with fresh objects; the commit that follows can momentarily drop
+  // the scroll container's content height and the browser clamps
+  // ``scrollTop`` back to 0, snapping the tree to the top mid-read. We
+  // record the offset on every scroll and re-apply it in a layout
+  // effect (below) after each data-driven render, before paint.
+  const scrollTopRef = useRef(0);
   const [size, setSize] = useState({ width: 320, height: 480 });
 
   // Cmd/Ctrl+P from the parent flips the right pane to Files (already
@@ -226,8 +259,11 @@ export default function FilesTab({
 
 
   // Blank state on task switch so we don't show stale data while
-  // the new fetch is in flight.
+  // the new fetch is in flight. Also drop the saved scroll offset —
+  // a different task's tree must open at the top, not wherever the
+  // previous one was left.
   useEffect(() => {
+    scrollTopRef.current = 0;
     setState({
       status: 'loading',
       trees: [],
@@ -236,6 +272,19 @@ export default function FilesTab({
       error: '',
     });
   }, [taskId]);
+
+  // Re-apply the saved scroll offset after a data refresh re-renders
+  // the tree. Runs before paint so a clamped-to-0 scrollTop never
+  // becomes visible. No-op when the browser already preserved the
+  // position (set to the same value it's already at).
+  useLayoutEffect(() => {
+    const node = containerRef.current;
+    if (!node) { return; }
+    const saved = scrollTopRef.current;
+    if (saved > 0 && node.scrollTop !== saved) {
+      node.scrollTop = saved;
+    }
+  }, [state.trees, state.diffMetaByRepo, state.commentMetaByRepo]);
 
   useEffect(() => {
     const node = containerRef.current;
@@ -510,7 +559,11 @@ export default function FilesTab({
   return (
     <div className="files-tab">
       {header}
-      <div className="files-tab-body" ref={containerRef}>
+      <div
+        className="files-tab-body"
+        ref={containerRef}
+        onScroll={(e) => { scrollTopRef.current = e.currentTarget.scrollTop; }}
+      >
         {body}
       </div>
       {pathMenu && (
@@ -740,13 +793,13 @@ function RepoTree({
       return next;
     });
   }
-  function selectChangedFile(file) {
+  function selectChangedFile(file, { focusComment = false } = {}) {
     setSelectedChangedKey(changedFileSelectionKey(file));
     if (typeof onOpenFile === 'function') {
-      onOpenFile(changedFileOpenTarget({
-        cwd: repoTree.cwd,
-        repo_id: repoId,
-      }, file));
+      onOpenFile({
+        ...changedFileOpenTarget({ cwd: repoTree.cwd, repo_id: repoId }, file),
+        focusComment,
+      });
     }
   }
   const changedTreeContent = hasChangedFiles && filteredChangedNodes.length > 0 ? (
@@ -811,13 +864,18 @@ function RepoTree({
       <StickyHeader
         as="header"
         className="files-tab-repo-header"
-        title={repoTree.cwd}
         onClick={onToggle}
       >
         <span className="files-tab-repo-chevron">
           <Icon name={chevronName} />
         </span>
-        <span className="files-tab-repo-name">{heading}</span>
+        {/* Use the custom (opaque) data-tooltip instead of the native
+            ``title``: the OS title tooltip renders with dark-mode
+            vibrancy that bleeds the rows behind it through, which the
+            operator read as "transparent". Anchored to the name span
+            (not the whole header) so it never doubles up with the
+            commits button's own tooltip. */}
+        <span className="files-tab-repo-name" data-tooltip={repoTree.cwd}>{heading}</span>
         {repoId && taskId && (
           <button
             type="button"
@@ -1012,7 +1070,11 @@ function ChangedFilesTreeNode({
       <span className="diff-file-tree-label files-changed-tree-label">
         {node.name}
       </span>
-      <CommentCountBadge count={commentMeta.get(path) || 0} />
+      <CommentCountBadge
+        count={commentMeta.get(path)?.count || 0}
+        status={commentMeta.get(path)?.status || ''}
+        onClick={() => onSelectFile(file, { focusComment: true })}
+      />
       <FilesLineStats stats={node.stats} />
     </button>
   );
@@ -1026,7 +1088,9 @@ function Node({
   const isFolder = node.isInternal;
   const relativePath = String(node.data?.relativePath || '');
   const changeMeta = !isFolder ? diffMeta.get(relativePath) : null;
-  const commentCount = !isFolder ? (commentMeta.get(relativePath) || 0) : 0;
+  const commentEntry = !isFolder ? commentMeta.get(relativePath) : null;
+  const commentCount = commentEntry?.count || 0;
+  const commentStatus = commentEntry?.status || '';
   function onActivate() {
     // Left-click a FILE: only open it in the editor pane. It must
     // NOT also paste the path into the chat composer — pasting is
@@ -1047,6 +1111,20 @@ function Node({
   function onContextMenu(event) {
     if (typeof onOpenPathMenu !== 'function') { return; }
     onOpenPathMenu(event, relativePath, repoId);
+  }
+  // Clicking the comment badge (not the name) opens the file's DIFF —
+  // where comments live — and scrolls to the comment thread. The
+  // all-files tree normally opens the plain editor (view:'file'),
+  // which has no comments, so force the diff view here.
+  function onOpenComment() {
+    if (typeof onOpenFile !== 'function') { return; }
+    onOpenFile({
+      absolutePath: String(node.data?.path || ''),
+      relativePath: String(node.data?.relativePath || ''),
+      repoId,
+      view: 'diff',
+      focusComment: true,
+    });
   }
   const isConflicted = !isFolder
     && conflictedFiles
@@ -1143,7 +1221,11 @@ function Node({
       {fileIcon}
       {conflictBadge}
       <span className="tree-row-name">{node.data.name}</span>
-      <CommentCountBadge count={commentCount} />
+      <CommentCountBadge
+        count={commentCount}
+        status={commentStatus}
+        onClick={onOpenComment}
+      />
       {lineStats}
     </div>
   );
@@ -1238,14 +1320,42 @@ function FilesDiffKindIcon({ kind }) {
 }
 
 // Bitbucket-style 💬 N on a tree row when the file has open comment
-// threads. Renders nothing at 0 so clean files stay clean.
-function CommentCountBadge({ count }) {
+// threads. Renders nothing at 0 so clean files stay clean. ``status``
+// (most-urgent kato_status across the file's threads) tints the badge
+// to match the comment status pills. When ``onClick`` is supplied the
+// badge is its own click target: clicking it opens the file's diff and
+// scrolls to the comment (distinct from clicking the name, which just
+// opens the file). The row underneath is a button/clickable div, so
+// the handler stops propagation to avoid double-firing the row action.
+function CommentCountBadge({ count, status = '', onClick }) {
   if (!count || count < 1) { return null; }
+  const interactive = typeof onClick === 'function';
+  const className = [
+    'tree-row-comments',
+    status ? `is-${status}` : '',
+    interactive ? 'is-clickable' : '',
+  ].filter(Boolean).join(' ');
+  const threadLabel = `${count} comment thread${count === 1 ? '' : 's'} on this file`;
+  function handleClick(event) {
+    event.stopPropagation();
+    onClick(event);
+  }
+  function handleKeyDown(event) {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      event.stopPropagation();
+      onClick(event);
+    }
+  }
   return (
     <span
-      className="tree-row-comments"
-      title={`${count} comment thread${count === 1 ? '' : 's'} on this file`}
-      aria-label={`${count} comment${count === 1 ? '' : 's'}`}
+      className={className}
+      title={interactive ? `${threadLabel} — click to jump to the comment` : threadLabel}
+      aria-label={interactive ? `Jump to ${count} comment${count === 1 ? '' : 's'}` : `${count} comment${count === 1 ? '' : 's'}`}
+      role={interactive ? 'button' : undefined}
+      tabIndex={interactive ? 0 : undefined}
+      onClick={interactive ? handleClick : undefined}
+      onKeyDown={interactive ? handleKeyDown : undefined}
     >
       <Icon name="comment" />
       {count}

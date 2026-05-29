@@ -346,6 +346,10 @@ export default function App() {
       // 'diff' = the round diff button on a changed tree row; the
       // centre column then renders DiffPane instead of EditorPane.
       view: info.view === 'diff' ? 'diff' : 'file',
+      // Set when the operator clicked a file's comment badge (not the
+      // name): DiffPane scrolls to the file's first comment thread,
+      // not just the top of the file section.
+      focusComment: !!info.focusComment,
     });
   }, [activeTaskId]);
   const handleFocusFileInTree = useCallback((target) => {

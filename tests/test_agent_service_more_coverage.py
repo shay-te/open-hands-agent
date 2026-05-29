@@ -16,6 +16,7 @@ Human-style impatient strings come from :mod:`tests.chaos_lib`.
 from __future__ import annotations
 
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -324,6 +325,62 @@ class CompleteInProgressTaskCommentsTests(unittest.TestCase):
             [{'task_id': 'T1', 'comment_id': in_progress_id,
               'kato_status': KatoCommentStatus.ADDRESSED.value}],
         )
+
+    def _attach_session(self, **session_attrs):
+        session = SimpleNamespace(**session_attrs)
+        mgr = MagicMock()
+        mgr.get_session.return_value = session
+        self.service._session_manager = mgr
+        return session
+
+    def test_does_not_complete_while_session_is_working(self) -> None:
+        # Hard invariant: a comment can NEVER flip to ADDRESSED (or get a
+        # reply posted) while Claude is mid-turn. The result reaching us
+        # may be a stale/replayed answer from another turn; leave the
+        # comment IN_PROGRESS (WORKING) instead.
+        ids, store = self._seed('T1', ['in_progress'])
+        self._attach_session(
+            is_alive=True, is_working=True,
+            user_messages_sent=1, result_events_received=0,
+        )
+        out = self.service.complete_in_progress_task_comments(
+            'T1', success=True, result_text='stale answer from another turn',
+        )
+        self.assertEqual(out, [])
+        live = store.list()
+        self.assertEqual(live[0].kato_status, KatoCommentStatus.IN_PROGRESS.value)
+        # And no agent reply was posted on top of unfinished work.
+        self.assertEqual([c for c in live if c.parent_id], [])
+
+    def test_does_not_complete_when_a_turn_is_in_flight(self) -> None:
+        # ``is_working`` can read False in the gap between sending a
+        # message and Claude's first event; ``sent > received`` still
+        # means a turn is in flight. Must not complete then either.
+        ids, store = self._seed('T1', ['in_progress'])
+        self._attach_session(
+            is_alive=True, is_working=False,
+            user_messages_sent=2, result_events_received=1,
+        )
+        out = self.service.complete_in_progress_task_comments(
+            'T1', success=True, result_text='stale',
+        )
+        self.assertEqual(out, [])
+        self.assertEqual(
+            store.list()[0].kato_status, KatoCommentStatus.IN_PROGRESS.value,
+        )
+
+    def test_completes_when_session_is_idle(self) -> None:
+        # The legitimate path: turn truly ended (idle, all messages
+        # answered) → the comment's OWN result completes it.
+        ids, store = self._seed('T1', ['in_progress'])
+        self._attach_session(
+            is_alive=True, is_working=False,
+            user_messages_sent=1, result_events_received=1,
+        )
+        out = self.service.complete_in_progress_task_comments(
+            'T1', success=True, result_text='done',
+        )
+        self.assertEqual(out[0]['kato_status'], KatoCommentStatus.ADDRESSED.value)
 
     def test_errored_turn_marks_in_progress_failed(self) -> None:
         ids, store = self._seed('T1', ['in_progress'])
@@ -739,6 +796,32 @@ class MaybeTriggerCommentRunTests(unittest.TestCase):
         live = real_store_for(self.workspace_service, 'T1').list()[0]
         self.assertEqual(live.kato_status, KatoCommentStatus.QUEUED.value)
 
+    def test_does_not_dispatch_while_another_comment_in_progress(self) -> None:
+        # Strict one-at-a-time: comment B must stay QUEUED while comment A
+        # is IN_PROGRESS, so one turn's result can never be stamped onto
+        # two comments (the "I added two comments, he replied to the wrong
+        # one" bug). Independent of the session busy-check (here forced
+        # False) — the store is the authoritative serializer.
+        store = real_store_for(self.workspace_service, 'T1')
+        a_id = self._seed_comment('T1', body='first comment')
+        import time
+        time.sleep(0.01)
+        b_id = self._seed_comment('T1', body='second comment')
+        store.update_kato_status(
+            a_id, kato_status=KatoCommentStatus.IN_PROGRESS.value,
+        )
+
+        with patch.object(
+            self.service, '_run_comment_agent', return_value=True,
+        ) as run:
+            started = self.service._maybe_trigger_comment_run('T1', b_id)
+
+        self.assertFalse(started)
+        run.assert_not_called()
+        live = {c.id: c.kato_status for c in store.list()}
+        self.assertEqual(live[b_id], KatoCommentStatus.QUEUED.value)
+        self.assertEqual(live[a_id], KatoCommentStatus.IN_PROGRESS.value)
+
     def test_swallows_run_comment_agent_exception_and_logs(self) -> None:
         comment_id = self._seed_comment('T1', body='help me!!!')
         self.service.logger = MagicMock()  # so we can assert exception() fired
@@ -792,7 +875,7 @@ class MaybeTriggerCommentRunTests(unittest.TestCase):
         # reads. The second concurrent run must see "busy" and bail.
         busy_after_first = {'flag': False}
 
-        def fake_run(task_id, record):
+        def fake_run(task_id, record, force_respawn=False):
             with dispatch_lock:
                 dispatch_order.append(record.id)
                 busy_after_first['flag'] = True
@@ -2068,6 +2151,106 @@ class AdvanceFinishedCommentRunsDefensiveBranches(unittest.TestCase):
         # Exception logged, requeue skipped for this comment.
         mock_logger.exception.assert_called_once()
         self.assertEqual(results, [])
+
+    def test_stalled_session_requeues_instead_of_pinning(self) -> None:
+        # A post-restart ``--resume`` session that's alive but no longer
+        # consuming stdin reports busy via ``_task_has_busy_turn`` (sent
+        # > received). The scan-loop fallback must detect the stall and
+        # requeue the comment so the next drain force-respawns — NOT skip
+        # it as busy (the "kato ignores comments after restart" symptom).
+        service = AgentService(**_kwargs())
+        store = _FakeCommentStore([self._comment('c1', 'in_progress')])
+        session = SimpleNamespace(
+            is_alive=True,
+            is_working=False,
+            user_messages_sent=1,
+            result_events_received=0,
+            last_user_message_sent_epoch=time.time() - 600.0,
+        )
+        mgr = MagicMock()
+        mgr.get_session.return_value = session
+        service._session_manager = mgr
+        with patch.object(service, '_safe_list_workspaces',
+                          return_value=[SimpleNamespace(task_id='T1')]), \
+             patch.object(service, '_comment_store_for', return_value=store), \
+             patch.object(service,
+                          'complete_in_progress_task_comments') as complete:
+            results = service.advance_finished_comment_runs()
+        # Requeued, not completed: the stalled turn produced nothing.
+        complete.assert_not_called()
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]['action'], 'requeued')
+        self.assertEqual(store.updated, [('c1', KatoCommentStatus.QUEUED.value)])
+
+
+class TaskSessionIsStalledTests(unittest.TestCase):
+    """``_task_session_is_stalled``: alive-but-not-consuming-stdin detection.
+
+    Also a regression guard for the ``_COMMENT_SEND_ACK_GRACE_SECONDS``
+    module constant — the aged-out path dereferences it, so a missing
+    definition would surface here as a ``NameError`` rather than as a
+    silently-swallowed comment dispatch in production.
+    """
+
+    def _service_with_session(self, session) -> AgentService:
+        service = AgentService(**_kwargs())
+        mgr = MagicMock()
+        mgr.get_session.return_value = session
+        service._session_manager = mgr
+        return service
+
+    def _session(self, **overrides) -> SimpleNamespace:
+        base = dict(
+            is_alive=True,
+            is_working=False,
+            user_messages_sent=1,
+            result_events_received=0,
+            last_user_message_sent_epoch=time.time() - 600.0,
+        )
+        base.update(overrides)
+        return SimpleNamespace(**base)
+
+    def test_true_when_aged_unacked_and_idle(self) -> None:
+        service = self._service_with_session(self._session())
+        self.assertTrue(service._task_session_is_stalled('T1'))
+
+    def test_false_when_send_is_recent(self) -> None:
+        service = self._service_with_session(
+            self._session(last_user_message_sent_epoch=time.time()),
+        )
+        self.assertFalse(service._task_session_is_stalled('T1'))
+
+    def test_false_when_mid_turn(self) -> None:
+        service = self._service_with_session(self._session(is_working=True))
+        self.assertFalse(service._task_session_is_stalled('T1'))
+
+    def test_false_when_all_messages_acked(self) -> None:
+        service = self._service_with_session(
+            self._session(user_messages_sent=2, result_events_received=2),
+        )
+        self.assertFalse(service._task_session_is_stalled('T1'))
+
+    def test_false_when_last_sent_unknown(self) -> None:
+        service = self._service_with_session(
+            self._session(last_user_message_sent_epoch=0.0),
+        )
+        self.assertFalse(service._task_session_is_stalled('T1'))
+
+    def test_false_when_session_dead(self) -> None:
+        service = self._service_with_session(self._session(is_alive=False))
+        self.assertFalse(service._task_session_is_stalled('T1'))
+
+    def test_false_when_no_session_manager(self) -> None:
+        service = AgentService(**_kwargs())
+        service._session_manager = None
+        self.assertFalse(service._task_session_is_stalled('T1'))
+
+    def test_false_when_get_session_raises(self) -> None:
+        service = AgentService(**_kwargs())
+        mgr = MagicMock()
+        mgr.get_session.side_effect = RuntimeError('mgr down')
+        service._session_manager = mgr
+        self.assertFalse(service._task_session_is_stalled('T1'))
 
 
 class CommentAgentCwdBranchTests(unittest.TestCase):

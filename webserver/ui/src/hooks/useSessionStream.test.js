@@ -165,6 +165,63 @@ test('PERMISSION_RESPONSE with MATCHING id clears pending (normal case)', functi
 });
 
 
+// ---------------------------------------------------------------------------
+// Working status must kick in at session start, not lag until the first
+// ``assistant`` event. Autonomous task prompts go to Claude's stdin (never
+// echoed as ``user``) and partial ``stream_event`` deltas are disabled, so
+// ``system/init`` is the earliest wire signal that a turn has begun.
+// ---------------------------------------------------------------------------
+
+function _freshState() {
+  return {
+    events: [],
+    eventKeys: new Set(),
+    lifecycle: SESSION_LIFECYCLE.STREAMING,
+    turnInFlight: false,
+    pendingPermission: null,
+    lastEventAt: Date.now(),
+    streamGeneration: 0,
+  };
+}
+
+test('system/init flips turnInFlight true so "working" shows at session start', function () {
+  const next = reducer(_freshState(), {
+    type: 'incoming_event',
+    event: { type: 'system', subtype: 'init', session_id: 'b5e62b1c' },
+    receivedAtEpoch: Date.now(),
+  });
+  assert.equal(next.turnInFlight, true);
+});
+
+test('system/preflight does NOT flip turnInFlight (still provisioning)', function () {
+  const next = reducer(_freshState(), {
+    type: 'incoming_event',
+    event: { type: 'system', subtype: 'preflight', message: 'cloning 1/3' },
+    receivedAtEpoch: Date.now(),
+  });
+  assert.equal(next.turnInFlight, false);
+});
+
+test('idle-session reconnect settles back to idle: init then result', function () {
+  // Backlog replay flows through the same live (incoming_event) path and
+  // always ends with the turn's ``result``. The transient init→true must
+  // be cleared by the trailing result so a reconnect to a finished session
+  // does not get stuck showing "working".
+  const afterInit = reducer(_freshState(), {
+    type: 'incoming_event',
+    event: { type: 'system', subtype: 'init' },
+    receivedAtEpoch: Date.now(),
+  });
+  assert.equal(afterInit.turnInFlight, true);
+  const afterResult = reducer(afterInit, {
+    type: 'incoming_event',
+    event: { type: 'result' },
+    receivedAtEpoch: Date.now(),
+  });
+  assert.equal(afterResult.turnInFlight, false);
+});
+
+
 test('Bug B: HYDRATE preserves the lifecycle value it is given', function () {
   // The reducer itself is correct — it simply replaces state with the
   // hydrated value. The bug is in the *caller* (useEffect). This test

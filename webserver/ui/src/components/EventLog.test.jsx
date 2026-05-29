@@ -154,6 +154,41 @@ describe('EventLog — server event rendering', () => {
     expect(screen.getByText(/none yet/)).toBeInTheDocument();
   });
 
+  test('SYSTEM init backfills missing id from liveAgentSessionId prop', () => {
+    // Regression: the SYSTEM init event sometimes arrives before
+    // Claude has emitted its session id, so the bubble used to read
+    // "(none yet)" forever even after the session was up and
+    // answering. Passing the live id through ``liveAgentSessionId``
+    // swaps in the real short id so the chat matches the header.
+    render(<EventLog
+      entries={[_server({
+        type: CLAUDE_EVENT.SYSTEM,
+        subtype: CLAUDE_SYSTEM_SUBTYPE.INIT,
+      })]}
+      liveAgentSessionId="sess-backfill-xyz"
+    />);
+    expect(
+      screen.getByText(/Claude session started.*sess-bac/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/none yet/)).toBeNull();
+  });
+
+  test('SYSTEM init event id wins over liveAgentSessionId fallback', () => {
+    // When the event itself carries an id (the happy path), the
+    // fallback is irrelevant — the bubble shows the event's id.
+    render(<EventLog
+      entries={[_server({
+        type: CLAUDE_EVENT.SYSTEM,
+        subtype: CLAUDE_SYSTEM_SUBTYPE.INIT,
+        [AGENT_SESSION_ID]: 'sess-from-event',
+      })]}
+      liveAgentSessionId="sess-fallback"
+    />);
+    expect(
+      screen.getByText(/Claude session started.*sess-fro/),
+    ).toBeInTheDocument();
+  });
+
   test('SYSTEM preflight renders the message', () => {
     render(<EventLog entries={[_server({
       type: CLAUDE_EVENT.SYSTEM,

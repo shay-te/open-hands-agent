@@ -735,6 +735,28 @@ class WebserverAppTests(unittest.TestCase):
         boom.complete_in_progress_task_comments.side_effect = RuntimeError('x')
         _complete_in_progress_task_comments(boom, 'PROJ-1', True)  # swallowed
 
+    def test_backlog_replay_never_completes_comments(self):
+        # Replaying the backlog (browser reconnect / resumed-session
+        # history) re-walks OLD result events. It must NOT drive comment
+        # completion: doing so attributed a stale, unrelated answer to
+        # whatever comment was IN_PROGRESS and flipped its badge to
+        # ADDRESSED while Claude was still working. Completion is driven
+        # only by LIVE results + the scan-loop fallback.
+        service = MagicMock()
+        session = MagicMock()
+        session.recent_events.return_value = [
+            _FakeSessionEvent('assistant'),
+            _FakeSessionEvent('result'),
+        ]
+        frames = list(
+            _replay_session_backlog(session, agent_service=service, task_id='T1'),
+        )
+        # The UI still gets every backlog event…
+        self.assertEqual(len(frames), 2)
+        # …but completion is never triggered from replayed events.
+        service.complete_in_progress_task_comments.assert_not_called()
+        service.drain_next_queued_task_comment.assert_not_called()
+
 
 class _FakeWorkspaceRecord:
     def __init__(self, **payload):

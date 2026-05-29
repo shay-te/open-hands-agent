@@ -360,6 +360,23 @@ export default function SessionHeader({
       sid:{agentSessionId.slice(0, 8)}…
     </span>
   ) : null;
+  // The same id chip rendered ALSO next to the ``Claude: <status>``
+  // pill on the right side of the header. The original badge lives
+  // next to the task id on the left, which is often scrolled out of
+  // view on narrow widths — operators reported losing track of which
+  // Claude conversation was working. Two anchors keeps it visible
+  // regardless of width.
+  const sessionIdBadgeRight = agentSessionId ? (
+    <span
+      className="claude-session-id is-aside-status"
+      title={
+        `Agent session id: ${agentSessionId}\n`
+        + 'Resumed across restarts — same string on the chat panel.'
+      }
+    >
+      sid:{agentSessionId.slice(0, 8)}…
+    </span>
+  ) : null;
   const pushButtonLabel = taskPublish.pushBusy ? 'Pushing…' : 'Push';
   const pullButtonLabel = taskPublish.pullBusy ? 'Pulling…' : 'Pull';
   const prButtonLabel = taskPublish.prBusy ? 'Opening PR…' : 'Pull request';
@@ -437,6 +454,7 @@ export default function SessionHeader({
           >
             Claude: {claudeStatus.label}
           </span>
+          {sessionIdBadgeRight}
           {searchSlot}
           {approvePushButton}
           <button

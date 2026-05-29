@@ -1,0 +1,7094 @@
+/* AUTO-GENERATED from webserver/ui/src/styles/app.scss — do NOT edit   this file directly. Edit the .scss sources and run   `npm run build:css` (in webserver/ui) to recompile. */@use 'constants' as *;/* AUTO-GENERATED from webserver/ui/src/styles/app.scss — do NOT edit   this file directly. Edit the .scss sources and run   `npm run build:css` (in webserver/ui) to recompile. */
+* {
+  box-sizing: border-box;
+}
+
+/* Make HTML `hidden` actually hide elements that override `display` in CSS
+ * (e.g. `.modal { display: flex }` would otherwise leak through). */
+[hidden] {
+  display: none !important;
+}
+
+:root {
+  --radius-pill: 999px;
+}
+
+.sticky-section-header {
+  position: sticky;
+  top: var(--sticky-header-top, 0);
+  z-index: var(--sticky-header-z, 4);
+}
+
+html, body {
+  height: 100%;
+}
+
+/* Safety net: the app is a fixed-viewport 3-column layout — nothing
+ * should ever scroll the PAGE horizontally. Without this, a wide
+ * child (long monospace agent line, Monaco canvas) could make the
+ * body horizontally scrollable and shift the whole UI left when a
+ * tab's auto-scroll ran. The grid columns clip their own overflow. */
+html, body {
+  overflow-x: hidden;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: $C-NEUTRAL-04;
+  color: $C-NEUTRAL-90;
+  display: flex;
+  flex-direction: column;
+}
+
+#root {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  gap: $SPACE-12;
+  padding: $SPACE-14 $SPACE-24;
+  border-bottom: 1px solid $C-NEUTRAL-09;
+  flex-shrink: 0;
+}
+
+header #kato-logo {
+  width: 28px;
+  height: 28px;
+  border-radius: $RADIUS-4;
+  object-fit: cover;
+  display: block;
+}
+
+/* "Kato" + "Planning UI" sit beside the 28px logo. Sized so the
+ * text's cap height visually fills the logo's 28px square — bigger
+ * than a typical h1 but the logo would dwarf anything smaller. */
+header h1 {
+  margin: 0;
+  font-size: $TEXT-26;
+  line-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+}
+
+header .subtitle {
+  color: $C-NEUTRAL-64;
+  font-size: $TEXT-26;
+  line-height: 28px;
+  font-weight: 400;
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+}
+
+/* Round icon buttons matching the rest of the system (files-tab
+ * toolbar, session-header actions). Fixed 32px disc, centred icon,
+ * subtle hover. The ``.header-status`` button (the click-to-open
+ * orchestrator-feed pill) is exempted via ``:not()`` — it keeps
+ * its long pill shape so the status text fits inline. */
+header button:not(.header-status) {
+  background: transparent;
+  color: $C-NEUTRAL-64;
+  border: 1px solid $C-NEUTRAL-15;
+  border-radius: $RADIUS-CIRCLE;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: $TEXT-14;
+  line-height: 1;
+  flex-shrink: 0;
+  transition: background-color 0.12s ease-out, color 0.12s ease-out, border-color 0.12s ease-out;
+}
+
+header button:not(.header-status):hover {
+  color: $C-NEUTRAL-90;
+  border-color: $C-NEUTRAL-25;
+  background: $C-NEUTRAL-15;
+}
+
+header button:not(.header-status):disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Inline status pill — lives between the kato subtitle and the
+ * notification actions. Replaces the old standalone #status-bar
+ * row so the top of the app is one line instead of two. */
+header .header-status {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: $SPACE-8;
+  padding: $SPACE-4 $SPACE-12;
+  border-radius: var(--radius-pill);
+  background: $C-NEUTRAL-100-A06;
+  border: 1px solid $C-NEUTRAL-100-A06;
+  color: $C-NEUTRAL-83;
+  font: 12px/1 ui-monospace, monospace;
+  min-width: 0;
+  margin-left: $SPACE-4;
+  margin-right: $SPACE-4;
+}
+
+header .header-status.is-error {
+  background: $C-RED-60-A12;
+  border-color: $C-RED-60-A35;
+  color: $C-RED-89;
+}
+
+header .header-status.is-warn {
+  background: $C-ORANGE-50-A10;
+  border-color: $C-ORANGE-50-A35;
+  color: $C-AMBER-77;
+}
+
+header .header-status.is-stale {
+  background: $C-NEUTRAL-25-A20;
+  border-color: $C-NEUTRAL-25-A45;
+  color: $C-NEUTRAL-64;
+}
+
+header .header-status-pulse {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: $RADIUS-CIRCLE;
+  background: $C-GREEN-52;
+  animation: kato-status-pulse 1.6s ease-in-out infinite;
+}
+
+header .header-status.is-error .header-status-pulse {
+  background: $C-RED-60;
+  animation: none;
+}
+
+header .header-status.is-warn .header-status-pulse {
+  background: $C-ORANGE-50;
+}
+
+header .header-status.is-stale .header-status-pulse {
+  background: $C-NEUTRAL-25;
+  animation: none;
+}
+
+header .header-status-text {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Clickable variant — when the operator can pop the orchestrator
+ * activity feed open by clicking the pill. Subtle hover lift +
+ * a brighter active state when the feed is currently shown. */
+header button.header-status.is-clickable {
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+}
+
+header button.header-status.is-clickable:hover {
+  background: $C-NEUTRAL-100-A06;
+  border-color: $C-NEUTRAL-100-A14;
+}
+
+header button.header-status.is-clickable.is-active {
+  background: $C-CYAN-52-A18;
+  border-color: $C-CYAN-52-A45;
+  color: $C-CYAN-92;
+}
+
+header button.header-status.is-clickable.is-active .header-status-pulse {
+  background: $C-CYAN-52;
+}
+
+@keyframes kato-status-pulse {
+  0%, 100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+#status-bar {
+  display: flex;
+  align-items: center;
+  gap: $SPACE-10;
+  padding: $SPACE-6 $SPACE-24;
+  border-bottom: 1px solid $C-NEUTRAL-09;
+  background: $C-NEUTRAL-04;
+  flex-shrink: 0;
+  font-family: ui-monospace, monospace;
+  font-size: $TEXT-12;
+  color: $C-NEUTRAL-83;
+}
+
+#status-bar-pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: $RADIUS-CIRCLE;
+  background: $C-NEUTRAL-90;
+  flex-shrink: 0;
+  animation: kato-status-pulse 1.6s ease-in-out infinite;
+}
+
+#status-bar.is-error #status-bar-pulse {
+  background: $C-RED-60;
+  animation: none;
+}
+
+#status-bar.is-warn #status-bar-pulse {
+  background: $C-ORANGE-50;
+}
+
+#status-bar.is-stale #status-bar-pulse {
+  background: $C-NEUTRAL-25;
+  animation: none;
+}
+
+@keyframes kato-status-pulse {
+  0%, 100% {
+    opacity: 0.4;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+}
+#status-bar-text {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#status-bar.is-error #status-bar-text {
+  color: $C-RED-89;
+}
+
+#status-bar.is-warn #status-bar-text {
+  color: $C-AMBER-77;
+}
+
+#status-bar-toggle {
+  background: transparent;
+  border: 1px solid $C-NEUTRAL-15;
+  color: $C-NEUTRAL-64;
+  border-radius: $RADIUS-4;
+  padding: 0 $SPACE-8;
+  cursor: pointer;
+  font: inherit;
+}
+
+#status-bar-toggle:hover {
+  color: $C-NEUTRAL-90;
+  border-color: $C-NEUTRAL-90;
+}
+
+#status-bar-history {
+  max-height: 220px;
+  overflow-y: auto;
+  background: $C-NEUTRAL-04;
+  border-bottom: 1px solid $C-NEUTRAL-09;
+  padding: $SPACE-6 $SPACE-24;
+  flex-shrink: 0;
+  font-family: ui-monospace, monospace;
+  font-size: $TEXT-11;
+  color: $C-NEUTRAL-64;
+}
+
+#status-bar-history .row {
+  padding: $SPACE-2 0;
+  display: flex;
+  gap: $SPACE-10;
+  align-items: baseline;
+}
+
+#status-bar-history .row.error {
+  color: $C-RED-89;
+}
+
+#status-bar-history .row.warn {
+  color: $C-AMBER-77;
+}
+
+#status-bar-history .ts {
+  color: $C-NEUTRAL-25;
+  flex-shrink: 0;
+}
+
+#status-bar-history .lvl {
+  color: $C-NEUTRAL-25;
+  min-width: 38px;
+  flex-shrink: 0;
+}
+
+#status-bar-history .msg {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* ───── layout grid ──────────────────────────────────────────────
+ *
+ * Default: 3-column flex (left sidebar, center, right pane).
+ * ``.has-top-tabs``: drops the left sidebar in favour of a full-
+ *   width top row that hosts the iOS-style task segmented controller.
+ *   The remaining row is a 2-column grid (center, right).
+ */
+#layout {
+  display: grid;
+  grid-template-columns: 280px 1fr var(--right-pane-width, 380px);
+  flex: 1;
+  min-height: 0;
+  max-width: 100vw;
+  overflow: hidden;
+}
+
+/* Top-tabs variant (the layout shipped after the iOS rework):
+ *
+ *   row 1   ┌─────────────────────────────────────────────┐
+ *           │  TabList — full-width task segmented strip  │
+ *           └─────────────────────────────────────────────┘
+ *   row 2   ┌──────────┬───────────────┬──────────────────┐
+ *           │  Files   │   Monaco      │   Chat session   │
+ *           │  Changes │   editor      │   (composer at   │
+ *           │  panel   │  (read-only)  │   the bottom)    │
+ *           └──────────┴───────────────┴──────────────────┘
+ *
+ * Column widths:
+ *   left  → fixed 320 px (files tree comfortable but compact)
+ *   centre → 1fr (editor expands)
+ *   right  → ``--right-pane-width`` (chat width, resizable)
+ */
+#layout.has-top-tabs {
+  /* ``minmax(0, …)`` on each column is the load-bearing trick:
+   * without it, intrinsic content widths inside a column (e.g. a
+   * long un-wrapping diff line, or Monaco's internal canvas)
+   * force the column wider than its declared size, which spills
+   * neighbouring columns off-screen and visually overlaps. The
+   * 0-min lets the column shrink to whatever the grid told it
+   * to be, and its own ``overflow`` handles the excess. */
+  grid-template-columns: minmax(0, var(--left-pane-width, 320px)) minmax(0, 1fr) minmax(0, var(--right-pane-width, 420px));
+  /* row 1: task tab strip · row 2: full-width task header bar ·
+   * row 3: the three panels */
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+
+#layout.has-top-tabs > #tabs-pane {
+  grid-column: 1/-1;
+  grid-row: 1;
+}
+
+/* The hoisted task header — spans every column, between the tab
+ * strip and the panels. Kept as a grid item (NOT display:none when
+ * empty) so the panels stay auto-placed in row 3; an empty div in
+ * an ``auto`` row collapses to 0 height, so there's no dead band on
+ * the no-task screen. */
+#layout.has-top-tabs > #task-header-slot {
+  grid-column: 1/-1;
+  grid-row: 2;
+  min-width: 0;
+}
+
+/* ───── task segmented controller (top of app) ───────────────────
+ *
+ * Horizontal pill row of task segments. Each ``.tab`` is one
+ * segment; the active one lifts visually. The strip scrolls
+ * horizontally when its content overflows the viewport; flanking
+ * chevron buttons appear automatically (disabled when there's
+ * nothing to scroll in that direction). Trailing slot holds the
+ * Add-task / Scan-now actions.
+ *
+ * Material: same frosted-glass family as the composer + chat
+ * search bar — keeps the floating-iOS theme consistent across
+ * the top, middle, and bottom of the chat. */
+.tabs-pane-top {
+  display: flex;
+  align-items: center;
+  gap: $SPACE-8;
+  padding: $SPACE-10 $SPACE-14;
+  border-bottom: 1px solid $C-NEUTRAL-100-A06;
+  background: linear-gradient(180deg, $C-NEUTRAL-11-A62 0%, $C-NEUTRAL-07-A75 100%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+  /* ``backdrop-filter`` above makes this strip its own stacking
+   * context, trapping the trailing action buttons' hover tooltip
+   * (``::after``, z-index 1000) inside it. The sibling #session-header
+   * (z-index 20) was painted on top, so the tooltip's tail bled
+   * THROUGH session-header's action buttons (green/orange/red icons)
+   * — the reported bug. Lift the whole strip above the session
+   * header so its descendant tooltips overlay it correctly. Mirrors
+   * the same fix applied to ``.right-pane-tabs`` further down. */
+  position: relative;
+  z-index: 30;
+  min-width: 0;
+  max-width: 100vw;
+  /* On narrow widths we still need to fit chevrons + scroller +
+   * trailing actions on a single row. ``box-sizing: border-box``
+   * + ``min-width: 0`` keep the flex children honest; the inner
+   * scroller (``flex: 1; min-width: 0``) absorbs whatever space
+   * is left after the fixed-width chevrons and actions claim
+   * theirs. */
+  box-sizing: border-box;
+}
+
+/* Below this width the segment summary text is more noise than
+ * signal — the task ID alone is the operator's anchor. Hide the
+ * summary and tighten internal padding so the strip still fits
+ * a half-dozen segments + the trailing actions without the
+ * chevrons getting clipped. */
+@media (max-width: 880px) {
+  .tabs-pane-top {
+    padding: $SPACE-8 $SPACE-8;
+    gap: $SPACE-6;
+  }
+  .tabs-pane-top .tab {
+    padding: $SPACE-5 $SPACE-10 $SPACE-5 $SPACE-8;
+    max-width: 160px;
+  }
+  .tabs-pane-top .tab p {
+    display: none;
+  }
+}
+.tabs-pane-top.is-empty {
+  padding-top: $SPACE-14;
+  padding-bottom: $SPACE-14;
+}
+
+.tabs-scroller {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  /* Slim, always-visible custom scrollbar that matches the glass
+   * aesthetic. Sits just below the segment row; operators who
+   * prefer the scrollbar can drag it, the chevrons handle long
+   * hops, and the wheel-to-horizontal handler covers the
+   * scroll-wheel case. */
+  scrollbar-width: thin;
+  scrollbar-color: $C-NEUTRAL-100-A32 $C-NEUTRAL-100-A06;
+  /* Vertical padding gives the active tab's drop-shadow + the
+   * pinned-tab background ring room to render before
+   * overflow-y:hidden clips them. Without ``padding-top`` the active
+   * tab's ``0 1px 8px`` shadow was chopped off at the top of the
+   * pill — the pill looked decapitated. */
+  padding-top: $SPACE-4;
+  padding-bottom: $SPACE-4;
+}
+
+.tabs-scroller::-webkit-scrollbar {
+  height: 8px;
+}
+
+.tabs-scroller::-webkit-scrollbar-track {
+  background: $C-NEUTRAL-100-A06;
+  border-radius: $RADIUS-4;
+}
+
+.tabs-scroller::-webkit-scrollbar-thumb {
+  background: $C-NEUTRAL-100-A32;
+  border-radius: $RADIUS-4;
+  border: 1px solid $C-NEUTRAL-100-A06;
+}
+
+.tabs-scroller::-webkit-scrollbar-thumb:hover {
+  background: $C-NEUTRAL-100-A50;
+}
+
+.tabs-scroller #tab-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  gap: $SPACE-6;
+  align-items: stretch;
+}
+
+/* One segment. Pill-shaped, frosted, with the active segment
+ * raised to a brighter background so it reads as the foreground
+ * choice. `<li>` is kept (instead of <button>) for compatibility
+ * with existing tests that match `li.tab` for class assertions. */
+.tabs-pane-top .tab {
+  display: inline-flex;
+  align-items: center;
+  gap: $SPACE-6;
+  /* Right padding is generous because the right edge holds TWO
+   * round buttons (pin + ×) whose hover rings would otherwise bleed
+   * past the pill's right rounded cap into the inter-tab gap (the
+   * "red X floating between tabs" regression). 14px clears both
+   * 16px discs on a ~28px-tall pill. */
+  padding: $SPACE-6 $SPACE-14 $SPACE-6 $SPACE-12;
+  border-radius: var(--radius-pill);
+  background: $C-NEUTRAL-100-A06;
+  border: 1px solid $C-NEUTRAL-100-A06;
+  color: $C-NEUTRAL-96-A78;
+  cursor: pointer;
+  white-space: nowrap;
+  max-width: 220px;
+  min-width: 0;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease, transform 90ms ease;
+}
+
+.tabs-pane-top .tab:hover {
+  background: $C-NEUTRAL-100-A10;
+  border-color: $C-NEUTRAL-100-A10;
+  color: $C-NEUTRAL-96;
+}
+
+.tabs-pane-top .tab.active {
+  background: $C-NEUTRAL-100-A14;
+  border-color: $C-NEUTRAL-100-A22;
+  color: $C-NEUTRAL-96;
+  box-shadow: $SHADOW-1;
+}
+
+.tabs-pane-top .tab:active {
+  transform: scale(0.97);
+}
+
+.tabs-pane-top .tab:focus {
+  outline: none;
+}
+
+.tabs-pane-top .tab strong {
+  font-weight: 600;
+  font-size: $TEXT-12;
+  letter-spacing: 0.01em;
+}
+
+.tabs-pane-top .tab p {
+  margin: 0;
+  color: $C-NEUTRAL-96-A55;
+  font-size: $TEXT-11;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tabs-pane-top .tab .tab-changes-indicator {
+  display: inline-flex;
+  color: $C-ORANGE-56;
+  font-size: $TEXT-10;
+}
+
+.tabs-pane-top .tab .tab-forget-btn {
+  background: transparent;
+  border: none;
+  color: $C-NEUTRAL-96-A42;
+  font-size: $TEXT-11;
+  line-height: 1;
+  cursor: pointer;
+  /* Fixed square + flex-centre so the × glyph sits dead-centre and
+   * never spills past the round hover background. Equal padding (a
+   * non-square box with border-radius:50% renders an ellipse the
+   * glyph pokes out of). 16px (down from 18px) so the bright red
+   * hover ring fits inside the pill's right cap without bleeding
+   * into the gap between this tab and the next. */
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: $RADIUS-CIRCLE;
+  visibility: hidden;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.tabs-pane-top .tab .tab-forget-btn svg {
+  width: 9px;
+  height: 9px;
+  display: block;
+}
+
+.tabs-pane-top .tab:hover .tab-forget-btn,
+.tabs-pane-top .tab.active .tab-forget-btn {
+  visibility: visible;
+  /* A faint enclosed disc so the × reads as a button that lives
+   * INSIDE the pill, not a stray glyph hanging off the rounded
+   * edge. The hover state below deepens it to red. */
+  background: $C-NEUTRAL-100-A10;
+  color: $C-NEUTRAL-96-A78;
+}
+
+.tabs-pane-top .tab .tab-forget-btn:hover {
+  background: $C-RED-51-A85;
+  color: $C-NEUTRAL-96;
+}
+
+/* ───── tab-pin button ────────────────────────────────────────────
+ *
+ * Always-visible on the active tab (matches the X behaviour) and
+ * on hover for inactive tabs. Pinned state pins the icon visibly
+ * (full opacity + brighter background) so the operator can scan
+ * which tabs are pinned at a glance. Unpinned state shows the
+ * thumbtack rotated 45° as a "tip up, not stuck" affordance. */
+.tabs-pane-top .tab .tab-pin-btn {
+  background: transparent;
+  border: none;
+  color: $C-NEUTRAL-96-A42;
+  font-size: $TEXT-11;
+  line-height: 1;
+  cursor: pointer;
+  /* Matches .tab-forget-btn (16px) — the two discs sit next to each
+   * other so any size mismatch would read as misalignment. */
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: $RADIUS-CIRCLE;
+  visibility: hidden;
+  transition: background 120ms ease, color 120ms ease, transform 120ms ease;
+}
+
+.tabs-pane-top .tab .tab-pin-btn svg {
+  width: 9px;
+  height: 9px;
+  display: block;
+  /* Unpinned default: tip-up affordance, "not stuck in" — flips
+   * to no rotation in the .is-pinned state below. */
+  transform: rotate(45deg);
+  transition: transform 120ms ease;
+}
+
+.tabs-pane-top .tab .tab-pin-btn.is-pinned svg {
+  transform: rotate(0deg);
+}
+
+.tabs-pane-top .tab:hover .tab-pin-btn,
+.tabs-pane-top .tab.active .tab-pin-btn,
+.tabs-pane-top .tab .tab-pin-btn.is-pinned {
+  /* Pinned button is always visible — that's the whole point of
+   * pinning ("I want to see this stays pinned across reloads"). */
+  visibility: visible;
+  background: $C-NEUTRAL-100-A10;
+  color: $C-NEUTRAL-96-A78;
+}
+
+.tabs-pane-top .tab .tab-pin-btn.is-pinned {
+  /* Stronger fill for the "stuck" state so it reads as a toggle
+   * that's currently ON rather than just a hovered button. */
+  background: $C-CYAN-52-A40;
+  color: $C-NEUTRAL-96;
+}
+
+.tabs-pane-top .tab .tab-pin-btn:hover {
+  background: $C-CYAN-52-A65;
+  color: $C-NEUTRAL-96;
+}
+
+/* ───── pinned-tab sticky positioning ─────────────────────────────
+ *
+ * Pinned tabs sort to the LEFT of the strip (TabList does the
+ * sort) and stay glued to the left edge while the rest of the
+ * strip scrolls underneath. ``--sticky-left`` is published per-pin
+ * by a layout effect in TabList that measures each preceding
+ * pinned tab's offsetWidth + gap — so multiple pinned tabs stack
+ * horizontally instead of collapsing on top of each other at
+ * ``left: 0``. The opaque background hides scrolling content
+ * sliding behind. */
+.tabs-pane-top .tab.is-pinned {
+  position: sticky;
+  left: var(--sticky-left, 0);
+  z-index: 3;
+  /* Solid panel that mirrors the strip's gradient so scrolling
+   * tabs are obscured behind the pinned cluster instead of
+   * smearing through it. */
+  background: linear-gradient(180deg, $C-NEUTRAL-15-A96 0%, $C-NEUTRAL-10-A96 100%);
+  border-color: $C-NEUTRAL-100-A14;
+}
+
+.tabs-pane-top .tab.is-pinned.active {
+  /* Active + pinned = the same brighter background as a normal
+   * active tab so the active-state signal isn't overwritten by the
+   * pinned-panel base. */
+  background: linear-gradient(180deg, $C-NEUTRAL-23-A98 0%, $C-NEUTRAL-15-A96 100%);
+  border-color: $C-NEUTRAL-100-A26;
+}
+
+.tabs-pane-top .tab.needs-attention {
+  background: $C-ORANGE-53-A22;
+  border-color: $C-ORANGE-53-A55;
+  color: $C-NEUTRAL-96;
+}
+
+/* Status dot inside a top-mounted tab segment.
+ *
+ * The base ``.status-dot`` rule (further up the file) is sized
+ * for the old vertical sidebar — ``display: inline-block`` with
+ * a 4px ``margin-top`` to align with multi-line text. Inside a
+ * horizontal flex pill, those two settings squashed it:
+ *   - inline-block + flex parent → no flex-shrink → compressed to
+ *     an ellipse when the segment ran out of horizontal room.
+ *   - margin-top: 4px → dot floated above the text baseline.
+ *
+ * Overriding here keeps the sidebar layout untouched while
+ * forcing a true circle inside the segmented controller. */
+.tabs-pane-top .tab .status-dot {
+  flex-shrink: 0;
+  margin-top: 0;
+  width: 10px;
+  height: 10px;
+  border-width: 1px;
+  box-sizing: border-box;
+}
+
+/* The attention spinner ring (`::after`) inherits its size from
+ * the dot. When the parent flex shrank the dot the ring became
+ * an ellipse too — pinning ``flex-shrink: 0`` above is enough to
+ * fix it, but we also tighten the ring offset to match the
+ * smaller dot size so the orange halo doesn't extend past the
+ * segment's vertical centre. */
+.tabs-pane-top .tab .status-dot.status-attention::after {
+  inset: -4px;
+}
+
+.tabs-pane-top .tab .status-dot.is-loading::after {
+  inset: -3px;
+}
+
+/* Chevron buttons that flank the scroller. Hidden state is just
+ * disabled-style (operator still sees the affordance so they
+ * learn the strip can scroll). */
+.tabs-nav-button {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: $RADIUS-CIRCLE;
+  padding: 0;
+  border: 1px solid $C-NEUTRAL-100-A06;
+  background: $C-NEUTRAL-100-A06;
+  color: $C-NEUTRAL-96;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: $TEXT-11;
+  line-height: 1;
+  transition: background 120ms ease, opacity 120ms ease, transform 90ms ease;
+}
+
+.tabs-nav-button:hover:not(:disabled) {
+  background: $C-NEUTRAL-100-A10;
+}
+
+.tabs-nav-button:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+.tabs-nav-button:disabled {
+  opacity: 0.28;
+  cursor: not-allowed;
+}
+
+/* Trailing actions (Add task, Scan now). Same round-button family
+ * as session-header actions so the visual language is consistent. */
+.tabs-actions {
+  display: flex;
+  align-items: center;
+  gap: $SPACE-6;
+  flex-shrink: 0;
+  padding-left: $SPACE-6;
+  border-left: 1px solid $C-NEUTRAL-100-A06;
+  margin-left: $SPACE-4;
+}
+
+.tabs-action {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: $RADIUS-CIRCLE;
+  border: 1px solid $C-NEUTRAL-100-A10;
+  background: $C-NEUTRAL-100-A06;
+  color: $C-NEUTRAL-96;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: $TEXT-12;
+  line-height: 1;
+  padding: 0;
+  transition: background 120ms ease, transform 90ms ease;
+}
+
+.tabs-action:hover:not(:disabled) {
+  background: $C-NEUTRAL-100-A14;
+}
+
+.tabs-action:active:not(:disabled) {
+  transform: scale(0.94);
+}
+
+.tabs-action:disabled {
+  background: $C-NEUTRAL-100-A06;
+  color: $C-NEUTRAL-96-A28;
+  cursor: not-allowed;
+}
+
+/* Add-task gets a soft blue accent — primary entry point to kato. */
+#tabs-add-task.tabs-action {
+  background: $C-CYAN-52-A85;
+  border-color: $C-CYAN-52-A55;
+  color: $C-NEUTRAL-96;
+  box-shadow: $SHADOW-2;
+}
+
+#tabs-add-task.tabs-action:hover {
+  background: $C-CYAN-58-A95;
+  box-shadow: $SHADOW-3;
+}
+
+/* Empty-state copy when no tabs exist yet — sits inline in the
+ * tabs row so the operator still sees the Add-task button on the
+ * right. */
+.tabs-pane-top .empty {
+  flex: 1;
+  margin: 0;
+  padding: 0 $SPACE-4;
+  color: $C-NEUTRAL-96-A55;
+  font-size: $TEXT-12;
+  white-space: normal;
+}
+
+.tabs-pane-top .empty code {
+  background: $C-NEUTRAL-100-A10;
+  padding: $SPACE-1 $SPACE-5;
+  border-radius: $RADIUS-4;
+}
+
+/* ── Legacy left-pane styles (kept for any consumer still using
+ * the sidebar layout). When ``#layout.has-top-tabs`` is set, the
+ * tab strip uses ``.tabs-pane-top`` rules above; the rules below
+ * apply only to the original aside-style sidebar. */
+#tabs-pane:not(.tabs-pane-top) {
+  border-right: 1px solid $C-NEUTRAL-09;
+  overflow-y: auto;
+  padding: 0 0 $SPACE-12;
+  display: flex;
+  flex-direction: column;
+}
+
+#tabs-pane:not(.tabs-pane-top) #tab-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+#tabs-pane:not(.tabs-pane-top) .tab {
+  padding: $SPACE-10 $SPACE-16;
+  cursor: pointer;
+  border-left: 3px solid transparent;
+  display: grid;
+  grid-template-columns: 16px 1fr auto auto;
+  gap: $SPACE-8;
+  align-items: start;
+}
+
+#tabs-pane:not(.tabs-pane-top) .tab:hover {
+  background: $C-NEUTRAL-09;
+}
+
+#tabs-pane:not(.tabs-pane-top) .tab:focus {
+  outline: none;
+}
+
+#tabs-pane:not(.tabs-pane-top) .tab.active {
+  background: $C-NEUTRAL-09;
+  border-left-color: $C-NEUTRAL-90;
+}
+
+#tabs-pane:not(.tabs-pane-top) .tab strong {
+  display: block;
+}
+
+#tabs-pane:not(.tabs-pane-top) .tab p {
+  margin: $SPACE-2 0 0;
+  color: $C-NEUTRAL-64;
+  font-size: $TEXT-12;
+  grid-column: 2;
+}
+
+#tabs-pane:not(.tabs-pane-top) .tab-forget-btn {
+  grid-column: 4;
+  grid-row: 1/span 2;
+  align-self: center;
+  background: transparent;
+  border: none;
+  color: $C-NEUTRAL-25;
+  font-size: $TEXT-18;
+  line-height: 1;
+  cursor: pointer;
+  padding: $SPACE-4 $SPACE-6;
+  border-radius: $RADIUS-4;
+  visibility: hidden;
+}
+
+#tabs-pane:not(.tabs-pane-top) .tab:hover .tab-forget-btn,
+#tabs-pane:not(.tabs-pane-top) .tab.active .tab-forget-btn {
+  visibility: visible;
+}
+
+#tabs-pane:not(.tabs-pane-top) .tab-forget-btn:hover {
+  background: $C-RED-42;
+  color: $C-NEUTRAL-96;
+}
+
+.status-dot {
+  position: relative;
+  width: 12px;
+  height: 12px;
+  border-radius: $RADIUS-CIRCLE;
+  display: inline-block;
+  margin-top: $SPACE-4;
+  background: $C-NEUTRAL-15;
+  border: 2px solid $C-NEUTRAL-09;
+}
+
+.status-active {
+  background: $C-TEAL-24;
+} /* green: live session */
+.status-active.is-idle-alive {
+  /* alive subprocess but the current turn has closed (Claude said
+   * "Done") — dim the green so the sidebar visually distinguishes
+   * "still chewing" from "waiting for input". */
+  background: $C-TEAL-16;
+  opacity: 0.55;
+}
+
+.status-idle {
+  background: $C-NEUTRAL-25;
+} /* slate: tab present, no subprocess */
+.status-review {
+  background: $C-BLUE-53;
+} /* blue:  awaiting review */
+.status-working {
+  background: $C-ORANGE-50;
+  border-color: $C-ORANGE-31;
+} /* orange: Claude working */
+.status-done {
+  background: $C-NEUTRAL-09;
+  border-color: $C-NEUTRAL-15;
+} /* dim */
+.status-terminated {
+  background: $C-NEUTRAL-45;
+} /* gray: stopped */
+.status-provisioning {
+  background: $C-NEUTRAL-90;
+} /* white: cloning */
+.status-errored {
+  background: $C-RED-42;
+} /* red:   half-broken workspace */
+.status-attention {
+  background: $C-ORANGE-53;
+  border-color: $C-ORANGE-28;
+} /* orange-red: needs approval */
+.status-dot.status-attention::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: $RADIUS-CIRCLE;
+  background: conic-gradient($C-RED-60, $C-ORANGE-53, transparent 58%, transparent);
+  animation: kato-status-spin 0.9s linear infinite;
+  pointer-events: none;
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), $C-NEUTRAL-04 0);
+  mask: radial-gradient(farthest-side, transparent calc(100% - 3px), $C-NEUTRAL-04 0);
+}
+
+.status-dot.is-loading {
+  position: relative;
+}
+
+.status-dot.is-loading::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: $RADIUS-CIRCLE;
+  border: 2px solid transparent;
+  border-top-color: $C-NEUTRAL-64;
+  border-right-color: $C-NEUTRAL-64;
+  animation: kato-status-spin 0.9s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes kato-status-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.tab.needs-attention {
+  border-left-color: $C-ORANGE-53;
+  background: $C-ORANGE-53-A11;
+}
+
+.tab.needs-attention .status-dot {
+  animation: kato-attention-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes kato-attention-pulse {
+  0%, 100% {
+    box-shadow: $SHADOW-4;
+  }
+  50% {
+    box-shadow: $SHADOW-5;
+  }
+}
+.empty {
+  color: $C-NEUTRAL-64;
+  padding: $SPACE-16;
+  font-size: $TEXT-13;
+}
+
+#session-pane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  /* Positioning context for the chat-column resize handle (it
+   * uses ``position: absolute; left: -3px`` to anchor on the
+   * pane's left edge). Without this the handle would jump up
+   * the ancestor chain looking for a positioned parent. */
+  position: relative;
+}
+
+#session-placeholder {
+  margin: auto;
+  color: $C-NEUTRAL-64;
+}
+
+#session-detail {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  /* Without min-width:0 a flex item defaults to min-width:auto and
+   * refuses to shrink below its content's intrinsic width — so a
+   * long task title (or a long monospace agent line in the log)
+   * pushed this wider than its grid cell and the header bled
+   * outside the pane. 0-min lets it match the cell; the header
+   * summary + event log already clip/ellipsize their own overflow. */
+  min-width: 0;
+  /* Positioning context for the absolutely-floating #message-form
+   * composer capsule (defined below). */
+  position: relative;
+}
+
+/* Single-line header bar: title group on the LEFT, action buttons
+   on the RIGHT. The title group flexes + ellipsizes so the row
+   height stays fixed no matter how verbose the task summary is;
+   the actions never wrap or shrink. */
+#session-header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: $SPACE-16;
+  min-width: 0;
+  overflow: visible;
+  padding: $SPACE-10 $SPACE-24;
+  border-bottom: 1px solid $C-NEUTRAL-09;
+  position: relative;
+  z-index: 20;
+}
+
+/* Left: status dot + task id + summary, one line, ellipsized. */
+.session-header-info {
+  display: flex;
+  align-items: center;
+  gap: $SPACE-10;
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+}
+
+#session-task-id {
+  flex-shrink: 0;
+}
+
+/* Right: Claude status chip + every action button. Pinned to the
+   right edge; single line (no wrap), never shrinks — the title
+   ellipsizes instead on a narrow window. */
+.session-header-actions {
+  display: flex;
+  align-items: center;
+  gap: $SPACE-10;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+#session-task-summary {
+  /* Match the task code (#session-task-id, a bold white <strong>):
+     same colour + weight so the id and the summary read as one
+     title rather than label + muted subtitle. */
+  color: $C-NEUTRAL-96;
+  font-weight: 700;
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* No-task placeholder: same bar, muted "Select a task" hint + the
+   action row rendered inert (the .session-action:disabled rule
+   already greys the buttons). The bar never disappears. */
+#session-header.is-empty #session-task-summary.is-placeholder {
+  color: $C-NEUTRAL-55;
+  font-weight: 600;
+}
+
+/* ───── round icon buttons in the session header ─────────────────────
+ *
+ * All header actions (push, pull, PR, update, done, adopt, stop /
+ * resume, approve-push, search toggle) share a single round-button
+ * shape. Mood is signalled by a class modifier:
+ *
+ *   .session-action            default (slate, neutral actions)
+ *   .session-action.is-primary green (Done — task-level commit)
+ *   .session-action.is-warning amber (Resume — restart subprocess)
+ *   .session-action.is-danger  red   (Stop — kill subprocess)
+ *
+ * The data-tooltip attribute provides the verbose hover label so
+ * shrinking each button to a 34px circle doesn't lose the meaning
+ * it used to convey via inline text.
+ */
+.session-action {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: $RADIUS-CIRCLE;
+  border: 1px solid $C-NEUTRAL-100-A10;
+  background: $C-NEUTRAL-100-A06;
+  color: $C-NEUTRAL-96;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: $TEXT-13;
+  line-height: 1;
+  transition: background 120ms ease, border-color 120ms ease, box-shadow 120ms ease, transform 90ms ease, color 120ms ease;
+}
+
+.session-action:hover {
+  background: $C-NEUTRAL-100-A14;
+  border-color: $C-NEUTRAL-100-A22;
+}
+
+.session-action:active {
+  transform: scale(0.94);
+}
+
+.session-action:disabled {
+  background: $C-NEUTRAL-100-A06;
+  color: $C-NEUTRAL-96-A28;
+  border-color: $C-NEUTRAL-100-A06;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.session-action.is-primary {
+  background: $C-TEAL-30-A85; /* emerald-600 */
+  border-color: $C-TEAL-39-A65;
+  color: $C-NEUTRAL-96;
+  box-shadow: $SHADOW-6;
+}
+
+.session-action.is-primary:hover {
+  background: $C-TEAL-39-A95;
+  box-shadow: $SHADOW-7;
+}
+
+.session-action.is-warning {
+  background: $C-ORANGE-44-A85; /* amber-600 */
+  border-color: $C-ORANGE-50-A65;
+  color: $C-AMBER-89;
+  box-shadow: $SHADOW-8;
+}
+
+.session-action.is-warning:hover {
+  background: $C-ORANGE-50-A95;
+  box-shadow: $SHADOW-9;
+}
+
+.session-action.is-danger {
+  background: $C-RED-42-A85; /* red-700 */
+  border-color: $C-RED-51-A65;
+  color: $C-RED-94;
+  box-shadow: $SHADOW-10;
+}
+
+.session-action.is-danger:hover {
+  background: $C-RED-51-A95;
+  box-shadow: $SHADOW-11;
+}
+
+/* Legacy text-button per-id rules (stop / resume / push / pull /
+ * etc.) were removed when the round .session-action design landed.
+ * Identifiers themselves are still on the elements so tests + dev
+ * tools find them by id — only the visual rules moved up. */
+#event-log {
+  flex: 1;
+  overflow-y: auto;
+  /* No top padding: a sticky prompt sticks to the scrollport's
+   * CONTENT box, so any top padding becomes a dead strip between
+   * the header and the pinned prompt (content scrolls visibly
+   * through it). The first-child rule below restores the top
+   * breathing room in normal flow only — it scrolls away with the
+   * content, so a pinned prompt sits flush against the header. */
+  padding: 0 $SPACE-24;
+  display: flex;
+  flex-direction: column;
+  gap: $SPACE-12;
+}
+
+#event-log > :first-child {
+  margin-top: $SPACE-18;
+}
+
+/* One operator prompt + every bubble it produced, as a section.
+ * This wrapper is the sticky prompt's containing block: CSS sticky
+ * bounds the pinned header to its own turn, so a prompt only pins
+ * while its turn is on screen and is pushed off the top by the
+ * adjacent turn's prompt as you cross the boundary (iOS / Claude VS
+ * Code plugin section-header behaviour). Must NOT set overflow — that
+ * would clip the sticky child and kill the pin. */
+.chat-turn {
+  display: flex;
+  flex-direction: column;
+  gap: $SPACE-12;
+}
+
+/* ───── sticky "you asked" prompt (Claude VS Code plugin style) ──
+ * Pinned at the top of its turn so the operator never loses the
+ * request the agent is working on. Long prompts collapse to three
+ * lines and use the same expand affordance as tool-output snippets. */
+.chat-sticky-prompt {
+  /* Bleed over #event-log's 24px side padding so the bar spans the
+   * full width and reads as a pinned header, not an inset card. No
+   * negative top margin: prompts are now nested one per turn, so a
+   * negative top would yank the bar up over the previous turn's last
+   * bubble. The flex gap on .chat-turn handles spacing instead. */
+  margin: 0 $SPACE-NEG-24;
+  background: $C-NEUTRAL-09;
+  border-bottom: 1px solid $C-NEUTRAL-15;
+  box-shadow: $SHADOW-12;
+}
+
+.chat-sticky-prompt-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: $SPACE-10;
+  width: 100%;
+  padding: $SPACE-9 $SPACE-24;
+  background: transparent;
+  border: none;
+  text-align: left;
+  font: inherit;
+  color: $C-NEUTRAL-83;
+}
+
+.chat-sticky-prompt-label {
+  flex-shrink: 0;
+  font-size: $TEXT-10;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: $C-NEUTRAL-45;
+  padding-top: $SPACE-2;
+}
+
+.chat-sticky-prompt-text-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.chat-sticky-prompt-text-wrap.is-collapsed {
+  max-height: 56.25px;
+  overflow: hidden;
+}
+
+.chat-sticky-prompt-text-wrap.is-collapsed::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2.5em;
+  pointer-events: none;
+  background: linear-gradient(to bottom, $C-NEUTRAL-05-A00 0%, $C-NEUTRAL-05-A86 66%, $C-NEUTRAL-09 100%);
+}
+
+.chat-sticky-prompt-text {
+  display: block;
+  font-size: $TEXT-12_5;
+  line-height: 1.5;
+  color: $C-NEUTRAL-90;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.chat-sticky-prompt-expand {
+  bottom: 0;
+}
+
+/* Chat stream — vertical, dot-prefixed, Claude Code CLI style. Each
+ * bubble is a row: a colored dot on the left, a small kind label, and
+ * the content stacked vertically. No left/right alignment shifts, no
+ * "speech balloon" rounded corners — a clean transcript. */
+.bubble {
+  display: grid;
+  grid-template-columns: 14px 1fr;
+  gap: $SPACE-10;
+  align-items: start;
+  padding: $SPACE-6 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: $TEXT-14;
+  align-self: stretch;
+  line-height: 1.5;
+}
+
+.bubble-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: $RADIUS-CIRCLE;
+  margin-top: $SPACE-8;
+  background: $C-NEUTRAL-25;
+  flex-shrink: 0;
+}
+
+.bubble-body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: $SPACE-2;
+}
+
+.bubble-label {
+  font-size: $TEXT-11;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: $C-NEUTRAL-32;
+  font-family: ui-monospace, monospace;
+}
+
+.bubble-content {
+  color: $C-NEUTRAL-90;
+}
+
+.bubble.user .bubble-dot {
+  background: $C-NEUTRAL-64;
+}
+
+.bubble.user .bubble-content {
+  color: $C-NEUTRAL-90;
+}
+
+.bubble.assistant .bubble-dot {
+  background: $C-GREEN-52;
+}
+
+.bubble.tool .bubble-dot {
+  background: $C-NEUTRAL-90;
+}
+
+.bubble.tool .bubble-content {
+  font-family: ui-monospace, monospace;
+  font-size: $TEXT-13;
+  background: $C-NEUTRAL-04;
+  border: 1px solid $C-NEUTRAL-09;
+  border-radius: $RADIUS-4;
+  padding: $SPACE-6 $SPACE-10;
+}
+
+/* Tool bubbles drop the "TOOL" label entirely — the white dot
+   + the ``→ Read filename`` summary inside the content already
+   convey "this is a tool call", and the label was the dominant
+   source of vertical waste on long chats (each tool event added
+   an extra ~16 px line). The other kinds keep their label
+   because they are not as visually distinct on their own. */
+.bubble.tool .bubble-label {
+  display: none;
+}
+
+.bubble.tool {
+  padding: $SPACE-2 0;
+}
+
+.bubble-tool-summary {
+  display: block;
+  word-break: break-all;
+  white-space: pre-wrap;
+}
+
+/* One-click "open this file" affordance next to a tool's path.
+ * Inline so it sits right after the path text; subtle until hover
+ * so it doesn't compete with the log content. */
+.bubble-tool-reveal {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  width: 18px;
+  height: 18px;
+  margin-left: $SPACE-6;
+  padding: 0;
+  border: none;
+  border-radius: $RADIUS-4;
+  background: $C-NEUTRAL-100-A06;
+  color: $C-CYAN-78;
+  font-size: $TEXT-10;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.bubble-tool-reveal:hover {
+  background: $C-CYAN-78-A22;
+  color: $C-CYAN-87;
+}
+
+/* ----- tool-details code box -----
+ *
+ * No border (operator asked us to drop it) and intentionally NOT
+ * scrollable: long output is clipped with a fade-to-background
+ * overlay on the bottom edge so the operator can see "there is
+ * more" at a glance, and an inline "Click to expand" button lifts
+ * the cap when they want the full body.
+ *
+ * The wrapper ``.bubble-tool-details-wrap`` owns the clipped
+ * height + fade pseudo-element + button overlay so the ``<pre>``
+ * itself stays a clean monospace block we can reuse later. */
+.bubble-tool-details-wrap {
+  position: relative;
+  margin: $SPACE-6 0 0 0;
+}
+
+.bubble-tool-details-wrap.is-collapsed {
+  max-height: 320px;
+  overflow: hidden;
+}
+
+.bubble-tool-details-wrap.is-collapsed::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 96px;
+  pointer-events: none;
+  background: linear-gradient(to bottom, $C-NEUTRAL-05-A00 0%, $C-NEUTRAL-05-A86 65%, $C-NEUTRAL-04 100%);
+}
+
+.bubble-tool-details {
+  margin: 0;
+  padding: 0;
+  background: $C-NEUTRAL-04;
+  border: none;
+  border-radius: $RADIUS-3;
+  font-family: ui-monospace, monospace;
+  font-size: $TEXT-12;
+  color: $C-NEUTRAL-83;
+  white-space: pre-wrap;
+  word-break: break-word;
+  /* No scrollbars — overflow is hidden via the wrapper. Horizontal
+   * wraps via white-space: pre-wrap above. */
+  overflow: hidden;
+}
+
+.bubble-tool-details-expand {
+  position: absolute;
+  right: 10px;
+  bottom: 8px;
+  z-index: 2;
+  padding: $SPACE-4 $SPACE-12;
+  font-size: $TEXT-11;
+  font-family: inherit;
+  color: $C-NEUTRAL-90;
+  background: $C-CYAN-17;
+  border: 1px solid $C-CYAN-27;
+  border-radius: $RADIUS-4;
+  cursor: pointer;
+  box-shadow: $SHADOW-13;
+}
+
+.bubble-tool-details-expand:hover {
+  background: $C-CYAN-27;
+  border-color: $C-NEUTRAL-32;
+}
+
+.bubble-tool-details-line {
+  display: block;
+  padding: 0 $SPACE-8;
+  white-space: pre-wrap;
+}
+
+.bubble-tool-details-line.added {
+  background: $C-TEAL-16;
+  color: $C-GREEN-90;
+}
+
+.bubble-tool-details-line.removed {
+  background: $C-RED-23;
+  color: $C-RED-89;
+}
+
+.bubble-tool-details-line.separator {
+  color: $C-NEUTRAL-32;
+  font-style: italic;
+}
+
+.bubble-tool-details-line.context {
+  color: $C-NEUTRAL-64;
+}
+
+/* ----- Markdown rendering inside assistant bubbles ----------------
+ * Claude responses flow through MarkdownContent.jsx (react-markdown
+ * + remark-gfm). Tight vertical rhythm so a long answer with
+ * headings + lists doesn't double the bubble's height vs the old
+ * plain-text rendering. Fenced code blocks own a header strip with
+ * the language label + a copy-to-clipboard button.
+ *
+ * Compact spacing: ``line-height: 1.4`` and 4-6px block margins
+ * because Claude's long answers (the "what changed" summaries with
+ * dense inline-code spans on every line) doubled the bubble height
+ * at the previous 1.5/8px values — see the operator screenshot. */
+.bubble.assistant .bubble-content > :first-child {
+  margin-top: 0;
+}
+
+.bubble.assistant .bubble-content > :last-child {
+  margin-bottom: 0;
+}
+
+.bubble.assistant .bubble-content p {
+  margin: 0 0 $SPACE-4;
+  line-height: 1.4;
+}
+
+.bubble.assistant .bubble-content h1,
+.bubble.assistant .bubble-content h2,
+.bubble.assistant .bubble-content h3,
+.bubble.assistant .bubble-content h4,
+.bubble.assistant .bubble-content h5,
+.bubble.assistant .bubble-content h6 {
+  margin: $SPACE-10 0 $SPACE-3;
+  font-weight: 600;
+  color: $C-NEUTRAL-96;
+  line-height: 1.25;
+}
+
+.bubble.assistant .bubble-content h1 {
+  font-size: $TEXT-18;
+}
+
+.bubble.assistant .bubble-content h2 {
+  font-size: $TEXT-16;
+}
+
+.bubble.assistant .bubble-content h3 {
+  font-size: $TEXT-15;
+}
+
+.bubble.assistant .bubble-content h4,
+.bubble.assistant .bubble-content h5,
+.bubble.assistant .bubble-content h6 {
+  font-size: $TEXT-14;
+}
+
+.bubble.assistant .bubble-content ul,
+.bubble.assistant .bubble-content ol {
+  margin: 0 0 $SPACE-4;
+  padding-left: $SPACE-20;
+}
+
+.bubble.assistant .bubble-content li {
+  /* No inter-item margin — line-height already provides breathing
+   * room. Bullets/numbers stay visually paired with their text. */
+  margin: 0;
+  line-height: 1.4;
+}
+
+.bubble.assistant .bubble-content li + li {
+  /* Hair gap between adjacent siblings — keeps multi-line entries
+   * distinguishable without bloating short single-line lists. */
+  margin-top: $SPACE-2;
+}
+
+.bubble.assistant .bubble-content li > p {
+  margin: 0;
+}
+
+.bubble.assistant .bubble-content blockquote {
+  margin: 0 0 $SPACE-4;
+  padding: $SPACE-4 $SPACE-12;
+  border-left: 3px solid $C-NEUTRAL-25;
+  color: $C-NEUTRAL-64;
+}
+
+.bubble.assistant .bubble-content a {
+  color: $C-CYAN-70;
+  text-decoration: underline;
+}
+
+.bubble.assistant .bubble-content a:hover {
+  color: $C-CYAN-78;
+}
+
+.bubble.assistant .bubble-content table {
+  border-collapse: collapse;
+  margin: 0 0 $SPACE-8;
+  font-size: $TEXT-13;
+}
+
+.bubble.assistant .bubble-content th,
+.bubble.assistant .bubble-content td {
+  padding: $SPACE-4 $SPACE-10;
+  border: 1px solid $C-NEUTRAL-15;
+  text-align: left;
+}
+
+.bubble.assistant .bubble-content th {
+  background: $C-NEUTRAL-09;
+  font-weight: 600;
+}
+
+.bubble.assistant .bubble-content hr {
+  margin: $SPACE-12 0;
+  border: 0;
+  border-top: 1px solid $C-NEUTRAL-15;
+}
+
+.bubble.assistant .bubble-content .md-inline-code {
+  font-family: ui-monospace, monospace;
+  font-size: $TEXT-12_5;
+  /* Zero vertical padding — the border still gives the chip a clean
+   * outline, but the previous 1px+1px+border added 4px per line and
+   * doubled the gap between rows in lists studded with inline code
+   * (the operator-screenshot scenario: every list item had 3-5
+   * ``code`` chips per line). */
+  padding: 0 $SPACE-5;
+  background: $C-NEUTRAL-04;
+  border: 1px solid $C-NEUTRAL-15;
+  border-radius: $RADIUS-3;
+  color: $C-AMBER-65;
+}
+
+.bubble.assistant .bubble-content .md-code-block {
+  margin: $SPACE-6 0 $SPACE-10;
+  background: $C-NEUTRAL-04;
+  border: 1px solid $C-NEUTRAL-15;
+  border-radius: $RADIUS-5;
+  overflow: hidden;
+}
+
+.bubble.assistant .bubble-content .md-code-block-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: $SPACE-4 $SPACE-8 $SPACE-4 $SPACE-12;
+  background: $C-NEUTRAL-04;
+  border-bottom: 1px solid $C-NEUTRAL-15;
+}
+
+.bubble.assistant .bubble-content .md-code-block-lang {
+  font-family: ui-monospace, monospace;
+  font-size: $TEXT-11;
+  color: $C-NEUTRAL-45;
+  text-transform: lowercase;
+  letter-spacing: 0.04em;
+}
+
+.bubble.assistant .bubble-content .md-code-block-copy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 22px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: $RADIUS-3;
+  color: $C-NEUTRAL-64;
+  cursor: pointer;
+  font-size: $TEXT-12;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+
+.bubble.assistant .bubble-content .md-code-block-copy:hover {
+  background: $C-NEUTRAL-09;
+  border-color: $C-NEUTRAL-15;
+  color: $C-NEUTRAL-96;
+}
+
+.bubble.assistant .bubble-content .md-code-block-copy:focus-visible {
+  outline: none;
+  border-color: $C-GREEN-52;
+  color: $C-NEUTRAL-96;
+}
+
+.bubble.assistant .bubble-content .md-code-block-pre {
+  margin: 0;
+  padding: $SPACE-10 $SPACE-12;
+  overflow-x: auto;
+  background: transparent;
+}
+
+.bubble.assistant .bubble-content .md-code-block-code {
+  font-family: ui-monospace, monospace;
+  font-size: $TEXT-12_5;
+  line-height: 1.5;
+  color: $C-NEUTRAL-90;
+  white-space: pre;
+}
+
+.bubble-tool-details-toggle {
+  display: inline-block;
+  margin-top: $SPACE-4;
+  padding: $SPACE-2 $SPACE-8;
+  font-size: $TEXT-11;
+  font-family: inherit;
+  color: $C-NEUTRAL-64;
+  background: transparent;
+  border: 1px solid $C-NEUTRAL-25;
+  border-radius: $RADIUS-3;
+  cursor: pointer;
+}
+
+.bubble-tool-details-toggle:hover {
+  color: $C-NEUTRAL-90;
+  border-color: $C-NEUTRAL-32;
+}
+
+.event-log-show-older {
+  display: block;
+  margin: $SPACE-8 auto;
+  padding: $SPACE-4 $SPACE-12;
+  font-size: $TEXT-11;
+  font-family: inherit;
+  color: $C-NEUTRAL-64;
+  background: transparent;
+  border: 1px solid $C-NEUTRAL-25;
+  border-radius: $RADIUS-3;
+  cursor: pointer;
+}
+
+.event-log-show-older:hover {
+  color: $C-NEUTRAL-90;
+  border-color: $C-NEUTRAL-32;
+}
+
+.bubble-tool-details-overflow {
+  margin: $SPACE-4 0 0;
+  font-size: $TEXT-11;
+  color: $C-ORANGE-44;
+  font-style: italic;
+}
+
+.bubble.system .bubble-dot {
+  background: $C-NEUTRAL-25;
+}
+
+.bubble.system .bubble-content {
+  color: $C-NEUTRAL-64;
+  font-size: $TEXT-12;
+  font-family: ui-monospace, monospace;
+}
+
+.bubble.error .bubble-dot {
+  background: $C-RED-60;
+}
+
+.bubble.error .bubble-content {
+  color: $C-RED-89;
+  background: $C-RED-10;
+  border: 1px solid $C-RED-31;
+  border-radius: $RADIUS-4;
+  padding: $SPACE-6 $SPACE-10;
+}
+
+.working-indicator {
+  display: flex;
+  align-items: center;
+  gap: $SPACE-8;
+  padding: $SPACE-6 $SPACE-24 0;
+  font-size: $TEXT-13;
+  color: $C-NEUTRAL-64;
+  font-style: italic;
+  user-select: none;
+}
+
+.working-indicator-glyph {
+  display: inline-block;
+  color: $C-NEUTRAL-64;
+  font-style: normal;
+  animation: kato-working-spin 2.4s linear infinite;
+}
+
+.working-indicator-phrase {
+  min-width: 14ch;
+}
+
+.working-indicator-ellipsis {
+  animation: kato-working-pulse 1.2s ease-in-out infinite;
+}
+
+.working-indicator-activity {
+  font-size: $TEXT-11;
+  font-style: normal;
+  color: $C-NEUTRAL-45;
+  margin-left: $SPACE-6;
+}
+
+.working-indicator.is-stalled {
+  color: $C-ORANGE-56;
+  font-style: normal;
+}
+
+.working-indicator.is-stalled .working-indicator-glyph {
+  color: $C-ORANGE-56;
+  animation: none;
+}
+
+.working-indicator-continue {
+  margin-left: $SPACE-10;
+  padding: $SPACE-3 $SPACE-10;
+  border-radius: $RADIUS-PILL;
+  border: 1px solid $C-ORANGE-56-A55;
+  background: $C-ORANGE-56-A12;
+  color: $C-ORANGE-56;
+  font: inherit;
+  font-size: $TEXT-11;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.working-indicator-continue:hover {
+  background: $C-ORANGE-56-A22;
+  color: $C-AMBER-77;
+}
+
+.working-indicator.is-waiting-approval {
+  color: $C-ORANGE-61;
+  font-style: normal;
+}
+
+.working-indicator.is-waiting-approval .working-indicator-glyph {
+  width: 14px;
+  height: 14px;
+  border-radius: $RADIUS-CIRCLE;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: $C-NEUTRAL-09;
+  background: $C-ORANGE-53;
+  font: 700 10px/1 ui-monospace, monospace;
+  animation: kato-attention-pop 1.2s ease-in-out infinite;
+}
+
+.working-indicator-progress {
+  position: relative;
+  display: inline-block;
+  width: 120px;
+  height: 3px;
+  border-radius: $RADIUS-PILL;
+  overflow: hidden;
+  background: $C-ORANGE-14;
+}
+
+.working-indicator-progress::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 42px;
+  border-radius: inherit;
+  background: linear-gradient(90deg, $C-ORANGE-53, $C-RED-60);
+  animation: kato-approval-progress 1.1s ease-in-out infinite;
+}
+
+@keyframes kato-working-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes kato-working-pulse {
+  0%, 100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@keyframes kato-attention-pop {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.14);
+  }
+}
+@keyframes kato-approval-progress {
+  0% {
+    transform: translateX(-48px);
+  }
+  100% {
+    transform: translateX(128px);
+  }
+}
+/* ───── iOS-style floating glass composer ───────────────────────────
+ *
+ * The composer floats above the chat as a frosted-glass capsule.
+ * EventLog (#event-log) scrolls underneath it; its bottom padding
+ * keeps the last bubble clear of the floating bar.
+ *
+ * Anchored absolutely inside #session-detail (already ``position:
+ * relative`` — see its base rule above). On a chat tab the operator
+ * never has to scroll past it — it stays glued to the bottom while
+ * content flows behind it with a real backdrop blur. */
+#event-log {
+  /* Reserve enough room at the bottom so the last entry — a bubble
+   * or the trailing working indicator — isn't obscured by the
+   * floating composer. ``--composer-h`` is published by MessageForm
+   * (ResizeObserver) onto its parent #session-detail and reflects
+   * the composer's CURRENT rendered height — so multi-paragraph
+   * drafts that grow the capsule past one row keep the last bubble
+   * visible instead of slipping behind it. Falls back to a single-
+   * row sentinel (94px capsule + 18px bottom offset = 112px) when
+   * the variable hasn't been set yet (first paint, no ResizeObserver). */
+  padding-bottom: calc(var(--composer-h, 94px) + 28px);
+}
+
+/* ───── chat search: bubble match / no-match states ──────────────
+ *
+ * EventLog walks the rendered DOM after each render to tag bubbles
+ * with .bubble--match / .bubble--no-match against the current
+ * search query. The chat container also gets .is-searching while
+ * a non-empty query is active so we can dim non-matches without
+ * making the "no query" state look stale. */
+#event-log.is-searching .bubble--no-match {
+  opacity: 0.18;
+  transition: opacity 120ms ease;
+}
+
+#event-log.is-searching .bubble--match {
+  opacity: 1;
+}
+
+#event-log.is-searching .bubble--match .bubble-body {
+  /* Faint highlight ring so the operator can scan matches
+   * without losing the bubble's own kind-color signal. */
+  box-shadow: $SHADOW-14;
+  border-radius: $RADIUS-8;
+  transition: box-shadow 120ms ease, background 120ms ease;
+}
+
+/* The one match the prev/next cursor is currently parked on —
+ * brighter ring + soft glow so the operator can tell their
+ * Enter/Shift-Enter actually moved the cursor without having
+ * to count. */
+#event-log.is-searching .bubble--match-current .bubble-body {
+  box-shadow: $SHADOW-15;
+  background: $C-CYAN-52-A06;
+}
+
+/* ───── chat-search toggle + capsule (top of chat) ───────────────
+ *
+ * Closed state = a round .session-action-shaped icon button in the
+ * header. Open state = a frosted-glass capsule that mirrors the
+ * composer at the bottom — same width, same blur, anchored 16px
+ * below the header. Live match-count chip + close button live
+ * inline so the operator never leaves the keyboard. */
+.chat-search-toggle {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: $RADIUS-CIRCLE;
+  border: 1px solid $C-NEUTRAL-100-A10;
+  background: $C-NEUTRAL-100-A06;
+  color: $C-NEUTRAL-96;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: $TEXT-13;
+  line-height: 1;
+  transition: background 120ms ease, border-color 120ms ease, transform 90ms ease;
+}
+
+.chat-search-toggle:hover:not(:disabled) {
+  background: $C-NEUTRAL-100-A14;
+  border-color: $C-NEUTRAL-100-A22;
+}
+
+.chat-search-toggle:active:not(:disabled) {
+  transform: scale(0.94);
+}
+
+.chat-search-toggle:disabled {
+  /* Search bar is already open — show that this toggle is
+   * effectively the "active" state for it, rather than fading it
+   * to grey like a normal disabled button. */
+  background: $C-CYAN-52-A18;
+  border-color: $C-CYAN-52-A40;
+  color: $C-NEUTRAL-96-A85;
+  cursor: default;
+}
+
+.chat-search {
+  /* Float above the chat just below the header. Same shape /
+   * material as #message-form so the two read as a pair. The
+   * top offset clears the typical SessionHeader height (two-row
+   * status + action-button bar at 12px padding). If the header
+   * wraps on narrow widths the capsule lands a few pixels behind
+   * it, which the blur masks gracefully — no magic resize-observer
+   * dance needed for the first cut. */
+  position: absolute;
+  top: var(--chat-search-top, 90px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(720px, 100% - 32px);
+  display: flex;
+  align-items: center;
+  gap: $SPACE-8;
+  padding: $SPACE-6 $SPACE-8 $SPACE-6 $SPACE-14;
+  border-radius: $RADIUS-22;
+  background: linear-gradient(180deg, $C-NEUTRAL-11-A62 0%, $C-NEUTRAL-08-A55 100%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  backdrop-filter: blur(28px) saturate(180%);
+  border: 1px solid $C-NEUTRAL-100-A06;
+  box-shadow: $SHADOW-16;
+  z-index: 11;
+}
+
+.chat-search-icon {
+  color: $C-NEUTRAL-96-A70;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.chat-search-input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: $C-NEUTRAL-96;
+  font: inherit;
+  padding: $SPACE-6 $SPACE-4;
+}
+
+.chat-search-input::placeholder {
+  color: $C-NEUTRAL-96-A42;
+}
+
+.chat-search-count {
+  font-size: $TEXT-11;
+  color: $C-NEUTRAL-96-A65;
+  padding: $SPACE-2 $SPACE-8;
+  border-radius: $RADIUS-PILL;
+  background: $C-NEUTRAL-100-A06;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.chat-search-count.is-empty {
+  background: $C-RED-51-A18;
+  color: $C-RED-94-A85;
+}
+
+.chat-search-nav,
+.chat-search-close {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: $RADIUS-CIRCLE;
+  border: 1px solid $C-NEUTRAL-100-A10;
+  background: $C-NEUTRAL-100-A06;
+  color: $C-NEUTRAL-96;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: $TEXT-11;
+  line-height: 1;
+  padding: 0;
+  transition: background 120ms ease, transform 90ms ease, color 120ms ease;
+}
+
+.chat-search-nav:hover:not(:disabled),
+.chat-search-close:hover {
+  background: $C-NEUTRAL-100-A14;
+}
+
+.chat-search-nav:active:not(:disabled),
+.chat-search-close:active {
+  transform: scale(0.92);
+}
+
+.chat-search-nav:disabled {
+  color: $C-NEUTRAL-96-A22;
+  cursor: not-allowed;
+}
+
+/* The working indicator is the last entry INSIDE #event-log, so it
+ * scrolls with the messages and trails the newest one. #event-log
+ * already supplies the 24px side padding, so zero the indicator's
+ * own horizontal padding to keep its glyph aligned with the chat
+ * bubbles instead of double-indented. */
+#event-log .working-indicator {
+  padding: $SPACE-4 0 0;
+}
+
+/* ───── queued-message floating list ─────────────────────────────
+ *
+ * Pinned just above the composer capsule. While Claude is mid-turn
+ * each message the operator types lands here as a row; the row's
+ * Steer button delivers it immediately (mid-turn injection) and
+ * the trash button drops it without sending. Empty list renders
+ * nothing so the composer hugs the bottom of the chat when there's
+ * no pending traffic. The capsule's bottom is anchored 18px above
+ * the viewport edge (#message-form), so we anchor this list
+ * relative to that: ~94px (single-row composer) + 18px (offset)
+ * + 8px breathing room ≈ 120px above the viewport. */
+.queued-message-list {
+  position: absolute;
+  /* Same width / centring as the composer below — reads as a
+   * stacked pair. */
+  left: 50%;
+  bottom: calc(var(--composer-h, 94px) + 26px);
+  transform: translateX(-50%);
+  width: min(720px, 100% - 32px);
+  list-style: none;
+  margin: 0;
+  padding: $SPACE-8;
+  display: flex;
+  flex-direction: column;
+  gap: $SPACE-4;
+  border-radius: $RADIUS-18;
+  background: linear-gradient(180deg, $C-NEUTRAL-11-A62 0%, $C-NEUTRAL-08-A55 100%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  backdrop-filter: blur(28px) saturate(180%);
+  border: 1px solid $C-NEUTRAL-100-A06;
+  box-shadow: $SHADOW-17;
+  z-index: 9;
+  max-height: 240px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: $C-NEUTRAL-100-A32 transparent;
+}
+
+.queued-message-row {
+  display: flex;
+  align-items: center;
+  gap: $SPACE-8;
+  padding: $SPACE-6 $SPACE-10;
+  border-radius: $RADIUS-12;
+  background: $C-NEUTRAL-100-A06;
+  border: 1px solid $C-NEUTRAL-100-A06;
+  color: $C-NEUTRAL-96-A85;
+  font-size: $TEXT-13;
+}
+
+.queued-message-row:hover {
+  background: $C-NEUTRAL-100-A06;
+  border-color: $C-NEUTRAL-100-A10;
+}
+
+.queued-message-glyph {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: $C-NEUTRAL-96-A55;
+}
+
+.queued-message-glyph svg {
+  width: 12px;
+  height: 12px;
+}
+
+.queued-message-text {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.queued-message-steer {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: $SPACE-4;
+  padding: $SPACE-4 $SPACE-10;
+  background: $C-NEUTRAL-100-A06;
+  border: 1px solid $C-NEUTRAL-100-A06;
+  border-radius: $RADIUS-PILL;
+  color: $C-NEUTRAL-96-A85;
+  font-size: $TEXT-12;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+.queued-message-steer:hover {
+  background: $C-CYAN-52-A40;
+  border-color: $C-CYAN-52-A55;
+  color: $C-NEUTRAL-96;
+}
+
+.queued-message-steer svg {
+  width: 9px;
+  height: 9px;
+}
+
+.queued-message-steer-label {
+  letter-spacing: 0.02em;
+}
+
+.queued-message-remove {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: $RADIUS-CIRCLE;
+  color: $C-NEUTRAL-96-A55;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.queued-message-remove:hover {
+  background: $C-RED-51-A75;
+  color: $C-NEUTRAL-96;
+}
+
+.queued-message-remove svg {
+  width: 10px;
+  height: 10px;
+}
+
+#message-form {
+  /* The capsule itself — absolute-positioned over the chat. */
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  width: min(720px, 100% - 32px);
+  display: flex;
+  flex-direction: column;
+  gap: $SPACE-10;
+  padding: $SPACE-10;
+  border-radius: $RADIUS-28;
+  /* Frosted glass — translucent dark base + backdrop blur + a
+   * faint inner highlight makes it read as a physical pane
+   * sitting over the chat. */
+  background: linear-gradient(180deg, $C-NEUTRAL-11-A62 0%, $C-NEUTRAL-08-A55 100%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  backdrop-filter: blur(28px) saturate(180%);
+  border: 1px solid $C-NEUTRAL-100-A06;
+  box-shadow: $SHADOW-16;
+  z-index: 10;
+}
+
+#message-form.is-drop-target {
+  outline: 2px dashed $C-ORANGE-56-A85;
+  outline-offset: -10px;
+}
+
+/* Bottom toolbar inside the capsule (Claude-style): textarea on
+ * top (full-width, grows/shrinks), action row underneath with
+ * attach pinned left and model + send pinned right. The textarea
+ * owns all horizontal space — no more cramped row sharing real
+ * estate with three buttons. */
+.composer-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $SPACE-8;
+  min-width: 0;
+  padding: 0 $SPACE-2;
+}
+
+.composer-toolbar-left,
+.composer-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: $SPACE-8;
+}
+
+/* Attachments preview lives ABOVE the input row inside the same
+ * capsule — drag-drop / paste lands here. */
+.message-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $SPACE-6;
+  padding: 0 $SPACE-4;
+}
+
+.message-attachment {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  border-radius: $RADIUS-12;
+  overflow: hidden;
+  background: $C-NEUTRAL-100-A06;
+  border: 1px solid $C-NEUTRAL-100-A06;
+}
+
+.message-attachment img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.message-attachment-remove {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: $RADIUS-CIRCLE;
+  border: none;
+  background: $C-NEUTRAL-00-A70;
+  color: $C-NEUTRAL-96;
+  font-size: $TEXT-14;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.message-attachment-remove:hover {
+  background: $C-RED-42-A95;
+}
+
+/* The textarea — no visible chrome inside the glass capsule.
+ * height is driven by JS (scrollHeight) so it grows with the text.
+ * min-height anchors it to one line; max-height caps runaway pastes. */
+#message-input {
+  width: 100%;
+  min-width: 0;
+  background: transparent;
+  color: $C-NEUTRAL-96;
+  border: none;
+  padding: $SPACE-6 $SPACE-8;
+  font: inherit;
+  line-height: 1.4;
+  resize: none;
+  min-height: calc(1.4em + 12px);
+  max-height: min(260px, 40vh);
+  overflow-y: auto;
+  outline: none;
+  /* Firefox: thin auto-coloured scrollbar that fades into the
+   * frosted-glass background instead of the chunky default. */
+  scrollbar-width: thin;
+  scrollbar-color: $C-NEUTRAL-100-A14 transparent;
+}
+
+#message-input::placeholder {
+  color: $C-NEUTRAL-96-A42;
+}
+
+#message-input:disabled {
+  color: $C-NEUTRAL-96-A28;
+  cursor: not-allowed;
+}
+
+/* WebKit: matching slim track + low-contrast thumb that brightens
+ * on hover. Same look as Claude/VS Code — visible only when the
+ * textarea actually overflows. */
+#message-input::-webkit-scrollbar {
+  width: 6px;
+}
+
+#message-input::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#message-input::-webkit-scrollbar-thumb {
+  background: $C-NEUTRAL-100-A14;
+  border-radius: $RADIUS-3;
+}
+
+#message-input::-webkit-scrollbar-thumb:hover {
+  background: $C-NEUTRAL-100-A32;
+}
+
+/* Round attach button — the iOS "+". Sits in the leading slot. */
+#message-attach {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: $RADIUS-CIRCLE;
+  background: $C-NEUTRAL-100-A10;
+  color: $C-NEUTRAL-96;
+  border: 1px solid $C-NEUTRAL-100-A10;
+  padding: 0;
+  font-size: $TEXT-20;
+  font-weight: 400;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 120ms ease, transform 90ms ease, border-color 120ms ease;
+}
+
+#message-attach:hover {
+  background: $C-NEUTRAL-100-A14;
+  border-color: $C-NEUTRAL-100-A14;
+}
+
+#message-attach:active {
+  transform: scale(0.94);
+}
+
+#message-attach:disabled {
+  background: $C-NEUTRAL-100-A06;
+  color: $C-NEUTRAL-96-A22;
+  cursor: not-allowed;
+  border-color: $C-NEUTRAL-100-A06;
+}
+
+/* Round send button — iOS-blue accent when armed, dimmed when
+ * empty. Glows softly to telegraph the primary action without
+ * shouting. */
+.message-send {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: $RADIUS-CIRCLE;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  background: $C-CYAN-52; /* iOS systemBlue */
+  color: $C-NEUTRAL-96;
+  font-size: $TEXT-17;
+  font-weight: 600;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: $SHADOW-18;
+  transition: background 120ms ease, box-shadow 120ms ease, transform 90ms ease, opacity 120ms ease;
+}
+
+.message-send:hover {
+  background: $C-CYAN-58;
+  box-shadow: $SHADOW-19;
+}
+
+.message-send:active {
+  transform: scale(0.94);
+}
+
+.message-send:disabled {
+  background: $C-NEUTRAL-100-A10;
+  color: $C-NEUTRAL-96-A28;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+/* Queue mode (Claude mid-turn) — amber to telegraph "held, not sent
+ * yet; flushes when the turn finishes". */
+.message-send.is-queued {
+  background: $C-ORANGE-50;
+  box-shadow: $SHADOW-9;
+}
+
+.message-send.is-queued:hover {
+  background: $C-ORANGE-56;
+}
+
+/* Compact, pill-shaped model picker living inside the capsule. */
+#message-form #model-selector {
+  flex-shrink: 0;
+  background: $C-NEUTRAL-100-A06;
+  color: $C-NEUTRAL-96;
+  border: 1px solid $C-NEUTRAL-100-A10;
+  border-radius: $RADIUS-16;
+  padding: $SPACE-4 $SPACE-10;
+  font-size: $TEXT-12;
+  font: inherit;
+  font-size: $TEXT-12;
+  line-height: 1.2;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+#message-form #model-selector:hover {
+  background: $C-NEUTRAL-100-A10;
+}
+
+code {
+  background: $C-NEUTRAL-09;
+  padding: $SPACE-2 $SPACE-6;
+  border-radius: $RADIUS-4;
+}
+
+/* permission modal */
+.modal {
+  position: fixed;
+  inset: 0;
+  background: $C-BLUE-11-A85;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-card {
+  background: $C-NEUTRAL-04;
+  border: 1px solid $C-NEUTRAL-15;
+  border-radius: $RADIUS-8;
+  padding: $SPACE-20 $SPACE-24;
+  max-width: 720px;
+  width: 100%;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  gap: $SPACE-12;
+  overflow: hidden;
+}
+
+.modal-card h2 {
+  margin: 0;
+  font-size: $TEXT-14;
+  color: $C-NEUTRAL-64;
+  font-weight: 500;
+}
+
+.modal-head {
+  display: flex;
+  align-items: baseline;
+  gap: $SPACE-12;
+  border-bottom: 1px solid $C-NEUTRAL-09;
+  padding-bottom: $SPACE-10;
+}
+
+#permission-tool-name {
+  font: 600 18px ui-monospace, monospace;
+  color: $C-NEUTRAL-90;
+}
+
+#permission-fields {
+  display: flex;
+  flex-direction: column;
+  gap: $SPACE-10;
+  overflow-y: auto;
+  font-family: ui-monospace, monospace;
+  font-size: $TEXT-12;
+}
+
+.permission-field {
+  display: flex;
+  flex-direction: column;
+  gap: $SPACE-2;
+}
+
+.permission-field-label {
+  color: $C-NEUTRAL-64;
+  font-size: $TEXT-11;
+  letter-spacing: 0.04em;
+}
+
+.permission-field-value {
+  background: $C-NEUTRAL-04;
+  border: 1px solid $C-NEUTRAL-09;
+  border-radius: $RADIUS-4;
+  padding: $SPACE-8 $SPACE-10;
+  color: $C-NEUTRAL-90;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.modal-raw {
+  font-size: $TEXT-11;
+  color: $C-NEUTRAL-32;
+}
+
+.modal-raw summary {
+  cursor: pointer;
+  padding: $SPACE-2 0;
+}
+
+.modal-raw[open] summary {
+  color: $C-NEUTRAL-64;
+}
+
+.modal-card pre {
+  background: $C-NEUTRAL-04;
+  padding: $SPACE-10;
+  border-radius: $RADIUS-4;
+  font-size: $TEXT-11;
+  max-height: 220px;
+  overflow: auto;
+  margin: $SPACE-4 0 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.modal-remember {
+  display: flex;
+  align-items: center;
+  gap: $SPACE-8;
+  font-size: $TEXT-12;
+  color: $C-NEUTRAL-83;
+}
+
+.modal-remember code {
+  background: transparent;
+  color: $C-NEUTRAL-83;
+  padding: 0;
+}
+
+.modal-card textarea {
+  background: $C-NEUTRAL-04;
+  color: $C-NEUTRAL-90;
+  border: 1px solid $C-NEUTRAL-15;
+  border-radius: $RADIUS-4;
+  padding: $SPACE-6 $SPACE-8;
+  font: inherit;
+  resize: vertical;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: $SPACE-8;
+}
+
+.modal-actions button {
+  border: none;
+  padding: $SPACE-6 $SPACE-16;
+  border-radius: $RADIUS-4;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.modal-actions .primary {
+  background: $C-TEAL-24;
+  color: $C-NEUTRAL-96;
+}
+
+.modal-actions .secondary {
+  background: $C-NEUTRAL-15;
+  color: $C-NEUTRAL-90;
+}
+
+.modal-actions .danger {
+  background: $C-RED-42;
+  color: $C-NEUTRAL-96;
+}
+
+.modal-actions .primary:hover {
+  background: $C-TEAL-30;
+}
+
+.modal-actions .secondary:hover {
+  background: $C-NEUTRAL-25;
+}
+
+.modal-actions .danger:hover {
+  background: $C-RED-51;
+}
+
+/* ───── forget-task hard-confirm dialog ───── */
+#forget-task-name {
+  font: 600 16px ui-monospace, monospace;
+  color: $C-NEUTRAL-90;
+}
+
+.forget-task-lead {
+  margin: 0;
+  font-size: $TEXT-13;
+  color: $C-NEUTRAL-83;
+  line-height: 1.5;
+}
+
+.forget-task-lead strong {
+  color: $C-NEUTRAL-96;
+}
+
+.forget-task-effects {
+  margin: 0;
+  padding-left: $SPACE-18;
+  display: flex;
+  flex-direction: column;
+  gap: $SPACE-6;
+  font-size: $TEXT-12_5;
+  color: $C-NEUTRAL-64;
+  line-height: 1.5;
+  overflow-y: auto;
+}
+
+.forget-task-effects li::marker {
+  color: $C-NEUTRAL-32;
+}
+
+.forget-task-effects strong {
+  color: $C-NEUTRAL-90;
+}
+
+.forget-task-effects code {
+  background: $C-NEUTRAL-04;
+  border: 1px solid $C-NEUTRAL-15;
+  border-radius: $RADIUS-3;
+  padding: $SPACE-1 $SPACE-4;
+  font-size: $TEXT-11_5;
+  color: $C-NEUTRAL-83;
+}
+
+.forget-task-warning {
+  margin: 0;
+  border: 1px solid $C-RED-31;
+  background: $C-RED-31-A18;
+  border-radius: $RADIUS-6;
+  padding: $SPACE-9 $SPACE-11;
+  font-size: $TEXT-12_5;
+  color: $C-RED-82;
+  line-height: 1.5;
+}
+
+.forget-task-warning strong {
+  color: $C-RED-89;
+}
+
+/* ───── middle pane — Monaco editor (read-only file preview) ───── */
+#editor-pane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  background: $C-NEUTRAL-15;
+  border-left: 1px solid $C-NEUTRAL-09;
+  border-right: 1px solid $C-NEUTRAL-09;
+}
+
+.editor-pane-header {
+  display: flex;
+  align-items: center;
+  gap: $SPACE-10;
+  padding: $SPACE-8 $SPACE-14;
+  border-bottom: 1px solid $C-NEUTRAL-15;
+  background: linear-gradient(180deg, $C-NEUTRAL-11-A62 0%, $C-NEUTRAL-07-A75 100%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+}
+
+.editor-pane-path {
+  flex: 1;
+  min-width: 0;
+  font: 12px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: $C-NEUTRAL-96;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.editor-pane-readonly-pill {
+  flex-shrink: 0;
+  font-size: $TEXT-10;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: $C-NEUTRAL-96-A65;
+  padding: $SPACE-3 $SPACE-9;
+  border-radius: var(--radius-pill);
+  background: $C-NEUTRAL-100-A06;
+  border: 1px solid $C-NEUTRAL-100-A06;
+}
+
+.editor-pane-body {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+.editor-pane-body > section,
+.editor-pane-body > div {
+  height: 100%;
+}
+
+.editor-pane-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: $SPACE-40;
+  text-align: center;
+  color: $C-NEUTRAL-96-A55;
+  background: $C-NEUTRAL-15;
+}
+
+.editor-pane-empty p {
+  margin: $SPACE-6 0;
+  max-width: 420px;
+}
+
+.editor-pane-empty-hint {
+  font-size: $TEXT-12;
+  color: $C-NEUTRAL-96-A42;
+}
+
+.editor-pane-message {
+  padding: $SPACE-20;
+  font-size: $TEXT-12;
+  color: $C-NEUTRAL-96-A65;
+  background: $C-NEUTRAL-15;
+  height: 100%;
+}
+
+.editor-pane-message-error {
+  color: $C-RED-82;
+}
+
+/* Centre-pane diff view (the round diff button on a changed tree
+ * row switches the centre column to this). Mirrors the editor-pane
+ * shell so it occupies the same space identically: header strip +
+ * scrollable body that hosts the shared DiffFileWithComments. */
+.diff-pane {
+  /* Positioning context for the absolutely-bounded scroll body
+   * below. As a grid item this stretches to its (definite) grid
+   * cell, so an ``inset: 0`` absolute child is sized to exactly that
+   * cell — NO flexbox min-height propagation involved. Every prior
+   * "nothing sticks" failure was the flex height chain not making
+   * .diff-pane-body a real scroll container; absolute positioning
+   * removes that entire class of failure. */
+  position: relative;
+  min-width: 0;
+  background: $C-NEUTRAL-15;
+  border-left: 1px solid $C-NEUTRAL-09;
+  border-right: 1px solid $C-NEUTRAL-09;
+}
+
+/* The scroll container — explicitly sized by ``inset: 0`` (no flex
+ * height resolution to get wrong). Because it is a guaranteed-bounded
+ * overflow:auto box, the per-file ``.diff-file-header`` inside it
+ * RELIABLY pins (``position: sticky``) and hands off file-to-file. */
+.diff-pane-body {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  /* No TOP padding: a ``position: sticky; top:0`` child pins to the
+   * scrollport's CONTENT box, so top padding becomes a dead strip
+   * the diff scrolls visibly through above the pinned bar. */
+  padding: 0 $SPACE-6;
+  scroll-behavior: smooth;
+}
+
+/* Every changed file is its own box, stacked here. The left list
+ * scroll-to lands on a file; ``scroll-margin-top`` keeps its first
+ * lines clear of the sticky header. */
+.diff-pane-repo {
+  margin-bottom: $SPACE-8;
+}
+
+/* First box breathing room — in-flow margin (scrolls away), NOT
+ * container padding, so it doesn't create a sticky dead-strip. */
+.diff-pane-repo:first-child {
+  margin-top: $SPACE-10;
+}
+
+/* Plain scrolling group label (multi-repo only) — NOT sticky, so it
+ * never competes with the per-file sticky header at top:0. */
+.diff-pane-repo-name {
+  margin: 0 0 $SPACE-6;
+  padding: $SPACE-6 $SPACE-4;
+  font: 600 12px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: $C-NEUTRAL-64;
+  background: $C-NEUTRAL-15;
+  border-bottom: 1px solid $C-NEUTRAL-15;
+}
+
+.diff-pane-file {
+  margin-bottom: $SPACE-16;
+  /* Clear the sticky title (~36px) so a scrolled-to file's first
+   * lines aren't hidden under it. */
+  scroll-margin-top: $SPACE-8;
+}
+
+/* The diff code box: a rounded, bordered card (GitHub/Bitbucket).
+ *
+ * ``overflow: clip`` (NOT hidden/auto/scroll) is the key: it clips
+ * the children to the rounded box — so all four corners, including
+ * the bottom, are actually rounded — WITHOUT establishing a scroll
+ * container. ``hidden``/``auto``/``scroll`` would make THIS box the
+ * sticky header's scroll reference (it has no scrollable overflow)
+ * and the header would stop riding the top; ``clip`` does not, so
+ * the per-file sticky header keeps working against the real scroll
+ * container, ``.diff-pane-body`` (inset:0). This is the standard
+ * "rounded card + sticky child" fix and sidesteps the WebKit/Blink
+ * quirk where a collapsed-border <table> escapes a rounded
+ * overflow:hidden ancestor entirely. */
+.diff-pane .diff-file {
+  border: 1px solid $C-NEUTRAL-15;
+  border-radius: $RADIUS-10;
+  overflow: clip;
+  background: $C-NEUTRAL-04;
+}
+
+/* The box's title — ATTACHED to the box (its first child), sharing
+ * the box's rounded border: rounded top corners, side + bottom
+ * edges so it reads as the card header. ``position: sticky`` bounded
+ * by its ``.diff-file`` box, so it rides the top while you read this
+ * file and the NEXT box's title pushes it off as you scroll in —
+ * exactly GitHub/Bitbucket per-file cards. Works now that
+ * .diff-pane-body is a real (inset:0) scroll container; every
+ * earlier per-file-sticky failure was that container not existing.
+ * Opaque so diff rows scroll cleanly underneath. */
+.diff-pane .diff-file-header {
+  --sticky-header-z: 3;
+  display: flex;
+  align-items: center;
+  gap: $SPACE-8;
+  padding: $SPACE-6;
+  background: $C-NEUTRAL-15;
+}
+
+.diff-pane .diff-file-header::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: $C-NEUTRAL-09;
+  border: 1px solid $C-NEUTRAL-15;
+  border-radius: $RADIUS-10-10-0-0;
+}
+
+.diff-pane .diff-file.is-collapsed .diff-file-header::before {
+  border-radius: $RADIUS-10;
+}
+
+.diff-pane .diff-file-header > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* The card's sticky header fakes its rounded TOP via the ::before
+ * above. The card itself must keep ``overflow: visible`` (clipping
+ * it breaks the sticky header), so it can't round its own bottom —
+ * the square-cornered diff body used to poke past the rounded box.
+ * Everything below the header lives in this non-sticky wrapper;
+ * clipping IT to the card's bottom radius gives the matching
+ * rounded bottom without touching the sticky header. (The general
+ * ``.diff-file`` rule is already ``overflow: hidden``; only the
+ * .diff-pane card opted out, so clipping the body here just restores
+ * the historically-accepted content clip.) */
+.diff-pane .diff-file-body {
+  border-radius: $RADIUS-0-0-10-10;
+  overflow: hidden;
+}
+
+/* react-diff-view renders the body as ``<table class="diff">`` with
+ * ``border-collapse: collapse``. A collapsed-border table is NOT
+ * clipped by an ancestor's ``border-radius`` + ``overflow: hidden``
+ * (a long-standing WebKit/Blink quirk), so the rounded wrapper above
+ * had ZERO visible effect — the table's square bottom corners punched
+ * straight through. Separated borders with zero spacing render the
+ * diff grid identically (every cell is background-colour driven, no
+ * visible collapsed borders to lose) and DO get clipped by the
+ * rounded ancestor. This is what actually rounds the bottom. */
+.diff-pane .diff-file-body table.diff {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+/* Safari ignores border-radius with ``overflow: clip`` AND won't clip
+ * a nested <table> to a rounded ``overflow: hidden`` ancestor — so
+ * neither the card nor the wrapper rounds the bottom there. The one
+ * thing Safari DOES honor is an element rounding ITSELF: a
+ * border-collapse:separate table (or the comments div) given its own
+ * bottom radius clips its own corner cells, no ancestor clipping
+ * needed. Round whatever actually sits at the card's bottom. This
+ * keeps the sticky header (no overflow on the card) AND rounds in
+ * Safari + Chrome. */
+.diff-pane .diff-file-body > :last-child {
+  border-bottom-left-radius: 10px;
+  border-bottom-right-radius: 10px;
+  overflow: hidden;
+}
+
+/* ----- Editor pane: inline comments (Bitbucket-style) ----------
+ * Hover gutter ``+`` + line highlight, chip strip above the editor,
+ * inline composer below it, and a comments panel at the bottom
+ * that reuses the same CommentBubble component as ChangesTab. */
+/* Monaco hover decorations (rendered by addDecorations in JS). */
+.monaco-editor .kato-line-hover {
+  background: $C-CYAN-52-A06;
+}
+
+.monaco-editor .kato-add-comment-glyph {
+  background: $C-CYAN-52-A18;
+  border-radius: $RADIUS-CIRCLE;
+  cursor: pointer;
+  position: relative;
+}
+
+.monaco-editor .kato-add-comment-glyph::before {
+  content: "+";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: $C-CYAN-78;
+  font-weight: 700;
+  font-size: $TEXT-14;
+  line-height: 1;
+}
+
+.monaco-editor .kato-add-comment-glyph:hover {
+  background: $C-CYAN-52-A40;
+}
+
+.monaco-editor .kato-add-comment-glyph:hover::before {
+  color: $C-NEUTRAL-96;
+}
+
+.editor-pane-chip-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $SPACE-6;
+  padding: $SPACE-8 $SPACE-14;
+  border-bottom: 1px solid $C-NEUTRAL-15;
+  background: $C-NEUTRAL-08-A50;
+}
+
+.editor-pane-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: $SPACE-8;
+  padding: $SPACE-4 $SPACE-10;
+  border-radius: var(--radius-pill);
+  border: 1px solid $C-NEUTRAL-25;
+  background: $C-NEUTRAL-15;
+  color: $C-NEUTRAL-83;
+  font: 11px/1.2 ui-monospace, monospace;
+  cursor: pointer;
+  max-width: 320px;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.editor-pane-chip:hover {
+  background: $C-NEUTRAL-15;
+  border-color: $C-NEUTRAL-32;
+}
+
+.editor-pane-chip-line {
+  flex-shrink: 0;
+  color: $C-CYAN-78;
+  font-weight: 600;
+}
+
+.editor-pane-chip-status {
+  flex-shrink: 0;
+  font-size: $TEXT-10;
+  padding: $SPACE-2 $SPACE-6;
+  border-radius: var(--radius-pill);
+  background: $C-NEUTRAL-100-A06;
+}
+
+.editor-pane-chip-body {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: $C-NEUTRAL-64;
+}
+
+.editor-pane-chip.kato-queued .editor-pane-chip-status {
+  background: $C-ORANGE-50-A18;
+  color: $C-ORANGE-56;
+}
+
+.editor-pane-chip.kato-in_progress .editor-pane-chip-status {
+  background: $C-CYAN-60-A20;
+  color: $C-CYAN-78;
+}
+
+.editor-pane-chip.kato-addressed .editor-pane-chip-status {
+  background: $C-GREEN-45-A20;
+  color: $C-GREEN-73;
+}
+
+.editor-pane-chip.kato-failed .editor-pane-chip-status {
+  background: $C-RED-60-A22;
+  color: $C-RED-82;
+}
+
+.editor-pane-chip.status-resolved {
+  opacity: 0.65;
+}
+
+.editor-pane-chip.status-resolved .editor-pane-chip-status {
+  background: $C-GREEN-45-A10;
+  color: $C-GREEN-73;
+}
+
+.editor-pane-composer-wrap {
+  border-top: 1px solid $C-NEUTRAL-15;
+  background: $C-NEUTRAL-04-A50;
+}
+
+.editor-pane-composer-head {
+  padding: $SPACE-6 $SPACE-14;
+  font: 11px/1.4 ui-monospace, monospace;
+  color: $C-CYAN-78;
+  border-bottom: 1px solid $C-NEUTRAL-15;
+}
+
+/* Host node Monaco owns for the inline-comment view zone. The
+ * composer is portaled in here; it must sit visually inside the
+ * editor at the clicked line, so give it the editor's dark inset
+ * look and keep it from inheriting Monaco's monospace metrics. */
+.editor-pane-zone-host {
+  width: 100%;
+  box-sizing: border-box;
+  background: $C-NEUTRAL-09;
+  border-top: 1px solid $C-NEUTRAL-15;
+  border-bottom: 1px solid $C-NEUTRAL-15;
+  border-left: 3px solid $C-CYAN-60;
+}
+
+.editor-pane-composer-inline {
+  border-top: none;
+  background: transparent;
+}
+
+.editor-pane-comments-panel {
+  border-top: 1px solid $C-NEUTRAL-15;
+  background: $C-NEUTRAL-08-A50;
+  max-height: 40%;
+  overflow-y: auto;
+  padding: $SPACE-8 $SPACE-14;
+}
+
+.editor-pane-comments-panel-head {
+  font: 11px/1.4 ui-monospace, monospace;
+  color: $C-NEUTRAL-64;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: $SPACE-8;
+}
+
+.editor-pane-comment-thread {
+  padding: $SPACE-8 0;
+  border-bottom: 1px solid $C-NEUTRAL-15;
+}
+
+.editor-pane-comment-thread:last-child {
+  border-bottom: none;
+}
+
+.editor-pane-comment-anchor {
+  margin-bottom: $SPACE-4;
+}
+
+.editor-pane-comment-jump {
+  background: transparent;
+  color: $C-CYAN-78;
+  border: 1px solid $C-CYAN-60-A35;
+  border-radius: $RADIUS-4;
+  padding: $SPACE-2 $SPACE-8;
+  font: 11px/1.2 ui-monospace, monospace;
+  cursor: pointer;
+}
+
+.editor-pane-comment-jump.is-file {
+  color: $C-NEUTRAL-64;
+  border-color: $C-NEUTRAL-25;
+  cursor: default;
+}
+
+.editor-pane-comment-jump:hover {
+  background: $C-CYAN-60-A10;
+}
+
+/* Left-panel uniform background — the Files/Changes panel (rendered
+ * by RightPane on the LEFT cell of the top-tabs layout) must paint
+ * one flat colour regardless of whether it shows the placeholder,
+ * Files tree, or Changes tab. Force the same background on every
+ * child so the empty-state placeholder doesn't visually "switch
+ * surfaces" when a task is selected. */
+#right-pane,
+#right-pane-root,
+.right-pane,
+.right-pane-body,
+.left-pane-empty {
+  background: $C-NEUTRAL-04;
+}
+
+/* right-side pane (Files + Changes), mounted by the React bundle */
+#right-pane {
+  border-left: 1px solid $C-NEUTRAL-09;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: $C-NEUTRAL-04;
+  position: relative;
+}
+
+/* VS Code-style column resizer between the center chat and the
+ * right pane.
+ *
+ * Three visual states:
+ *   - default → invisible 6px-wide grip (just a hit target)
+ *   - hover   → faint blue tint on a 2px line down the boundary
+ *   - active  → solid iOS-systemBlue line + soft glow while dragging
+ *
+ * The drag handler still lives in ``useResizable`` and toggles the
+ * ``kato-resizing`` body class to drive the active visual; the
+ * drag math itself didn't change. */
+#right-pane-resizer {
+  position: absolute;
+  left: -3px;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+  background: transparent;
+  z-index: 10;
+}
+
+#right-pane-resizer::before {
+  /* The actual visible "line" lives in an ::before so the grip
+   * stays a generous 6px hit target while the visible blue line
+   * is the crisp 2px the operator sees. */
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 2px;
+  width: 2px;
+  background: transparent;
+  transition: background 120ms ease, box-shadow 120ms ease;
+}
+
+#right-pane-resizer:hover::before {
+  background: $C-CYAN-52-A45;
+}
+
+body.kato-resizing #right-pane-resizer::before {
+  background: $C-CYAN-52;
+  box-shadow: $SHADOW-20;
+}
+
+body.kato-resizing {
+  user-select: none;
+  cursor: col-resize;
+}
+
+/* Left-pane resizer — mirror of the right-pane one, anchored to the
+ * RIGHT edge of the left pane so the operator drags the boundary
+ * between the Files panel and the centre column. Same hit-target /
+ * hover / active visuals. */
+#left-pane-resizer {
+  position: absolute;
+  right: -3px;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+  background: transparent;
+  z-index: 10;
+}
+
+#left-pane-resizer::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 2px;
+  width: 2px;
+  background: transparent;
+  transition: background 120ms ease, box-shadow 120ms ease;
+}
+
+#left-pane-resizer:hover::before {
+  background: $C-CYAN-52-A45;
+}
+
+body.kato-resizing #left-pane-resizer::before {
+  background: $C-CYAN-52;
+  box-shadow: $SHADOW-20;
+}
+
+#right-pane-root {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.right-pane-empty {
+  margin: auto;
+  color: $C-NEUTRAL-64;
+  padding: $SPACE-16;
+  font-size: $TEXT-13;
+  text-align: center;
+}
+
+/* Empty-state for the Files/Changes panel — shown when the operator
+ * has no task selected. Same family as the editor-pane-empty block
+ * so the three columns read as one quiet "pick a task" surface. */
+.left-pane-empty {
+  margin: auto;
+  color: $C-NEUTRAL-64;
+  padding: $SPACE-24 $SPACE-20;
+  font-size: $TEXT-13;
+  text-align: center;
+  max-width: 280px;
+}
+
+.left-pane-empty-title {
+  margin: 0 0 $SPACE-8 0;
+  color: $C-NEUTRAL-90;
+  font-size: $TEXT-14;
+  font-weight: 600;
+}
+
+.left-pane-empty-hint {
+  margin: 0 0 $SPACE-10 0;
+  line-height: 1.5;
+}
+
+.left-pane-empty-hint:last-child {
+  margin-bottom: 0;
+}
+
+.right-pane {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+/* ───── right pane — iOS-style segmented controller ───────────────
+ *
+ * Replaces the old underline-tab pattern (text + bottom border)
+ * with a glass-pill segmented controller that matches the task
+ * tabs at the top + the composer at the bottom. */
+.right-pane-tabs {
+  display: flex;
+  gap: $SPACE-6;
+  padding: $SPACE-10 $SPACE-12;
+  border-bottom: 1px solid $C-NEUTRAL-100-A06;
+  flex-shrink: 0;
+  /* ``backdrop-filter`` below makes this nav its own stacking
+   * context, which trapped the tab buttons' hover tooltip
+   * (``::after``, z-index:1000) *behind* the later-painted
+   * ``.right-pane-body`` — the search box/tree rendered over it
+   * so the tooltip looked washed-out and clipped. Lifting the
+   * whole nav above the body fixes it without changing layout
+   * (``position: relative`` with no offsets is layout-neutral). */
+  position: relative;
+  z-index: 2;
+  background: linear-gradient(180deg, $C-NEUTRAL-11-A55 0%, $C-NEUTRAL-08-A45 100%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+}
+
+.right-pane-tabs button {
+  flex: 1;
+  background: $C-NEUTRAL-100-A06;
+  border: 1px solid $C-NEUTRAL-100-A06;
+  color: $C-NEUTRAL-96-A78;
+  padding: $SPACE-7 $SPACE-10;
+  font: inherit;
+  font-size: $TEXT-12;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border-radius: $RADIUS-PILL;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease, transform 90ms ease;
+}
+
+.right-pane-tabs button:hover {
+  background: $C-NEUTRAL-100-A10;
+  border-color: $C-NEUTRAL-100-A10;
+  color: $C-NEUTRAL-96;
+}
+
+.right-pane-tabs button:active {
+  transform: scale(0.97);
+}
+
+.right-pane-tabs button.active {
+  background: $C-NEUTRAL-100-A14;
+  border-color: $C-NEUTRAL-100-A22;
+  color: $C-NEUTRAL-96;
+  box-shadow: $SHADOW-21;
+}
+
+.right-pane-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Files tab */
+.files-tab,
+.changes-tab {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.files-tab-header,
+.changes-tab-header {
+  padding: $SPACE-10 $SPACE-12;
+  border-bottom: 1px solid $C-NEUTRAL-100-A06;
+  font-size: $TEXT-12;
+  color: $C-NEUTRAL-96-A65;
+  display: flex;
+  align-items: center;
+  gap: $SPACE-8;
+  flex-shrink: 0;
+}
+
+/* ───── iOS-style search pill — files tab filter ────────────────── */
+.files-tab-filter {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+
+/* Spotlight-style leading glass icon. Sits inside the pill, dims
+ * to systemBlue when the field is focused. */
+.files-tab-filter-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  font-size: $TEXT-11;
+  color: $C-NEUTRAL-96-A42;
+  pointer-events: none;
+  transition: color 140ms ease;
+}
+
+.files-tab-filter:focus-within .files-tab-filter-icon {
+  color: $C-CYAN-52-A95;
+}
+
+.files-tab-filter-input {
+  width: 100%;
+  /* Frosted-glass capsule, matching the composer + task pills. */
+  background: $C-NEUTRAL-100-A06;
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  color: $C-NEUTRAL-96;
+  border: 1px solid $C-NEUTRAL-100-A06;
+  border-radius: $RADIUS-PILL;
+  /* Room for the leading icon (left) + the clear button (right). */
+  padding: $SPACE-7 $SPACE-30 $SPACE-7 $SPACE-32;
+  font: inherit;
+  font-size: $TEXT-12;
+  outline: none;
+  transition: background 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.files-tab-filter-input:focus {
+  background: $C-NEUTRAL-100-A06;
+  border-color: $C-CYAN-52-A65;
+  /* Soft iOS focus ring — a halo, not a hard 2px outline. */
+  box-shadow: $SHADOW-22;
+}
+
+.files-tab-filter-input::placeholder {
+  color: $C-NEUTRAL-96-A42;
+}
+
+.files-tab-filter-input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.files-tab-filter-clear {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: $C-NEUTRAL-100-A10;
+  border: none;
+  color: $C-NEUTRAL-96;
+  cursor: pointer;
+  font-size: $TEXT-11;
+  line-height: 1;
+  padding: 0;
+  width: 18px;
+  height: 18px;
+  border-radius: $RADIUS-CIRCLE;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.files-tab-filter-clear:hover {
+  background: $C-NEUTRAL-100-A22;
+}
+
+/* ───── iOS round icon toolbar — files + changes ────────────────── */
+.files-tab-toolbar,
+.changes-tab-toolbar {
+  margin-left: auto;
+  display: flex;
+  gap: $SPACE-6;
+}
+
+.files-tab-icon-btn,
+.changes-tab-icon-btn {
+  background: $C-NEUTRAL-100-A06;
+  border: 1px solid $C-NEUTRAL-100-A06;
+  color: $C-NEUTRAL-96-A85;
+  width: 28px;
+  height: 28px;
+  border-radius: $RADIUS-CIRCLE;
+  cursor: pointer;
+  padding: 0;
+  font-size: $TEXT-11;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 120ms ease, border-color 120ms ease, transform 90ms ease;
+}
+
+.files-tab-icon-btn:hover,
+.changes-tab-icon-btn:hover {
+  background: $C-NEUTRAL-100-A14;
+  border-color: $C-NEUTRAL-100-A14;
+  color: $C-NEUTRAL-96;
+}
+
+.files-tab-icon-btn:active,
+.changes-tab-icon-btn:active {
+  transform: scale(0.94);
+}
+
+.files-tab-icon-btn:disabled,
+.changes-tab-icon-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.files-tab-text-btn {
+  background: $C-NEUTRAL-100-A06;
+  border: 1px solid $C-NEUTRAL-100-A06;
+  color: $C-NEUTRAL-96-A85;
+  min-width: 32px;
+  height: 28px;
+  border-radius: $RADIUS-PILL;
+  cursor: pointer;
+  padding: 0 $SPACE-9;
+  font-size: $TEXT-11;
+  font-weight: 700;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease, transform 90ms ease;
+}
+
+.files-tab-text-btn:hover {
+  background: $C-NEUTRAL-100-A14;
+  border-color: $C-NEUTRAL-100-A14;
+  color: $C-NEUTRAL-96;
+}
+
+.files-tab-text-btn:active {
+  transform: scale(0.94);
+}
+
+.files-tab-text-btn.active {
+  background: $C-CYAN-52-A22;
+  border-color: $C-CYAN-52-A45;
+  color: $C-CYAN-70;
+}
+
+/* iOS-style accordion cards (files-repo, diff-repo, diff-file).
+ * Soft rounded glass instead of dark squares with hard borders. */
+.files-tab-repo {
+  border: 1px solid $C-NEUTRAL-100-A06;
+  border-radius: $RADIUS-12;
+  margin-bottom: $SPACE-10;
+  overflow: visible;
+  background: $C-NEUTRAL-100-A06;
+}
+
+.files-tab-repo-header {
+  display: flex;
+  gap: $SPACE-8;
+  align-items: center;
+  padding: $SPACE-10 $SPACE-12;
+  border-radius: $RADIUS-12-12-0-0;
+  background: $C-NEUTRAL-15;
+  cursor: pointer;
+  font-size: $TEXT-12;
+  font-weight: 600;
+  box-shadow: $SHADOW-23;
+  transition: background 120ms ease;
+}
+
+.files-tab-repo-header:hover {
+  background: $C-NEUTRAL-100-A06;
+}
+
+.files-tab-repo-chevron {
+  color: $C-NEUTRAL-96-A65;
+  width: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.files-tab-repo-name {
+  color: $C-NEUTRAL-96;
+  font-weight: 600;
+  flex: 1;
+}
+
+/* Per-repo "view commit" affordance + dropdown menu (FilesTab).
+ * Round 26px button matching the toolbar's +/-/refresh affordances
+ * above. Centred icon (no padding asymmetry), no border by default —
+ * the hover/active states do the visual lifting so the resting state
+ * stays calm in the dark repo header. */
+.files-tab-repo-commits-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: $RADIUS-CIRCLE;
+  color: $C-NEUTRAL-64;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: $TEXT-12;
+  line-height: 1;
+  flex-shrink: 0;
+  transition: background-color 0.12s ease-out, color 0.12s ease-out, border-color 0.12s ease-out;
+}
+
+.files-tab-repo-commits-btn:hover {
+  background: $C-NEUTRAL-15;
+  color: $C-NEUTRAL-90;
+  border-color: $C-NEUTRAL-25;
+}
+
+.files-tab-repo-commits-btn[aria-expanded=true] {
+  background: $C-NEUTRAL-15;
+  color: $C-NEUTRAL-90;
+  border-color: $C-NEUTRAL-32;
+}
+
+.files-tab-commit-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+}
+
+.files-tab-commit-menu {
+  position: absolute;
+  z-index: 10;
+  list-style: none;
+  margin: 0;
+  padding: $SPACE-4 0;
+  background: $C-NEUTRAL-09;
+  border: 1px solid $C-NEUTRAL-25;
+  border-radius: $RADIUS-4;
+  max-height: 360px;
+  overflow-y: auto;
+  min-width: 280px;
+  box-shadow: $SHADOW-24;
+}
+
+.files-tab-commit-empty {
+  padding: $SPACE-8 $SPACE-12;
+  color: $C-NEUTRAL-64;
+  font: 12px/1.4 inherit;
+}
+
+.files-tab-commit-empty.error {
+  color: $C-RED-71;
+}
+
+.files-tab-commit-row {
+  display: grid;
+  grid-template-columns: 64px 1fr auto;
+  gap: $SPACE-8;
+  align-items: center;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  padding: $SPACE-6 $SPACE-12;
+  cursor: pointer;
+  color: $C-NEUTRAL-83;
+  font: 12px/1.3 inherit;
+}
+
+.files-tab-commit-row:hover {
+  background: $C-NEUTRAL-15;
+}
+
+.files-tab-commit-sha {
+  color: $C-ORANGE-56;
+  font-family: ui-monospace, monospace;
+}
+
+.files-tab-commit-subject {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.files-tab-commit-author {
+  color: $C-NEUTRAL-45;
+  font-size: $TEXT-11;
+}
+
+/* Diff-tab inline comments. Bitbucket-style: thread per file
+ * (per-line gutter widgets are a follow-up), source-tagged badges,
+ * resolve / reopen / delete inline. */
+.diff-file-comments {
+  border-top: 1px solid $C-NEUTRAL-15;
+  border-radius: $RADIUS-0-0-10-10;
+  padding: $SPACE-4;
+  background: $C-NEUTRAL-09;
+}
+
+.diff-file-comments-empty {
+  color: $C-NEUTRAL-45;
+  font-size: $TEXT-12;
+  margin: 0 0 $SPACE-12;
+}
+
+.diff-file-comments-empty.error {
+  color: $C-RED-71;
+}
+
+.diff-file-comment-thread {
+  border: 1px solid $C-NEUTRAL-15;
+  border-radius: $RADIUS-4;
+  margin-bottom: $SPACE-4;
+  background: $C-NEUTRAL-09;
+}
+
+.diff-file-comment-thread.is-resolved {
+  opacity: 0.9;
+}
+
+.diff-file-comment-resolved-banner {
+  padding: $SPACE-6 $SPACE-10;
+  background: $C-BLUE-33;
+  color: $C-CYAN-92;
+  font: 11px/1.4 inherit;
+}
+
+/* ----- Bitbucket-style comment card ----- */
+.diff-file-comment {
+  padding: $SPACE-6;
+  border-bottom: 1px solid $C-NEUTRAL-15;
+}
+
+.diff-file-comment:last-child {
+  border-bottom: 0;
+}
+
+.diff-file-comment.is-collapsed {
+  padding: $SPACE-6;
+}
+
+.diff-file-comment.is-reply {
+  margin-left: $SPACE-28;
+  border-left: 2px solid $C-BLUE-53;
+  background: $C-NEUTRAL-09;
+}
+
+.diff-file-comment-head {
+  display: flex;
+  align-items: center;
+  gap: $SPACE-8;
+  font-size: $TEXT-12;
+  padding: 0;
+}
+
+.diff-file-comment:not(.is-collapsed) .diff-file-comment-head {
+  margin-bottom: $SPACE-6;
+}
+
+.diff-file-comment-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: $RADIUS-CIRCLE;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: $C-NEUTRAL-96;
+  font-size: $TEXT-10;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.diff-file-comment-author {
+  font-weight: 600;
+  color: $C-NEUTRAL-90;
+}
+
+.diff-file-comment-source {
+  padding: $SPACE-1 $SPACE-6;
+  border-radius: var(--radius-pill);
+  border: 1px solid $C-NEUTRAL-100-A14;
+  font-size: $TEXT-9;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: $C-NEUTRAL-64;
+}
+
+.diff-file-comment-source.is-local {
+  border-color: $C-BLUE-48;
+  color: $C-CYAN-78;
+}
+
+.diff-file-comment-source.is-remote {
+  border-color: $C-TEAL-24;
+  color: $C-GREEN-67;
+}
+
+/* PENDING-style outlined status pill (Bitbucket look). */
+.diff-file-comment-pill {
+  padding: $SPACE-1 $SPACE-7;
+  border-radius: var(--radius-pill);
+  border: 1px solid currentColor;
+  font-size: $TEXT-10;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.diff-file-comment-pill.is-queued {
+  color: $C-BLUE-85;
+}
+
+.diff-file-comment-pill.is-in_progress {
+  color: $C-ORANGE-56;
+}
+
+.diff-file-comment-pill.is-addressed {
+  color: $C-GREEN-67;
+}
+
+.diff-file-comment-pill.is-failed {
+  color: $C-RED-82;
+}
+
+.diff-file-comment-pill.is-resolved {
+  color: $C-CYAN-78;
+}
+
+.diff-file-comment-ago {
+  color: $C-NEUTRAL-45;
+  font-size: $TEXT-11;
+}
+
+/* Reply-count chip in a collapsed root's header (``▸ 2 replies``).
+ * Surfaces follow-up traffic on a thread without having to expand it. */
+.diff-file-comment-reply-count {
+  font-size: $TEXT-11;
+  color: $C-NEUTRAL-64;
+  background: $C-NEUTRAL-15;
+  border: 1px solid $C-NEUTRAL-15;
+  border-radius: $RADIUS-PILL;
+  padding: $SPACE-1 $SPACE-8;
+  margin-left: $SPACE-4;
+}
+
+/* Collapse chevron, pushed to the far right Bitbucket-style. */
+.diff-file-comment-collapse {
+  margin-left: auto;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: $RADIUS-PILL;
+  border: 1px solid $C-NEUTRAL-100-A10;
+  background: $C-NEUTRAL-100-A06;
+  color: $C-NEUTRAL-96-A85;
+  font: 600 11px/1 inherit;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease, transform 90ms ease;
+}
+
+.diff-file-comment-collapse:hover {
+  background: $C-NEUTRAL-100-A14;
+  border-color: $C-NEUTRAL-100-A14;
+  color: $C-NEUTRAL-96;
+}
+
+.diff-file-comment-collapse:active {
+  transform: scale(0.96);
+}
+
+.diff-file-comment-collapse:focus {
+  outline: none;
+}
+
+.diff-file-comment-body {
+  color: $C-NEUTRAL-83;
+  font-size: $TEXT-13;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.diff-file-comment-body .cmt-md-p {
+  margin: 0 0 $SPACE-8;
+}
+
+.diff-file-comment-body .cmt-md-p:last-child {
+  margin-bottom: 0;
+}
+
+.diff-file-comment-body .cmt-md-empty {
+  margin: 0;
+  color: $C-NEUTRAL-45;
+  font-style: italic;
+}
+
+.diff-file-comment-body .cmt-md-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: $TEXT-12;
+  background: $C-NEUTRAL-04;
+  border: 1px solid $C-NEUTRAL-15;
+  border-radius: $RADIUS-3;
+  padding: 0 $SPACE-4;
+}
+
+.diff-file-comment-body .cmt-md-pre {
+  margin: 0 0 $SPACE-8;
+  padding: $SPACE-8 $SPACE-10;
+  background: $C-NEUTRAL-04;
+  border: 1px solid $C-NEUTRAL-15;
+  border-radius: $RADIUS-4;
+  overflow-x: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: $TEXT-12;
+  white-space: pre;
+}
+
+.diff-file-comment-body .cmt-md-quote {
+  margin: 0 0 $SPACE-8;
+  padding: $SPACE-2 0 $SPACE-2 $SPACE-10;
+  border-left: 3px solid $C-NEUTRAL-25;
+  color: $C-NEUTRAL-64;
+}
+
+.diff-file-comment-body .cmt-md-list {
+  margin: 0 0 $SPACE-8;
+  padding-left: $SPACE-20;
+}
+
+/* Section break (``---``) inside Claude's dense replies. Without
+ * this the parser fell back to rendering ``---`` as literal text,
+ * which let a Claude post run together as one wall of paragraphs. */
+.diff-file-comment-body .cmt-md-hr {
+  border: 0;
+  border-top: 1px solid $C-NEUTRAL-15;
+  margin: $SPACE-10 0;
+  height: 0;
+}
+
+/* ATX headings (``# Title`` .. ``###### Title``). Rendered as
+ * <h3>–<h6> so they don't compete with the page's primary headings.
+ * Tighter top/bottom margin than browser default so multiple
+ * sub-sections in one Claude reply stay scannable. */
+.diff-file-comment-body .cmt-md-h {
+  margin: $SPACE-10 0 $SPACE-4;
+  font-weight: 600;
+  color: $C-NEUTRAL-90;
+  line-height: 1.3;
+}
+
+.diff-file-comment-body .cmt-md-h:first-child {
+  margin-top: 0;
+}
+
+.diff-file-comment-body .cmt-md-h3 {
+  font-size: $TEXT-14;
+}
+
+.diff-file-comment-body .cmt-md-h4 {
+  font-size: $TEXT-13;
+}
+
+.diff-file-comment-body .cmt-md-h5,
+.diff-file-comment-body .cmt-md-h6 {
+  font-size: $TEXT-12;
+  color: $C-NEUTRAL-83;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.diff-file-comment-body a {
+  color: $C-CYAN-78;
+}
+
+.diff-file-comment-actions {
+  margin: $SPACE-4 0 0 0;
+  display: flex;
+  align-items: center;
+  font-size: $TEXT-12;
+}
+
+.diff-file-comment-action {
+  background: transparent;
+  border: 0;
+  color: $C-CYAN-78;
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+}
+
+/* Bitbucket-style middot separators between actions. */
+.diff-file-comment-action + .diff-file-comment-action::before {
+  content: "·";
+  color: $C-NEUTRAL-32;
+  margin: 0 $SPACE-8;
+}
+
+.diff-file-comment-action:hover {
+  text-decoration: underline;
+}
+
+.diff-file-comment-action.danger {
+  color: $C-RED-82;
+}
+
+/* ----- formatting toolbar (markdown-source, no WYSIWYG) ----- */
+.diff-file-comments-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $SPACE-2;
+  padding: $SPACE-4;
+  border: 1px solid $C-NEUTRAL-15;
+  border-bottom: 0;
+  border-radius: $RADIUS-4-4-0-0;
+  background: $C-NEUTRAL-09;
+}
+
+.diff-file-comments-toolbar-btn {
+  min-width: 26px;
+  height: 26px;
+  padding: 0 $SPACE-6;
+  background: transparent;
+  border: 0;
+  border-radius: $RADIUS-4;
+  color: $C-NEUTRAL-64;
+  cursor: pointer;
+  font: 12px/1 ui-monospace, monospace;
+}
+
+.diff-file-comments-toolbar-btn:hover:not(:disabled) {
+  background: $C-NEUTRAL-15;
+  color: $C-NEUTRAL-90;
+}
+
+.diff-file-comments-toolbar-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.diff-file-comments-toolbar + .diff-file-comments-textarea {
+  border-radius: $RADIUS-0-0-4-4;
+}
+
+.diff-file-comments-form {
+  border: 1px solid $C-NEUTRAL-15;
+  border-radius: $RADIUS-4;
+  padding: $SPACE-8;
+  background: $C-NEUTRAL-09;
+}
+
+.diff-file-comments-reply-hint {
+  font-size: $TEXT-11;
+  color: $C-NEUTRAL-45;
+  margin-bottom: $SPACE-6;
+}
+
+.diff-file-comments-cancel-reply {
+  background: transparent;
+  border: 0;
+  color: $C-CYAN-78;
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+}
+
+.diff-file-comments-textarea {
+  width: 100%;
+  min-height: 64px;
+  /* Cap the auto-grow so a very long paste doesn't push the
+   * submit button off-screen; the scrollbar takes over after that.
+   * The JSX auto-resize handler (see CommentForm) bumps the
+   * inline ``height`` style up to this cap as the operator types,
+   * and ``resize: vertical`` still lets them drag past it if they
+   * really want to. Without this + the matching ``overflow-y``,
+   * long comments overflowed an unscrollable 64px box and the
+   * operator could not see what they had typed. */
+  max-height: 360px;
+  overflow-y: auto;
+  background: $C-NEUTRAL-09;
+  border: 1px solid $C-NEUTRAL-25;
+  border-radius: $RADIUS-3;
+  color: $C-NEUTRAL-90;
+  padding: $SPACE-8;
+  font: 12px/1.5 ui-monospace, monospace;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.diff-file-comments-textarea:focus {
+  outline: none;
+  border-color: $C-BLUE-53;
+}
+
+.diff-file-comments-form-actions {
+  margin-top: $SPACE-8;
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* Round pill buttons, matching the app's other action buttons
+ * (border-radius:999px, 12px, soft transitions). */
+.diff-file-comments-submit {
+  background: $C-BLUE-48;
+  color: $C-NEUTRAL-96;
+  border: 1px solid $C-BLUE-53;
+  border-radius: $RADIUS-PILL;
+  padding: $SPACE-6 $SPACE-16;
+  font: 600 12px/1 inherit;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, transform 90ms ease;
+}
+
+.diff-file-comments-submit:hover:not(:disabled) {
+  background: $C-BLUE-53;
+}
+
+.diff-file-comments-submit:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.diff-file-comments-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Inline per-line comment widget host — stretches full width, no
+ * horizontal padding so threads fill edge-to-edge like Bitbucket. */
+.diff-line-comments-host {
+  background: $C-NEUTRAL-04;
+  border-top: 1px solid $C-NEUTRAL-15;
+  border-bottom: 1px solid $C-NEUTRAL-15;
+  padding: 0;
+}
+
+.diff-line-comments-host .diff-file-comment-thread {
+  border-radius: 0;
+  border-left: 0;
+  border-right: 0;
+  margin-bottom: 0;
+  border-top: 0;
+}
+
+.diff-line-comments-host .diff-file-comment-thread + .diff-file-comment-thread {
+  border-top: 1px solid $C-NEUTRAL-15;
+}
+
+/* Hovering a diff line shows ONE blue "+" to add a comment — the
+ * same affordance the Monaco editor has. react-diff-view's unified
+ * rows have TWO gutter <td>s (old + new line number); without
+ * scoping, the "+" lit up BOTH columns. We show it in only the
+ * SECOND gutter (``.diff-gutter + .diff-gutter`` = the new-line
+ * column, the line you actually comment on) and reveal it on row
+ * (``.diff-line``) hover so it's easy to hit. The click handler
+ * resolves the line regardless of which gutter is clicked. */
+.diff-gutter {
+  cursor: pointer;
+  position: relative;
+}
+
+/* Bitbucket-style add-comment affordance.
+ *
+ * react-diff-view unified mode: each row has TWO gutter <td>s, both
+ * with the same type class (diff-gutter-delete / -insert / -normal).
+ * Strategy:
+ *   insert/normal → show "+" on the 2nd gutter (new-side, has the number)
+ *   delete        → show "+" on the 1st gutter (old-side, has the number)
+ *                   and suppress the 2nd (it's blank for deleted lines)
+ *
+ * The badge is centred INSIDE the gutter cell so clicks reliably hit
+ * the gutterEvents.onClick handler — previously right:-9px placed it
+ * outside the cell, making it look clickable but fire nothing. */
+/* Anchor at the FIRST visual line, not the cell's vertical center —
+ * when a long source line wraps to multiple visual lines the gutter
+ * cell is N×line-height tall, and ``top: 50%`` landed the badge in
+ * the middle of the wrapped block (looked like the wrong line). The
+ * code font is 12px with line-height 1.5 (react-diff-view default),
+ * so half a line is ~9px from the cell top → centers the 20px badge
+ * on the first visual row regardless of wrap. */
+.diff-line:hover .diff-gutter + .diff-gutter::after {
+  content: "+";
+  position: absolute;
+  top: 9px;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: $C-CYAN-47;
+  color: $C-NEUTRAL-96;
+  font: 700 13px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  border-radius: $RADIUS-CIRCLE;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* For delete lines: suppress the new-side (2nd) gutter badge, show on old-side (1st). */
+.diff-line:hover .diff-gutter-delete + .diff-gutter-delete::after {
+  content: none;
+}
+
+.diff-line:hover .diff-gutter-delete:first-child::after {
+  content: "+";
+  position: absolute;
+  top: 9px;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: $C-CYAN-47;
+  color: $C-NEUTRAL-96;
+  font: 700 13px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  border-radius: $RADIUS-CIRCLE;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Inline-resolved banner inside a CommentBubble (smaller than the
+ * top-of-thread version since it sits inside the bubble). */
+.diff-file-comment-resolved-banner.inline {
+  margin: $SPACE-NEG-2 0 $SPACE-5 $SPACE-34;
+  padding: $SPACE-3 $SPACE-6;
+  border-radius: $RADIUS-3;
+  font-size: $TEXT-10;
+}
+
+.diff-file-comments-cancel {
+  background: $C-NEUTRAL-100-A06;
+  border: 1px solid $C-NEUTRAL-100-A10;
+  color: $C-NEUTRAL-96-A78;
+  border-radius: $RADIUS-PILL;
+  padding: $SPACE-6 $SPACE-16;
+  font: 600 12px/1 inherit;
+  cursor: pointer;
+  margin-right: $SPACE-8;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease, transform 90ms ease;
+}
+
+.diff-file-comments-cancel:hover {
+  background: $C-NEUTRAL-100-A10;
+  border-color: $C-NEUTRAL-100-A14;
+  color: $C-NEUTRAL-96;
+}
+
+.diff-file-comments-cancel:active {
+  transform: scale(0.96);
+}
+
+/* iOS-style pill buttons living inside the diff cards.
+ *
+ *   - .diff-repo-sync-comments        sync the comments-pull
+ *   - .diff-file-collapse-toggle      hide/show file diff
+ *   - .diff-file-add-file-comment     open the file-level form
+ *
+ * All three follow the same shape: rounded glass pill with a
+ * leading icon + label, matching the rest of the iOS-styled UI. */
+.diff-repo-sync-comments,
+.diff-file-collapse-toggle,
+.diff-file-add-file-comment {
+  display: inline-flex;
+  align-items: center;
+  gap: $SPACE-6;
+  margin-left: auto;
+  padding: $SPACE-5 $SPACE-12;
+  border-radius: $RADIUS-PILL;
+  border: 1px solid $C-NEUTRAL-100-A10;
+  background: $C-NEUTRAL-100-A06;
+  color: $C-NEUTRAL-96-A85;
+  font: 600 11px/1 inherit;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease, transform 90ms ease;
+}
+
+.diff-repo-sync-comments:hover:not(:disabled),
+.diff-file-collapse-toggle:hover:not(:disabled),
+.diff-file-add-file-comment:hover:not(:disabled) {
+  background: $C-NEUTRAL-100-A14;
+  border-color: $C-NEUTRAL-100-A14;
+  color: $C-NEUTRAL-96;
+}
+
+.diff-repo-sync-comments:active:not(:disabled),
+.diff-file-collapse-toggle:active:not(:disabled),
+.diff-file-add-file-comment:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.diff-repo-sync-comments:disabled,
+.diff-file-collapse-toggle:disabled,
+.diff-file-add-file-comment:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Icon-only expand/collapse chevron in the file header. */
+.diff-file-collapse-toggle.is-icon {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  justify-content: center;
+}
+
+/* Commit-diff modal — wider scrim than the adopt-session modal so
+ * file diffs don't squash horizontally. */
+.commit-diff-modal {
+  max-width: 90vw;
+  width: 1100px;
+}
+
+.commit-diff-modal-body {
+  max-height: 70vh;
+  overflow-y: auto;
+  padding: $SPACE-8 $SPACE-4;
+}
+
+.diff-repo {
+  border: 0;
+  border-radius: 0;
+  margin-bottom: $SPACE-10;
+  overflow: visible;
+  background: transparent;
+}
+
+.diff-repo-header {
+  display: flex;
+  gap: $SPACE-8;
+  align-items: center;
+  padding: $SPACE-8 $SPACE-4;
+  background: transparent;
+  cursor: pointer;
+  font-size: $TEXT-12;
+  font-weight: 600;
+  transition: background 120ms ease;
+}
+
+.diff-repo-header:hover {
+  background: $C-NEUTRAL-100-A06;
+}
+
+.diff-repo-chevron {
+  color: $C-NEUTRAL-96-A65;
+  width: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.diff-repo-name {
+  color: $C-NEUTRAL-96;
+  font-weight: 600;
+}
+
+.diff-repo-range {
+  color: $C-NEUTRAL-96-A42;
+  margin-left: auto;
+  font-weight: 400;
+}
+
+.diff-repo-body {
+  padding: $SPACE-6 $SPACE-8 $SPACE-10;
+}
+
+.diff-tree-summary {
+  display: flex;
+  align-items: center;
+  gap: $SPACE-10;
+  margin-bottom: $SPACE-10;
+  padding: 0 $SPACE-4;
+}
+
+.diff-tree-title {
+  color: $C-NEUTRAL-96;
+  font-size: $TEXT-15;
+  font-weight: 700;
+}
+
+.diff-line-stats {
+  margin-left: auto;
+  display: inline-flex;
+  overflow: hidden;
+  border-radius: $RADIUS-3;
+  font: 700 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.diff-line-stat {
+  padding: $SPACE-5 $SPACE-7;
+}
+
+.diff-line-stat.is-add {
+  color: $C-GREEN-67;
+  background: $C-GREEN-25-A42;
+}
+
+.diff-line-stat.is-delete {
+  color: $C-RED-79;
+  background: $C-RED-31-A46;
+}
+
+/* Bitbucket-style comment-thread count on a tree row. Pill chip in
+ * the system language (999px + 1px border, like .claude-status).
+ * ``margin-left: auto`` right-clusters it; when line-stats follow,
+ * the adjacency override keeps them together (💬1  +23) instead of
+ * the stats grabbing the free space and flying to the far edge. */
+.tree-row-comments {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: $SPACE-4;
+  flex-shrink: 0;
+  padding: $SPACE-1 $SPACE-7;
+  border-radius: $RADIUS-PILL;
+  border: 1px solid $C-NEUTRAL-100-A14;
+  background: $C-NEUTRAL-100-A06;
+  color: $C-NEUTRAL-79;
+  font: 600 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.tree-row-comments svg {
+  width: 11px;
+  height: 11px;
+}
+
+/* Clickable badge: distinct from clicking the file name. Clicking it
+ * opens the diff and scrolls to the comment thread. */
+.tree-row-comments.is-clickable {
+  cursor: pointer;
+}
+
+.tree-row-comments.is-clickable:hover {
+  background: $C-NEUTRAL-100-A10;
+}
+
+.tree-row-comments.is-clickable:focus-visible {
+  outline: 1px solid currentColor;
+  outline-offset: 1px;
+}
+
+/* Tint the badge by the most-urgent kato_status across the file's open
+ * threads (see buildFilesCommentMeta), matching the .diff-file-comment-pill
+ * colours so the file tree and the comment widgets read the same. */
+.tree-row-comments.is-queued {
+  color: $C-BLUE-85;
+  border-color: $C-BLUE-85-A40;
+}
+
+.tree-row-comments.is-in_progress {
+  color: $C-ORANGE-56;
+  border-color: $C-ORANGE-56-A40;
+}
+
+.tree-row-comments.is-addressed {
+  color: $C-GREEN-67;
+  border-color: $C-GREEN-67-A40;
+}
+
+.tree-row-comments.is-failed {
+  color: $C-RED-82;
+  border-color: $C-RED-82-A40;
+}
+
+.tree-row-comments + .diff-line-stats,
+.tree-row-comments + .tree-row-line-stats {
+  margin-left: $SPACE-8;
+}
+
+.diff-file-tree {
+  display: flex;
+  flex-direction: column;
+  gap: $SPACE-2;
+}
+
+.diff-file-tree-row {
+  --depth: 0;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: $SPACE-8;
+  min-height: 26px;
+  width: 100%;
+  padding: $SPACE-3 $SPACE-8 $SPACE-3 calc(4px + var(--depth) * 22px);
+  border: 0;
+  border-radius: $RADIUS-4;
+  background: transparent;
+  color: $C-NEUTRAL-64;
+  font: 700 14px/1.25 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  text-align: left;
+}
+
+.diff-file-tree-row.is-file {
+  cursor: pointer;
+}
+
+.diff-file-tree-row.is-file:hover {
+  background: $C-NEUTRAL-15;
+}
+
+.diff-file-tree-row.selected {
+  background: $C-CYAN-21;
+  color: $C-CYAN-70;
+}
+
+.diff-file-tree-row.is-file.selected:hover {
+  background: $C-CYAN-21;
+}
+
+.diff-file-tree-row.conflicted .diff-file-tree-label {
+  color: $C-ORANGE-56;
+}
+
+.diff-file-tree-guide {
+  position: absolute;
+  left: 22px;
+  /* Span EXACTLY the row (rows are contiguous, no gap). The old
+   * ``top:-3px; bottom:-3px`` made every row's guide overlap its
+   * neighbour's by 6px, so the 1px gradient lines double-drew in
+   * those bands — the "sometimes bold" artefact. Abutting rows now
+   * form one continuous, uniform 1px line per depth level. */
+  top: 0;
+  bottom: 0;
+  width: calc(var(--depth) * 22px);
+  pointer-events: none;
+  background-image: repeating-linear-gradient(to right, transparent 0, transparent 1px, $C-NEUTRAL-100-A10 1px, $C-NEUTRAL-100-A10 2px, transparent 2px, transparent 22px);
+}
+
+.diff-file-tree-row[style*="--depth: 0"] .diff-file-tree-guide {
+  display: none;
+}
+
+.diff-file-tree-chevron {
+  width: 16px;
+  color: $C-NEUTRAL-64;
+  display: inline-flex;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.diff-file-tree-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.files-changed-tree-wrap {
+  padding: $SPACE-8 $SPACE-6 $SPACE-12;
+}
+
+.files-tree-summary {
+  margin: 0 $SPACE-4 $SPACE-10;
+}
+
+.files-changed-tree-row {
+  font-size: $TEXT-15;
+  min-height: 32px;
+}
+
+.files-changed-tree-folder {
+  color: $C-NEUTRAL-64;
+  font-size: $TEXT-15;
+  font-weight: 600;
+}
+
+.files-changed-tree-label {
+  font-weight: 750;
+}
+
+.files-changed-tree-row.kind-add .files-changed-tree-label {
+  color: $C-GREEN-75;
+}
+
+.files-changed-tree-row.kind-delete .files-changed-tree-label {
+  color: $C-RED-79;
+}
+
+.files-changed-tree-row.kind-modify .files-changed-tree-label,
+.files-changed-tree-row.kind-rename .files-changed-tree-label,
+.files-changed-tree-row.kind-copy .files-changed-tree-label {
+  color: $C-ORANGE-65;
+}
+
+.files-changed-tree-row.selected .files-changed-tree-label {
+  color: $C-CYAN-70;
+}
+
+.files-changed-tree-row .diff-line-stats {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+/* The Changes tab is now a compact, scannable INDEX of changed
+ * files — one row per file. Clicking a row opens that file's diff
+ * (and its review comments) in the centre pane via DiffPane, so the
+ * heavy diff never crams into this narrow left column. */
+.diff-file-row {
+  display: flex;
+  align-items: center;
+  gap: $SPACE-8;
+  width: 100%;
+  padding: $SPACE-5 $SPACE-8;
+  border: none;
+  border-radius: $RADIUS-6;
+  background: transparent;
+  color: $C-NEUTRAL-83;
+  font: 12px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace;
+  text-align: left;
+  cursor: pointer;
+  transition: background 100ms ease;
+}
+
+.diff-file-row:hover {
+  background: $C-NEUTRAL-100-A06;
+}
+
+.diff-file-row:focus-visible {
+  outline: 2px solid $C-GREEN-58-A55;
+  outline-offset: -2px;
+}
+
+.diff-file-row-kind {
+  flex-shrink: 0;
+  width: 19px;
+  height: 19px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-weight: 700;
+  font-size: $TEXT-11;
+  border-radius: $RADIUS-3;
+  color: $C-NEUTRAL-83;
+  background: $C-NEUTRAL-100-A06;
+}
+
+.diff-file-row-kind.kind-add {
+  color: $C-GREEN-52;
+  background: $C-GREEN-25-A42;
+}
+
+.diff-file-row-kind.kind-delete {
+  color: $C-RED-76;
+  background: $C-RED-31-A46;
+}
+
+.diff-file-row-kind.kind-modify {
+  color: $C-ORANGE-50;
+  background: $C-ORANGE-37-A22;
+}
+
+.diff-file-row-kind.kind-rename,
+.diff-file-row-kind.kind-copy {
+  color: $C-ORANGE-50;
+  background: $C-ORANGE-37-A22;
+}
+
+.diff-file-row-path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diff-file-row.conflicted .diff-file-row-path {
+  color: $C-ORANGE-56;
+}
+
+.diff-file-row-conflict {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: $RADIUS-4;
+  color: $C-ORANGE-56;
+  background: $C-ORANGE-56-A16;
+  font-size: $TEXT-11;
+}
+
+.files-tab-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  font-size: $TEXT-13;
+  /* react-arborist sets row paddingLeft inline; pad the body instead.
+   * The right pad matches the header/toolbar's 12px inset so the repo
+   * group boxes end on the same vertical line as the toolbar actions
+   * instead of running flush to the panel edge. */
+  padding-left: $SPACE-14;
+  padding-right: $SPACE-12;
+}
+
+.files-tab-context-menu,
+.diff-file-context-menu {
+  position: fixed;
+  z-index: 1000;
+  min-width: 180px;
+  padding: $SPACE-5;
+  border: 1px solid $C-NEUTRAL-100-A10;
+  border-radius: $RADIUS-8;
+  background: $C-NEUTRAL-09;
+  box-shadow: $SHADOW-25;
+}
+
+.files-tab-context-menu-item,
+.diff-file-context-menu-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  padding: $SPACE-8 $SPACE-10;
+  border: 0;
+  border-radius: $RADIUS-6;
+  background: transparent;
+  color: $C-NEUTRAL-90;
+  font: 600 12px/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  text-align: left;
+  cursor: pointer;
+}
+
+.files-tab-context-menu-item:hover,
+.files-tab-context-menu-item:focus-visible,
+.diff-file-context-menu-item:hover,
+.diff-file-context-menu-item:focus-visible {
+  outline: none;
+  background: $C-CYAN-68-A18;
+  color: $C-NEUTRAL-96;
+}
+
+.diff-file-context-menu-item:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.diff-file-context-menu-item:disabled:hover {
+  background: transparent;
+  color: $C-NEUTRAL-90;
+}
+
+.files-tab-message,
+.changes-tab-message {
+  padding: $SPACE-12;
+  color: $C-NEUTRAL-64;
+  font-size: $TEXT-13;
+}
+
+.files-tab-message.error,
+.changes-tab-message.error {
+  color: $C-RED-89;
+}
+
+.tree-row {
+  --level: 0;
+  display: flex;
+  align-items: center;
+  gap: $SPACE-8;
+  padding: $SPACE-3 $SPACE-8;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  position: relative;
+  border-radius: $RADIUS-4;
+  color: $C-NEUTRAL-64;
+  font: 700 14px/1.25 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  transition: background 90ms ease;
+}
+
+.tree-row:hover {
+  background: $C-NEUTRAL-100-A06;
+}
+
+.tree-row.selected {
+  background: $C-CYAN-40-A38;
+  color: $C-CYAN-70;
+}
+
+.tree-row-level-guides {
+  position: absolute;
+  left: 0;
+  top: -4px;
+  bottom: -4px;
+  width: calc(var(--level) * 14px);
+  pointer-events: none;
+  background-image: repeating-linear-gradient(to right, transparent 0, transparent 13px, $C-NEUTRAL-100-A10 13px, $C-NEUTRAL-100-A10 14px);
+}
+
+.tree-row-chevron {
+  width: 16px;
+  color: $C-NEUTRAL-64;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tree-row-chevron-placeholder {
+  visibility: hidden;
+}
+
+.tree-row-icon {
+  width: 12px;
+  color: $C-NEUTRAL-96-A78;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tree-row.selected .tree-row-icon {
+  color: $C-NEUTRAL-96;
+}
+
+.tree-row-kind {
+  flex-shrink: 0;
+}
+
+.tree-row-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: $C-NEUTRAL-73;
+}
+
+.tree-row.selected .tree-row-name {
+  color: $C-CYAN-70;
+}
+
+/* Changes tab */
+.changes-tab-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: $SPACE-8;
+}
+
+.diff-file {
+  margin-bottom: $SPACE-12;
+  border: 1px solid $C-NEUTRAL-100-A06;
+  border-radius: $RADIUS-12;
+  overflow: hidden;
+  background: $C-NEUTRAL-100-A06;
+}
+
+.diff-file-header {
+  display: flex;
+  gap: $SPACE-8;
+  align-items: center;
+  padding: $SPACE-6;
+  background: $C-NEUTRAL-100-A06;
+  font-size: $TEXT-12;
+  font-family: ui-monospace, monospace;
+  color: $C-NEUTRAL-96;
+}
+
+.diff-file-conflicted {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 19px;
+  height: 19px;
+  border-radius: $RADIUS-4;
+  background: $C-ORANGE-56-A16;
+  color: $C-ORANGE-56;
+  font-size: $TEXT-11;
+}
+
+/* Add-file-comment sits on its own row inside the comments
+ * stack, so override the ``margin-left: auto`` (which would
+ * push it to the right edge of a header it isn't inside of). */
+.diff-file-add-file-comment {
+  margin: $SPACE-6 0 $SPACE-2;
+}
+
+.tree-row.conflicted .tree-row-name {
+  color: $C-ORANGE-56;
+}
+
+.tree-row-conflict {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: $RADIUS-4;
+  background: $C-ORANGE-56-A16;
+  color: $C-ORANGE-56;
+  flex-shrink: 0;
+  font-size: $TEXT-11;
+}
+
+.tree-row.changed .tree-row-name {
+  color: $C-NEUTRAL-73;
+}
+
+.tree-row.changed-ancestor .tree-row-name {
+  color: $C-NEUTRAL-64;
+}
+
+.tree-row-line-stats {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.tree-row-diff-btn {
+  margin-left: auto;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: $RADIUS-CIRCLE;
+  background: transparent;
+  color: $C-NEUTRAL-45;
+  cursor: pointer;
+  font-size: $TEXT-10;
+  opacity: 0;
+  transition: opacity 100ms ease, background 100ms ease, color 100ms ease;
+}
+
+.tree-row:hover .tree-row-diff-btn,
+.tree-row.selected .tree-row-diff-btn {
+  opacity: 1;
+}
+
+.tree-row-diff-btn:hover {
+  background: $C-GREEN-58-A16;
+  color: $C-GREEN-58;
+}
+
+.tree-row-diff-btn:focus-visible {
+  opacity: 1;
+  outline: 2px solid $C-GREEN-58-A60;
+  outline-offset: 1px;
+}
+
+.tree-row-changed {
+  /* No longer the auto-margin anchor: when the diff button is
+   * present it owns ``margin-left: auto`` and the badge just trails
+   * it. A changed row always renders the button (it gates on the
+   * same ``isChanged``), so a fixed gap is all that's needed. */
+  margin-left: $SPACE-6;
+  margin-right: $SPACE-6;
+  color: $C-GREEN-58;
+  font-size: $TEXT-11;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.diff-file-type {
+  text-transform: uppercase;
+  color: $C-NEUTRAL-64;
+  font-size: $TEXT-10;
+  letter-spacing: 0.05em;
+}
+
+.diff-file-header .diff-file-collapse-toggle {
+  margin-left: 0;
+  flex-shrink: 0;
+}
+
+.diff-file-path {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
+  color: $C-NEUTRAL-90;
+}
+
+.diff-file-path-button {
+  flex: 1;
+  border: 0;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  appearance: none;
+}
+
+.diff-file-header .diff-file-path-button {
+  width: auto;
+  height: auto;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  justify-content: flex-start;
+  color: inherit;
+  -webkit-appearance: none;
+}
+
+.diff-file-header .diff-file-path-button:hover {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.diff-file-path-button:hover .diff-file-path-segment,
+.diff-file-path-button:focus-visible .diff-file-path-segment {
+  color: $C-CYAN-77;
+}
+
+.diff-file-header .diff-file-path-button:focus,
+.diff-file-path-button:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+.diff-file-path-part {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.diff-file-path-segment {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diff-file-path-separator {
+  margin: 0 $SPACE-10;
+  color: $C-NEUTRAL-64;
+  flex-shrink: 0;
+}
+
+/* react-diff-view dark-theme via the library's own CSS variables — robust
+ * to stylesheet load order, since variables resolve at use-time.
+ * Tints tuned to match Bitbucket: broad hunks are muted, while
+ * gutters and edited spans carry the stronger add/delete color. */
+.diff-file {
+  --diff-background-color: #{$C-NEUTRAL-04};
+  --diff-text-color: #{$C-NEUTRAL-90};
+  --diff-font-family: ui-monospace, monospace;
+  /* Gutter == code for changed lines: a brighter gutter shade made
+   * the columns read as vertical stripes / a grid. Same colour on
+   * both = each added/deleted line is ONE solid block, no grid. */
+  --diff-gutter-insert-background-color: #{$C-NEUTRAL-15};
+  --diff-gutter-delete-background-color: #{$C-NEUTRAL-15};
+  --diff-code-insert-background-color: #{$C-NEUTRAL-15};
+  --diff-code-delete-background-color: #{$C-NEUTRAL-15};
+  --diff-code-insert-edit-background-color: #{$C-GREEN-22};
+  --diff-code-delete-edit-background-color: #{$C-RED-31};
+  --diff-gutter-selected-background-color: #{$C-NEUTRAL-15};
+  --diff-code-selected-background-color: #{$C-NEUTRAL-15};
+}
+
+/* Bitbucket-style line numbers: muted but readable (the old #525252
+ * was too dark to scan), monospace, right-aligned (react-diff-view
+ * default). Subtle enough that the code stays the focal point. */
+.diff-file .diff-gutter {
+  color: $C-NEUTRAL-55;
+  font-variant-numeric: tabular-nums;
+}
+
+.diff-file .diff {
+  font-size: $TEXT-12;
+}
+
+.diff-file .diff-context-expander {
+  background: $C-CYAN-17;
+}
+
+.diff-file .diff-context-expander-cell {
+  padding: 0;
+}
+
+.diff-context-expander-inner {
+  display: flex;
+  align-items: center;
+  gap: $SPACE-10;
+  min-height: 26px;
+  padding: 0 $SPACE-10;
+  color: $C-NEUTRAL-64;
+  background: $C-CYAN-17;
+  border-top: 1px solid $C-NEUTRAL-25;
+  border-bottom: 1px solid $C-NEUTRAL-25;
+  font-family: ui-monospace, monospace;
+  font-size: $TEXT-12;
+}
+
+.diff-context-expander-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid transparent;
+  border-radius: $RADIUS-4;
+  background: transparent;
+  color: $C-NEUTRAL-73;
+  cursor: pointer;
+  font: inherit;
+}
+
+.diff-context-expander-btn:hover:not(:disabled) {
+  color: $C-NEUTRAL-90;
+  background: $C-NEUTRAL-100-A06;
+  border-color: $C-NEUTRAL-100-A14;
+}
+
+.diff-context-expander-btn:disabled {
+  opacity: 0.45;
+  cursor: progress;
+}
+
+.diff-context-expander-label {
+  color: $C-NEUTRAL-73;
+}
+
+/* Syntax highlighting for tokens produced by ``tokenizeHunks``
+ * (refractor / Prism token classes). Palette tuned for the same
+ * dark background we already use; matches the colours an operator
+ * gets in the planning UI's Files tree and the code snippet block
+ * in review-fix prompts. Only the most common token types are
+ * styled — anything unrecognised renders as default text. */
+.diff-file .token.comment,
+.diff-file .token.prolog,
+.diff-file .token.cdata {
+  color: $C-NEUTRAL-45;
+  font-style: italic;
+}
+
+.diff-file .token.keyword {
+  color: $C-RED-79;
+}
+
+.diff-file .token.boolean,
+.diff-file .token.constant,
+.diff-file .token.atrule {
+  color: $C-RED-79;
+}
+
+.diff-file .token.tag {
+  color: $C-CYAN-70;
+}
+
+.diff-file .token.string {
+  color: $C-AMBER-65;
+}
+
+.diff-file .token.attr-value {
+  color: $C-AMBER-65;
+}
+
+.diff-file .token.template-string {
+  color: $C-AMBER-65;
+}
+
+.diff-file .token.number,
+.diff-file .token.unit {
+  color: $C-AMBER-65;
+}
+
+.diff-file .token.function,
+.diff-file .token.class-name {
+  color: $C-GREEN-67;
+}
+
+.diff-file .token.attr-name {
+  color: $C-GREEN-67;
+}
+
+.diff-file .token.property {
+  color: $C-GREEN-67;
+}
+
+.diff-file .token.property-access {
+  color: $C-GREEN-67;
+}
+
+.diff-file .token.selector {
+  color: $C-CYAN-70;
+}
+
+.diff-file .token.variable {
+  color: $C-CYAN-92;
+}
+
+.diff-file .token.operator,
+.diff-file .token.punctuation {
+  color: $C-NEUTRAL-83;
+}
+
+.diff-file .token.regex {
+  color: $C-PINK-70;
+}
+
+.diff-file .token.builtin,
+.diff-file .token.symbol {
+  color: $C-TEAL-69;
+}
+
+.diff-file .token.deleted {
+  color: $C-RED-82;
+}
+
+.diff-file .token.inserted {
+  color: $C-GREEN-73;
+}
+
+.diff-file .token.italic {
+  font-style: italic;
+}
+
+.diff-file .token.bold {
+  font-weight: 600;
+}
+
+/* Bypass-permissions safety banner — visible at the very top of the page
+ * whenever KATO_CLAUDE_BYPASS_PERMISSIONS=true. Red so the operator cannot
+ * miss it. See SECURITY.md and kato/validation/bypass_permissions_validator.py. */
+.kato-safety-banner {
+  display: flex;
+  align-items: center;
+  gap: $SPACE-10;
+  padding: $SPACE-8 $SPACE-16;
+  background: $C-RED-42;
+  color: $C-NEUTRAL-96;
+  font-size: $TEXT-13;
+  line-height: 1.4;
+  border-bottom: 1px solid $C-RED-31;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.kato-safety-banner__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: $RADIUS-CIRCLE;
+  background: $C-AMBER-89;
+  color: $C-RED-42;
+  font-weight: 700;
+  font-size: $TEXT-14;
+  flex-shrink: 0;
+}
+
+.kato-safety-banner__text {
+  flex: 1;
+}
+
+.kato-safety-banner strong {
+  color: $C-NEUTRAL-96;
+  letter-spacing: 0.02em;
+}
+
+/* Orchestrator activity feed — fills the right pane when no task is selected */
+.orchestrator-feed {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: $C-NEUTRAL-04;
+}
+
+.orchestrator-feed-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $SPACE-10;
+  padding: $SPACE-12 $SPACE-16;
+  border-bottom: 1px solid $C-NEUTRAL-09;
+  flex-shrink: 0;
+}
+
+/* Match the chat's task-name (#session-task-id <strong>): same
+ * bold white, same sans-serif body size — so the two panes' titles
+ * read as siblings, not "title vs muted monospace label". */
+.orchestrator-feed-title {
+  color: $C-NEUTRAL-96;
+  font-weight: 700;
+  font-size: $TEXT-15;
+  font-family: inherit;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.orchestrator-feed-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: $RADIUS-CIRCLE;
+  border: 1px solid $C-NEUTRAL-100-A10;
+  background: $C-NEUTRAL-100-A06;
+  color: $C-NEUTRAL-64;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+.orchestrator-feed-close:hover {
+  background: $C-NEUTRAL-100-A10;
+  border-color: $C-NEUTRAL-100-A14;
+  color: $C-NEUTRAL-96;
+}
+
+.orchestrator-feed-empty {
+  padding: $SPACE-16;
+  color: $C-NEUTRAL-32;
+  font-size: $TEXT-13;
+  line-height: 1.5;
+  font-family: ui-monospace, monospace;
+}
+
+.orchestrator-feed-body {
+  flex: 1;
+  overflow-y: auto;
+  font-family: ui-monospace, monospace;
+  font-size: $TEXT-12;
+}
+
+.orchestrator-feed-row {
+  display: grid;
+  grid-template-columns: 70px 40px 1fr;
+  gap: $SPACE-8;
+  padding: $SPACE-4 $SPACE-12;
+  border-bottom: 1px solid $C-NEUTRAL-09;
+  color: $C-NEUTRAL-83;
+}
+
+.orchestrator-feed-row .ts {
+  color: $C-NEUTRAL-32;
+}
+
+.orchestrator-feed-row .lvl {
+  font-weight: 600;
+  text-align: center;
+  border-radius: $RADIUS-4;
+  padding: $SPACE-1 $SPACE-4;
+  font-size: $TEXT-11;
+  height: fit-content;
+  line-height: 1.4;
+}
+
+.orchestrator-feed-row .lvl-info {
+  color: $C-CYAN-78;
+  background: $C-CYAN-60-A10;
+}
+
+.orchestrator-feed-row .lvl-warn,
+.orchestrator-feed-row .lvl-warning {
+  color: $C-ORANGE-56;
+  background: $C-ORANGE-50-A18;
+}
+
+.orchestrator-feed-row .lvl-error {
+  color: $C-RED-71;
+  background: $C-RED-60-A18;
+}
+
+.orchestrator-feed-row .lvl-debug {
+  color: $C-INDIGO-76;
+  background: $C-INDIGO-66-A12;
+}
+
+.orchestrator-feed-row .msg {
+  color: $C-NEUTRAL-90;
+  word-break: break-word;
+}
+
+.orchestrator-feed-row.warn .msg {
+  color: $C-AMBER-77;
+}
+
+.orchestrator-feed-row.error .msg {
+  color: $C-RED-89;
+}
+
+/* Inline tokens highlighted inside each message body. The palette
+ * is meant to scan at a glance: blue/cyan for "addresses", green
+ * for paths, gold for numbers — same colour family as the chip
+ * pills above so the eye reads the row as one. */
+.orchestrator-feed-row .tok-url {
+  color: $C-TEAL-69;
+  text-decoration: underline;
+  text-decoration-color: $C-TEAL-69-A40;
+}
+
+.orchestrator-feed-row .tok-path {
+  color: $C-GREEN-73;
+}
+
+.orchestrator-feed-row .tok-addr {
+  color: $C-CYAN-60-2;
+  font-weight: 500;
+}
+
+.orchestrator-feed-row .tok-time {
+  color: $C-BLUE-85;
+}
+
+.orchestrator-feed-row .tok-progress {
+  color: $C-ORANGE-56;
+  background: $C-ORANGE-50-A10;
+  border-radius: $RADIUS-3;
+  padding: 0 $SPACE-4;
+}
+
+.orchestrator-feed-row .tok-num {
+  color: $C-AMBER-65;
+}
+
+.orchestrator-feed-row .tok-code {
+  font-family: ui-monospace, monospace;
+  color: $C-PINK-90;
+  background: $C-PINK-70-A10;
+  padding: 0 $SPACE-4;
+  border-radius: $RADIUS-3;
+}
+
+.orchestrator-feed-footer {
+  padding: $SPACE-8 $SPACE-12;
+  border-top: 1px solid $C-NEUTRAL-09;
+  color: $C-NEUTRAL-32;
+  font-size: $TEXT-12;
+  font-family: ui-monospace, monospace;
+  flex-shrink: 0;
+}
+
+/* Legacy text-button rules for header actions (approve-push, push,
+ * pull-request, update-source, finish) were removed — these now
+ * share the round .session-action shape defined further up.
+ *
+ * Done (#session-finish) carries .is-primary for the green accent,
+ * Stop carries .is-danger, Resume carries .is-warning. The other
+ * actions stay neutral. */
+.claude-status {
+  font: 11px/1 ui-monospace, monospace;
+  padding: $SPACE-3 $SPACE-8;
+  border-radius: $RADIUS-PILL;
+  border: 1px solid $C-NEUTRAL-15;
+  color: $C-NEUTRAL-64;
+  background: $C-NEUTRAL-04;
+  flex-shrink: 0;
+}
+
+.claude-status-working {
+  color: $C-AMBER-77;
+  border-color: $C-ORANGE-37;
+  background: $C-NEUTRAL-09;
+}
+
+.claude-status-approval {
+  color: $C-ORANGE-83;
+  border-color: $C-ORANGE-53;
+  background: $C-RED-10;
+}
+
+.claude-status-idle,
+.claude-status-streaming {
+  color: $C-GREEN-73;
+  border-color: $C-GREEN-22;
+  background: $C-NEUTRAL-04;
+}
+
+.claude-status-connecting,
+.claude-status-provisioning {
+  color: $C-CYAN-78;
+  border-color: $C-BLUE-48;
+  background: $C-BLUE-10;
+}
+
+.claude-status-sleeping,
+.claude-status-closed {
+  color: $C-NEUTRAL-45;
+}
+
+.claude-status-missing {
+  color: $C-RED-82;
+  border-color: $C-RED-31;
+}
+
+/* Always-visible Claude session id, next to the status chip — so the
+ * operator can eyeball it across a restart (resume keeps the same
+ * id; a changed id means the conversation restarted fresh). Short
+ * form shown; full id is in the title and the text is selectable
+ * for copy. */
+.claude-session-id {
+  font: 11px/1 ui-monospace, monospace;
+  color: $C-NEUTRAL-45;
+  flex-shrink: 0;
+  user-select: text;
+  cursor: text;
+}
+
+/* The same badge rendered ALSO next to the ``Claude: <status>``
+ * chip on the right side of the header — see ``SessionHeader.jsx``
+ * (``sessionIdBadgeRight``). Slightly stronger color + a tinted
+ * pill so it reads as "linked to the status next to me", not as
+ * an afterthought. */
+.claude-session-id.is-aside-status {
+  color: $C-NEUTRAL-64;
+  background: $C-NEUTRAL-100-A06;
+  border: 1px solid $C-NEUTRAL-100-A06;
+  border-radius: $RADIUS-PILL;
+  padding: $SPACE-3 $SPACE-8;
+  margin-left: $SPACE-2;
+}
+
+/* ----- toasts -----
+ * Anchored top-center, slide in from above, auto-dismiss after 5s
+ * (configurable per-toast). Click anywhere on the card to dismiss
+ * early; the explicit × button is for keyboard / a11y.
+ *
+ * The container uses pointer-events: none so the toast stack
+ * doesn't block clicks on the page underneath; each individual
+ * card re-enables pointer-events. */
+.toast-container {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  gap: $SPACE-8;
+  pointer-events: none;
+  max-width: calc(100vw - 48px);
+}
+
+.toast {
+  pointer-events: auto;
+  display: flex;
+  gap: $SPACE-12;
+  align-items: flex-start;
+  background: $C-CYAN-17;
+  color: $C-NEUTRAL-96;
+  border: 1px solid $C-CYAN-27;
+  border-left-width: 4px;
+  border-radius: $RADIUS-6;
+  padding: $SPACE-10 $SPACE-14;
+  min-width: 320px;
+  max-width: 560px;
+  box-shadow: $SHADOW-26;
+  animation: kato-toast-slide 0.18s ease-out;
+  cursor: pointer;
+  font: 13px/1.5 -apple-system, system-ui, sans-serif;
+}
+
+.toast:focus-visible {
+  outline: 2px solid $C-BLUE-53;
+  outline-offset: 2px;
+}
+
+.toast-success {
+  border-left-color: $C-TEAL-39;
+}
+
+.toast-error {
+  border-left-color: $C-RED-60;
+}
+
+.toast-warning {
+  border-left-color: $C-ORANGE-50;
+}
+
+.toast-info {
+  border-left-color: $C-CYAN-60;
+}
+
+.toast-glyph {
+  font-size: $TEXT-16;
+  line-height: 1.3;
+  flex-shrink: 0;
+}
+
+.toast-success .toast-glyph {
+  color: $C-GREEN-52;
+}
+
+.toast-error .toast-glyph {
+  color: $C-RED-71;
+}
+
+.toast-warning .toast-glyph {
+  color: $C-ORANGE-56;
+}
+
+.toast-info .toast-glyph {
+  color: $C-CYAN-70;
+}
+
+.toast-body {
+  display: flex;
+  flex-direction: column;
+  gap: $SPACE-4;
+  min-width: 0;
+  flex: 1;
+}
+
+.toast-title {
+  font-weight: 600;
+  font-size: $TEXT-13;
+  letter-spacing: 0.01em;
+}
+
+.toast-message {
+  margin: 0;
+  font-family: inherit;
+  font-size: $TEXT-13;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: $C-NEUTRAL-90;
+}
+
+.toast-close {
+  background: transparent;
+  border: 0;
+  color: $C-NEUTRAL-64;
+  cursor: pointer;
+  font-size: $TEXT-18;
+  line-height: 1;
+  padding: 0 $SPACE-4;
+  flex-shrink: 0;
+  margin-left: $SPACE-4;
+}
+
+.toast-close:hover {
+  color: $C-NEUTRAL-96;
+}
+
+@keyframes kato-toast-slide {
+  from {
+    transform: translateY(-12px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+/* ----- custom tooltips -----
+ * The browser-native ``title`` tooltip waits ~1.5s and renders in a
+ * tiny system font. Buttons in kato use ``data-tooltip`` instead so
+ * the text is readable (13px) and shows up fast (120ms delay). Native
+ * tooltips on non-button elements (like the status dot ``<span>``)
+ * are left alone — they're cheap and good enough for static labels.
+ */
+[data-tooltip] {
+  position: relative;
+}
+
+[data-tooltip]:hover::after,
+[data-tooltip]:focus-visible::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: $C-CYAN-17;
+  color: $C-NEUTRAL-96;
+  font: 13px/1.4 -apple-system, system-ui, sans-serif;
+  font-style: normal;
+  font-weight: 400;
+  padding: $SPACE-7 $SPACE-11;
+  border-radius: $RADIUS-5;
+  white-space: normal;
+  max-width: 320px;
+  width: max-content;
+  border: 1px solid $C-CYAN-27;
+  box-shadow: $SHADOW-27;
+  z-index: 1000;
+  pointer-events: none;
+  opacity: 0;
+  animation: kato-tooltip-fade 0.12s ease-out 0.03s forwards;
+  text-align: left;
+}
+
+[data-tooltip]:hover::before,
+[data-tooltip]:focus-visible::before {
+  content: "";
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-bottom-color: $C-CYAN-17;
+  z-index: 1000;
+  pointer-events: none;
+  opacity: 0;
+  animation: kato-tooltip-fade 0.12s ease-out 0.03s forwards;
+}
+
+[data-tooltip].tooltip-above:hover::after,
+[data-tooltip].tooltip-above:focus-visible::after {
+  top: auto;
+  bottom: calc(100% + 8px);
+}
+
+[data-tooltip].tooltip-above:hover::before,
+[data-tooltip].tooltip-above:focus-visible::before {
+  top: auto;
+  bottom: calc(100% + 2px);
+  border-bottom-color: transparent;
+  border-top-color: $C-CYAN-17;
+}
+
+[data-tooltip][disabled]:hover::after,
+[data-tooltip][disabled]:hover::before,
+[data-tooltip]:disabled:hover::after,
+[data-tooltip]:disabled:hover::before {
+  /* Disabled buttons should still surface their tooltip — that's
+   * usually how the operator learns *why* the button is disabled. */
+  animation: kato-tooltip-fade 0.12s ease-out 0.03s forwards;
+}
+
+/* …but a disabled control dims itself with element ``opacity``, and
+ * CSS opacity on the host also fades its ::after/::before — so the
+ * tooltip rendered see-through (the reported bug). Keep any
+ * tooltip-bearing control fully opaque and push the "disabled" dim
+ * onto its inner content (the icon/label) instead, so the tooltip
+ * itself is always 100% opaque in every state. */
+[data-tooltip]:disabled,
+[data-tooltip][disabled] {
+  /* !important: this must beat every per-control ``:disabled``
+   * rule (they're more specific) so the tooltip host is never
+   * faded — that's the whole point of this fix. */
+  opacity: 1 !important;
+}
+
+[data-tooltip]:disabled > *,
+[data-tooltip][disabled] > * {
+  opacity: 0.4;
+}
+
+/* Tooltips on buttons near the right edge of their container would
+ * otherwise be center-aligned and run off the side. ``tooltip-end``
+ * anchors the tooltip's RIGHT edge to the trigger's right edge so it
+ * grows to the LEFT instead. The arrow shifts to align under the
+ * button rather than under the tooltip's centre.
+ *
+ * Width is capped tighter than the default (320px → 220px) because
+ * tooltip-end buttons are typically inside narrow containers like
+ * the sidebar (280px) — a 320px tooltip overflows the parent and
+ * gets clipped by ``#layout: overflow:hidden``. The text wraps to
+ * 3–4 lines when needed. */
+[data-tooltip].tooltip-end:hover::after,
+[data-tooltip].tooltip-end:focus-visible::after {
+  left: auto;
+  right: 0;
+  transform: none;
+  max-width: 220px;
+}
+
+[data-tooltip].tooltip-end:hover::before,
+[data-tooltip].tooltip-end:focus-visible::before {
+  left: auto;
+  right: 6px;
+  transform: none;
+}
+
+/* Combo: above + end (e.g. for buttons near bottom-right corners). */
+[data-tooltip].tooltip-above.tooltip-end:hover::after,
+[data-tooltip].tooltip-above.tooltip-end:focus-visible::after {
+  top: auto;
+  bottom: calc(100% + 8px);
+  left: auto;
+  right: 0;
+  transform: none;
+  max-width: 220px;
+}
+
+[data-tooltip].tooltip-above.tooltip-end:hover::before,
+[data-tooltip].tooltip-above.tooltip-end:focus-visible::before {
+  top: auto;
+  bottom: calc(100% + 2px);
+  left: auto;
+  right: 6px;
+  transform: none;
+  border-bottom-color: transparent;
+  border-top-color: $C-CYAN-17;
+}
+
+@keyframes kato-tooltip-fade {
+  to {
+    opacity: 1;
+  }
+}
+.notification-settings {
+  position: relative;
+}
+
+.notification-settings > button {
+  background: transparent;
+  color: $C-NEUTRAL-64;
+  border: 1px solid $C-NEUTRAL-15;
+  border-radius: $RADIUS-CIRCLE;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: $TEXT-14;
+  line-height: 1;
+  flex-shrink: 0;
+  transition: background-color 0.12s ease-out, color 0.12s ease-out, border-color 0.12s ease-out;
+}
+
+.notification-settings > button:hover {
+  color: $C-NEUTRAL-90;
+  border-color: $C-NEUTRAL-25;
+  background: $C-NEUTRAL-15;
+}
+
+.notification-settings > button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.notification-settings-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: $C-NEUTRAL-04;
+  border: 1px solid $C-NEUTRAL-09;
+  border-radius: $RADIUS-6;
+  padding: $SPACE-10 $SPACE-12;
+  min-width: 240px;
+  z-index: 30;
+  font-size: $TEXT-13;
+  display: flex;
+  flex-direction: column;
+  gap: $SPACE-6;
+  box-shadow: $SHADOW-28;
+}
+
+.notification-settings-row {
+  display: flex;
+  align-items: center;
+  gap: $SPACE-12;
+  padding: $SPACE-6 $SPACE-4;
+  color: $C-NEUTRAL-83;
+  cursor: pointer;
+  user-select: none;
+}
+
+/* iOS-style toggle switch — the underlying ``<input type="checkbox">``
+ * stays a real checkbox for semantics + keyboard accessibility, but
+ * we hide it visually and render a custom slider in its place. Off
+ * = dark slate track, white knob on the left. On = blue track, knob
+ * slid right. Clear at-a-glance state, no more "did I check that?"
+ * after the operator squints at a faint native check mark. */
+.notification-settings-row input[type=checkbox] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 36px;
+  height: 20px;
+  border-radius: $RADIUS-PILL;
+  background: $C-NEUTRAL-15;
+  border: 1px solid $C-NEUTRAL-25;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.18s ease-out, border-color 0.18s ease-out;
+  flex-shrink: 0;
+  margin: 0;
+}
+
+.notification-settings-row input[type=checkbox]::before {
+  content: "";
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 16px;
+  height: 16px;
+  border-radius: $RADIUS-CIRCLE;
+  background: $C-NEUTRAL-96;
+  box-shadow: $SHADOW-29;
+  transition: transform 0.18s ease-out, background 0.18s ease-out;
+}
+
+.notification-settings-row input[type=checkbox]:checked {
+  background: $C-CYAN-52;
+  border-color: $C-CYAN-52;
+}
+
+.notification-settings-row input[type=checkbox]:checked::before {
+  transform: translateX(16px);
+}
+
+.notification-settings-row input[type=checkbox]:focus-visible {
+  outline: 2px solid $C-CYAN-52-A50;
+  outline-offset: 2px;
+}
+
+.notification-settings-row input[type=checkbox]:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.notification-settings-row input[type=checkbox]:disabled + span {
+  opacity: 0.5;
+}
+
+.notification-settings-master {
+  font-weight: 600;
+  color: $C-NEUTRAL-90;
+  justify-content: space-between;
+  padding: $SPACE-10 $SPACE-4;
+}
+
+.notification-settings-master-label {
+  display: inline-flex;
+  align-items: center;
+  gap: $SPACE-10;
+}
+
+.notification-settings-master-state {
+  display: inline-block;
+  padding: $SPACE-1 $SPACE-8;
+  border-radius: $RADIUS-PILL;
+  font-size: $TEXT-10;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  background: $C-NEUTRAL-100-A06;
+  color: $C-NEUTRAL-64;
+}
+
+.notification-settings-master input[type=checkbox]:checked ~ .notification-settings-master-state,
+.notification-settings-master:has(input[type=checkbox]:checked) .notification-settings-master-state {
+  background: $C-CYAN-52-A18;
+  color: $C-CYAN-78;
+}
+
+.notification-settings-divider {
+  border-top: 1px solid $C-NEUTRAL-09;
+  margin: $SPACE-4 0;
+}
+
+.notification-settings-hint {
+  font-size: $TEXT-12;
+  color: $C-ORANGE-56;
+  line-height: 1.4;
+}
+
+.tab-changes-indicator {
+  grid-column: 3;
+  grid-row: 1/span 2;
+  align-self: center;
+  color: $C-ORANGE-56;
+  font-size: $TEXT-14;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Adopt Claude session modal */
+.adopt-session-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: $C-NEUTRAL-00-A60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.adopt-session-modal {
+  background: $C-NEUTRAL-09;
+  border: 1px solid $C-NEUTRAL-15;
+  border-radius: $RADIUS-6;
+  width: min(720px, 90vw);
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  color: $C-NEUTRAL-90;
+  font-size: $TEXT-13;
+}
+
+.adopt-session-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: $SPACE-12 $SPACE-16;
+  border-bottom: 1px solid $C-NEUTRAL-15;
+}
+
+.adopt-session-modal-header h2 {
+  margin: 0;
+  font-size: $TEXT-14;
+  font-weight: 500;
+  color: $C-NEUTRAL-90;
+}
+
+.adopt-session-close {
+  background: none;
+  border: none;
+  color: $C-NEUTRAL-64;
+  font-size: $TEXT-20;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.adopt-session-close:hover {
+  color: $C-NEUTRAL-90;
+}
+
+.adopt-session-modal-help {
+  margin: $SPACE-12 $SPACE-16 0 $SPACE-16;
+  font-size: $TEXT-12;
+  color: $C-NEUTRAL-64;
+  line-height: 1.5;
+}
+
+.adopt-session-modal-help code {
+  background: $C-NEUTRAL-15;
+  padding: $SPACE-1 $SPACE-4;
+  border-radius: $RADIUS-3;
+  font-size: $TEXT-11;
+}
+
+.adopt-session-search {
+  margin: $SPACE-12 $SPACE-16;
+  padding: $SPACE-6 $SPACE-8;
+  background: $C-NEUTRAL-04;
+  border: 1px solid $C-NEUTRAL-15;
+  border-radius: $RADIUS-4;
+  color: $C-NEUTRAL-90;
+  font: inherit;
+}
+
+.adopt-session-search:focus {
+  outline: none;
+  border-color: $C-NEUTRAL-25;
+}
+
+.adopt-session-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 $SPACE-16;
+  display: flex;
+  flex-direction: column;
+  gap: $SPACE-4;
+}
+
+.adopt-session-empty {
+  padding: $SPACE-24;
+  text-align: center;
+  color: $C-NEUTRAL-45;
+  font-size: $TEXT-12;
+}
+
+.adopt-session-error {
+  color: $C-RED-71;
+}
+
+.adopt-session-row {
+  text-align: left;
+  background: $C-NEUTRAL-04;
+  border: 1px solid $C-NEUTRAL-15;
+  border-radius: $RADIUS-4;
+  padding: $SPACE-8 $SPACE-12;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  display: flex;
+  flex-direction: column;
+  gap: $SPACE-4;
+}
+
+.adopt-session-row:hover {
+  background: $C-NEUTRAL-09;
+  border-color: $C-NEUTRAL-25;
+}
+
+.adopt-session-row.is-selected {
+  background: $C-NEUTRAL-09;
+  border-color: $C-ORANGE-56;
+}
+
+.adopt-session-row-top {
+  display: flex;
+  justify-content: space-between;
+  gap: $SPACE-12;
+}
+
+.adopt-session-cwd {
+  font-family: monospace;
+  color: $C-NEUTRAL-83;
+  font-size: $TEXT-12;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.adopt-session-meta {
+  font-size: $TEXT-11;
+  color: $C-NEUTRAL-45;
+  flex-shrink: 0;
+}
+
+.adopt-session-preview {
+  color: $C-NEUTRAL-64;
+  font-size: $TEXT-12;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.adopt-session-id {
+  font-family: ui-monospace, monospace;
+  font-size: $TEXT-10;
+  color: $C-NEUTRAL-32;
+  margin-top: $SPACE-2;
+  cursor: copy;
+  word-break: break-all;
+}
+
+.adopt-session-id:hover {
+  color: $C-NEUTRAL-64;
+}
+
+.adopt-session-badges {
+  display: flex;
+  gap: $SPACE-6;
+  flex-wrap: wrap;
+}
+
+.adopt-session-badge {
+  font-size: $TEXT-10;
+  padding: $SPACE-1 $SPACE-6;
+  border-radius: var(--radius-pill);
+  font-weight: 500;
+}
+
+.adopt-session-badge.in-use {
+  background: $C-ORANGE-14;
+  color: $C-ORANGE-56;
+  border: 1px solid $C-ORANGE-28;
+}
+
+.adopt-session-badge.adopted {
+  background: $C-GREEN-10;
+  color: $C-GREEN-58;
+  border: 1px solid $C-GREEN-20;
+}
+
+.adopt-session-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: $SPACE-8;
+  padding: $SPACE-12 $SPACE-16;
+  border-top: 1px solid $C-NEUTRAL-15;
+}
+
+.adopt-session-cancel,
+.adopt-session-confirm {
+  background: $C-NEUTRAL-15;
+  color: $C-NEUTRAL-90;
+  border: 1px solid $C-NEUTRAL-25;
+  border-radius: $RADIUS-4;
+  padding: $SPACE-4 $SPACE-12;
+  cursor: pointer;
+  font: inherit;
+}
+
+.adopt-session-confirm {
+  background: $C-BLUE-33;
+  border-color: $C-BLUE-48;
+}
+
+.adopt-session-confirm:disabled,
+.adopt-session-cancel:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.adopt-session-confirm:not(:disabled):hover {
+  background: $C-BLUE-48;
+}
+
+/* ===== Settings drawer ===========================================
+ *
+ * Right-side slide-in panel hosting every operator-editable setting
+ * under tabs. Triggered by the gear icon in the Header. Replaces
+ * the old NotificationSettings popover — same controls now live in
+ * the 'Notifications' tab. */
+.settings-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: $C-NEUTRAL-00-A45;
+  z-index: 999;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease-out;
+}
+
+.settings-drawer-backdrop.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.settings-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(720px, 100vw);
+  background: $C-NEUTRAL-09;
+  border-left: 1px solid $C-NEUTRAL-15;
+  box-shadow: $SHADOW-30;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  transition: transform 0.22s ease-out;
+}
+
+.settings-drawer.is-open {
+  transform: translateX(0);
+}
+
+.settings-drawer-head {
+  display: flex;
+  align-items: center;
+  gap: $SPACE-12;
+  padding: $SPACE-14 $SPACE-18;
+  border-bottom: 1px solid $C-NEUTRAL-15;
+}
+
+.settings-drawer-head h2 {
+  margin: 0;
+  font-size: $TEXT-16;
+  color: $C-NEUTRAL-96;
+  flex: 1;
+}
+
+.settings-drawer-close {
+  background: transparent;
+  border: 1px solid $C-NEUTRAL-15;
+  color: $C-NEUTRAL-64;
+  width: 28px;
+  height: 28px;
+  border-radius: $RADIUS-CIRCLE;
+  font-size: $TEXT-18;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.settings-drawer-close:hover {
+  color: $C-NEUTRAL-90;
+  border-color: $C-NEUTRAL-32;
+  background: $C-NEUTRAL-15;
+}
+
+.settings-drawer-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $SPACE-4;
+  padding: $SPACE-8 $SPACE-12;
+  border-bottom: 1px solid $C-NEUTRAL-15;
+  background: $C-NEUTRAL-04;
+}
+
+.settings-drawer-tab {
+  background: transparent;
+  border: 1px solid transparent;
+  color: $C-NEUTRAL-64;
+  padding: $SPACE-6 $SPACE-14;
+  border-radius: $RADIUS-PILL;
+  font-size: $TEXT-13;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+
+.settings-drawer-tab:hover {
+  color: $C-NEUTRAL-90;
+  background: $C-NEUTRAL-100-A06;
+}
+
+.settings-drawer-tab.is-active {
+  background: $C-CYAN-52-A18;
+  border-color: $C-CYAN-52-A45;
+  color: $C-CYAN-92;
+}
+
+.settings-drawer-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: $SPACE-18;
+}
+
+.settings-drawer-panel-head {
+  margin: 0 0 $SPACE-14 0;
+}
+
+.settings-drawer-panel-head h3 {
+  margin: 0 0 $SPACE-6 0;
+  font-size: $TEXT-15;
+  color: $C-NEUTRAL-96;
+}
+
+.settings-drawer-panel-head p {
+  margin: 0;
+  font-size: $TEXT-12;
+  color: $C-NEUTRAL-64;
+  line-height: 1.5;
+}
+
+.settings-drawer-panel-head code {
+  background: $C-NEUTRAL-100-A06;
+  padding: $SPACE-1 $SPACE-5;
+  border-radius: $RADIUS-3;
+  font-size: $TEXT-11;
+}
+
+.settings-drawer-field {
+  display: flex;
+  flex-direction: column;
+  gap: $SPACE-6;
+  margin-bottom: $SPACE-14;
+}
+
+.settings-drawer-field-label {
+  font-size: $TEXT-12;
+  color: $C-NEUTRAL-83;
+}
+
+.settings-drawer-field-hint {
+  font-size: $TEXT-11;
+  color: $C-NEUTRAL-45;
+  line-height: 1.4;
+}
+
+.settings-drawer-field-hint code {
+  background: $C-NEUTRAL-100-A06;
+  padding: $SPACE-1 $SPACE-4;
+  border-radius: $RADIUS-3;
+}
+
+.settings-drawer-input {
+  background: $C-NEUTRAL-04;
+  border: 1px solid $C-NEUTRAL-15;
+  border-radius: $RADIUS-4;
+  color: $C-NEUTRAL-96;
+  padding: $SPACE-8 $SPACE-10;
+  font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+  outline: none;
+}
+
+.settings-drawer-input:focus {
+  border-color: $C-CYAN-52;
+  box-shadow: $SHADOW-31;
+}
+
+.settings-drawer-status-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $SPACE-14;
+  padding: $SPACE-10 $SPACE-12;
+  border: 1px solid $C-NEUTRAL-15;
+  border-radius: $RADIUS-6;
+  background: $C-NEUTRAL-100-A06;
+  margin-bottom: $SPACE-14;
+}
+
+.settings-drawer-kv {
+  display: flex;
+  flex-direction: column;
+  gap: $SPACE-2;
+}
+
+.settings-drawer-kv-key {
+  font-size: $TEXT-10;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: $C-NEUTRAL-45;
+}
+
+.settings-drawer-kv-value {
+  font: 12px/1.4 ui-monospace, monospace;
+  color: $C-NEUTRAL-90;
+  word-break: break-all;
+}
+
+.settings-drawer-kv-value.source-env {
+  color: $C-TEAL-69;
+}
+
+.settings-drawer-kv-value.source-kato_settings {
+  color: $C-CYAN-78;
+}
+
+.settings-drawer-kv-value.source-env_file {
+  color: $C-GREEN-73;
+}
+
+.settings-drawer-kv-value.source-unset {
+  color: $C-RED-71;
+}
+
+.settings-drawer-actions {
+  display: flex;
+  gap: $SPACE-8;
+  justify-content: flex-end;
+  margin-bottom: $SPACE-12;
+}
+
+.settings-drawer-action-primary,
+.settings-drawer-action-secondary {
+  padding: $SPACE-7 $SPACE-16;
+  border-radius: $RADIUS-4;
+  font-size: $TEXT-12;
+  cursor: pointer;
+  border: 1px solid;
+}
+
+.settings-drawer-action-primary {
+  background: $C-CYAN-52;
+  border-color: $C-CYAN-52;
+  color: $C-NEUTRAL-96;
+}
+
+.settings-drawer-action-primary:hover:not(:disabled) {
+  background: $C-BLUE-48;
+  border-color: $C-BLUE-48;
+}
+
+.settings-drawer-action-primary:disabled,
+.settings-drawer-action-secondary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.settings-drawer-action-secondary {
+  background: transparent;
+  border-color: $C-NEUTRAL-25;
+  color: $C-NEUTRAL-64;
+}
+
+.settings-drawer-action-secondary:hover:not(:disabled) {
+  color: $C-NEUTRAL-90;
+  border-color: $C-NEUTRAL-32;
+}
+
+.settings-drawer-restart-banner {
+  padding: $SPACE-10 $SPACE-12;
+  border-radius: $RADIUS-5;
+  background: $C-ORANGE-50-A10;
+  border: 1px solid $C-ORANGE-50-A35;
+  color: $C-AMBER-77;
+  font-size: $TEXT-12;
+}
+
+.settings-drawer-message {
+  font-size: $TEXT-12;
+  color: $C-NEUTRAL-64;
+  padding: $SPACE-14 0;
+}
+
+.settings-drawer-message.is-error {
+  color: $C-RED-82;
+}
+
+.notifications-settings-panel {
+  display: flex;
+  flex-direction: column;
+  gap: $SPACE-4;
+}
+
+.notifications-settings-kinds-head {
+  font-size: $TEXT-11;
+  color: $C-NEUTRAL-45;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: $SPACE-8 0 $SPACE-4 0;
+}
+
+/* Settings drawer — repository approvals table + per-row controls. */
+.settings-drawer-approvals-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: $TEXT-12;
+  margin-bottom: $SPACE-12;
+}
+
+.settings-drawer-approvals-table thead th {
+  text-align: left;
+  font-size: $TEXT-10;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: $C-NEUTRAL-45;
+  padding: $SPACE-6 $SPACE-8;
+  border-bottom: 1px solid $C-NEUTRAL-15;
+}
+
+.settings-drawer-approvals-table tbody td {
+  padding: $SPACE-8;
+  border-bottom: 1px solid $C-NEUTRAL-100-A06;
+  vertical-align: top;
+}
+
+.settings-drawer-approvals-table tr.has-drift {
+  background: $C-ORANGE-50-A04;
+}
+
+.settings-drawer-approval-id {
+  font-weight: 600;
+  color: $C-NEUTRAL-96;
+  font-size: $TEXT-13;
+  word-break: break-all;
+}
+
+.settings-drawer-approval-url {
+  font: 11px/1.4 ui-monospace, monospace;
+  color: $C-NEUTRAL-45;
+  margin-top: $SPACE-2;
+  word-break: break-all;
+}
+
+.settings-drawer-approval-drift {
+  margin-top: $SPACE-6;
+  padding: $SPACE-6 $SPACE-8;
+  background: $C-ORANGE-50-A10;
+  border: 1px solid $C-ORANGE-50-A30;
+  border-radius: $RADIUS-4;
+  color: $C-AMBER-77;
+  font-size: $TEXT-11;
+  line-height: 1.5;
+}
+
+.settings-drawer-approval-drift code {
+  background: $C-NEUTRAL-00-A30;
+  padding: $SPACE-1 $SPACE-4;
+  border-radius: $RADIUS-3;
+}
+
+.settings-drawer-approval-toggle {
+  display: inline-flex;
+  cursor: pointer;
+}
+
+.settings-drawer-approval-toggle input[type=checkbox] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 36px;
+  height: 20px;
+  border-radius: $RADIUS-PILL;
+  background: $C-NEUTRAL-15;
+  border: 1px solid $C-NEUTRAL-25;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.18s ease-out, border-color 0.18s ease-out;
+  margin: 0;
+}
+
+.settings-drawer-approval-toggle input[type=checkbox]::before {
+  content: "";
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 16px;
+  height: 16px;
+  border-radius: $RADIUS-CIRCLE;
+  background: $C-NEUTRAL-96;
+  box-shadow: $SHADOW-29;
+  transition: transform 0.18s ease-out;
+}
+
+.settings-drawer-approval-toggle input[type=checkbox]:checked {
+  background: $C-GREEN-52;
+  border-color: $C-GREEN-52;
+}
+
+.settings-drawer-approval-toggle input[type=checkbox]:checked::before {
+  transform: translateX(16px);
+}
+
+.settings-drawer-source {
+  display: inline-block;
+  font-size: $TEXT-10;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: $SPACE-2 $SPACE-6;
+  border-radius: $RADIUS-PILL;
+  background: $C-NEUTRAL-100-A06;
+  color: $C-NEUTRAL-64;
+}
+
+.settings-drawer-source.source-inventory {
+  color: $C-CYAN-78;
+  background: $C-CYAN-60-A10;
+}
+
+.settings-drawer-source.source-checkout {
+  color: $C-GREEN-73;
+  background: $C-GREEN-45-A10;
+}
+
+.settings-drawer-source.source-workspace {
+  color: $C-BLUE-85;
+  background: $C-INDIGO-66-A12;
+}
+
+.settings-drawer-source.source-orphan {
+  color: $C-RED-82;
+  background: $C-RED-60-A12;
+}
+
+.settings-drawer-source.source-env {
+  color: $C-TEAL-69;
+  background: $C-TEAL-43-A10;
+}
+
+.settings-drawer-source.source-kato_settings {
+  color: $C-CYAN-78;
+  background: $C-CYAN-60-A10;
+}
+
+.settings-drawer-source.source-env_file {
+  color: $C-GREEN-73;
+  background: $C-GREEN-45-A10;
+}
+
+.settings-drawer-source.source-unset {
+  color: $C-NEUTRAL-45;
+}
+
+.settings-drawer-input.is-compact {
+  padding: $SPACE-4 $SPACE-8;
+  font-size: $TEXT-12;
+}
+
+.settings-drawer-fields {
+  display: flex;
+  flex-direction: column;
+  gap: $SPACE-10;
+}
+
+.settings-drawer-divider {
+  border-top: 1px solid $C-NEUTRAL-15;
+  margin: $SPACE-14 0;
+}
+
+.settings-drawer-field-label {
+  display: flex;
+  align-items: center;
+  gap: $SPACE-8;
+}
+
+.settings-drawer-field-label code {
+  background: $C-NEUTRAL-100-A06;
+  padding: $SPACE-1 $SPACE-5;
+  border-radius: $RADIUS-3;
+  font-size: $TEXT-11;
+}
+
+.settings-drawer-field-info {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: $RADIUS-CIRCLE;
+  background: $C-NEUTRAL-100-A06;
+  border: 1px solid $C-NEUTRAL-100-A14;
+  color: $C-NEUTRAL-96-A55;
+  font-size: $TEXT-10;
+  font-style: normal;
+  cursor: default;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.settings-drawer-field-info:hover {
+  background: $C-NEUTRAL-100-A14;
+  color: $C-NEUTRAL-96;
+}
+
+/* Portal tooltip for ⓘ icons — rendered at document.body to escape
+ * the .settings-drawer-body overflow:auto clipping boundary. */
+.settings-field-tooltip {
+  position: fixed;
+  transform: translate(-50%, calc(-100% - 10px));
+  background: $C-CYAN-17;
+  color: $C-NEUTRAL-96;
+  font: 13px/1.5 -apple-system, system-ui, sans-serif;
+  font-style: normal;
+  font-weight: 400;
+  padding: $SPACE-7 $SPACE-11;
+  border-radius: $RADIUS-5;
+  white-space: pre-wrap;
+  max-width: 280px;
+  width: max-content;
+  text-align: left;
+  border: 1px solid $C-CYAN-27;
+  box-shadow: $SHADOW-27;
+  z-index: 9999;
+  pointer-events: none;
+}
+
+/* ===== Schema-driven settings panels (General / Claude agent /
+ * Sandbox / Security scanner / Email & Slack / OpenHands / Docker /
+ * AWS). Generic field rows rendered by SchemaSettingsPanel. ===== */
+.settings-drawer-section-warning {
+  margin: 0 0 $SPACE-14 0;
+  padding: $SPACE-10 $SPACE-12;
+  border-radius: $RADIUS-6;
+  background: $C-ORANGE-50-A10;
+  border: 1px solid $C-ORANGE-50-A40;
+  color: $C-AMBER-77;
+  font-size: $TEXT-12;
+  line-height: 1.5;
+}
+
+.settings-drawer-field-name {
+  color: $C-NEUTRAL-90;
+  font-size: $TEXT-12;
+  font-weight: 600;
+}
+
+/* Toggle-row layout: label on the left, switch pushed to the right. */
+.settings-drawer-field.is-toggle-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  column-gap: $SPACE-12;
+}
+
+.settings-drawer-field.is-toggle-row .settings-drawer-field-hint,
+.settings-drawer-field.is-toggle-row .settings-drawer-field-warning,
+.settings-drawer-field.is-toggle-row .settings-drawer-field-danger {
+  grid-column: 1/-1;
+}
+
+/* iOS-style switch for bool fields — matches the Notifications tab. */
+.settings-drawer-toggle {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 38px;
+  height: 22px;
+  border-radius: $RADIUS-PILL;
+  background: $C-NEUTRAL-15;
+  border: 1px solid $C-NEUTRAL-25;
+  position: relative;
+  cursor: pointer;
+  flex-shrink: 0;
+  margin: 0;
+  transition: background 0.16s ease-out, border-color 0.16s ease-out;
+}
+
+.settings-drawer-toggle::before {
+  content: "";
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 18px;
+  height: 18px;
+  border-radius: $RADIUS-CIRCLE;
+  background: $C-NEUTRAL-96;
+  box-shadow: $SHADOW-29;
+  transition: transform 0.16s ease-out;
+}
+
+.settings-drawer-toggle:checked {
+  background: $C-CYAN-52;
+  border-color: $C-CYAN-52;
+}
+
+.settings-drawer-toggle:checked::before {
+  transform: translateX(16px);
+}
+
+/* Danger fields (KATO_CLAUDE_BYPASS_PERMISSIONS et al). */
+.settings-drawer-field.is-danger {
+  border: 1px solid $C-RED-60-A35;
+  border-radius: $RADIUS-6;
+  padding: $SPACE-10 $SPACE-12;
+  background: $C-RED-60-A04;
+}
+
+.settings-drawer-field.is-danger .settings-drawer-toggle:checked {
+  background: $C-RED-51;
+  border-color: $C-RED-51;
+}
+
+.settings-drawer-field-warning {
+  font-size: $TEXT-11;
+  line-height: 1.5;
+  color: $C-ORANGE-56;
+}
+
+.settings-drawer-field-danger {
+  font-size: $TEXT-11;
+  line-height: 1.5;
+  color: $C-RED-82;
+  font-weight: 600;
+}
+
+/* ===== Task-tab hover card (TabTooltip) =========================
+ * Portal-rendered into <body> so .tabs-scroller's overflow:hidden
+ * can't clip it. position:fixed; coords come from JS. Never takes
+ * pointer events — it mirrors the tab's hover, no dismiss logic. */
+.tab-tooltip {
+  position: fixed;
+  z-index: 1200;
+  width: max-content;
+  max-width: 380px;
+  background: $C-NEUTRAL-09;
+  border: 1px solid $C-CYAN-17;
+  border-radius: $RADIUS-10;
+  padding: $SPACE-12 $SPACE-14;
+  box-shadow: $SHADOW-32;
+  color: $C-NEUTRAL-90;
+  font-size: $TEXT-12;
+  line-height: 1.5;
+  pointer-events: none;
+  opacity: 0;
+  animation: kato-tooltip-fade 0.14s ease-out forwards;
+}
+
+.tab-tooltip.is-measuring {
+  /* Off-screen first paint while JS measures height — no flash. */
+  opacity: 0;
+  animation: none;
+}
+
+.tab-tooltip.is-above {
+  transform-origin: bottom left;
+}
+
+.tab-tooltip.is-below {
+  transform-origin: top left;
+}
+
+.tab-tooltip-head {
+  display: flex;
+  align-items: center;
+  gap: $SPACE-8;
+  margin-bottom: $SPACE-6;
+}
+
+.tab-tooltip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: $RADIUS-CIRCLE;
+  flex-shrink: 0;
+  background: $C-NEUTRAL-45;
+}
+
+.tab-tooltip-dot.status-active {
+  background: $C-GREEN-52;
+}
+
+.tab-tooltip-dot.status-working {
+  background: $C-ORANGE-50;
+}
+
+.tab-tooltip-dot.status-attention {
+  background: $C-ORANGE-50;
+}
+
+.tab-tooltip-dot.status-provisioning {
+  background: $C-CYAN-70;
+}
+
+.tab-tooltip-dot.status-review {
+  background: $C-CYAN-70;
+}
+
+.tab-tooltip-dot.status-done {
+  background: $C-GREEN-52;
+}
+
+.tab-tooltip-dot.status-errored,
+.tab-tooltip-dot.status-error {
+  background: $C-RED-60;
+}
+
+.tab-tooltip-id {
+  font-size: $TEXT-13;
+  font-weight: 700;
+  color: $C-NEUTRAL-96;
+  letter-spacing: 0.01em;
+}
+
+.tab-tooltip-badge {
+  margin-left: auto;
+  font-size: $TEXT-10;
+  font-weight: 600;
+  padding: $SPACE-2 $SPACE-7;
+  border-radius: var(--radius-pill);
+  white-space: nowrap;
+  background: $C-NEUTRAL-100-A06;
+  color: $C-NEUTRAL-64;
+}
+
+.tab-tooltip-badge.is-work {
+  background: $C-GREEN-52-A16;
+  color: $C-GREEN-67;
+}
+
+.tab-tooltip-badge.is-idle {
+  background: $C-CYAN-68-A18;
+  color: $C-CYAN-78;
+}
+
+.tab-tooltip-badge.is-sleep {
+  background: $C-CYAN-65-A16;
+  color: $C-NEUTRAL-83;
+}
+
+.tab-tooltip-badge.is-wait {
+  background: $C-ORANGE-50-A18;
+  color: $C-AMBER-65;
+}
+
+.tab-tooltip-summary {
+  margin: 0 0 $SPACE-8 0;
+  color: $C-NEUTRAL-83;
+  /* Wrap, but cap at ~3 lines so a verbose ticket title doesn't
+   * make a giant card. */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.tab-tooltip-rows {
+  margin: 0;
+  padding-top: $SPACE-8;
+  border-top: 1px solid $C-CYAN-17;
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  column-gap: $SPACE-12;
+  row-gap: $SPACE-4;
+}
+
+.tab-tooltip-row {
+  display: contents;
+}
+
+.tab-tooltip-row dt {
+  color: $C-NEUTRAL-45;
+  font-size: $TEXT-10;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding-top: $SPACE-1;
+}
+
+.tab-tooltip-row dd {
+  margin: 0;
+  color: $C-NEUTRAL-90;
+  word-break: break-word;
+}
+
+.tab-tooltip-row dd.tone-warn {
+  color: $C-AMBER-65;
+}
+
+.tab-tooltip-row dd.tone-error {
+  color: $C-RED-82;
+}
+
+:where([class*=badge], [class*=chip], [class*=pill]) {
+  border-radius: var(--radius-pill);
+}

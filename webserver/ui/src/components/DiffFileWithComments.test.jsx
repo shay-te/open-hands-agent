@@ -134,6 +134,39 @@ describe('DiffFileWithComments — collapse / expand integration', () => {
     });
   });
 
+  test('a collapsed file auto-expands when it has an open inline comment', async () => {
+    renderDiff({
+      file: _file(20),
+      initiallyExpanded: false,
+      comments: [{ id: 'c1', line: 3, status: 'open', file_path: 'src/file.py' }],
+    });
+    // The thread can't render while collapsed, so the file reveals itself.
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /collapse diff/i })).toBeInTheDocument();
+    });
+  });
+
+  test('a collapsed file with only resolved comments stays collapsed', () => {
+    renderDiff({
+      file: _file(20),
+      initiallyExpanded: false,
+      comments: [{ id: 'c1', line: 3, status: 'resolved', file_path: 'src/file.py' }],
+    });
+    expect(screen.getByRole('button', { name: /expand diff/i })).toBeInTheDocument();
+  });
+
+  test('after a comment auto-expand, a manual collapse is respected', async () => {
+    const { container } = renderDiff({
+      file: _file(20),
+      initiallyExpanded: false,
+      comments: [{ id: 'c1', line: 3, status: 'open', file_path: 'src/file.py' }],
+    });
+    await screen.findByRole('button', { name: /collapse diff/i });
+    fireEvent.click(container.querySelector('.diff-file-collapse-toggle'));
+    // Ref-guard means it must NOT bounce back open.
+    expect(screen.getByRole('button', { name: /expand diff/i })).toBeInTheDocument();
+  });
+
   test('clicking the toggle collapses an expanded diff', () => {
     const { container } = renderDiff({ file: _file(20), initiallyExpanded: true });
 

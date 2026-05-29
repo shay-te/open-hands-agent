@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && npm run build:css",
+    "build:css": "sass src/styles/app.scss ../static/css/app.css --no-source-map --no-charset --style=expanded",
     "test": "npm run test:node && npm run test:vitest",
     "test:node": "node --test src/*.test.js src/utils/*.test.js src/hooks/*.test.js src/components/*.test.js",
     "test:vitest": "vitest run"
@@ -31,6 +32,7 @@
     "@testing-library/user-event": "^14.6.1",
     "@vitejs/plugin-react": "^4.3.4",
     "jsdom": "^29.1.1",
+    "sass": "^1.100.0",
     "vite": "^5.4.10",
     "vitest": "^4.1.6"
   }

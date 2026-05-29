@@ -3,6 +3,7 @@ from agent_core_lib.agent_core_lib.helpers.text_utils import text_from_mapping
 
 import copy
 import logging
+import time
 from dataclasses import dataclass
 from types import SimpleNamespace
 
@@ -67,6 +68,17 @@ from kato_core_lib.helpers.task_execution_utils import (
 # concurrent push or a workspace state change can still race us — log
 # those one-liners and move on instead of dumping a full stack trace.
 _ON_DEMAND_PUSH_EXPECTED_ERRORS = (RepositoryHasNoChangesError,)
+
+# How long a sent-but-unanswered user message may sit before the
+# session is judged STALLED (alive, but no longer consuming stdin).
+# Must comfortably exceed the normal "message sent, Claude warming
+# up" window: a healthy turn flips ``is_working`` True (events
+# flowing) or returns a ``result`` well inside this window, so only a
+# subprocess that silently stopped reading stdin stays
+# ``user_messages_sent > result_events_received`` past it. Read by
+# ``_task_session_is_stalled``; the classic trigger is a post-restart
+# ``--resume`` respawn that never picks up the piped message.
+_COMMENT_SEND_ACK_GRACE_SECONDS = 60.0
 
 
 @dataclass(frozen=True)
@@ -979,6 +991,23 @@ class AgentService(Service):
         """
         from kato_core_lib.comment_core_lib import KatoCommentStatus
 
+        # Hard invariant: a comment must NEVER be marked addressed while
+        # Claude is still working — it stays on the WORKING badge. A
+        # result can reach this method that does NOT belong to the
+        # in-progress comment's turn: a browser replaying the session
+        # backlog on reconnect, a resumed session's history, or a stale
+        # result still sitting in the buffer while THIS comment's own
+        # turn is in flight (``user_messages_sent > result_events_received``).
+        # Completing then attaches the WRONG turn's answer and flips the
+        # badge to ADDRESSED while the real work is still running (the
+        # "kato replied instantly with an unrelated answer and never did
+        # the work" report). If the session is busy, leave every comment
+        # IN_PROGRESS — the live RESULT for this comment's own turn, or
+        # the scan-loop fallback once the turn truly ends, completes it
+        # with the right answer.
+        if self._task_has_busy_turn(task_id):
+            return []
+
         store = self._comment_store_for(task_id)
         if store is None:
             return []
@@ -1085,6 +1114,21 @@ class AgentService(Service):
             ]
             if not in_progress:
                 continue
+            # A stalled session is alive but no longer consuming stdin
+            # (the classic post-restart ``--resume`` respawn that never
+            # picked up the piped message). ``_task_has_busy_turn``
+            # reports it busy (``sent > received``), which would
+            # otherwise pin the comment IN_PROGRESS forever — the scan
+            # loop's safety net never fires, and the operator sees kato
+            # ignore the comment after a restart. Requeue so the next
+            # drain force-respawns a fresh session for it.
+            if self._task_session_is_stalled(task_id):
+                advanced.extend(
+                    self._requeue_in_progress_comments(
+                        store, task_id, in_progress, reason='session stalled',
+                    )
+                )
+                continue
             # Leave comments alone while the session is mid-turn.
             if self._task_has_busy_turn(task_id):
                 continue
@@ -1126,28 +1170,48 @@ class AgentService(Service):
                 advanced.extend(results)
             else:
                 # Session gone with no terminal event (crash / restart) — requeue.
-                for comment in in_progress:
-                    try:
-                        store.update_kato_status(
-                            comment.id,
-                            kato_status=KatoCommentStatus.QUEUED.value,
-                        )
-                        self.logger.info(
-                            'comment %s on task %s requeued '
-                            '(session gone without terminal event)',
-                            comment.id, task_id,
-                        )
-                        advanced.append({
-                            'task_id': task_id,
-                            'comment_id': comment.id,
-                            'action': 'requeued',
-                        })
-                    except Exception:
-                        self.logger.exception(
-                            'failed to requeue stuck comment %s on task %s',
-                            comment.id, task_id,
-                        )
+                advanced.extend(
+                    self._requeue_in_progress_comments(
+                        store, task_id, in_progress,
+                        reason='session gone without terminal event',
+                    )
+                )
         return advanced
+
+    def _requeue_in_progress_comments(
+        self, store, task_id: str, comments, *, reason: str,
+    ) -> list[dict[str, object]]:
+        """Flip IN_PROGRESS comments back to QUEUED so the next drain redispatches them.
+
+        Shared by ``advance_finished_comment_runs``'s stalled-session
+        and session-gone branches. Best-effort per comment: a failed
+        ``update_kato_status`` is logged and skipped so one bad comment
+        doesn't strand the rest.
+        """
+        from kato_core_lib.comment_core_lib import KatoCommentStatus
+
+        requeued: list[dict[str, object]] = []
+        for comment in comments:
+            try:
+                store.update_kato_status(
+                    comment.id,
+                    kato_status=KatoCommentStatus.QUEUED.value,
+                )
+                self.logger.info(
+                    'comment %s on task %s requeued (%s)',
+                    comment.id, task_id, reason,
+                )
+                requeued.append({
+                    'task_id': task_id,
+                    'comment_id': comment.id,
+                    'action': 'requeued',
+                })
+            except Exception:
+                self.logger.exception(
+                    'failed to requeue stuck comment %s on task %s',
+                    comment.id, task_id,
+                )
+        return requeued
 
     def resolve_task_comment(
         self,
@@ -1577,7 +1641,23 @@ class AgentService(Service):
         if record is None:
             return False
         with self._comment_dispatch_lock_for(task_id):
-            live_turn_busy = self._task_has_busy_turn(task_id)
+            # Strict one-at-a-time: never dispatch a comment while another
+            # is already IN_PROGRESS for this task. The session busy-checks
+            # below can under-report — a respawned/resumed turn does not
+            # always bump ``user_messages_sent`` — which previously let a
+            # SECOND comment dispatch into the SAME turn. ``complete_in_
+            # progress_task_comments`` then stamped that ONE turn's result
+            # onto BOTH comments, so a reply landed on the wrong comment
+            # (the "I added two comments, he replied to the wrong one"
+            # report). The comment store is the authoritative serializer:
+            # comments run strictly one-by-one, steered into the agent like
+            # pending prompts. Fix A keeps the in-flight comment on WORKING
+            # until its turn ends; the stall-requeue keeps it from getting
+            # stuck; the post-turn drain releases the next one.
+            if self._task_has_in_progress_comment(store, exclude_id=comment_id):
+                return False
+            stalled = self._task_session_is_stalled(task_id)
+            live_turn_busy = self._task_has_busy_turn(task_id) and not stalled
             if live_turn_busy:
                 # Stay queued; the queue drain (called from the
                 # ``RESULT`` event handler) picks it up on the next
@@ -1587,7 +1667,13 @@ class AgentService(Service):
                 comment_id, kato_status=KatoCommentStatus.IN_PROGRESS.value,
             )
             try:
-                started = self._run_comment_agent(task_id, record)
+                # A stalled session is alive but not consuming stdin, so
+                # ``send_user_message`` would vanish into the void and the
+                # comment would sit IN_PROGRESS forever. Force a fresh
+                # respawn instead so the comment actually runs.
+                started = self._run_comment_agent(
+                    task_id, record, force_respawn=stalled,
+                )
             except Exception as exc:
                 self.logger.exception(
                     'comment agent run failed for task %s comment %s',
@@ -1613,6 +1699,31 @@ class AgentService(Service):
             'comment %s on task %s dispatched to the agent', comment_id, task_id,
         )
         return True
+
+    @staticmethod
+    def _task_has_in_progress_comment(store, exclude_id: str = '') -> bool:
+        """True when the task already has a comment being worked on.
+
+        The store is the authoritative serializer for comment dispatch:
+        only one comment may be IN_PROGRESS at a time so a single agent
+        turn's result can never be attributed to more than one comment.
+        ``exclude_id`` skips the comment currently being considered so it
+        doesn't block itself. Best-effort: a store read failure reports
+        "not in progress" so a transient error can't wedge the queue.
+        """
+        from kato_core_lib.comment_core_lib import KatoCommentStatus
+
+        try:
+            comments = store.list()
+        except Exception:
+            return False
+        target = str(exclude_id or '')
+        for comment in comments:
+            if str(getattr(comment, 'id', '') or '') == target:
+                continue
+            if getattr(comment, 'kato_status', '') == KatoCommentStatus.IN_PROGRESS.value:
+                return True
+        return False
 
     def _task_has_busy_turn(self, task_id: str) -> bool:
         """True when the live streaming session has any work in flight.
@@ -1650,17 +1761,59 @@ class AgentService(Service):
         received = int(getattr(session, 'result_events_received', 0) or 0)
         return sent > received
 
-    def _run_comment_agent(self, task_id: str, record) -> bool:
+    def _task_session_is_stalled(self, task_id: str) -> bool:
+        """True when the task's session is alive but no longer processing input.
+
+        A stalled session has a sent user message that never produced a
+        ``result`` (``user_messages_sent > result_events_received``),
+        is NOT actively mid-turn (``is_working`` is False), and the last
+        send was longer ago than ``_COMMENT_SEND_ACK_GRACE_SECONDS``.
+        That combination means the subprocess is alive but its turn loop
+        has ended — writing another ``send_user_message`` would vanish
+        into the void. ``_task_has_busy_turn`` reports such a session as
+        busy (``sent > received``), which is what kept queued comments
+        ``pending`` forever; dispatch uses this to age that gap out and
+        force a fresh respawn instead. Deliberately conservative: an
+        unknown last-send time (``0``) is NOT treated as stalled.
+        """
+        if self._session_manager is None:
+            return False
+        try:
+            session = self._session_manager.get_session(task_id)
+        except Exception:
+            return False
+        if session is None or not getattr(session, 'is_alive', False):
+            return False
+        if bool(getattr(session, 'is_working', False)):
+            return False
+        sent = int(getattr(session, 'user_messages_sent', 0) or 0)
+        received = int(getattr(session, 'result_events_received', 0) or 0)
+        if sent <= received:
+            return False
+        last_sent = float(
+            getattr(session, 'last_user_message_sent_epoch', 0.0) or 0.0,
+        )
+        if last_sent <= 0:
+            return False
+        return (time.time() - last_sent) >= _COMMENT_SEND_ACK_GRACE_SECONDS
+
+    def _run_comment_agent(
+        self, task_id: str, record, force_respawn: bool = False,
+    ) -> bool:
         """Hand the comment off to the streaming session as a user message.
 
-        Minimal first cut: append a short prompt to the live chat
-        session if one exists; if not, leave the comment QUEUED
-        and let the operator open the chat tab to drive the fix.
-        A fuller integration (auto-spawn a review-fix runner
-        keyed off this comment) is a follow-up — for now the
-        operator workflow is "comment lands → kato types it into
-        the chat → agent works on it" which is a recognisable
-        kato pattern.
+        Sends the prompt into the live chat session when one exists and
+        is healthy; otherwise (no session, dead session, or — when
+        ``force_respawn`` is set — a stalled session that won't consume
+        stdin) respawns Claude so the comment actually runs. The
+        operator workflow is "comment lands → kato works on it".
+
+        ``force_respawn`` is set by the dispatcher when the alive
+        session is stalled: we terminate the dead-but-alive subprocess
+        first so the session manager spawns a genuinely fresh one
+        (``start_session`` returns the existing session untouched while
+        it is still ``is_alive``), preserving the ``--resume`` id on the
+        record so conversation history carries over.
         """
         prompt = self._comment_agent_prompt(record)
         if self._session_manager is None:
@@ -1668,11 +1821,38 @@ class AgentService(Service):
         session = self._session_manager.get_session(task_id)
         if session is None or not getattr(session, 'is_alive', False):
             return self._spawn_comment_agent(task_id, record, prompt)
+        if force_respawn:
+            self._terminate_stalled_session(task_id)
+            return self._spawn_comment_agent(task_id, record, prompt)
         send = getattr(session, 'send_user_message', None)
         if not callable(send):
             return False
         send(prompt)
         return True
+
+    def _terminate_stalled_session(self, task_id: str) -> None:
+        """Kill a stalled-but-alive subprocess so a fresh one can spawn.
+
+        Keeps the session RECORD (``remove_record=False``) so the
+        respawn can still ``--resume`` the prior conversation id.
+        Best-effort: a failure here just means the respawn may reuse the
+        stalled session, which is no worse than before.
+        """
+        if self._session_manager is None:
+            return
+        terminate = getattr(self._session_manager, 'terminate_session', None)
+        if not callable(terminate):
+            return
+        try:
+            terminate(task_id, remove_record=False)
+            self.logger.info(
+                'terminated stalled session for task %s before respawn',
+                task_id,
+            )
+        except Exception:
+            self.logger.exception(
+                'failed to terminate stalled session for task %s', task_id,
+            )
 
     def _spawn_comment_agent(self, task_id: str, record, prompt: str) -> bool:
         """Respawn Claude for a queued local diff comment when no subprocess is alive."""

@@ -1,6 +1,6 @@
 import { useEffect, useReducer, useRef, useState } from 'react';
 import { AGENT_SESSION_ID } from '../constants/sessionFields.js';
-import { CLAUDE_EVENT } from '../constants/claudeEvent.js';
+import { CLAUDE_EVENT, CLAUDE_SYSTEM_SUBTYPE } from '../constants/claudeEvent.js';
 import { ENTRY_SOURCE } from '../constants/entrySource.js';
 import { safeParseJSON } from '../utils/sse.js';
 
@@ -203,6 +203,25 @@ function reduceIncomingEvent(state, raw, receivedAtEpoch) {
   const next = appended === state ? { ...state } : appended;
   next.lastEventAt = Date.now();
   switch (raw?.type) {
+    case CLAUDE_EVENT.SYSTEM:
+      // A fresh ``system/init`` is the EARLIEST wire signal that a turn
+      // has begun: autonomous task prompts are written to Claude's
+      // stdin (never echoed back as a ``user`` event) and partial
+      // ``stream_event`` deltas are disabled, so the only thing that
+      // precedes the first ``assistant`` event is ``init``. Flipping
+      // "working" here means the status pill stops lagging behind the
+      // "Claude session started" bubble — previously it sat on "idle"
+      // for the multi-second window while Claude read context before
+      // its first reply. A crash before ``result`` is still cleared by
+      // the CLOSED/IDLE/MISSING lifecycle reset above; an idle session
+      // reconnect replays its trailing ``result`` (backlog flows
+      // through this same live path) and settles back to idle. Only
+      // INIT counts — PREFLIGHT (workspace cloning) is masked by the
+      // PROVISIONING status anyway.
+      if (raw.subtype === CLAUDE_SYSTEM_SUBTYPE.INIT) {
+        next.turnInFlight = true;
+      }
+      break;
     case CLAUDE_EVENT.ASSISTANT:
       next.turnInFlight = true;
       break;

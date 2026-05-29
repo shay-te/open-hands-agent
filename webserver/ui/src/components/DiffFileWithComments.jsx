@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Icon from './Icon.jsx';
 import {
   Decoration,
@@ -197,6 +197,35 @@ export default function DiffFileWithComments({
     }
     return out.sort((a, b) => a - b);
   }, [commentsByLine]);
+
+  // Never let auto-collapse bury a comment. A file can start collapsed
+  // (the big-file perf rule) while carrying an open inline thread — and
+  // a collapsed file renders NO inline comments at all (``widgets`` is
+  // skipped, ``diffBody`` is null). Expand it once so the thread is on
+  // screen, then let the new-side auto-reveal below pull the exact line
+  // out of any collapsed gap. Ref-guarded + reset per file so a
+  // deliberate manual collapse afterward sticks; we only force the
+  // FIRST reveal. Resolved-only files are left collapsed (nothing to
+  // surface). Old-side and truly-orphaned threads are handled by the
+  // comments panel / reveal logic, not here.
+  const autoExpandedForCommentsRef = useRef(false);
+  useEffect(() => {
+    autoExpandedForCommentsRef.current = false;
+  }, [path, repoId, taskId]);
+  useEffect(() => {
+    if (autoExpandedForCommentsRef.current || expanded) { return; }
+    let hasOpenInline = false;
+    for (const lineComments of commentsByLine.values()) {
+      if (lineComments.some((c) => c.status !== 'resolved')) {
+        hasOpenInline = true;
+        break;
+      }
+    }
+    if (hasOpenInline) {
+      autoExpandedForCommentsRef.current = true;
+      setExpanded(true);
+    }
+  }, [commentsByLine, expanded]);
 
   async function onSubmit(line, body, parentId = '') {
     const trimmed = String(body || '').trim();

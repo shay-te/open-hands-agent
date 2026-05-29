@@ -315,8 +315,8 @@ describe('buildFilesCommentMeta', () => {
       { id: 'c4', repo_id: 'client', file_path: '', parent_id: '' },
     ]);
     const client = meta.get('client');
-    expect(client.get('src/a.js')).toBe(2);
-    expect(client.get('src/b.js')).toBe(1);
+    expect(client.get('src/a.js').count).toBe(2);
+    expect(client.get('src/b.js').count).toBe(1);
     expect(client.has('')).toBe(false);
   });
 
@@ -324,7 +324,7 @@ describe('buildFilesCommentMeta', () => {
     const meta = buildFilesCommentMeta([
       { id: 'c1', file_path: 'app.py', parent_id: '' },
     ]);
-    expect(meta.get('').get('app.py')).toBe(1);
+    expect(meta.get('').get('app.py').count).toBe(1);
   });
 
   test('empty / nullish input → empty map', () => {
@@ -338,7 +338,7 @@ describe('buildFilesCommentMeta', () => {
       { id: 'c1', repo_id: 'r', file_path: 'src/a.js', parent_id: '', status: 'open' },
       { id: 'c2', repo_id: 'r', file_path: 'src/a.js', parent_id: '', status: 'resolved' },
     ]);
-    expect(meta.get('r').get('src/a.js')).toBe(1);
+    expect(meta.get('r').get('src/a.js').count).toBe(1);
   });
 
   test('kato_status=addressed threads still show a tree badge until user-resolved', () => {
@@ -346,7 +346,7 @@ describe('buildFilesCommentMeta', () => {
       { id: 'c1', repo_id: 'r', file_path: 'src/b.js', parent_id: '', kato_status: 'queued' },
       { id: 'c2', repo_id: 'r', file_path: 'src/b.js', parent_id: '', kato_status: 'addressed' },
     ]);
-    expect(meta.get('r').get('src/b.js')).toBe(2);
+    expect(meta.get('r').get('src/b.js').count).toBe(2);
   });
 
   test('queued and working kato comments are counted in the tree badge', () => {
@@ -354,7 +354,7 @@ describe('buildFilesCommentMeta', () => {
       { id: 'c1', repo_id: 'r', file_path: 'src/b.js', parent_id: '', kato_status: 'queued' },
       { id: 'c2', repo_id: 'r', file_path: 'src/b.js', parent_id: '', kato_status: 'working' },
     ]);
-    expect(meta.get('r').get('src/b.js')).toBe(2);
+    expect(meta.get('r').get('src/b.js').count).toBe(2);
   });
 
   test('file with only user-resolved threads shows no badge', () => {
@@ -362,6 +362,32 @@ describe('buildFilesCommentMeta', () => {
       { id: 'c1', repo_id: 'r', file_path: 'src/c.js', parent_id: '', status: 'resolved' },
     ]);
     expect(meta.get('r')?.has('src/c.js')).toBeFalsy();
+  });
+
+  test('badge status follows a single thread kato_status', () => {
+    const meta = buildFilesCommentMeta([
+      { id: 'c1', repo_id: 'r', file_path: 'src/a.js', parent_id: '', kato_status: 'in_progress' },
+    ]);
+    expect(meta.get('r').get('src/a.js').status).toBe('in_progress');
+  });
+
+  test('badge status is the most-urgent across threads (failed > queued > addressed)', () => {
+    const meta = buildFilesCommentMeta([
+      { id: 'c1', repo_id: 'r', file_path: 'src/a.js', parent_id: '', kato_status: 'addressed' },
+      { id: 'c2', repo_id: 'r', file_path: 'src/a.js', parent_id: '', kato_status: 'failed' },
+      { id: 'c3', repo_id: 'r', file_path: 'src/a.js', parent_id: '', kato_status: 'queued' },
+    ]);
+    const entry = meta.get('r').get('src/a.js');
+    expect(entry.count).toBe(3);
+    expect(entry.status).toBe('failed');
+  });
+
+  test('unknown / idle kato_status leaves the badge status blank (neutral)', () => {
+    const meta = buildFilesCommentMeta([
+      { id: 'c1', repo_id: 'r', file_path: 'src/a.js', parent_id: '', kato_status: 'idle' },
+      { id: 'c2', repo_id: 'r', file_path: 'src/a.js', parent_id: '' },
+    ]);
+    expect(meta.get('r').get('src/a.js').status).toBe('');
   });
 });
 
@@ -491,8 +517,35 @@ describe('FilesTab — render shell', () => {
     expect(await screen.findByText('Lines updated')).toBeInTheDocument();
     // 2 root threads on src/Changed.js (reply excluded).
     await waitFor(() => {
-      expect(screen.getByLabelText('2 comments')).toBeInTheDocument();
+      expect(screen.getByLabelText('Jump to 2 comments')).toBeInTheDocument();
     });
+  });
+
+  test('clicking the comment badge opens the diff and focuses the comment', async () => {
+    fetchFileTree.mockResolvedValue(FILE_TREE_PAYLOAD);
+    fetchDiff.mockResolvedValue(DIFF_PAYLOAD);
+    fetchTaskComments.mockResolvedValue({
+      ok: true,
+      body: {
+        comments: [
+          { id: 'c1', repo_id: 'client', file_path: 'src/Changed.js',
+            parent_id: '', kato_status: 'queued' },
+        ],
+      },
+    });
+    const onOpenFile = vi.fn();
+    render(<FilesTab taskId="T1" onOpenFile={onOpenFile} />);
+    const badge = await screen.findByLabelText('Jump to 1 comment');
+    fireEvent.click(badge);
+    // ``focusComment`` tells DiffPane to scroll to the thread, not just
+    // the file; ``view: 'diff'`` is where comments are shown.
+    expect(onOpenFile).toHaveBeenCalledWith(
+      expect.objectContaining({
+        relativePath: 'src/Changed.js',
+        view: 'diff',
+        focusComment: true,
+      }),
+    );
   });
 
   test('right-clicking a changed file copies repo-prefixed path', async () => {

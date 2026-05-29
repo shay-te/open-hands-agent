@@ -2673,14 +2673,20 @@ def _replay_history_from_disk(agent_session_id: str):
 def _replay_session_backlog(session, agent_service=None, task_id=''):
     """Catch a freshly-connecting browser up on everything seen so far.
 
-    Also calls ``_advance_task_comments_after_result`` for any RESULT events
-    in the backlog so that a reconnecting browser doesn't leave comment badges
-    stuck on WORKING when Claude finished while no SSE subscriber was watching.
+    UI catch-up ONLY — it must NOT drive comment completion. Replaying
+    the backlog re-walks OLD ``result`` events (and a resumed session's
+    history carries the prior turn's result too); feeding those into
+    ``_advance_task_comments_after_result`` attributed a stale, unrelated
+    answer to whatever comment was currently IN_PROGRESS and flipped its
+    badge to ADDRESSED mid-work. Comment completion is driven only by
+    LIVE results (``_follow_live_session``) and the server-side scan-loop
+    fallback (``advance_finished_comment_runs``), both of which run while
+    the session is idle and attach the comment's OWN result. ``agent_service``
+    / ``task_id`` are accepted for call-site symmetry but intentionally unused.
     """
     backlog = session.recent_events()
     for event in backlog:
         yield _sse_message(SSE_EVENT_SESSION_EVENT, {'event': event.to_dict()})
-        _advance_task_comments_after_result(event, agent_service, task_id)
     return len(backlog)
 
 

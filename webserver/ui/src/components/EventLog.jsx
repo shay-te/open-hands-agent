@@ -26,6 +26,14 @@ export default function EventLog({
   onOpenFile,
   footer = null,
   taskId = null,
+  // Backfill source for the chat's "Claude session started · …"
+  // bubble: the SYSTEM init event sometimes arrives BEFORE Claude
+  // has emitted its session id, leaving the chat showing
+  // "(none yet)" even after the session is up and replying. The
+  // header tracks the resolved id on ``session[AGENT_SESSION_ID]``;
+  // passing it here lets the bubble swap "(none yet)" for the real
+  // short id once known, without rewriting the underlying event.
+  liveAgentSessionId = '',
 }) {
   const containerRef = useRef(null);
   // Sticky-scroll intent. Starts true so the log opens at the
@@ -182,9 +190,9 @@ export default function EventLog({
   const bannerBubble = banner && <Bubble kind={BUBBLE_KIND.SYSTEM}>{banner}</Bubble>;
   const eventBubbles = useMemo(
     () => window.visible.flatMap(
-      (entry, index) => bubblesFor(entry, index, onOpenFile),
+      (entry, index) => bubblesFor(entry, index, onOpenFile, liveAgentSessionId),
     ),
-    [window.visible, onOpenFile],
+    [window.visible, onOpenFile, liveAgentSessionId],
   );
   // Group the flat bubble stream into per-prompt turns. Each turn is a
   // ``StickyPrompt`` followed by every bubble until the next prompt.
@@ -247,7 +255,7 @@ function groupIntoTurns(bubbles) {
   return { preamble, turns };
 }
 
-function bubblesFor(entry, index, onOpenFile) {
+function bubblesFor(entry, index, onOpenFile, liveAgentSessionId = '') {
   if (entry?.source === ENTRY_SOURCE.LOCAL) {
     const text = entry.text || '';
     const count = Number(entry.imageCount || 0);
@@ -272,15 +280,21 @@ function bubblesFor(entry, index, onOpenFile) {
     index,
     entry?.source === ENTRY_SOURCE.HISTORY,
     onOpenFile,
+    liveAgentSessionId,
   );
 }
 
-function serverBubblesFor(raw, index, isHistory = false, onOpenFile) {
+function serverBubblesFor(raw, index, isHistory = false, onOpenFile, liveAgentSessionId = '') {
   if (!raw || !raw.type) { return []; }
   switch (raw.type) {
     case CLAUDE_EVENT.SYSTEM:
       if (raw.subtype === CLAUDE_SYSTEM_SUBTYPE.INIT) {
-        const sid = raw[AGENT_SESSION_ID] || '';
+        // Prefer the id on the event itself; fall back to the live
+        // value tracked by the parent stream when the SYSTEM init
+        // arrived before Claude emitted its session id (without the
+        // fallback the bubble stayed "(none yet)" even after Claude
+        // was clearly answering — operator's report).
+        const sid = raw[AGENT_SESSION_ID] || liveAgentSessionId || '';
         const sidShort = sid ? sid.slice(0, 8) : '(none yet)';
         const sidFull = sid || '(unknown)';
         return [

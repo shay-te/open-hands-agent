@@ -155,6 +155,37 @@ describe('SessionHeader — always prints the Claude session id', () => {
     );
     expect(container.querySelector('#session-claude-id')).not.toBeInTheDocument();
   });
+
+  test('also rendered adjacent to the Claude: <status> chip on the right', () => {
+    // Operators reported losing track of which Claude conversation
+    // was working — the only id badge lived on the LEFT next to the
+    // task id, which scrolls out of view on narrow widths. A second
+    // copy lives next to the right-side ``Claude: <status>`` chip
+    // so the id is visible from either side of the header.
+    const { container } = render(
+      <SessionHeader
+        session={_session({ [AGENT_SESSION_ID]: 'abcdef12-3456-7890-abcd-ef1234567890' })}
+        streamLifecycle={SESSION_LIFECYCLE.STREAMING}
+      />,
+    );
+    const aside = container.querySelector(
+      '.session-header-actions .claude-session-id.is-aside-status',
+    );
+    expect(aside).toBeInTheDocument();
+    expect(aside).toHaveTextContent('sid:abcdef12…');
+  });
+
+  test('right-side badge omitted when there is no session id yet', () => {
+    const { container } = render(
+      <SessionHeader
+        session={_session({ [AGENT_SESSION_ID]: '' })}
+        streamLifecycle={SESSION_LIFECYCLE.CONNECTING}
+      />,
+    );
+    expect(
+      container.querySelector('.is-aside-status'),
+    ).not.toBeInTheDocument();
+  });
 });
 
 
