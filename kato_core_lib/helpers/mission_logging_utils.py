@@ -32,3 +32,15 @@ def log_review_comment_start(logger, task_id: str, message: str, *args) -> None:
 
 def log_review_comment_end(logger, task_id: str, message: str, *args) -> None:
     logger.info('%s<< Mission %s: %s%s', _CYAN, task_id, _format_message(message, args), _RESET)
+
+
+class MissionStepLoggerMixin(object):
+    """Provides ``_log_task_step`` for services that own a ``self.logger``.
+
+    Collapses the byte-identical wrappers that forwarded to
+    ``log_mission_step``. Remains an instance method so per-instance
+    patching in tests keeps working.
+    """
+
+    def _log_task_step(self, task_id: str, message: str, *args) -> None:
+        log_mission_step(self.logger, task_id, message, *args)

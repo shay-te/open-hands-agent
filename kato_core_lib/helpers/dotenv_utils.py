@@ -42,16 +42,33 @@ def load_dotenv_into_environ(env_path: Path) -> int:
     except OSError:
         return 0
     added = 0
-    for raw_line in text.splitlines():
-        key, value = _parse_line(raw_line)
-        if key is None or key in os.environ:
+    for key, value in parse_dotenv_text(text).items():
+        if key in os.environ:
             continue
         os.environ[key] = value
         added += 1
     return added
 
 
-def _parse_line(raw_line: str) -> tuple[str | None, str]:
+def parse_dotenv_text(text: str) -> dict[str, str]:
+    """Tokenize ``.env`` ``text`` into a ``{KEY: value}`` dict.
+
+    The single source of truth for kato's ``.env`` parsing. Drops
+    comments, blanks, and malformed lines (no ``=`` / blank key);
+    strips a leading ``export `` so files written for ``source .env``
+    Bash usage parse here; strips one matched pair of surrounding
+    quotes from each value. Later duplicate keys win (last assignment).
+    """
+    values: dict[str, str] = {}
+    for raw_line in text.splitlines():
+        key, value = parse_dotenv_line(raw_line)
+        if key is None:
+            continue
+        values[key] = value
+    return values
+
+
+def parse_dotenv_line(raw_line: str) -> tuple[str | None, str]:
     """Parse one ``.env`` line into ``(key, value)`` or ``(None, '')``.
 
     Drops comments, blank lines, and malformed lines (no ``=``,
@@ -75,3 +92,7 @@ def _parse_line(raw_line: str) -> tuple[str | None, str]:
     if len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
         value = value[1:-1]
     return key, value
+
+
+# Backwards-compatible alias for the historical private name.
+_parse_line = parse_dotenv_line

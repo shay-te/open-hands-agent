@@ -13,6 +13,44 @@ async function fetchJson(url) {
   return response.json();
 }
 
+// Standard envelope: ``{ ok, status, body }`` on a completed request,
+// ``{ ok: false, error }`` when fetch itself throws (network down, etc.).
+async function requestEnvelope(url, init) {
+  try {
+    const response = await fetch(url, init);
+    const body = await response.json().catch(() => ({}));
+    return { ok: response.ok, status: response.status, body };
+  } catch (err) {
+    return { ok: false, error: String(err) };
+  }
+}
+
+// POST/DELETE/etc. helper: adds the JSON content-type header +
+// serialized body, then delegates to requestEnvelope.
+function postEnvelope(url, jsonBody, method = 'POST') {
+  return requestEnvelope(url, {
+    method,
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(jsonBody),
+  });
+}
+
+// "Strict" envelope used by the list/fetch endpoints: ``{ ok: true, body }``
+// on success, ``{ ok: false, status, error }`` on a non-2xx response, and
+// ``{ ok: false, error }`` when fetch throws.
+async function requestEnvelopeStrict(url, init) {
+  try {
+    const response = await fetch(url, init);
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return { ok: false, status: response.status, error: body.error || response.statusText };
+    }
+    return { ok: true, body };
+  } catch (err) {
+    return { ok: false, error: String(err) };
+  }
+}
+
 export function fetchSessionList() {
   return fetchJson('/api/sessions');
 }
@@ -24,133 +62,53 @@ export function fetchSafetyState() {
 // Settings drawer — currently exposes ``repository_root_path`` only.
 // The shape ``{ ok, body }`` matches what fetchTaskComments returns
 // so the drawer doesn't need a special-cased fetch wrapper.
-export async function fetchSettings() {
-  try {
-    const response = await fetch('/api/settings');
-    const body = await response.json().catch(() => ({}));
-    return { ok: response.ok, status: response.status, body };
-  } catch (err) {
-    return { ok: false, error: String(err) };
-  }
+export function fetchSettings() {
+  return requestEnvelope('/api/settings');
 }
 
-export async function updateSettings(payload) {
-  try {
-    const response = await fetch('/api/settings', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(payload || {}),
-    });
-    const body = await response.json().catch(() => ({}));
-    return { ok: response.ok, status: response.status, body };
-  } catch (err) {
-    return { ok: false, error: String(err) };
-  }
+export function updateSettings(payload) {
+  return postEnvelope('/api/settings', payload || {});
 }
 
 // Repository approvals (used to live behind ``./kato approve-repo``).
-export async function fetchRepositoryApprovals() {
-  try {
-    const response = await fetch('/api/repository-approvals');
-    const body = await response.json().catch(() => ({}));
-    return { ok: response.ok, status: response.status, body };
-  } catch (err) {
-    return { ok: false, error: String(err) };
-  }
+export function fetchRepositoryApprovals() {
+  return requestEnvelope('/api/repository-approvals');
 }
 
-export async function updateRepositoryApprovals(payload) {
-  try {
-    const response = await fetch('/api/repository-approvals', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(payload || {}),
-    });
-    const body = await response.json().catch(() => ({}));
-    return { ok: response.ok, status: response.status, body };
-  } catch (err) {
-    return { ok: false, error: String(err) };
-  }
+export function updateRepositoryApprovals(payload) {
+  return postEnvelope('/api/repository-approvals', payload || {});
 }
 
 // Task providers — where tickets live + which kato polls
 // (KATO_ISSUE_PLATFORM). Has an active selector.
-export async function fetchTaskProviders() {
-  try {
-    const response = await fetch('/api/task-providers');
-    const body = await response.json().catch(() => ({}));
-    return { ok: response.ok, status: response.status, body };
-  } catch (err) {
-    return { ok: false, error: String(err) };
-  }
+export function fetchTaskProviders() {
+  return requestEnvelope('/api/task-providers');
 }
 
-export async function updateTaskProvider(payload) {
-  try {
-    const response = await fetch('/api/task-providers', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(payload || {}),
-    });
-    const body = await response.json().catch(() => ({}));
-    return { ok: response.ok, status: response.status, body };
-  } catch (err) {
-    return { ok: false, error: String(err) };
-  }
+export function updateTaskProvider(payload) {
+  return postEnvelope('/api/task-providers', payload || {});
 }
 
 // Git hosts — credentials kato uses to clone / push / open PRs.
 // NO active selector (host inferred from repo remote URLs).
-export async function fetchGitProviders() {
-  try {
-    const response = await fetch('/api/git-providers');
-    const body = await response.json().catch(() => ({}));
-    return { ok: response.ok, status: response.status, body };
-  } catch (err) {
-    return { ok: false, error: String(err) };
-  }
+export function fetchGitProviders() {
+  return requestEnvelope('/api/git-providers');
 }
 
-export async function updateGitProvider(payload) {
-  try {
-    const response = await fetch('/api/git-providers', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(payload || {}),
-    });
-    const body = await response.json().catch(() => ({}));
-    return { ok: response.ok, status: response.status, body };
-  } catch (err) {
-    return { ok: false, error: String(err) };
-  }
+export function updateGitProvider(payload) {
+  return postEnvelope('/api/git-providers', payload || {});
 }
 
 // Schema-driven "all settings" tabs (General, Claude agent, Sandbox,
 // Security scanner, Email & Slack, OpenHands, Docker/infra, AWS).
 // One GET returns the whole schema + resolved values; POST writes a
 // {KEY: value} map (server-side whitelisted to the schema).
-export async function fetchAllSettings() {
-  try {
-    const response = await fetch('/api/all-settings');
-    const body = await response.json().catch(() => ({}));
-    return { ok: response.ok, status: response.status, body };
-  } catch (err) {
-    return { ok: false, error: String(err) };
-  }
+export function fetchAllSettings() {
+  return requestEnvelope('/api/all-settings');
 }
 
-export async function updateAllSettings(updates) {
-  try {
-    const response = await fetch('/api/all-settings', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ updates: updates || {} }),
-    });
-    const body = await response.json().catch(() => ({}));
-    return { ok: response.ok, status: response.status, body };
-  } catch (err) {
-    return { ok: false, error: String(err) };
-  }
+export function updateAllSettings(updates) {
+  return postEnvelope('/api/all-settings', { updates: updates || {} });
 }
 
 export function fetchAwaitingPushApproval(taskId) {
@@ -162,18 +120,12 @@ export function fetchAwaitingPushApproval(taskId) {
   );
 }
 
-export async function approveTaskPush(taskId) {
+export function approveTaskPush(taskId) {
   if (!taskId) { return { ok: false, error: 'no task id' }; }
-  try {
-    const response = await fetch(
-      `/api/sessions/${encodeURIComponent(taskId)}/approve-push`,
-      { method: 'POST' },
-    );
-    const body = await response.json().catch(() => ({}));
-    return { ok: response.ok, status: response.status, body };
-  } catch (err) {
-    return { ok: false, error: String(err) };
-  }
+  return requestEnvelope(
+    `/api/sessions/${encodeURIComponent(taskId)}/approve-push`,
+    { method: 'POST' },
+  );
 }
 
 export function fetchTaskPublishState(taskId) {
@@ -187,178 +139,97 @@ export function fetchTaskPublishState(taskId) {
   );
 }
 
-export async function pushTask(taskId) {
+export function pushTask(taskId) {
   if (!taskId) { return { ok: false, error: 'no task id' }; }
-  try {
-    const response = await fetch(
-      `/api/sessions/${encodeURIComponent(taskId)}/push`,
-      { method: 'POST' },
-    );
-    const body = await response.json().catch(() => ({}));
-    return { ok: response.ok, status: response.status, body };
-  } catch (err) {
-    return { ok: false, error: String(err) };
-  }
+  return requestEnvelope(
+    `/api/sessions/${encodeURIComponent(taskId)}/push`,
+    { method: 'POST' },
+  );
 }
 
-export async function pullTask(taskId) {
+export function pullTask(taskId) {
   if (!taskId) { return { ok: false, error: 'no task id' }; }
-  try {
-    const response = await fetch(
-      `/api/sessions/${encodeURIComponent(taskId)}/pull`,
-      { method: 'POST' },
-    );
-    const body = await response.json().catch(() => ({}));
-    return { ok: response.ok, status: response.status, body };
-  } catch (err) {
-    return { ok: false, error: String(err) };
-  }
+  return requestEnvelope(
+    `/api/sessions/${encodeURIComponent(taskId)}/pull`,
+    { method: 'POST' },
+  );
 }
 
 // Fetch + merge each clone's default branch into the task branch.
 // A conflicted merge is a 200 with ``has_conflicts: true`` — the
 // caller surfaces it + tells the chat agent to resolve the markers.
-export async function mergeDefaultBranch(taskId) {
+export function mergeDefaultBranch(taskId) {
   if (!taskId) { return { ok: false, error: 'no task id' }; }
-  try {
-    const response = await fetch(
-      `/api/sessions/${encodeURIComponent(taskId)}/merge-default-branch`,
-      { method: 'POST' },
-    );
-    const body = await response.json().catch(() => ({}));
-    return { ok: response.ok, status: response.status, body };
-  } catch (err) {
-    return { ok: false, error: String(err) };
-  }
+  return requestEnvelope(
+    `/api/sessions/${encodeURIComponent(taskId)}/merge-default-branch`,
+    { method: 'POST' },
+  );
 }
 
-export async function updateTaskSource(taskId) {
+export function updateTaskSource(taskId) {
   if (!taskId) { return { ok: false, error: 'no task id' }; }
-  try {
-    const response = await fetch(
-      `/api/sessions/${encodeURIComponent(taskId)}/update-source`,
-      { method: 'POST' },
-    );
-    const body = await response.json().catch(() => ({}));
-    return { ok: response.ok, status: response.status, body };
-  } catch (err) {
-    return { ok: false, error: String(err) };
-  }
+  return requestEnvelope(
+    `/api/sessions/${encodeURIComponent(taskId)}/update-source`,
+    { method: 'POST' },
+  );
 }
 
 // Diff-tab review comments: list / create / resolve / reopen /
 // delete + sync from the source git platform.
-export async function fetchTaskComments(taskId, repoId = '') {
+export function fetchTaskComments(taskId, repoId = '') {
   if (!taskId) { return { ok: false, error: 'no task id' }; }
   const params = repoId ? `?repo=${encodeURIComponent(repoId)}` : '';
-  try {
-    const response = await fetch(
-      `/api/sessions/${encodeURIComponent(taskId)}/comments${params}`,
-    );
-    const body = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      return { ok: false, status: response.status, error: body.error || response.statusText };
-    }
-    return { ok: true, body };
-  } catch (err) {
-    return { ok: false, error: String(err) };
-  }
+  return requestEnvelopeStrict(
+    `/api/sessions/${encodeURIComponent(taskId)}/comments${params}`,
+  );
 }
 
-export async function createTaskComment(taskId, comment) {
+export function createTaskComment(taskId, comment) {
   if (!taskId) { return { ok: false, error: 'no task id' }; }
-  try {
-    const response = await fetch(
-      `/api/sessions/${encodeURIComponent(taskId)}/comments`,
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(comment || {}),
-      },
-    );
-    const body = await response.json().catch(() => ({}));
-    return { ok: response.ok, status: response.status, body };
-  } catch (err) {
-    return { ok: false, error: String(err) };
-  }
+  return postEnvelope(
+    `/api/sessions/${encodeURIComponent(taskId)}/comments`,
+    comment || {},
+  );
 }
 
-export async function resolveTaskComment(taskId, commentId) {
+export function resolveTaskComment(taskId, commentId) {
   if (!taskId || !commentId) { return { ok: false, error: 'no ids' }; }
-  try {
-    const response = await fetch(
-      `/api/sessions/${encodeURIComponent(taskId)}/comments/${encodeURIComponent(commentId)}/resolve`,
-      { method: 'POST' },
-    );
-    const body = await response.json().catch(() => ({}));
-    return { ok: response.ok, status: response.status, body };
-  } catch (err) {
-    return { ok: false, error: String(err) };
-  }
+  return requestEnvelope(
+    `/api/sessions/${encodeURIComponent(taskId)}/comments/${encodeURIComponent(commentId)}/resolve`,
+    { method: 'POST' },
+  );
 }
 
-export async function markTaskCommentAddressed(taskId, commentId, addressedSha = '') {
+export function markTaskCommentAddressed(taskId, commentId, addressedSha = '') {
   if (!taskId || !commentId) { return { ok: false, error: 'no ids' }; }
-  try {
-    const response = await fetch(
-      `/api/sessions/${encodeURIComponent(taskId)}/comments/${encodeURIComponent(commentId)}/addressed`,
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ addressed_sha: addressedSha }),
-      },
-    );
-    const body = await response.json().catch(() => ({}));
-    return { ok: response.ok, status: response.status, body };
-  } catch (err) {
-    return { ok: false, error: String(err) };
-  }
+  return postEnvelope(
+    `/api/sessions/${encodeURIComponent(taskId)}/comments/${encodeURIComponent(commentId)}/addressed`,
+    { addressed_sha: addressedSha },
+  );
 }
 
-export async function reopenTaskComment(taskId, commentId) {
+export function reopenTaskComment(taskId, commentId) {
   if (!taskId || !commentId) { return { ok: false, error: 'no ids' }; }
-  try {
-    const response = await fetch(
-      `/api/sessions/${encodeURIComponent(taskId)}/comments/${encodeURIComponent(commentId)}/reopen`,
-      { method: 'POST' },
-    );
-    const body = await response.json().catch(() => ({}));
-    return { ok: response.ok, status: response.status, body };
-  } catch (err) {
-    return { ok: false, error: String(err) };
-  }
+  return requestEnvelope(
+    `/api/sessions/${encodeURIComponent(taskId)}/comments/${encodeURIComponent(commentId)}/reopen`,
+    { method: 'POST' },
+  );
 }
 
-export async function deleteTaskComment(taskId, commentId) {
+export function deleteTaskComment(taskId, commentId) {
   if (!taskId || !commentId) { return { ok: false, error: 'no ids' }; }
-  try {
-    const response = await fetch(
-      `/api/sessions/${encodeURIComponent(taskId)}/comments/${encodeURIComponent(commentId)}`,
-      { method: 'DELETE' },
-    );
-    const body = await response.json().catch(() => ({}));
-    return { ok: response.ok, status: response.status, body };
-  } catch (err) {
-    return { ok: false, error: String(err) };
-  }
+  return requestEnvelope(
+    `/api/sessions/${encodeURIComponent(taskId)}/comments/${encodeURIComponent(commentId)}`,
+    { method: 'DELETE' },
+  );
 }
 
-export async function syncTaskComments(taskId, repoId) {
+export function syncTaskComments(taskId, repoId) {
   if (!taskId || !repoId) { return { ok: false, error: 'no ids' }; }
-  try {
-    const response = await fetch(
-      `/api/sessions/${encodeURIComponent(taskId)}/comments/sync`,
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ repo: repoId }),
-      },
-    );
-    const body = await response.json().catch(() => ({}));
-    return { ok: response.ok, status: response.status, body };
-  } catch (err) {
-    return { ok: false, error: String(err) };
-  }
+  return postEnvelope(
+    `/api/sessions/${encodeURIComponent(taskId)}/comments/sync`,
+    { repo: repoId },
+  );
 }
 
 
@@ -403,60 +274,36 @@ export async function fetchAllAssignedTasks({ timeoutMs = 30_000 } = {}) {
 // Adopt an existing assigned task — provision the workspace + clone
 // every repo the task touches. No agent spawn; operator drives that
 // from the chat tab once the workspace lands.
-export async function adoptTask(taskId) {
+export function adoptTask(taskId) {
   if (!taskId) { return { ok: false, error: 'no task id' }; }
-  try {
-    const response = await fetch(
-      `/api/tasks/${encodeURIComponent(taskId)}/adopt`,
-      { method: 'POST' },
-    );
-    const body = await response.json().catch(() => ({}));
-    return { ok: response.ok, status: response.status, body };
-  } catch (err) {
-    return { ok: false, error: String(err) };
-  }
+  return requestEnvelope(
+    `/api/tasks/${encodeURIComponent(taskId)}/adopt`,
+    { method: 'POST' },
+  );
 }
 
 // Recent commits on a repo's task branch (newest first). Drives the
 // Files-tab per-repo "view commit" dropdown. ``limit`` is optional
 // (server caps it at 200); ``repoId`` is required.
-export async function fetchRepoCommits(taskId, repoId, { limit = 50 } = {}) {
+export function fetchRepoCommits(taskId, repoId, { limit = 50 } = {}) {
   if (!taskId) { return { ok: false, error: 'no task id' }; }
   if (!repoId) { return { ok: false, error: 'no repo id' }; }
   const params = new URLSearchParams({ repo: repoId, limit: String(limit) });
-  try {
-    const response = await fetch(
-      `/api/sessions/${encodeURIComponent(taskId)}/commits?${params}`,
-    );
-    const body = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      return { ok: false, status: response.status, error: body.error || response.statusText };
-    }
-    return { ok: true, body };
-  } catch (err) {
-    return { ok: false, error: String(err) };
-  }
+  return requestEnvelopeStrict(
+    `/api/sessions/${encodeURIComponent(taskId)}/commits?${params}`,
+  );
 }
 
 // Unified diff for a single commit on a repo. ``react-diff-view``'s
 // parser eats the same shape ``/diff`` returns.
-export async function fetchRepoCommitDiff(taskId, repoId, sha) {
+export function fetchRepoCommitDiff(taskId, repoId, sha) {
   if (!taskId) { return { ok: false, error: 'no task id' }; }
   if (!repoId) { return { ok: false, error: 'no repo id' }; }
   if (!sha) { return { ok: false, error: 'no sha' }; }
   const params = new URLSearchParams({ repo: repoId, sha });
-  try {
-    const response = await fetch(
-      `/api/sessions/${encodeURIComponent(taskId)}/commit?${params}`,
-    );
-    const body = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      return { ok: false, status: response.status, error: body.error || response.statusText };
-    }
-    return { ok: true, body };
-  } catch (err) {
-    return { ok: false, error: String(err) };
-  }
+  return requestEnvelopeStrict(
+    `/api/sessions/${encodeURIComponent(taskId)}/commit?${params}`,
+  );
 }
 
 
@@ -465,84 +312,50 @@ export async function fetchRepoCommitDiff(taskId, repoId, sha) {
 // disk untouched. The Files-tab sync icon calls this when the
 // operator's added a ``kato:repo:<name>`` tag in YouTrack and wants
 // kato to fetch the new repo without re-running the whole task.
-export async function syncTaskRepositories(taskId) {
+export function syncTaskRepositories(taskId) {
   if (!taskId) { return { ok: false, error: 'no task id' }; }
-  try {
-    const response = await fetch(
-      `/api/sessions/${encodeURIComponent(taskId)}/sync-repositories`,
-      { method: 'POST' },
-    );
-    const body = await response.json().catch(() => ({}));
-    return { ok: response.ok, status: response.status, body };
-  } catch (err) {
-    return { ok: false, error: String(err) };
-  }
+  return requestEnvelope(
+    `/api/sessions/${encodeURIComponent(taskId)}/sync-repositories`,
+    { method: 'POST' },
+  );
 }
 
 // List every repository in kato's inventory (the chooser source for
 // "+ Add repository"). The picker filters out repos already on the
 // task UI-side so the same payload can power other chooser UIs.
 export async function fetchInventoryRepositories() {
-  try {
-    const response = await fetch('/api/repositories');
-    const body = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      return { ok: false, error: body.error || response.statusText };
-    }
-    return { ok: true, body };
-  } catch (err) {
-    return { ok: false, error: String(err) };
-  }
+  const result = await requestEnvelopeStrict('/api/repositories');
+  // This endpoint's error shape omits ``status`` — strip it back off.
+  if (!result.ok) { return { ok: false, error: result.error }; }
+  return result;
 }
 
 // Tag the task with ``kato:repo:<id>`` and clone the repo into the
 // workspace. Atomic from the operator's perspective: one click,
 // one toast, both halves done.
-export async function addTaskRepository(taskId, repositoryId) {
+export function addTaskRepository(taskId, repositoryId) {
   if (!taskId) { return { ok: false, error: 'no task id' }; }
   if (!repositoryId) { return { ok: false, error: 'no repository id' }; }
-  try {
-    const response = await fetch(
-      `/api/sessions/${encodeURIComponent(taskId)}/add-repository`,
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ repository_id: repositoryId }),
-      },
-    );
-    const body = await response.json().catch(() => ({}));
-    return { ok: response.ok, status: response.status, body };
-  } catch (err) {
-    return { ok: false, error: String(err) };
-  }
+  return postEnvelope(
+    `/api/sessions/${encodeURIComponent(taskId)}/add-repository`,
+    { repository_id: repositoryId },
+  );
 }
 
-export async function finishTask(taskId) {
+export function finishTask(taskId) {
   if (!taskId) { return { ok: false, error: 'no task id' }; }
-  try {
-    const response = await fetch(
-      `/api/sessions/${encodeURIComponent(taskId)}/finish`,
-      { method: 'POST' },
-    );
-    const body = await response.json().catch(() => ({}));
-    return { ok: response.ok, status: response.status, body };
-  } catch (err) {
-    return { ok: false, error: String(err) };
-  }
+  return requestEnvelope(
+    `/api/sessions/${encodeURIComponent(taskId)}/finish`,
+    { method: 'POST' },
+  );
 }
 
-export async function createTaskPullRequest(taskId) {
+export function createTaskPullRequest(taskId) {
   if (!taskId) { return { ok: false, error: 'no task id' }; }
-  try {
-    const response = await fetch(
-      `/api/sessions/${encodeURIComponent(taskId)}/pull-request`,
-      { method: 'POST' },
-    );
-    const body = await response.json().catch(() => ({}));
-    return { ok: response.ok, status: response.status, body };
-  } catch (err) {
-    return { ok: false, error: String(err) };
-  }
+  return requestEnvelope(
+    `/api/sessions/${encodeURIComponent(taskId)}/pull-request`,
+    { method: 'POST' },
+  );
 }
 
 export function fetchModels() {
@@ -554,22 +367,12 @@ export function fetchSessionModel(taskId) {
   return fetchJson(`/api/sessions/${encodeURIComponent(taskId)}/model`);
 }
 
-export async function setSessionModel(taskId, modelId) {
+export function setSessionModel(taskId, modelId) {
   if (!taskId) { return { ok: false, error: 'no task id' }; }
-  try {
-    const response = await fetch(
-      `/api/sessions/${encodeURIComponent(taskId)}/model`,
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ model: modelId }),
-      },
-    );
-    const body = await response.json().catch(() => ({}));
-    return { ok: response.ok, status: response.status, body };
-  } catch (err) {
-    return { ok: false, error: String(err) };
-  }
+  return postEnvelope(
+    `/api/sessions/${encodeURIComponent(taskId)}/model`,
+    { model: modelId },
+  );
 }
 
 export function fetchEffortLevels() {
@@ -582,46 +385,24 @@ export function fetchSessionEffort(taskId) {
   return fetchJson(`/api/sessions/${encodeURIComponent(taskId)}/effort`);
 }
 
-export async function setSessionEffort(taskId, effort) {
+export function setSessionEffort(taskId, effort) {
   if (!taskId) { return { ok: false, error: 'no task id' }; }
-  try {
-    const response = await fetch(
-      `/api/sessions/${encodeURIComponent(taskId)}/effort`,
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ effort: effort || '' }),
-      },
-    );
-    const body = await response.json().catch(() => ({}));
-    return { ok: response.ok, status: response.status, body };
-  } catch (err) {
-    return { ok: false, error: String(err) };
-  }
+  return postEnvelope(
+    `/api/sessions/${encodeURIComponent(taskId)}/effort`,
+    { effort: effort || '' },
+  );
 }
 
-export async function triggerScan() {
-  try {
-    const response = await fetch('/api/scan/trigger', { method: 'POST' });
-    const body = await response.json().catch(() => ({}));
-    return { ok: response.ok, status: response.status, body };
-  } catch (err) {
-    return { ok: false, error: String(err) };
-  }
+export function triggerScan() {
+  return requestEnvelope('/api/scan/trigger', { method: 'POST' });
 }
 
-export async function forgetTaskWorkspace(taskId) {
+export function forgetTaskWorkspace(taskId) {
   if (!taskId) { return { ok: false, error: 'no task id' }; }
-  try {
-    const response = await fetch(
-      `/api/sessions/${encodeURIComponent(taskId)}/workspace`,
-      { method: 'DELETE' },
-    );
-    const body = await response.json().catch(() => ({}));
-    return { ok: response.ok, status: response.status, body };
-  } catch (err) {
-    return { ok: false, error: String(err) };
-  }
+  return requestEnvelope(
+    `/api/sessions/${encodeURIComponent(taskId)}/workspace`,
+    { method: 'DELETE' },
+  );
 }
 
 export function fetchFileTree(taskId) {
@@ -671,25 +452,15 @@ export function fetchClaudeSessions(query = '') {
   return fetchJson(`/api/claude/sessions${qs}`);
 }
 
-export async function adoptAgentSession(taskId, agentSessionId) {
+export function adoptAgentSession(taskId, agentSessionId) {
   if (!taskId) { return { ok: false, error: 'no task id' }; }
   if (!agentSessionId) {
     return { ok: false, error: 'no agent session id' };
   }
-  try {
-    const response = await fetch(
-      `/api/sessions/${encodeURIComponent(taskId)}/adopt-agent-session`,
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ [AGENT_SESSION_ID]: agentSessionId }),
-      },
-    );
-    const body = await response.json().catch(() => ({}));
-    return { ok: response.ok, status: response.status, body };
-  } catch (err) {
-    return { ok: false, error: String(err) };
-  }
+  return postEnvelope(
+    `/api/sessions/${encodeURIComponent(taskId)}/adopt-agent-session`,
+    { [AGENT_SESSION_ID]: agentSessionId },
+  );
 }
 
 // Send a chat message with optional image attachments. The endpoint

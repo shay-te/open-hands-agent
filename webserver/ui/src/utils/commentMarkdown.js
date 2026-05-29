@@ -63,6 +63,24 @@ export function tokenizeInline(text) {
 // Block parser → [{ type: 'p'|'code'|'quote'|'ul'|'ol'|'hr'|'h', ... }].
 const HR_RE = /^\s*(?:-{3,}|\*{3,}|_{3,})\s*$/;
 const ATX_HEADING_RE = /^\s*(#{1,6})\s+(.+?)\s*#*\s*$/;
+const QUOTE_RE = /^\s*>\s?/;
+const UL_RE = /^\s*[-*]\s+/;
+const OL_RE = /^\s*\d+\.\s+/;
+
+// True when ``line`` starts a non-paragraph block (fence, HR, heading,
+// quote, UL, or OL). Used both to dispatch in the main loop and to stop
+// paragraph accumulation — keeping the two in lockstep.
+function isBlockBoundary(line) {
+  return (
+    /^```/.test(line.trim())
+    || HR_RE.test(line)
+    || ATX_HEADING_RE.test(line)
+    || QUOTE_RE.test(line)
+    || UL_RE.test(line)
+    || OL_RE.test(line)
+  );
+}
+
 export function parseBlocks(body) {
   const text = String(body || '');
   if (!text.trim()) { return [{ type: 'empty' }]; }
@@ -105,18 +123,18 @@ export function parseBlocks(body) {
       i += 1;
       continue;
     }
-    if (/^\s*>\s?/.test(line)) {
+    if (QUOTE_RE.test(line)) {
       const quote = [];
-      while (i < lines.length && /^\s*>\s?/.test(lines[i])) {
-        quote.push(lines[i].replace(/^\s*>\s?/, '')); i += 1;
+      while (i < lines.length && QUOTE_RE.test(lines[i])) {
+        quote.push(lines[i].replace(QUOTE_RE, '')); i += 1;
       }
       blocks.push({ type: 'quote', value: quote.join(' ') });
       continue;
     }
-    const isUl = /^\s*[-*]\s+/.test(line);
-    const isOl = /^\s*\d+\.\s+/.test(line);
+    const isUl = UL_RE.test(line);
+    const isOl = OL_RE.test(line);
     if (isUl || isOl) {
-      const re = isUl ? /^\s*[-*]\s+/ : /^\s*\d+\.\s+/;
+      const re = isUl ? UL_RE : OL_RE;
       const items = [];
       while (i < lines.length && re.test(lines[i])) {
         items.push(lines[i].replace(re, '')); i += 1;
@@ -128,12 +146,7 @@ export function parseBlocks(body) {
     const para = [];
     while (
       i < lines.length && lines[i].trim()
-      && !/^```/.test(lines[i].trim())
-      && !HR_RE.test(lines[i])
-      && !ATX_HEADING_RE.test(lines[i])
-      && !/^\s*>\s?/.test(lines[i])
-      && !/^\s*[-*]\s+/.test(lines[i])
-      && !/^\s*\d+\.\s+/.test(lines[i])
+      && !isBlockBoundary(lines[i])
     ) {
       para.push(lines[i]); i += 1;
     }

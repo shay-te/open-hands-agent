@@ -35,11 +35,17 @@ def agents_instructions_for_path(
     if not entries:
         return ''
     label = normalized_text(repository_id) or root.name
-    section_lines = [f'Repository {label} at {root}:']
+    return _wrap_agents_sections([_render_repository_section(label, root, entries)])
+
+
+def _render_repository_section(
+    label: str, root: Path, entries: list[tuple[str, str]],
+) -> str:
+    lines = [f'Repository {label} at {root}:']
     for relative_path, content in entries:
-        section_lines.append(f'{relative_path}:')
-        section_lines.append(content)
-    return _wrap_agents_sections(['\n'.join(section_lines)])
+        lines.append(f'{relative_path}:')
+        lines.append(content)
+    return '\n'.join(lines)
 
 
 def _wrap_agents_sections(sections: list[str]) -> str:
@@ -66,11 +72,7 @@ def _repository_section(repository: object) -> str:
     if not entries:
         return ''
     repository_id = normalized_text(text_from_attr(repository, 'id')) or root.name
-    lines = [f'Repository {repository_id} at {root}:']
-    for relative_path, content in entries:
-        lines.append(f'{relative_path}:')
-        lines.append(content)
-    return '\n'.join(lines)
+    return _render_repository_section(repository_id, root, entries)
 
 
 def _agents_entries(root: Path) -> list[tuple[str, str]]:

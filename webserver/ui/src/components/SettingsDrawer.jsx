@@ -6,6 +6,8 @@ import RepositoryApprovalsSettingsPanel from './RepositoryApprovalsSettingsPanel
 import SchemaSettingsPanel from './SchemaSettingsPanel.jsx';
 import TaskProviderSettingsPanel from './TaskProviderSettingsPanel.jsx';
 import { fetchAllSettings } from '../api.js';
+import { useEscapeKey } from '../hooks/useEscapeKey.js';
+import { cx } from '../utils/cx.js';
 
 // Right-side drawer hosting every operator-editable setting under
 // tabs. Five tabs have bespoke logic (provider switchers, the
@@ -61,20 +63,10 @@ export default function SettingsDrawer({
 
   // ESC closes the drawer. Bound only while open so other ESC
   // consumers (chat search, modals) aren't double-fired.
-  useEffect(() => {
-    if (!open) { return undefined; }
-    function onKey(event) {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        onClose();
-      }
-    }
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
+  useEscapeKey(onClose, open);
 
-  const drawerClass = ['settings-drawer', open ? 'is-open' : ''].filter(Boolean).join(' ');
-  const backdropClass = ['settings-drawer-backdrop', open ? 'is-open' : ''].filter(Boolean).join(' ');
+  const drawerClass = cx('settings-drawer', open ? 'is-open' : '');
+  const backdropClass = cx('settings-drawer-backdrop', open ? 'is-open' : '');
 
   let panel;
   if (tab === TAB_REPOS) {

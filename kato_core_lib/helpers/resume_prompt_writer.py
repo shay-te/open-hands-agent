@@ -44,7 +44,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from agent_core_lib.agent_core_lib.helpers.session_id_utils import fix_session_id
-from agent_core_lib.agent_core_lib.helpers.text_utils import text_from_mapping
+from kato_core_lib.helpers.text_utils import text_from_mapping
 from kato_core_lib.helpers.atomic_text_utils import atomic_write_text
 from kato_core_lib.helpers.logging_utils import configure_logger
 RESUME_PROMPT_FILENAME = 'resume_prompt.md'
@@ -268,12 +268,23 @@ def build_inputs_from_session(
     )
 
 
-def _extract_assistant_text(raw: dict) -> str:
-    """Flatten an ``assistant`` event's content blocks into one string."""
+def _message_content(raw: dict):
+    """Return the ``message.content`` value from a Claude event envelope.
+
+    Yields ``None`` when ``raw`` (or its ``message``) isn't a dict — the
+    flatteners treat that as "no text".
+    """
     message = raw.get('message') if isinstance(raw, dict) else None
     if not isinstance(message, dict):
-        return ''
-    content = message.get('content')
+        return None
+    return message.get('content')
+
+
+def _flatten_text_blocks(content) -> str:
+    """Join the ``text`` blocks of a content list into one string.
+
+    Returns ``''`` for anything that isn't a list of blocks.
+    """
     if not isinstance(content, list):
         return ''
     parts: list[str] = []
@@ -285,6 +296,11 @@ def _extract_assistant_text(raw: dict) -> str:
             if text:
                 parts.append(text)
     return '\n\n'.join(parts).strip()
+
+
+def _extract_assistant_text(raw: dict) -> str:
+    """Flatten an ``assistant`` event's content blocks into one string."""
+    return _flatten_text_blocks(_message_content(raw))
 
 
 def _extract_user_text(raw: dict) -> str:
@@ -296,20 +312,7 @@ def _extract_user_text(raw: dict) -> str:
     ``tool_result`` — we ignore those (they're tool plumbing, not
     operator-sent text).
     """
-    message = raw.get('message') if isinstance(raw, dict) else None
-    if not isinstance(message, dict):
-        return ''
-    content = message.get('content')
+    content = _message_content(raw)
     if isinstance(content, str):
         return content.strip()
-    if not isinstance(content, list):
-        return ''
-    parts: list[str] = []
-    for block in content:
-        if not isinstance(block, dict):
-            continue
-        if block.get('type') == 'text':
-            text = text_from_mapping(block, 'text')
-            if text:
-                parts.append(text)
-    return '\n\n'.join(parts).strip()
+    return _flatten_text_blocks(content)

@@ -112,6 +112,17 @@ def git_config_path(repository_path: Path) -> Path | None:
     return git_dir_path / 'config'
 
 
+def _split_remote(remote_url: str) -> tuple[str, str]:
+    """Split an SCP-style git remote (``user@host:path``) into its
+    ``(host, path)`` parts. Returns ``('', '')`` when ``remote_url``
+    is not in SCP form. Groups are returned verbatim (no casing
+    applied) — callers normalise as they require."""
+    match = re.match(r'[^@]+@([^:]+):(.+)', remote_url)
+    if match is None:
+        return '', ''
+    return match.group(1), match.group(2)
+
+
 def parse_git_remote_url(remote_url: str) -> tuple[str, str, str]:
     if not remote_url:
         return '', '', ''
@@ -123,10 +134,10 @@ def parse_git_remote_url(remote_url: str) -> tuple[str, str, str]:
         host = str(parsed.hostname or '').lower()
         path = parsed.path.lstrip('/')
     else:
-        match = re.match(r'[^@]+@([^:]+):(.+)', remote_url)
-        if match is not None:
-            host = match.group(1).lower()
-            path = match.group(2)
+        scp_host, scp_path = _split_remote(remote_url)
+        if scp_host:
+            host = scp_host.lower()
+            path = scp_path
 
     if not host or not path:
         return '', '', ''
@@ -171,10 +182,10 @@ def remote_web_base_url(remote_url: str) -> str:
         port = f':{parsed.port}' if parsed.port else ''
         return f'{scheme}://{parsed.hostname}{port}'
 
-    match = re.match(r'[^@]+@([^:]+):(.+)', remote_url)
-    if match is None:
+    scp_host, _ = _split_remote(remote_url)
+    if not scp_host:
         return ''
-    return f'https://{match.group(1)}'
+    return f'https://{scp_host}'
 
 
 def review_url_for_remote(

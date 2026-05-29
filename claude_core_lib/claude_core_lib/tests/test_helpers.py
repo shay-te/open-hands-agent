@@ -31,15 +31,19 @@ from agent_core_lib.agent_core_lib.helpers.result_utils import (
 )
 from agent_core_lib.agent_core_lib.helpers.architecture_doc_utils import (
     read_architecture_doc,
-    _cache as _arch_cache,
-    _cache_lock as _arch_cache_lock,
 )
 from agent_core_lib.agent_core_lib.helpers.lessons_doc_utils import (
     read_lessons_file,
-    _cache as _lessons_cache,
-    _cache_lock as _lessons_cache_lock,
     _strip_timestamp_header,
 )
+# architecture + lessons docs now share one stat-keyed cache in
+# cached_file_render (keyed by str(path)), so both aliases point at it.
+from agent_core_lib.agent_core_lib.helpers.cached_file_render import (
+    _cache as _arch_cache,
+    _cache_lock as _arch_cache_lock,
+)
+_lessons_cache = _arch_cache
+_lessons_cache_lock = _arch_cache_lock
 from agent_core_lib.agent_core_lib.helpers.agents_instruction_utils import (
     AGENTS_FILE_NAME,
     SKIPPED_DIRECTORIES,

@@ -125,14 +125,27 @@ class WorkspaceDataAccess(DataAccess):
             status=WORKSPACE_STATUS_ERRORED,
         )
 
-    def list_all(self) -> list[WorkspaceRecord]:
-        """Snapshot of every workspace folder under the root."""
-        if not self._root.exists():
-            return []
-        results: list[WorkspaceRecord] = []
-        for entry in sorted(self._root.iterdir()):
+    def _iter_workspace_dirs(self, root: Path):
+        """Yield ``(dir, has_metadata)`` for every immediate
+        subdirectory of ``root``, sorted by name.
+
+        Non-directories are skipped. ``has_metadata`` is ``True`` when
+        the workspace's metadata file is present in the folder. The
+        generator does NOT filter on the flag — callers want opposite
+        subsets (``list_all`` takes all, the orphan scanner takes only
+        those without metadata), so the predicate stays on the caller.
+        """
+        if not root.exists():
+            return
+        for entry in sorted(root.iterdir()):
             if not entry.is_dir():
                 continue
+            yield entry, (entry / self._metadata_filename).is_file()
+
+    def list_all(self) -> list[WorkspaceRecord]:
+        """Snapshot of every workspace folder under the root."""
+        results: list[WorkspaceRecord] = []
+        for entry, _has_metadata in self._iter_workspace_dirs(self._root):
             record = self._read_metadata_at(entry)
             if record is None:
                 from workspace_core_lib.workspace_core_lib.data_layers.data.workspace_record import (

@@ -39,12 +39,6 @@ export function computeToolDetailsRender(lines, expanded) {
   return { visible: lines, overflowed: false };
 }
 
-export function computeToolDetailsToggleLabel(totalLines, expanded) {
-  if (expanded) { return 'Hide full output'; }
-  const hidden = totalLines - TOOL_DETAILS_COLLAPSE_THRESHOLD;
-  return `Show ${hidden} more line${hidden === 1 ? '' : 's'}`;
-}
-
 export function computeEventLogWindow(entries, showAll) {
   if (showAll || entries.length <= EVENT_LOG_WINDOW_SIZE) {
     return { visible: entries, hidden: 0 };

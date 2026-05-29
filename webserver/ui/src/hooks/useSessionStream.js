@@ -186,6 +186,74 @@ export function reducer(state, action) {
   }
 }
 
+// Fold the three permission/result transitions that both the live
+// reducer (``reduceIncomingEvent``) and the history reducer
+// (``reduceIncomingHistory``) share:
+//
+//   * PERMISSION_REQUEST / CONTROL_REQUEST → arm ``pendingPermission``
+//   * RESULT                               → clear ``pendingPermission``
+//   * PERMISSION_RESPONSE                  → conditionally clear it
+//
+// ``next`` is the in-progress next state (mutated in place — both
+// callers already cloned it). ``raw`` is the wire event. ``prevState``
+// is the PRE-mutation state, read for the pending-permission id we are
+// matching against. ``strict`` selects the response-matching policy:
+//
+//   strict=true  (LIVE): clear ONLY on a positive match — both ids
+//     present and equal, OR the pending side has no id at all (legacy
+//     shape we can't verify). A mismatched / empty-id response must
+//     NOT wipe a legitimate pending modal. Reads only ``raw.request_id``.
+//
+//   strict=false (HISTORY): lenient self-heal — clear on empty
+//     respondedId OR empty pendingId OR an exact match. A replayed
+//     history with a missing response id should still settle a stale
+//     pending. Reads ``raw.request_id`` OR the nested
+//     ``raw.request.request_id`` envelope.
+//
+// This carries the documented lazy-resume / wake / pending-permission
+// self-heal behavior — the strict-vs-lenient split is load-bearing.
+// Returns true when the event type was one of the three handled cases
+// (callers don't otherwise need the flag, but it keeps the contract
+// explicit).
+function applyPermissionTransition(next, raw, prevState, { strict }) {
+  switch (raw?.type) {
+    case CLAUDE_EVENT.PERMISSION_REQUEST:
+    case CLAUDE_EVENT.CONTROL_REQUEST:
+      next.pendingPermission = raw;
+      return true;
+    case CLAUDE_EVENT.RESULT:
+      next.pendingPermission = null;
+      return true;
+    case CLAUDE_EVENT.PERMISSION_RESPONSE: {
+      const pendingId = pendingRequestId(prevState.pendingPermission);
+      if (strict) {
+        const respondedId = String(raw.request_id || '');
+        // Only clear pending when we can MATCH the response to it.
+        // Previously we also cleared on empty respondedId — but an
+        // unrelated response (e.g., synthetic event with no id) would
+        // then wipe a legitimate pending modal. Require a positive
+        // match: either both ids present and equal, OR the pending
+        // side has no id at all (legacy shape with no way to verify).
+        if (pendingId && respondedId && respondedId === pendingId) {
+          next.pendingPermission = null;
+        } else if (!pendingId && prevState.pendingPermission) {
+          // Pending exists but has no id — best-effort clear so we
+          // don't deadlock on a malformed legacy event.
+          next.pendingPermission = null;
+        }
+      } else {
+        const respondedId = String(raw.request_id || raw.request?.request_id || '');
+        if (!respondedId || !pendingId || respondedId === pendingId) {
+          next.pendingPermission = null;
+        }
+      }
+      return true;
+    }
+    default:
+      return false;
+  }
+}
+
 function reduceIncomingEvent(state, raw, receivedAtEpoch) {
   const entry = {
     source: ENTRY_SOURCE.SERVER,
@@ -202,6 +270,9 @@ function reduceIncomingEvent(state, raw, receivedAtEpoch) {
   // forces a hydrate that includes a freshly-stamped lastEventAt).
   const next = appended === state ? { ...state } : appended;
   next.lastEventAt = Date.now();
+  // turnInFlight is a LIVE-only concern; keep it inline here. The
+  // shared permission/result clearing is folded into
+  // applyPermissionTransition (strict, positive-match policy).
   switch (raw?.type) {
     case CLAUDE_EVENT.SYSTEM:
       // A fresh ``system/init`` is the EARLIEST wire signal that a turn
@@ -226,32 +297,13 @@ function reduceIncomingEvent(state, raw, receivedAtEpoch) {
       next.turnInFlight = true;
       break;
     case CLAUDE_EVENT.RESULT:
+      // RESULT ends the turn AND clears pending. turnInFlight is live-
+      // only (inline); pendingPermission clearing is shared.
       next.turnInFlight = false;
-      next.pendingPermission = null;
+      applyPermissionTransition(next, raw, state, { strict: true });
       break;
-    case CLAUDE_EVENT.PERMISSION_REQUEST:
-    case CLAUDE_EVENT.CONTROL_REQUEST:
-      next.pendingPermission = raw;
-      break;
-    case CLAUDE_EVENT.PERMISSION_RESPONSE: {
-      // Only clear pending when we can MATCH the response to it.
-      // Previously we also cleared on empty respondedId — but an
-      // unrelated response (e.g., synthetic event with no id) would
-      // then wipe a legitimate pending modal. Require a positive
-      // match: either both ids present and equal, OR the pending
-      // side has no id at all (legacy shape with no way to verify).
-      const respondedId = String(raw.request_id || '');
-      const pendingId = pendingRequestId(state.pendingPermission);
-      if (pendingId && respondedId && respondedId === pendingId) {
-        next.pendingPermission = null;
-      } else if (!pendingId && state.pendingPermission) {
-        // Pending exists but has no id — best-effort clear so we
-        // don't deadlock on a malformed legacy event.
-        next.pendingPermission = null;
-      }
-      break;
-    }
     default:
+      applyPermissionTransition(next, raw, state, { strict: true });
       break;
   }
   return next;
@@ -262,25 +314,10 @@ function reduceIncomingHistory(state, raw) {
   const { state: appended, appended: didAppend } = appendEntryIfNew(state, entry);
   if (!didAppend) { return state; }
   const next = appended;
-  switch (raw?.type) {
-    case CLAUDE_EVENT.PERMISSION_REQUEST:
-    case CLAUDE_EVENT.CONTROL_REQUEST:
-      next.pendingPermission = raw;
-      break;
-    case CLAUDE_EVENT.RESULT:
-      next.pendingPermission = null;
-      break;
-    case CLAUDE_EVENT.PERMISSION_RESPONSE: {
-      const respondedId = String(raw.request_id || raw.request?.request_id || '');
-      const pendingId = pendingRequestId(state.pendingPermission);
-      if (!respondedId || !pendingId || respondedId === pendingId) {
-        next.pendingPermission = null;
-      }
-      break;
-    }
-    default:
-      break;
-  }
+  // History never touches turnInFlight — only the shared
+  // permission/result clearing applies, with the lenient
+  // (clear-on-empty) matching policy.
+  applyPermissionTransition(next, raw, state, { strict: false });
   return next;
 }
 

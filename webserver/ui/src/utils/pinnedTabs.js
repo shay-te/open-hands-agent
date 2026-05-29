@@ -16,7 +16,7 @@
 // ``storage`` arg). Tests pass a Map-backed fake so the logic
 // stays exercisable without jsdom.
 
-import { resolveStorage } from './storage.js';
+import { readStorageString, writeStorageItem } from './storage.js';
 import { parseJsonOr } from './json.js';
 
 export const PINNED_TABS_STORAGE_KEY = 'kato.tabs.pinned';
@@ -26,14 +26,10 @@ export const PINNED_TABS_STORAGE_KEY = 'kato.tabs.pinned';
 // non-string entries (filtered out), and duplicates (dedup, keeping
 // first occurrence). Returns ``[]`` for any failure mode.
 export function readPinnedIds(storage) {
-  const store = storage || resolveStorage();
-  if (!store) { return []; }
-  let raw;
-  try {
-    raw = store.getItem(PINNED_TABS_STORAGE_KEY);
-  } catch {
-    return [];
-  }
+  // Unavailable / throwing storage → null fallback, which is not an
+  // array and falls into the ``[]`` return below — same as the old
+  // explicit no-store / catch returns.
+  const raw = readStorageString(PINNED_TABS_STORAGE_KEY, null, storage);
   const parsed = parseJsonOr(raw, null);
   if (!Array.isArray(parsed)) { return []; }
   const seen = new Set();
@@ -50,8 +46,6 @@ export function readPinnedIds(storage) {
 // Replace the pinned-task-id list. Filters non-strings / blanks /
 // dupes the same way readPinnedIds does so the round-trip is stable.
 export function writePinnedIds(ids, storage) {
-  const store = storage || resolveStorage();
-  if (!store) { return; }
   const seen = new Set();
   const sanitized = [];
   for (const entry of ids || []) {
@@ -60,12 +54,10 @@ export function writePinnedIds(ids, storage) {
     seen.add(id);
     sanitized.push(id);
   }
-  try {
-    store.setItem(PINNED_TABS_STORAGE_KEY, JSON.stringify(sanitized));
-  } catch {
-    // Quota errors / disabled storage — silently no-op. Pinning is
-    // a convenience; losing it is preferable to crashing the strip.
-  }
+  // ``JSON.stringify`` of an array is always a truthy string, so this
+  // always setItem's. Quota / disabled-storage throws are swallowed —
+  // pinning is a convenience; losing it beats crashing the strip.
+  writeStorageItem(PINNED_TABS_STORAGE_KEY, JSON.stringify(sanitized), storage);
 }
 
 export function isPinned(taskId, ids) {

@@ -91,36 +91,8 @@ class AgentClientFactory(object):
         # touches the Claude streaming machinery.
         from claude_core_lib.claude_core_lib.cli_client import ClaudeCliClient
 
-        claude_cfg = getattr(open_cfg, 'claude', None)
-        if claude_cfg is None:
-            raise RuntimeError(
-                'agent_backend=claude requires a claude configuration block; '
-                'rebuild the configuration template'
-            )
-        repository_root_path = str(getattr(open_cfg, 'repository_root_path', '') or '').strip()
-        return ClaudeCliClient(
-            binary=str(getattr(claude_cfg, 'binary', '') or ''),
-            model=str(getattr(claude_cfg, 'model', '') or ''),
-            max_turns=getattr(claude_cfg, 'max_turns', None),
-            effort=str(getattr(claude_cfg, 'effort', '') or ''),
-            allowed_tools=str(getattr(claude_cfg, 'allowed_tools', '') or ''),
-            disallowed_tools=str(getattr(claude_cfg, 'disallowed_tools', '') or ''),
-            bypass_permissions=bool(getattr(claude_cfg, 'bypass_permissions', False)),
-            docker_mode_on=self._docker_mode_on,
-            read_only_tools_on=self._read_only_tools_on,
-            timeout_seconds=int(getattr(claude_cfg, 'timeout_seconds', 1800) or 1800),
-            max_retries=self._max_retries,
-            repository_root_path=repository_root_path,
-            model_smoke_test_enabled=(
-                not self._testing
-                and bool(getattr(claude_cfg, 'model_smoke_test_enabled', False))
-            ),
-            architecture_doc_path=str(
-                getattr(claude_cfg, 'architecture_doc_path', '') or ''
-            ),
-            lessons_path=str(
-                getattr(claude_cfg, 'lessons_path', '') or ''
-            ),
+        return self._build_cli_agent(
+            open_cfg, config_key='claude', client_cls=ClaudeCliClient,
         )
 
     def _build_codex(self, open_cfg: Any) -> AgentProvider:
@@ -128,35 +100,42 @@ class AgentClientFactory(object):
         # never touches the Codex module tree.
         from codex_core_lib.codex_core_lib.cli_client import CodexCliClient
 
-        codex_cfg = getattr(open_cfg, 'codex', None)
-        if codex_cfg is None:
+        return self._build_cli_agent(
+            open_cfg, config_key='codex', client_cls=CodexCliClient,
+        )
+
+    def _build_cli_agent(
+        self, open_cfg: Any, *, config_key: str, client_cls,
+    ) -> AgentProvider:
+        cli_cfg = getattr(open_cfg, config_key, None)
+        if cli_cfg is None:
             raise RuntimeError(
-                'agent_backend=codex requires a codex configuration block; '
+                f'agent_backend={config_key} requires a {config_key} configuration block; '
                 'rebuild the configuration template'
             )
         repository_root_path = str(getattr(open_cfg, 'repository_root_path', '') or '').strip()
-        return CodexCliClient(
-            binary=str(getattr(codex_cfg, 'binary', '') or ''),
-            model=str(getattr(codex_cfg, 'model', '') or ''),
-            max_turns=getattr(codex_cfg, 'max_turns', None),
-            effort=str(getattr(codex_cfg, 'effort', '') or ''),
-            allowed_tools=str(getattr(codex_cfg, 'allowed_tools', '') or ''),
-            disallowed_tools=str(getattr(codex_cfg, 'disallowed_tools', '') or ''),
-            bypass_permissions=bool(getattr(codex_cfg, 'bypass_permissions', False)),
+        return client_cls(
+            binary=str(getattr(cli_cfg, 'binary', '') or ''),
+            model=str(getattr(cli_cfg, 'model', '') or ''),
+            max_turns=getattr(cli_cfg, 'max_turns', None),
+            effort=str(getattr(cli_cfg, 'effort', '') or ''),
+            allowed_tools=str(getattr(cli_cfg, 'allowed_tools', '') or ''),
+            disallowed_tools=str(getattr(cli_cfg, 'disallowed_tools', '') or ''),
+            bypass_permissions=bool(getattr(cli_cfg, 'bypass_permissions', False)),
             docker_mode_on=self._docker_mode_on,
             read_only_tools_on=self._read_only_tools_on,
-            timeout_seconds=int(getattr(codex_cfg, 'timeout_seconds', 1800) or 1800),
+            timeout_seconds=int(getattr(cli_cfg, 'timeout_seconds', 1800) or 1800),
             max_retries=self._max_retries,
             repository_root_path=repository_root_path,
             model_smoke_test_enabled=(
                 not self._testing
-                and bool(getattr(codex_cfg, 'model_smoke_test_enabled', False))
+                and bool(getattr(cli_cfg, 'model_smoke_test_enabled', False))
             ),
             architecture_doc_path=str(
-                getattr(codex_cfg, 'architecture_doc_path', '') or ''
+                getattr(cli_cfg, 'architecture_doc_path', '') or ''
             ),
             lessons_path=str(
-                getattr(codex_cfg, 'lessons_path', '') or ''
+                getattr(cli_cfg, 'lessons_path', '') or ''
             ),
         )
 

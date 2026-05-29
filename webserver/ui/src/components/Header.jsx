@@ -1,4 +1,5 @@
 import Icon from './Icon.jsx';
+import { cx } from '../utils/cx.js';
 
 /**
  * Top app bar. Carries:
@@ -29,13 +30,13 @@ export default function Header({
     ? 'is-error'
     : (level === 'WARNING' || level === 'WARN' ? 'is-warn' : '');
   const statusClickable = typeof onStatusClick === 'function';
-  const statusClassName = [
+  const statusClassName = cx(
     'header-status',
     statusKind,
     statusStale ? 'is-stale' : '',
     statusClickable ? 'is-clickable' : '',
     statusActive ? 'is-active' : '',
-  ].filter(Boolean).join(' ');
+  );
 
   let statusText;
   if (statusLatest?.message) {

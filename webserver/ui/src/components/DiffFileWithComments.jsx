@@ -31,6 +31,7 @@ import { diffDisplayPath } from '../diffModel.js';
 import { copyTextToClipboard } from '../utils/clipboard.js';
 import { apiErrorMessage } from '../utils/apiError.js';
 import { commentDraftKey } from '../utils/composerDraft.js';
+import { buildChatFragmentFromSelection } from '../utils/diffSelectionPrompt.js';
 import { tokenizeHunks } from '../utils/diffSyntax.js';
 import {
   CommentForm,
@@ -46,14 +47,7 @@ import {
   splitSourceLines,
 } from './DiffExpansionHelpers.js';
 import { isLargeFile } from './diffFileSize.js';
-
-const DIFF_KIND_ICON = {
-  add: 'plus',
-  delete: 'minus',
-  modify: 'edit',
-  rename: 'edit',
-  copy: 'edit',
-};
+import DiffKindIcon from './DiffKindIcon.jsx';
 
 // Default ``initiallyExpanded`` resolver: per-file rule only (no
 // awareness of sibling files). The parent ``ChangesTab`` overrides
@@ -80,15 +74,6 @@ function renderPathSegments(path) {
       </span>
     );
   });
-}
-
-function DiffHeaderKindIcon({ kind }) {
-  const iconName = DIFF_KIND_ICON[kind] || 'edit';
-  return (
-    <span className={`diff-file-row-kind kind-${kind || 'modify'}`}>
-      <Icon name={iconName} />
-    </span>
-  );
 }
 
 // One <Diff> + per-line comment threads + file-level thread, all
@@ -821,7 +806,7 @@ export default function DiffFileWithComments({
     >
       <StickyHeader as="header" className="diff-file-header">
         {collapseToggle}
-        <DiffHeaderKindIcon kind={file.type} />
+        <DiffKindIcon kind={file.type} />
         {conflictedBadge}
         {focusPathButton}
       </StickyHeader>
@@ -839,27 +824,6 @@ export default function DiffFileWithComments({
   );
 }
 
-
-// Lift the diff-selection chat fragment helper inline so the
-// component can consume it without an extra import — kept narrow
-// to avoid pulling the full ChangesTab dependency graph.
-function buildChatFragmentFromSelection(path, repoId) {
-  if (typeof window === 'undefined' || !window.getSelection) { return ''; }
-  const safePath = String(path || '').trim();
-  if (!safePath) { return ''; }
-  const repoPrefix = repoId ? `${repoId}:` : '';
-  const text = String(window.getSelection().toString() || '').trim();
-  if (!text) { return `\`${repoPrefix}${safePath}\``; }
-  const truncated = text.length > 8 * 1024
-    ? `${text.slice(0, 8 * 1024)}\n… (selection truncated)`
-    : text;
-  return (
-    `In \`${repoPrefix}${safePath}\` the following diff lines:\n`
-    + '```\n'
-    + truncated
-    + '\n```'
-  );
-}
 
 function formatRepoRelativePath(repoId, relativePath) {
   const repo = String(repoId || '').trim();

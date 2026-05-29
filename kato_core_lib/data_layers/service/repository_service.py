@@ -364,6 +364,32 @@ class RepositoryService(GitClientMixin, RepositoryInventoryService):
             title_prefix=title_prefix,
         )
 
+    def _resolve_branch_state(self, repository, normalized_branch: str):
+        """Shared preamble for the branch gates: validate + read HEAD.
+
+        Returns ``(local_path, current_branch)`` once the workspace clone
+        is locatable and its HEAD branch is readable, or ``None`` on any
+        failure (empty path/branch, missing ``.git``, or a ``_current_branch``
+        error). Callers map ``None`` to their own on-failure default —
+        ``branch_needs_push`` to ``False`` (don't promise a push), and
+        ``workspace_has_task_changes`` to ``True`` (fall through to the
+        update path). They also keep their own ``current_branch !=
+        normalized_branch`` handling and divergent tails.
+        """
+        local_path = str(getattr(repository, 'local_path', '') or '').strip()
+        if not local_path or not normalized_branch:
+            return None
+        try:
+            if not (Path(local_path) / '.git').is_dir():
+                return None
+        except OSError:
+            return None
+        try:
+            current_branch = self._current_branch(local_path)
+        except Exception:
+            return None
+        return local_path, current_branch
+
     def branch_needs_push(self, repository, branch_name: str) -> bool:
         """True when ``Push`` would actually publish something.
 
@@ -385,19 +411,11 @@ class RepositoryService(GitClientMixin, RepositoryInventoryService):
         Best-effort: any git failure returns ``False`` so the button
         stays disabled rather than promising a push that won't work.
         """
-        local_path = str(getattr(repository, 'local_path', '') or '').strip()
         normalized_branch = (branch_name or '').strip()
-        if not local_path or not normalized_branch:
+        state = self._resolve_branch_state(repository, normalized_branch)
+        if state is None:
             return False
-        try:
-            if not (Path(local_path) / '.git').is_dir():
-                return False
-        except OSError:
-            return False
-        try:
-            current_branch = self._current_branch(local_path)
-        except Exception:
-            return False
+        local_path, current_branch = state
         # Precondition 1 — publish_review_fix asserts the workspace is
         # checked out on the task branch. If it isn't (e.g. workspace
         # was reset to master after a prior publish), there's nothing
@@ -469,19 +487,11 @@ class RepositoryService(GitClientMixin, RepositoryInventoryService):
         - Workspace IS on the task branch but has zero commits ahead of
           the destination branch — branch exists but is empty of work.
         """
-        local_path = str(getattr(repository, 'local_path', '') or '').strip()
         normalized_branch = (branch_name or '').strip()
-        if not local_path or not normalized_branch:
+        state = self._resolve_branch_state(repository, normalized_branch)
+        if state is None:
             return True
-        try:
-            if not (Path(local_path) / '.git').is_dir():
-                return True
-        except OSError:
-            return True
-        try:
-            current_branch = self._current_branch(local_path)
-        except Exception:
-            return True
+        local_path, current_branch = state
         if current_branch != normalized_branch:
             return False
         try:

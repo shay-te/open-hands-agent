@@ -173,11 +173,11 @@ class RepositoryPublicationService(Service):
 
     @staticmethod
     def _is_per_task_workspace_clone(repository) -> bool:
-        from pathlib import Path
-        local_path = str(getattr(repository, 'local_path', '') or '').strip()
-        if not local_path:
-            return False
-        try:
-            return (Path(local_path).parent / '.kato-meta.json').is_file()
-        except OSError:
-            return False
+        # Lazy import to avoid the module-level circular dependency:
+        # repository_service imports RepositoryPublicationService from this
+        # module, so this module can't import from repository_service at
+        # load time. The shared definition lives there.
+        from kato_core_lib.data_layers.service.repository_service import (
+            _is_per_task_workspace_clone,
+        )
+        return _is_per_task_workspace_clone(repository)

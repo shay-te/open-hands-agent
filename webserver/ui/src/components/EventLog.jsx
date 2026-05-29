@@ -12,6 +12,7 @@ import { MessageFilter } from '../utils/MessageFilter.js';
 import { isPinnedToBottom, scrollToBottom } from '../utils/scrollUtils.js';
 import { cx } from '../utils/cx.js';
 import { countNoun } from '../utils/pluralize.js';
+import { messageContentText } from '../utils/messageContent.js';
 import {
   TOOL_DETAILS_COLLAPSE_THRESHOLD,
   TOOL_DETAILS_HARD_CAP,
@@ -428,9 +429,9 @@ function userBubbles(raw, index) {
   const message = raw.message || {};
   const rawContent = message.content;
   const content = Array.isArray(rawContent) ? rawContent : [];
-  const textPieces = content
-    .filter((b) => b && b.type === 'text' && b.text)
-    .map((b) => b.text);
+  const textPieces = [];
+  const arrayText = messageContentText(message);
+  if (arrayText) { textPieces.push(arrayText); }
   if (typeof rawContent === 'string' && rawContent.trim()) {
     textPieces.push(rawContent);
   }
@@ -448,11 +449,41 @@ function userBubbles(raw, index) {
 }
 
 
+// Shared collapse/expand state for the sticky-prompt and tool-details
+// snippets. Both render the same ``bubble-tool-details-expand`` toggle
+// over an ``is-collapsed`` wrap; only their children and a couple of
+// attributes differ.
+function useExpandable() {
+  const [expanded, setExpanded] = useState(false);
+  function toggle() { setExpanded((current) => !current); }
+  return [expanded, toggle];
+}
+
+// The "Click to expand / Click to collapse" button shared by both
+// snippets. ``extraClass`` adds the sticky-prompt modifier; ``ariaExpanded``
+// opts the prompt into the ``aria-expanded`` attribute (tool-details omits it).
+function ExpandToggle({ expanded, onToggle, extraClass = '', ariaExpanded = false }) {
+  const className = extraClass
+    ? `bubble-tool-details-expand ${extraClass}`
+    : 'bubble-tool-details-expand';
+  const ariaProps = ariaExpanded ? { 'aria-expanded': expanded } : {};
+  return (
+    <button
+      type="button"
+      className={className}
+      onClick={onToggle}
+      {...ariaProps}
+    >
+      {expanded ? 'Click to collapse' : 'Click to expand'}
+    </button>
+  );
+}
+
 // One operator prompt, rendered as a sticky section header. Long
 // prompts collapse to three lines with the same expand button style
 // used by tool-output snippets.
 function StickyPrompt({ text }) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, toggle] = useExpandable();
   const promptText = String(text || '');
   const lineCount = promptText.split('\n').length;
   const isCollapsible = lineCount > 3 || promptText.length > 180;
@@ -465,16 +496,13 @@ function StickyPrompt({ text }) {
     'chat-sticky-prompt-text-wrap',
     isCollapsible && !expanded && 'is-collapsed',
   );
-  const expandLabel = expanded ? 'Click to collapse' : 'Click to expand';
   const expandButton = isCollapsible ? (
-    <button
-      type="button"
-      className="bubble-tool-details-expand chat-sticky-prompt-expand"
-      onClick={() => setExpanded((current) => !current)}
-      aria-expanded={expanded}
-    >
-      {expandLabel}
-    </button>
+    <ExpandToggle
+      expanded={expanded}
+      onToggle={toggle}
+      extraClass="chat-sticky-prompt-expand"
+      ariaExpanded
+    />
   ) : null;
 
   return (
@@ -550,15 +578,14 @@ function localKey(prefix, text) {
 // transformer.
 
 function ToolDetails({ details }) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, toggle] = useExpandable();
   const lines = useMemo(() => details.split('\n'), [details]);
   const renderInfo = useMemo(
     () => computeToolDetailsRender(lines, expanded),
     [lines, expanded],
   );
-  // ``computeToolDetailsToggleLabel`` is unused now — the wrapper
-  // handles clip-and-fade visuals and the button label is just
-  // "Click to expand" / "Click to collapse" below.
+  // The wrapper handles clip-and-fade visuals and the button label
+  // is just "Click to expand" / "Click to collapse" below.
   const overflowNotice = renderInfo.overflowed ? (
     <p className="bubble-tool-details-overflow">
       {`Output truncated at ${TOOL_DETAILS_HARD_CAP.toLocaleString()} lines `
@@ -573,13 +600,7 @@ function ToolDetails({ details }) {
     isCollapsed && 'is-collapsed',
   );
   const expandButton = overflows ? (
-    <button
-      type="button"
-      className="bubble-tool-details-expand"
-      onClick={() => setExpanded((current) => !current)}
-    >
-      {expanded ? 'Click to collapse' : 'Click to expand'}
-    </button>
+    <ExpandToggle expanded={expanded} onToggle={toggle} />
   ) : null;
   return (
     <>

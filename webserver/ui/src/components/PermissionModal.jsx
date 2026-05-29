@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { unpackPermissionEnvelope } from '../utils/permissionEnvelope.js';
+import DialogShell from './DialogShell.jsx';
 
 export default function PermissionModal({ raw, onDecide }) {
   const { requestId, toolName, toolInput } = unpackPermissionEnvelope(raw);
@@ -27,61 +28,55 @@ export default function PermissionModal({ raw, onDecide }) {
   }
 
   return (
-    <div
+    <DialogShell
       id="permission-modal"
-      className="modal"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="permission-modal-title"
+      ariaLabelledBy="permission-modal-title"
+      title="Approval requested"
+      subtitle={toolName}
+      subtitleId="permission-tool-name"
     >
-      <div className="modal-card">
-        <header className="modal-head">
-          <h2 id="permission-modal-title">Approval requested</h2>
-          <span id="permission-tool-name">{toolName}</span>
-        </header>
-        <div id="permission-fields">{fields}</div>
-        <details id="permission-raw" className="modal-raw">
-          <summary>raw envelope</summary>
-          <pre id="permission-detail">{safeStringify(raw)}</pre>
-        </details>
-        <textarea
-          id="permission-rationale"
-          placeholder="Optional rationale (sent if you Deny)"
-          rows={2}
-          value={rationale}
-          onChange={handleRationaleChange}
-        />
-        <div className="modal-actions">
-          <button
-            id="permission-deny"
-            type="button"
-            className="danger tooltip-above"
-            data-tooltip={denyTooltip}
-            onClick={handleDeny}
-          >
-            Deny
-          </button>
-          <button
-            id="permission-allow-once"
-            type="button"
-            className="secondary tooltip-above"
-            data-tooltip={allowOnceTitle}
-            onClick={handleAllowOnce}
-          >
-            Allow once
-          </button>
-          <button
-            id="permission-allow-always"
-            type="button"
-            className="primary tooltip-above"
-            data-tooltip={allowAlwaysTitle}
-            onClick={handleAllowAlways}
-          >
-            Allow always
-          </button>
-        </div>
+      <div id="permission-fields">{fields}</div>
+      <details id="permission-raw" className="modal-raw">
+        <summary>raw envelope</summary>
+        <pre id="permission-detail">{safeStringify(raw)}</pre>
+      </details>
+      <textarea
+        id="permission-rationale"
+        placeholder="Optional rationale (sent if you Deny)"
+        rows={2}
+        value={rationale}
+        onChange={handleRationaleChange}
+      />
+      <div className="modal-actions">
+        <button
+          id="permission-deny"
+          type="button"
+          className="danger tooltip-above"
+          data-tooltip={denyTooltip}
+          onClick={handleDeny}
+        >
+          Deny
+        </button>
+        <button
+          id="permission-allow-once"
+          type="button"
+          className="secondary tooltip-above"
+          data-tooltip={allowOnceTitle}
+          onClick={handleAllowOnce}
+        >
+          Allow once
+        </button>
+        <button
+          id="permission-allow-always"
+          type="button"
+          className="primary tooltip-above"
+          data-tooltip={allowAlwaysTitle}
+          onClick={handleAllowAlways}
+        >
+          Allow always
+        </button>
       </div>
-    </div>
+    </DialogShell>
   );
 }
 

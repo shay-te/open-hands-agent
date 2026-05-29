@@ -10,7 +10,7 @@
 // ``storage`` arg). Keeps the module unit-testable in node:test without
 // jsdom.
 
-import { resolveStorage } from './storage.js';
+import { readStorageString, writeStorageItem } from './storage.js';
 
 export const DRAFT_STORAGE_PREFIX = 'kato.composer.draft.';
 
@@ -35,32 +35,18 @@ export function commentDraftKey(taskId, repoId, path, lineSegment, replyTo) {
 // supply the chat-composer prefix.
 export function readDraftByKey(key, storage) {
   if (!key) { return ''; }
-  const store = storage || resolveStorage();
-  if (!store) { return ''; }
-  try {
-    return store.getItem(key) || '';
-  } catch (_err) {
-    // localStorage can throw in private browsing / quota-exceeded /
-    // disabled-storage environments. Callers must still work —
-    // fall through with empty draft.
-    return '';
-  }
+  // ``readStorageString`` swallows the private-browsing / quota /
+  // disabled-storage throws and falls back to '' — same blank-draft
+  // behavior the composer needs.
+  return readStorageString(key, '', storage);
 }
 
 export function writeDraftByKey(key, value, storage) {
   if (!key) { return; }
-  const store = storage || resolveStorage();
-  if (!store) { return; }
-  try {
-    if (value) {
-      store.setItem(key, value);
-    } else {
-      store.removeItem(key);
-    }
-  } catch (_err) {
-    // Swallow — draft persistence is best-effort. A failed write
-    // means the next mount shows a blank composer, not a crash.
-  }
+  // Truthy value → setItem; falsy → removeItem. A failed write is
+  // swallowed (best-effort): the next mount shows a blank composer,
+  // not a crash.
+  writeStorageItem(key, value, storage);
 }
 
 export function readDraft(taskId, storage) {

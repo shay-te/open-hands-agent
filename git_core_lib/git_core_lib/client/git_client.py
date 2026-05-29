@@ -74,6 +74,26 @@ class GitClientMixin:
             *args,
         ]
 
+    @classmethod
+    def _run_capture(cls, cmd: list[str], *, env=None):
+        """Run ``cmd`` capturing text output, never raising on a
+        non-zero exit. The shared kwargs for every plain-capture
+        subprocess invocation in this mixin live here."""
+        return subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            encoding='utf-8',
+            errors='replace',
+            check=False,
+            env=env,
+            timeout=cls.GIT_SUBPROCESS_TIMEOUT_SECONDS,
+        )
+
+    @staticmethod
+    def _failure_detail(result) -> str:
+        return result.stderr.strip() or result.stdout.strip() or 'git command failed'
+
     def _run_git_subprocess(
         self,
         local_path: str,
@@ -91,16 +111,7 @@ class GitClientMixin:
             env.pop('GIT_CONFIG_COUNT', None)
             env.pop('GIT_CONFIG_KEY_0', None)
             env.pop('GIT_CONFIG_VALUE_0', None)
-        return subprocess.run(
-            self._git_command(local_path, args),
-            capture_output=True,
-            text=True,
-            encoding='utf-8',
-            errors='replace',
-            check=False,
-            env=env,
-            timeout=self.GIT_SUBPROCESS_TIMEOUT_SECONDS,
-        )
+        return self._run_capture(self._git_command(local_path, args), env=env)
 
     def _run_git(
         self,
@@ -113,14 +124,14 @@ class GitClientMixin:
         result = self._run_git_subprocess(local_path, args, repository)
         if result.returncode == 0:
             return result
-        failure_detail = result.stderr.strip() or result.stdout.strip() or 'git command failed'
+        failure_detail = self._failure_detail(result)
         if self._is_git_index_lock_error(failure_detail) and self._clear_stale_git_index_lock(
             local_path
         ):
             result = self._run_git_subprocess(local_path, args, repository)
             if result.returncode == 0:
                 return result
-            failure_detail = result.stderr.strip() or result.stdout.strip() or 'git command failed'
+            failure_detail = self._failure_detail(result)
         raise RuntimeError(f'{failure_message}: {failure_detail}')
 
     def _git_stdout(
@@ -136,14 +147,8 @@ class GitClientMixin:
     # ----- reference / status queries -----
 
     def _git_reference_exists(self, local_path: str, reference: str) -> bool:
-        result = subprocess.run(
+        result = self._run_capture(
             self._git_command(local_path, ['rev-parse', '--verify', reference]),
-            capture_output=True,
-            text=True,
-            encoding='utf-8',
-            errors='replace',
-            check=False,
-            timeout=self.GIT_SUBPROCESS_TIMEOUT_SECONDS,
         )
         return result.returncode == 0
 
@@ -373,15 +378,7 @@ class GitClientMixin:
             ['branch', '--show-current'],
         ]
         for command in commands:
-            result = subprocess.run(
-                cls._git_command(local_path, command),
-                capture_output=True,
-                text=True,
-                encoding='utf-8',
-                errors='replace',
-                check=False,
-                timeout=cls.GIT_SUBPROCESS_TIMEOUT_SECONDS,
-            )
+            result = cls._run_capture(cls._git_command(local_path, command))
             output = result.stdout.strip()
             if result.returncode != 0 or not output:
                 continue

@@ -1,12 +1,10 @@
 """Git working-tree status parsing and artifact detection utilities."""
 from __future__ import annotations
 
+from git_core_lib.git_core_lib.helpers.text_utils import normalized_text
+
 
 GENERATED_ARTIFACT_ROOTS = {'build', 'dist', 'out', 'coverage', 'target'}
-
-
-def _normalized(value: object) -> str:
-    return str(value or '').strip()
 
 
 def status_paths(status_output: str) -> list[str]:
@@ -17,7 +15,7 @@ def status_paths(status_output: str) -> list[str]:
         path = line[3:]
         if ' -> ' in path:
             path = path.split(' -> ', 1)[1]
-        normalized_path = _normalized(path).rstrip('/')
+        normalized_path = normalized_text(path).rstrip('/')
         if normalized_path:
             paths.append(normalized_path)
     return paths

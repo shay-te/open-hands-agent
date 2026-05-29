@@ -6,15 +6,18 @@ from core_lib.data_layers.service.service import Service
 
 from kato_core_lib.data_layers.data.task import Task
 from kato_core_lib.data_layers.data_access.task_data_access import TaskDataAccess
-from kato_core_lib.helpers.kato_config_utils import parse_issue_states
+from kato_core_lib.helpers.kato_config_utils import (
+    SHARED_STATE_VALUE_DEFAULTS,
+    configured_state_value,
+    parse_issue_states,
+)
 from kato_core_lib.helpers.text_utils import alphanumeric_lower_text
 
 
 class TaskService(Service):
     """Wrap ticket-system task retrieval, queue filtering, and comments."""
     _STATE_VALUE_DEFAULTS = {
-        'progress': 'In Progress',
-        'review': 'In Review',
+        **SHARED_STATE_VALUE_DEFAULTS,
         # Used by ``list_all_assigned_tasks`` (operator-driven
         # task picker) so completed tickets show up alongside
         # in-flight ones. The autonomous queue path doesn't
@@ -143,8 +146,6 @@ class TaskService(Service):
         return alphanumeric_lower_text(value)
 
     def _configured_state_value(self, state_key: str) -> str:
-        return getattr(
-            self._config,
-            f'{state_key}_state',
-            self._STATE_VALUE_DEFAULTS[state_key],
+        return configured_state_value(
+            self._config, state_key, self._STATE_VALUE_DEFAULTS,
         )

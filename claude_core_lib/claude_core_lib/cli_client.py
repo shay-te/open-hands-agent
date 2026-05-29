@@ -9,7 +9,6 @@ from typing import Any
 
 from agent_core_lib.agent_core_lib.data.fields import ImplementationFields
 from agent_core_lib.agent_core_lib.helpers import agent_prompt_utils
-from agent_core_lib.agent_core_lib.helpers.architecture_doc_utils import read_architecture_doc
 from agent_core_lib.agent_core_lib.helpers.logging_utils import configure_logger
 from agent_core_lib.agent_core_lib.helpers.result_utils import build_openhands_result
 from agent_core_lib.agent_core_lib.helpers.session_id_utils import fix_session_id
@@ -18,6 +17,19 @@ from agent_core_lib.agent_core_lib.helpers.text_utils import (
     normalized_text,
     text_from_attr,
     text_from_mapping,
+)
+from claude_core_lib.claude_core_lib.helpers.credential_scan import (
+    scan_text_for_credentials_and_phishing,
+)
+from claude_core_lib.claude_core_lib.helpers.effort_levels import (
+    FALLBACK_EFFORT_LEVELS,
+)
+from claude_core_lib.claude_core_lib.helpers.spawn_utils import (
+    append_additional_dirs,
+    append_model_effort_flags,
+    build_appended_system_prompt,
+    build_claude_subprocess_env,
+    wrap_spawn_for_docker,
 )
 from provider_client_base.provider_client_base.data.review_comment import ReviewComment
 from sandbox_core_lib.sandbox_core_lib.workspace_delimiter import (
@@ -52,7 +64,10 @@ class ClaudeCliClient(object):
     SMOKE_TEST_TIMEOUT_SECONDS = 120
     VERSION_PROBE_TIMEOUT_SECONDS = 30
 
-    SUPPORTED_EFFORT_LEVELS = frozenset({'low', 'medium', 'high', 'xhigh', 'max'})
+    # Single source of truth lives in ``helpers.effort_levels``; this
+    # derives the validation set from the same fallback tuple the
+    # discovery path falls back to, so the two never drift.
+    SUPPORTED_EFFORT_LEVELS = frozenset(FALLBACK_EFFORT_LEVELS)
 
     def __init__(
         self,
@@ -784,59 +799,20 @@ class ClaudeCliClient(object):
         log_label = log_label or 'Claude CLI'
         # Docker mode wraps the spawn in the hardened sandbox — see
         # ``kato.sandbox.manager``. Mirrors the streaming-session path
-        # in ``kato.client.claude.streaming_session.StreamingClaudeSession.start``
-        # so test_task and investigate get the same containment as the
-        # interactive planning sessions. Gated on ``_docker_mode_on``,
-        # not ``_bypass_permissions``: docker is containment, bypass is
-        # the prompt layer.
+        # in ``StreamingClaudeSession.start`` via the shared
+        # ``wrap_spawn_for_docker`` helper so test_task and investigate
+        # get the same containment as the interactive planning sessions.
+        # Gated on ``_docker_mode_on``, not ``_bypass_permissions``:
+        # docker is containment, bypass is the prompt layer.
         spawn_cwd: str | None = cwd or None
         if self._docker_mode_on:
-            from sandbox_core_lib.sandbox_core_lib.manager import (
-                SandboxError,
-                check_spawn_rate,
-                ensure_image,
-                enforce_no_workspace_secrets,
-                make_container_name,
-                record_spawn,
-                wrap_command,
-            )
             workspace_path = cwd or self._repository_root_path or os.getcwd()
-            try:
-                ensure_image(logger=self.logger)
-            except SandboxError as exc:
-                raise RuntimeError(
-                    f'failed to prepare Claude sandbox image: {exc}',
-                ) from exc
-            try:
-                check_spawn_rate()
-            except SandboxError as exc:
-                raise RuntimeError(
-                    f'sandbox spawn rate-limited: {exc}',
-                ) from exc
-            container_name = make_container_name(task_id)
-            try:
-                enforce_no_workspace_secrets(workspace_path, logger=self.logger)
-            except SandboxError as exc:
-                raise RuntimeError(
-                    f'sandbox spawn blocked: {exc}',
-                ) from exc
-            command = wrap_command(
+            command = wrap_spawn_for_docker(
                 command,
                 workspace_path=workspace_path,
-                container_name=container_name,
                 task_id=task_id or 'unknown',
+                logger=self.logger,
             )
-            try:
-                record_spawn(
-                    task_id=task_id or 'unknown',
-                    container_name=container_name,
-                    workspace_path=workspace_path,
-                    logger=self.logger,
-                )
-            except SandboxError as exc:
-                raise RuntimeError(
-                    f'sandbox audit log required but failed: {exc}',
-                ) from exc
             # Docker sets the container WORKDIR to /workspace; the host
             # cwd is irrelevant for the docker client itself.
             spawn_cwd = None
@@ -881,12 +857,12 @@ class ClaudeCliClient(object):
             '--permission-mode',
             self._permission_mode,
         ]
-        if self._model:
-            command.extend(['--model', self._model])
-        if self._max_turns is not None:
-            command.extend(['--max-turns', str(self._max_turns)])
-        if self._effort:
-            command.extend(['--effort', self._effort])
+        append_model_effort_flags(
+            command,
+            model=self._model,
+            max_turns=self._max_turns,
+            effort=self._effort,
+        )
         merged_allowed = self._merge_allowed_with_read_only_allowlist(self._allowed_tools)
         if merged_allowed:
             command.extend(['--allowedTools', merged_allowed])
@@ -901,34 +877,18 @@ class ClaudeCliClient(object):
         # Real spawns still get the full system prompt — only the
         # validator skips it.
         if include_system_prompt:
-            architecture_doc = read_architecture_doc(
-                self._architecture_doc_path, logger=self.logger,
-            )
-            from agent_core_lib.agent_core_lib.helpers.lessons_doc_utils import read_lessons_file
-            lessons_text = read_lessons_file(
-                self._lessons_path, logger=self.logger,
-            )
-            # When ``KATO_CLAUDE_DOCKER=true`` the agent gets a short
-            # description of the sandboxed environment appended to its
-            # system prompt — see ``kato.sandbox.system_prompt``.
-            # Composer joins the architecture doc, learned lessons,
-            # and the addendum into one value because the Claude CLI
-            # takes a single ``--append-system-prompt``.
-            from sandbox_core_lib.sandbox_core_lib.system_prompt import compose_system_prompt
-            appended_system_prompt = compose_system_prompt(
-                architecture_doc,
+            appended_system_prompt = build_appended_system_prompt(
+                architecture_doc_path=self._architecture_doc_path,
+                lessons_path=self._lessons_path,
                 docker_mode_on=self._docker_mode_on,
-                lessons=lessons_text,
+                logger=self.logger,
             )
             if appended_system_prompt:
                 command.extend(['--append-system-prompt', appended_system_prompt])
         normalized_session_id = fix_session_id(agent_session_id)
         if normalized_session_id:
             command.extend(['--resume', normalized_session_id])
-        for directory in additional_dirs:
-            normalized_dir = normalized_text(directory)
-            if normalized_dir:
-                command.extend(['--add-dir', normalized_dir])
+        append_additional_dirs(command, additional_dirs)
         command.extend(self._extra_args)
         return command
 
@@ -994,10 +954,10 @@ class ClaudeCliClient(object):
         return ','.join(existing)
 
     def _build_subprocess_env(self) -> dict[str, str]:
-        env = os.environ.copy()
-        # Force JSON output to stdout and prevent any TTY-dependent behavior.
-        env.setdefault('CLAUDE_CODE_NONINTERACTIVE', '1')
-        return env
+        # Force JSON output to stdout and prevent any TTY-dependent
+        # behavior. Shared invariant with the streaming path — see
+        # ``build_claude_subprocess_env``.
+        return build_claude_subprocess_env()
 
     def _parse_completed_process(
         self,
@@ -1059,7 +1019,11 @@ class ClaudeCliClient(object):
     ) -> None:
         """Detective-side scan on the agent's response text.
 
-        Two pattern families fire:
+        Delegates to the shared
+        :func:`claude_core_lib...helpers.credential_scan.
+        scan_text_for_credentials_and_phishing` so the one-shot and
+        streaming paths produce identical audit signal. Two pattern
+        families fire:
 
           * **Credential patterns** (residual #18) — pattern name +
             redacted preview only; the full credential value is never
@@ -1073,36 +1037,11 @@ class ClaudeCliClient(object):
             (``curl|bash``, ``sudo`` snippets, ``eval $(curl …)``).
             Same audit-trail treatment.
         """
-        from sandbox_core_lib.sandbox_core_lib.credential_patterns import (
-            find_credential_patterns,
-            find_phishing_patterns,
-            summarize_findings,
+        scan_text_for_credentials_and_phishing(
+            response_text,
+            logger=self.logger,
+            context_label=f'Claude response for {log_label}',
         )
-
-        if not response_text:
-            return
-        cred_findings = find_credential_patterns(response_text)
-        if cred_findings:
-            self.logger.warning(
-                'CREDENTIAL PATTERN DETECTED in Claude response for %s: %s. '
-                'The agent response has already been transmitted to Anthropic; '
-                'rotate the named credential(s) immediately. See '
-                'BYPASS_PROTECTIONS.md residual #18.',
-                log_label,
-                summarize_findings(cred_findings),
-            )
-        phishing_findings = find_phishing_patterns(response_text)
-        if phishing_findings:
-            self.logger.warning(
-                'PHISHING PATTERN DETECTED in Claude response for %s: %s. '
-                'The agent appears to be instructing the operator to run '
-                'shell commands on their host. Kato handles infrastructure '
-                'operations; the agent has no legitimate reason to direct '
-                'the operator to execute commands. Treat the suggestion as '
-                'untrusted. See BYPASS_PROTECTIONS.md residual #16.',
-                log_label,
-                summarize_findings(phishing_findings),
-            )
 
     def _parse_json_payload(self, stdout: str) -> dict[str, object]:
         text = (stdout or '').strip()

@@ -662,23 +662,13 @@ def _open_browser_when_ready(url: str, logger) -> None:
     """
     import os
     import threading
-    import time
-    import urllib.error
-    import urllib.request
     import webbrowser
 
     if str(os.environ.get('KATO_OPEN_BROWSER', '1')).strip().lower() in {'0', 'false', 'no', 'off'}:
         return
 
     def _wait_and_open() -> None:
-        deadline = time.monotonic() + 15.0
-        while time.monotonic() < deadline:
-            try:
-                with urllib.request.urlopen(f'{url}/healthz', timeout=1):
-                    break
-            except (urllib.error.URLError, OSError):
-                time.sleep(0.25)
-        else:
+        if not _wait_for_planning_ui_healthz(url, logger=logger):
             logger.warning('planning webserver never answered /healthz; not opening browser')
             return
         try:
@@ -836,26 +826,36 @@ def _start_pending_comment_work_after_ui(app) -> None:
 
 def _start_pending_comment_work_when_ui_ready(app) -> None:
     url = str(getattr(app, 'planning_webserver_url', '') or '')
-    if url:
-        _wait_for_planning_ui_healthz(url, app.logger)
+    if url and not _wait_for_planning_ui_healthz(url, logger=app.logger):
+        app.logger.warning(
+            'planning UI did not answer /healthz before queued-comment '
+            'startup drain; dispatching queued comments anyway',
+        )
     _start_pending_comment_work(app)
 
 
-def _wait_for_planning_ui_healthz(url: str, logger) -> None:
+def _wait_for_planning_ui_healthz(
+    url: str,
+    *,
+    timeout: float = 15.0,
+    logger,
+) -> bool:
+    """Poll ``<url>/healthz`` until it answers or ``timeout`` elapses.
+
+    Returns True once the endpoint responds, False on timeout. Callers
+    decide what to log / do on timeout.
+    """
     import urllib.error
     import urllib.request
 
-    deadline = time.monotonic() + 15.0
+    deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         try:
             with urllib.request.urlopen(f'{url}/healthz', timeout=1):
-                return
+                return True
         except (urllib.error.URLError, OSError):
             time.sleep(0.25)
-    logger.warning(
-        'planning UI did not answer /healthz before queued-comment '
-        'startup drain; dispatching queued comments anyway',
-    )
+    return False
 
 
 def _warm_up_repository_inventory(app) -> None:

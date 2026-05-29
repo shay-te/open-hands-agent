@@ -1,5 +1,13 @@
 from __future__ import annotations
 
+# Re-exported from the shared base so every provider issue client and the
+# shared IssueClientBase agree on the neutral comment-entry dict shape.
+from provider_client_base.provider_client_base.data.issue_record import (  # noqa: F401
+    ISSUE_ALL_COMMENTS,
+    ISSUE_COMMENT_AUTHOR,
+    ISSUE_COMMENT_BODY,
+)
+
 
 class JiraIssueFields(object):
     KEY = 'key'
@@ -29,8 +37,3 @@ class JiraTransitionFields(object):
     ID = 'id'
     NAME = 'name'
     TO = 'to'
-
-
-ISSUE_COMMENT_AUTHOR = 'author'
-ISSUE_COMMENT_BODY = 'body'
-ISSUE_ALL_COMMENTS = 'all_comments'

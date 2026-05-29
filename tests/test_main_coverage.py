@@ -1497,23 +1497,24 @@ class LogKnownSessionIdsBranchTests(unittest.TestCase):
 
 
 class WaitForPlanningUiHealthzTests(unittest.TestCase):
-    """Lines 837, 839-840 in ``_wait_for_planning_ui_healthz``."""
+    """``_wait_for_planning_ui_healthz`` returns True on a successful poll
+    and False on deadline; the timeout warning now lives in the caller."""
 
-    def test_healthz_success_returns_immediately(self) -> None:
-        # Line 837: a successful urlopen returns from the function.
+    def test_healthz_success_returns_true_immediately(self) -> None:
+        # A successful urlopen returns True from the function.
         logger = MagicMock()
         # Patch urllib.request.urlopen to context-manage successfully.
         ok_response = MagicMock()
         ok_response.__enter__ = MagicMock(return_value=ok_response)
         ok_response.__exit__ = MagicMock(return_value=False)
         with patch('urllib.request.urlopen', return_value=ok_response):
-            main_module._wait_for_planning_ui_healthz('http://x', logger)
+            result = main_module._wait_for_planning_ui_healthz('http://x', logger=logger)
+        self.assertTrue(result)
         # No warning logged on success.
         logger.warning.assert_not_called()
 
-    def test_healthz_failure_then_success_eventually_returns(self) -> None:
-        # Lines 838-839: first attempt raises (URLError), short sleep,
-        # second attempt succeeds.
+    def test_healthz_failure_then_success_eventually_returns_true(self) -> None:
+        # First attempt raises (URLError), short sleep, second succeeds.
         import urllib.error
         logger = MagicMock()
         ok_response = MagicMock()
@@ -1523,18 +1524,19 @@ class WaitForPlanningUiHealthzTests(unittest.TestCase):
             'urllib.request.urlopen',
             side_effect=[urllib.error.URLError('not yet'), ok_response],
         ), patch('time.sleep') as sleep_mock:
-            main_module._wait_for_planning_ui_healthz('http://x', logger)
+            result = main_module._wait_for_planning_ui_healthz('http://x', logger=logger)
+        self.assertTrue(result)
         sleep_mock.assert_called()
         logger.warning.assert_not_called()
 
-    def test_healthz_deadline_exceeded_logs_warning(self) -> None:
-        # Line 840: ``logger.warning(...)`` when the loop runs past
-        # the 15s deadline without a single successful healthz.
+    def test_healthz_deadline_exceeded_returns_false(self) -> None:
+        # When the loop runs past the deadline without a single successful
+        # healthz, the function returns False (caller logs the warning).
         # Advance ``time.monotonic`` past the deadline on the second
         # check so the loop exits the while.
         import urllib.error
         logger = MagicMock()
-        # Sequence: start (t=0), deadline check 1 (t=0, enter loop),
+        # Sequence: deadline base (t=0), deadline check 1 (t=0, enter loop),
         # deadline check 2 (t=99, exit loop) → no successes.
         monotonic_values = iter([0.0, 0.0, 99.0])
         with patch(
@@ -1544,10 +1546,23 @@ class WaitForPlanningUiHealthzTests(unittest.TestCase):
             'urllib.request.urlopen',
             side_effect=urllib.error.URLError('never up'),
         ), patch('time.sleep'):
-            main_module._wait_for_planning_ui_healthz('http://x', logger)
-        # The warning about queued comments dispatching anyway must fire.
-        logger.warning.assert_called_once()
-        msg = logger.warning.call_args[0][0]
+            result = main_module._wait_for_planning_ui_healthz('http://x', logger=logger)
+        self.assertFalse(result)
+
+    def test_pending_comment_drain_logs_warning_when_ui_never_ready(self) -> None:
+        # The timeout warning now lives in the caller: when healthz never
+        # answers, the queued-comment drain proceeds anyway with a warning.
+        app = SimpleNamespace(
+            planning_webserver_url='http://x',
+            logger=MagicMock(),
+        )
+        with patch.object(
+            main_module, '_wait_for_planning_ui_healthz', return_value=False,
+        ), patch.object(main_module, '_start_pending_comment_work') as drain:
+            main_module._start_pending_comment_work_when_ui_ready(app)
+        drain.assert_called_once_with(app)
+        app.logger.warning.assert_called_once()
+        msg = app.logger.warning.call_args[0][0]
         self.assertIn('did not answer', msg)
 
 

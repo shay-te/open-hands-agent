@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { parseDiff, Diff, Hunk } from 'react-diff-view';
 import 'react-diff-view/style/index.css';
 import { fetchRepoCommitDiff } from '../api.js';
+import { diffFileKey } from '../diffModel.js';
 import { tokenizeHunks } from '../utils/diffSyntax.js';
 import { apiErrorMessage } from '../utils/apiError.js';
 import ModalShell from './ModalShell.jsx';
@@ -115,9 +116,4 @@ function CommitDiffFile({ file }) {
       </Diff>
     </section>
   );
-}
-
-
-function diffFileKey(file) {
-  return `${file.type}:${file.oldPath || ''}->${file.newPath || ''}`;
 }

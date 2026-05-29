@@ -11,8 +11,6 @@ pipeline — pure I/O, no kato types — so it stays trivially testable.
 from __future__ import annotations
 
 import glob
-import json
-import os
 from pathlib import Path
 from typing import Iterable
 
@@ -21,19 +19,27 @@ from agent_core_lib.agent_core_lib.helpers.session_id_utils import (
     read_session_id_from,
 )
 from agent_core_lib.agent_core_lib.helpers.text_utils import text_from_mapping
+from claude_core_lib.claude_core_lib.session.index import (
+    CLAUDE_SESSIONS_ROOT_ENV_KEY as _CLAUDE_SESSIONS_ROOT_ENV_KEY,
+    default_sessions_root,
+    parse_jsonl_dict_line,
+)
 
 
 _DEFAULT_PROJECTS_ROOT = Path.home() / '.claude' / 'projects'
-# Match claude_session_index — both modules walk the same store, so they
-# must agree on its location when tests redirect via this env var.
-_CLAUDE_SESSIONS_ROOT_ENV_KEY = 'KATO_CLAUDE_SESSIONS_ROOT'
 
 
 def _default_projects_root() -> Path:
-    override = os.environ.get(_CLAUDE_SESSIONS_ROOT_ENV_KEY, '').strip()
-    if override:
-        return Path(override).expanduser()
-    return _DEFAULT_PROJECTS_ROOT
+    """Resolve Claude Code's ``projects/`` store, honouring the env override.
+
+    Delegates to :func:`...session.index.default_sessions_root` so the
+    two modules walk the exact same directory (and the same
+    ``KATO_CLAUDE_SESSIONS_ROOT`` override) — previously
+    ``find_session_id_for_cwd`` and ``iter_event_paths`` ignored the
+    override by reading ``_DEFAULT_PROJECTS_ROOT`` directly, so tests
+    that redirected the store missed them.
+    """
+    return default_sessions_root()
 
 
 def find_session_file(
@@ -110,7 +116,7 @@ def find_session_id_for_cwd(
     target = str(cwd or '').strip()
     if not target:
         return ''
-    root = Path(projects_root) if projects_root else _DEFAULT_PROJECTS_ROOT
+    root = Path(projects_root) if projects_root else _default_projects_root()
     if not root.is_dir():
         return ''
     matches: list[tuple[float, str]] = []
@@ -143,14 +149,8 @@ def _peek_session_metadata(path: Path) -> tuple[str, str]:
             for index, raw_line in enumerate(fh):
                 if index >= 20:
                     break
-                line = raw_line.strip()
-                if not line:
-                    continue
-                try:
-                    payload = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                if not isinstance(payload, dict):
+                payload = parse_jsonl_dict_line(raw_line)
+                if payload is None:
                     continue
                 cwd = text_from_mapping(payload, 'cwd')
                 agent_session_id = fix_session_id(payload.get('sessionId'))
@@ -202,14 +202,8 @@ def load_history_events(
 
 
 def _coerce_event(raw_line: str) -> dict | None:
-    line = raw_line.strip()
-    if not line:
-        return None
-    try:
-        payload = json.loads(line)
-    except json.JSONDecodeError:
-        return None
-    if not isinstance(payload, dict):
+    payload = parse_jsonl_dict_line(raw_line)
+    if payload is None:
         return None
     event_type = str(payload.get('type', '') or '')
     if event_type not in _RELEVANT_EVENT_TYPES:
@@ -293,7 +287,7 @@ def iter_event_paths(
     projects_root: Path | str | None = None,
 ) -> Iterable[Path]:
     """Yield every JSONL transcript path on disk (debugging helper)."""
-    root = Path(projects_root) if projects_root else _DEFAULT_PROJECTS_ROOT
+    root = Path(projects_root) if projects_root else _default_projects_root()
     if not root.is_dir():
         return
     for entry in sorted(root.iterdir()):

@@ -111,16 +111,37 @@ class HookRunner(object):
         """
         return any(getattr(r, 'blocked', False) for r in results)
 
+    @staticmethod
+    def _error_result(
+        hook: HookDefinition,
+        error: str,
+        *,
+        blocked: bool,
+    ) -> HookResult:
+        """Build a failed (non-spawned / aborted) HookResult.
+
+        Shared by every ``_run_one`` failure path — they all report
+        ``ok=False`` with no return code or captured output, differing
+        only in the ``error`` text and whether the failure ``blocked``.
+        """
+        return HookResult(
+            point=hook.point,
+            command=hook.command,
+            ok=False,
+            blocked=blocked,
+            returncode=None,
+            stdout='', stderr='',
+            error=error,
+        )
+
     def _run_one(self, hook: HookDefinition, event: dict) -> HookResult:
         try:
             rendered = _substitute(hook.command, event)
         except Exception as exc:  # pragma: no cover - defensive
-            return HookResult(
-                point=hook.point,
-                command=hook.command,
-                ok=False, blocked=False,
-                returncode=None, stdout='', stderr='',
-                error=f'placeholder substitution failed: {exc}',
+            return self._error_result(
+                hook,
+                f'placeholder substitution failed: {exc}',
+                blocked=False,
             )
         # Pipe the event as JSON on stdin so structured hooks can
         # parse it. ``default=str`` so anything non-JSON-native
@@ -142,33 +163,24 @@ class HookRunner(object):
                 'kato hook timed out: point=%s command=%r timeout=%ss',
                 hook.point.value, hook.command, hook.timeout_seconds,
             )
-            return HookResult(
-                point=hook.point,
-                command=hook.command,
-                ok=False,
+            return self._error_result(
+                hook,
+                f'timed out after {hook.timeout_seconds}s',
                 blocked=hook.point == HookPoint.PRE_TOOL_USE,
-                returncode=None,
-                stdout='', stderr='',
-                error=f'timed out after {hook.timeout_seconds}s',
             )
         except OSError as exc:
             self._logger.warning(
                 'kato hook could not spawn: point=%s command=%r error=%s',
                 hook.point.value, hook.command, exc,
             )
-            return HookResult(
-                point=hook.point,
-                command=hook.command,
-                ok=False,
-                # Fail-safe for pre_tool_use: if we can't even
-                # spawn the hook, we don't know what its decision
-                # would have been. Default to BLOCK so the operator
-                # notices a misconfigured hook rather than silently
-                # bypassing the guard they set up.
+            # Fail-safe for pre_tool_use: if we can't even spawn the
+            # hook, we don't know what its decision would have been.
+            # Default to BLOCK so the operator notices a misconfigured
+            # hook rather than silently bypassing the guard they set up.
+            return self._error_result(
+                hook,
+                f'spawn failed: {exc}',
                 blocked=hook.point == HookPoint.PRE_TOOL_USE,
-                returncode=None,
-                stdout='', stderr='',
-                error=f'spawn failed: {exc}',
             )
         ok = completed.returncode == 0
         return HookResult(

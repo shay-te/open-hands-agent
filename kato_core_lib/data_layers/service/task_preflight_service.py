@@ -14,7 +14,11 @@ from kato_core_lib.data_layers.service.task_failure_handler import (
 )
 from kato_core_lib.data_layers.service.task_service import TaskService
 from kato_core_lib.helpers.logging_utils import configure_logger
-from kato_core_lib.helpers.mission_logging_utils import log_mission_step
+from kato_core_lib.helpers.mission_logging_utils import (
+    MissionStepLoggerMixin,
+    log_mission_step,
+)
+from kato_core_lib.helpers.task_comment_utils import add_task_comment
 from kato_core_lib.helpers.task_context_utils import (
     PreparedTaskContext,
     repository_branch_text,
@@ -31,7 +35,7 @@ from kato_core_lib.validation.branch_publishability import (
 )
 
 
-class TaskPreflightService(Service):
+class TaskPreflightService(MissionStepLoggerMixin, Service):
     """Prepare a task for execution by validating access, repositories, and branch readiness."""
     def __init__(
         self,
@@ -764,17 +768,15 @@ class TaskPreflightService(Service):
         after_step: str = '',
         failure_log_message: str,
     ) -> bool:
-        try:
-            self._task_service.add_comment(task_id, comment)
-            if after_step:
-                self._log_task_step(task_id, after_step)
-            return True
-        except Exception:
-            self.logger.exception(failure_log_message, task_id)
-            return False
-
-    def _log_task_step(self, task_id: str, message: str, *args) -> None:
-        log_mission_step(self.logger, task_id, message, *args)
+        return add_task_comment(
+            self._task_service,
+            self.logger,
+            self._log_task_step,
+            task_id,
+            comment,
+            after_step=after_step,
+            failure_log_message=failure_log_message,
+        )
 
     @staticmethod
     def _active_execution_blocking_comment(task: Task) -> str:

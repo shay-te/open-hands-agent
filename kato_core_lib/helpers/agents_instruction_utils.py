@@ -45,15 +45,11 @@ def agents_instructions_for_path(
     root = Path(workspace)
     if not root.is_dir():
         return ''
-    entries = _agents_entries(root)
-    if not entries:
-        return ''
     label = normalized_text(repository_id) or root.name
-    section_lines = [f'Repository {label} at {root}:']
-    for relative_path, content in entries:
-        section_lines.append(f'{relative_path}:')
-        section_lines.append(content)
-    return _wrap_agents_sections(['\n'.join(section_lines)])
+    section = _render_agents_section(root, label)
+    if not section:
+        return ''
+    return _wrap_agents_sections([section])
 
 
 def _wrap_agents_sections(sections: list[str]) -> str:
@@ -76,11 +72,21 @@ def _repository_section(repository: object) -> str:
     root = Path(local_path)
     if not root.is_dir():
         return ''
+    repository_id = normalized_text(text_from_attr(repository, 'id')) or root.name
+    return _render_agents_section(root, repository_id)
+
+
+def _render_agents_section(root: Path, label: str) -> str:
+    """Render the ``Repository <label> at <root>:`` block for ``root``.
+
+    Returns ``''`` when no ``AGENTS.md`` files live under ``root``. Shared
+    by the repository-object and path-based entry points so both emit
+    byte-identical sections.
+    """
     entries = _agents_entries(root)
     if not entries:
         return ''
-    repository_id = normalized_text(text_from_attr(repository, 'id')) or root.name
-    lines = [f'Repository {repository_id} at {root}:']
+    lines = [f'Repository {label} at {root}:']
     for relative_path, content in entries:
         lines.append(f'{relative_path}:')
         lines.append(content)

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { cssEscapeAttr } from '../utils/dom.js';
 import {
   readEnabled,
   readKindPrefs,
@@ -94,5 +93,3 @@ export function useNotifications({ activeTaskId, onTaskClick }) {
     setKindEnabled,
   };
 }
-
-export { cssEscapeAttr };

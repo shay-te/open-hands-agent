@@ -9,7 +9,8 @@ from kato_core_lib.data_layers.service.task_state_service import TaskStateServic
 from kato_core_lib.data_layers.service.task_service import TaskService
 from kato_core_lib.helpers.error_handling_utils import run_best_effort
 from kato_core_lib.helpers.logging_utils import configure_logger
-from kato_core_lib.helpers.mission_logging_utils import log_mission_step
+from kato_core_lib.helpers.mission_logging_utils import MissionStepLoggerMixin
+from kato_core_lib.helpers.task_comment_utils import add_task_comment
 from kato_core_lib.helpers.task_context_utils import PreparedTaskContext
 
 
@@ -137,7 +138,7 @@ def repository_ignored_comment(error: Exception) -> str:
     )
 
 
-class TaskFailureHandler(Service):
+class TaskFailureHandler(MissionStepLoggerMixin, Service):
     """Own task failure recovery, user-facing failure comments, and follow-up notifications."""
     def __init__(
         self,
@@ -333,14 +334,15 @@ class TaskFailureHandler(Service):
         after_step: str = '',
         failure_log_message: str,
     ) -> bool:
-        try:
-            self._task_service.add_comment(task_id, comment)
-            if after_step:
-                self._log_task_step(task_id, after_step)
-            return True
-        except Exception:
-            self.logger.exception(failure_log_message, task_id)
-            return False
+        return add_task_comment(
+            self._task_service,
+            self.logger,
+            self._log_task_step,
+            task_id,
+            comment,
+            after_step=after_step,
+            failure_log_message=failure_log_message,
+        )
 
     def _move_task_to_open(self, task_id: str) -> bool:
         try:
@@ -366,9 +368,6 @@ class TaskFailureHandler(Service):
         )
         return isinstance(error, RepositoryIgnoredByConfigError)
 
-    def _log_task_step(self, task_id: str, message: str, *args) -> None:
-        log_mission_step(self.logger, task_id, message, *args)
-
 
 def _record_task_failed(task, error, prepared_task) -> None:
     """Append a task_failed audit record. Best-effort.
@@ -381,24 +380,13 @@ def _record_task_failed(task, error, prepared_task) -> None:
     from kato_core_lib.helpers.audit_log_utils import (
         EVENT_TASK_FAILED,
         OUTCOME_FAILURE,
-        append_audit_event,
+        append_task_audit_event,
     )
 
-    repositories = []
-    branch = ''
-    if prepared_task is not None:
-        repositories = [
-            str(getattr(repo, 'id', '') or '')
-            for repo in (getattr(prepared_task, 'repositories', None) or [])
-        ]
-        branch = str(getattr(prepared_task, 'branch_name', '') or '')
-    append_audit_event(
+    append_task_audit_event(
+        task,
+        prepared_task,
         event=EVENT_TASK_FAILED,
-        task_id=str(getattr(task, 'id', '') or ''),
-        ticket_summary=str(getattr(task, 'summary', '') or ''),
-        repositories=[r for r in repositories if r],
-        branch=branch,
-        pr_url='',
         outcome=OUTCOME_FAILURE,
         error=str(error)[:500] if error else '',
     )

@@ -311,10 +311,3 @@ class WorkspaceService(Service):
             record.updated_at_epoch = time.time()
             self._data_access.save(record)
             return record
-
-
-def _normalize_text(value) -> str:  # noqa: ANN001 — runtime helper
-    """Tiny text normalizer so the lib has no upstream string-helper
-    dependency. ``None`` → ``''``, surrounding whitespace stripped.
-    """
-    return str(value or '').strip()

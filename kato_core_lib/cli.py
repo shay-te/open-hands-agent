@@ -26,6 +26,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from kato_core_lib.helpers.dotenv_utils import parse_dotenv_text
+
 # kato_core_lib/cli.py -> repo root is two parents up. Matches
 # scripts/_script_utils.REPO_ROOT so delegated scripts resolve the
 # same tree whether invoked via ``kato`` or directly.
@@ -58,21 +60,9 @@ def _load_env(path: Path) -> dict[str, str]:
     did ``set -a; . ./.env``). Ignores blanks/comments, strips one
     layer of surrounding quotes. Not a full shell parser — kato's
     ``.env`` is generated, so it stays simple key/value."""
-    out: dict[str, str] = {}
     if not path.exists():
-        return out
-    for raw in path.read_text(encoding='utf-8').splitlines():
-        line = raw.strip()
-        if not line or line.startswith('#') or '=' not in line:
-            continue
-        key, _, value = line.partition('=')
-        key = key.strip()
-        value = value.strip()
-        if len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
-            value = value[1:-1]
-        if key:
-            out[key] = value
-    return out
+        return {}
+    return parse_dotenv_text(path.read_text(encoding='utf-8'))
 
 
 def cmd_up(_args: argparse.Namespace) -> int:

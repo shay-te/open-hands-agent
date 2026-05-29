@@ -21,10 +21,11 @@ from kato_core_lib.validation.startup_dependency_validator import (
     StartupDependencyValidator,
 )
 from kato_core_lib.helpers.logging_utils import configure_logger
-from kato_core_lib.helpers.mission_logging_utils import log_mission_step
+from kato_core_lib.helpers.mission_logging_utils import MissionStepLoggerMixin
 from kato_core_lib.data_layers.data.task import Task
 from kato_core_lib.data_layers.service.implementation_service import ImplementationService
 from kato_core_lib.helpers.task_context_utils import PreparedTaskContext, session_suffix
+from kato_core_lib.helpers.task_lookup_utils import find_task_by_id
 from kato_core_lib.data_layers.service.notification_service import NotificationService
 from kato_core_lib.data_layers.service.repository_service import (
     RepositoryHasNoChangesError,
@@ -95,7 +96,7 @@ class _PublishTaskLite(object):
     summary: str = ''
 
 
-class AgentService(Service):
+class AgentService(MissionStepLoggerMixin, Service):
     """Orchestrate the end-to-end task workflow and delegate specialized work to collaborators."""
     # NOTE: Task and review coordination state is kept in memory only.
     # It is not durable across process restarts.
@@ -2447,21 +2448,15 @@ class AgentService(Service):
         task that's no longer in the active queue (already done /
         merged) — ``list_all_assigned_tasks`` covers that case.
         """
-        for fetch in (
-            getattr(self._task_service, 'list_all_assigned_tasks', None),
-            getattr(self._task_service, 'get_assigned_tasks', None),
-            getattr(self._task_service, 'get_review_tasks', None),
-        ):
-            if not callable(fetch):
-                continue
-            try:
-                tasks = fetch() or []
-            except Exception:
-                continue
-            for task in tasks:
-                if str(getattr(task, 'id', '') or '').strip() == task_id:
-                    return task
-        return None
+        return find_task_by_id(
+            self._task_service,
+            task_id,
+            queues=(
+                'list_all_assigned_tasks',
+                'get_assigned_tasks',
+                'get_review_tasks',
+            ),
+        )
 
     def list_inventory_repositories(self) -> list[dict[str, str]]:
         """Return ``{id, owner, repo_slug, local_path}`` for every configured repo.
@@ -3547,6 +3542,3 @@ class AgentService(Service):
                 prepared_task=prepared_task,
             )
             return None
-
-    def _log_task_step(self, task_id: str, message: str, *args) -> None:
-        log_mission_step(self.logger, task_id, message, *args)

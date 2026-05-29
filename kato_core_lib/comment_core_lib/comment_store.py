@@ -189,6 +189,25 @@ class LocalCommentStore(object):
             self._persist(existing)
         return record
 
+    def _mutate_by_id(self, comment_id: str, apply) -> CommentRecord | None:
+        """Locked load → find ``comment_id`` → ``apply(record)`` → persist.
+
+        Holds the in-process + cross-process write lock, force-reloads from
+        disk, mutates the matching record in place via ``apply``, persists
+        the full list, and returns the mutated record. Returns ``None`` when
+        no record matches. Shared scaffold for the status mutators.
+        """
+        with self._lock, _process_safe_write_lock(self._path):
+            existing = list(self._load_all(force=True))
+            for index, current in enumerate(existing):
+                if current.id != comment_id:
+                    continue
+                apply(current)
+                existing[index] = current
+                self._persist(existing)
+                return current
+        return None
+
     def update_status(
         self,
         comment_id: str,
@@ -207,23 +226,18 @@ class LocalCommentStore(object):
             CommentStatus.RESOLVED.value,
         ):
             raise ValueError(f'unknown comment status: {status!r}')
-        with self._lock, _process_safe_write_lock(self._path):
-            existing = list(self._load_all(force=True))
-            for index, current in enumerate(existing):
-                if current.id != comment_id:
-                    continue
-                if status is not None:  # pragma: no branch - all production callers pass a status
-                    current.status = status
-                    if status == CommentStatus.RESOLVED.value:
-                        current.resolved_by = resolved_by or current.resolved_by
-                        current.resolved_at_epoch = time.time()
-                    else:
-                        current.resolved_by = ''
-                        current.resolved_at_epoch = 0.0
-                existing[index] = current
-                self._persist(existing)
-                return current
-        return None
+
+        def _apply(current: CommentRecord) -> None:
+            if status is not None:  # pragma: no branch - all production callers pass a status
+                current.status = status
+                if status == CommentStatus.RESOLVED.value:
+                    current.resolved_by = resolved_by or current.resolved_by
+                    current.resolved_at_epoch = time.time()
+                else:
+                    current.resolved_by = ''
+                    current.resolved_at_epoch = 0.0
+
+        return self._mutate_by_id(comment_id, _apply)
 
     def update_kato_status(
         self,
@@ -242,23 +256,18 @@ class LocalCommentStore(object):
         """
         if kato_status not in {item.value for item in KatoCommentStatus}:
             raise ValueError(f'unknown kato_status: {kato_status!r}')
-        with self._lock, _process_safe_write_lock(self._path):
-            existing = list(self._load_all(force=True))
-            for index, current in enumerate(existing):
-                if current.id != comment_id:
-                    continue
-                current.kato_status = kato_status
-                if addressed_sha:
-                    current.kato_addressed_sha = addressed_sha
-                if failure_reason:
-                    current.kato_failure_reason = failure_reason
-                else:
-                    if kato_status == KatoCommentStatus.IDLE.value:
-                        current.kato_failure_reason = ''
-                existing[index] = current
-                self._persist(existing)
-                return current
-        return None
+
+        def _apply(current: CommentRecord) -> None:
+            current.kato_status = kato_status
+            if addressed_sha:
+                current.kato_addressed_sha = addressed_sha
+            if failure_reason:
+                current.kato_failure_reason = failure_reason
+            else:
+                if kato_status == KatoCommentStatus.IDLE.value:
+                    current.kato_failure_reason = ''
+
+        return self._mutate_by_id(comment_id, _apply)
 
     def delete(self, comment_id: str) -> bool:
         """Remove a comment (and any direct replies). Returns True on hit."""
@@ -321,6 +330,12 @@ class LocalCommentStore(object):
         except OSError:
             return 0
 
+    def _cache_empty(self, mtime: int) -> list:
+        """Reset the cache to empty (stamped at ``mtime``) and return ``[]``."""
+        self._cache = []
+        self._cache_mtime_ns = mtime
+        return []
+
     def _load_all(self, *, force: bool = False) -> list[CommentRecord]:
         # Cross-process writes bump the file mtime; drop the cache on change.
         current_mtime = self._current_mtime_ns()
@@ -331,9 +346,7 @@ class LocalCommentStore(object):
         ):
             return list(self._cache)
         if not self._path.is_file():
-            self._cache = []
-            self._cache_mtime_ns = current_mtime
-            return []
+            return self._cache_empty(current_mtime)
         try:
             with self._path.open('r', encoding='utf-8') as fh:
                 payload = json.load(fh)
@@ -342,18 +355,12 @@ class LocalCommentStore(object):
                 'comment store at %s is unreadable (%s) — treating as empty',
                 self._path, exc,
             )
-            self._cache = []
-            self._cache_mtime_ns = current_mtime
-            return []
+            return self._cache_empty(current_mtime)
         if not isinstance(payload, dict):
-            self._cache = []
-            self._cache_mtime_ns = current_mtime
-            return []
+            return self._cache_empty(current_mtime)
         rows = payload.get('comments') or []
         if not isinstance(rows, list):
-            self._cache = []
-            self._cache_mtime_ns = current_mtime
-            return []
+            return self._cache_empty(current_mtime)
         out: list[CommentRecord] = []
         for entry in rows:
             if not isinstance(entry, dict):

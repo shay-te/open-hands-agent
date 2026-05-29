@@ -228,23 +228,13 @@ class PlanningSessionRunner(object):
             'cwd': normalized_text(cwd),
             'resumed': bool(resume_session_id),
         })
-        session = self._session_manager.start_session(
+        session = self._start_session(
             task_id=normalized_task_id,
             task_summary=normalized_text(task_summary),
             initial_prompt=initial_prompt,
             cwd=normalized_text(cwd),
-            binary=self._defaults.binary,
-            model=model or self._defaults.model,
-            permission_mode=self._defaults.permission_mode,
-            permission_prompt_tool=self._defaults.permission_prompt_tool,
-            allowed_tools=self._defaults.allowed_tools,
-            disallowed_tools=self._defaults.disallowed_tools,
-            max_turns=self._defaults.max_turns,
-            effort=normalized_text(effort) or self._defaults.effort,
-            expected_branch='',
-            architecture_doc_path=self._defaults.architecture_doc_path,
-            lessons_path=self._defaults.lessons_path,
-            docker_mode_on=self._defaults.docker_mode_on,
+            model=model,
+            effort=normalized_text(effort),
             additional_dirs=additional_dirs,
         )
         sid = read_session_id_from(session)
@@ -487,7 +477,10 @@ class PlanningSessionRunner(object):
         task_summary: str,
         initial_prompt: str,
         cwd: str,
-        branch_name: str,
+        branch_name: str = '',
+        model: str = '',
+        effort: str = '',
+        additional_dirs: list[str] | None = None,
     ):
         return self._session_manager.start_session(
             task_id=task_id,
@@ -495,17 +488,18 @@ class PlanningSessionRunner(object):
             initial_prompt=initial_prompt,
             cwd=cwd,
             binary=self._defaults.binary,
-            model=self._defaults.model,
+            model=model or self._defaults.model,
             permission_mode=self._defaults.permission_mode,
             permission_prompt_tool=self._defaults.permission_prompt_tool,
             allowed_tools=self._defaults.allowed_tools,
             disallowed_tools=self._defaults.disallowed_tools,
             max_turns=self._defaults.max_turns,
-            effort=self._defaults.effort,
+            effort=effort or self._defaults.effort,
             expected_branch=branch_name,
             architecture_doc_path=self._defaults.architecture_doc_path,
             lessons_path=self._defaults.lessons_path,
             docker_mode_on=self._defaults.docker_mode_on,
+            additional_dirs=additional_dirs,
         )
 
     def _raise_if_terminal_failed(

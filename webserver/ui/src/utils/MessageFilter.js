@@ -7,6 +7,7 @@ import { BUBBLE_KIND } from '../constants/bubbleKind.js';
 import { CLAUDE_EVENT, CLAUDE_SYSTEM_SUBTYPE } from '../constants/claudeEvent.js';
 import { ENTRY_SOURCE } from '../constants/entrySource.js';
 import { NOTIFICATION_KIND } from '../constants/notificationKind.js';
+import { messageContentText } from './messageContent.js';
 
 const HEARTBEAT_MESSAGE_PREFIX = 'Idle · next scan in';
 const RATE_LIMIT_TEXT_PREFIX = "You've hit your limit";
@@ -228,14 +229,12 @@ function _isServerUserEntry(entry) {
 
 function _userEventText(entry) {
   const message = entry?.raw?.message || {};
+  // String content short-circuits; array content goes through the
+  // shared text-block filter+join.
   if (typeof message.content === 'string') {
     return message.content.trim();
   }
-  const content = Array.isArray(message.content) ? message.content : [];
-  const pieces = content
-    .filter((b) => b && b.type === 'text' && b.text)
-    .map((b) => String(b.text));
-  return pieces.join('\n').trim();
+  return messageContentText(message);
 }
 
 function _isInternalTaskNotificationText(text) {

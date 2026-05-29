@@ -1050,7 +1050,7 @@ class StartPendingCommentWorkBootTests(unittest.TestCase):
         ) as start:
             _start_pending_comment_work_when_ui_ready(app)
         wait.assert_called_once_with(
-            'http://127.0.0.1:5050', app.logger,
+            'http://127.0.0.1:5050', logger=app.logger,
         )
         start.assert_called_once_with(app)
 

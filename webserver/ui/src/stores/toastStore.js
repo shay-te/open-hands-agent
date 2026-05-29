@@ -12,27 +12,17 @@
 // early. No React, no context — plain pub/sub so non-component code
 // (api error handlers, hooks) can fire toasts too.
 
+import { createPubSub } from './pubsub.js';
+
 let _toasts = [];
-const _listeners = new Set();
 let _nextId = 1;
 
-function _emit() {
-  // Snapshot copy so subscribers can't accidentally mutate state.
-  const snapshot = _toasts.slice();
-  for (const fn of _listeners) {
-    try { fn(snapshot); } catch (_) { /* never let one subscriber break others */ }
-  }
-}
+// Snapshot copy so subscribers can't accidentally mutate state.
+const _pubsub = createPubSub(() => _toasts.slice());
+const _emit = _pubsub.emit;
 
 export const toastStore = {
-  subscribe(fn) {
-    _listeners.add(fn);
-    // Fire once immediately so late mounters render the current state.
-    // Wrapped in try/catch so a throwing subscriber can't take down
-    // the caller of subscribe() — same defense as _emit().
-    try { fn(_toasts.slice()); } catch (_) { /* see _emit */ }
-    return () => _listeners.delete(fn);
-  },
+  subscribe: _pubsub.subscribe,
 
   push({
     kind = 'info',

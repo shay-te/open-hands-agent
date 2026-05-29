@@ -153,20 +153,25 @@ export default function DiffPane({
     [state.repoDiffs],
   );
 
+  // Locate the rendered file node for a (repoId, path): exact anchor
+  // match first, then a path-only match if the repo wasn't carried.
+  const resolveFileNode = useCallback((rid, path) => (
+    fileRefs.current.get(diffAnchorKey(rid, path))
+      || [...fileRefs.current.entries()].find(
+        ([k]) => k.endsWith(`::${path}`),
+      )?.[1]
+  ), []);
+
   // Scroll the targeted file's section into view whenever the left
   // list hands us a new (repoId, path) — that's the "click just
   // scrolls to it" behaviour. Runs after the diff is rendered.
   useEffect(() => {
     if (state.status !== 'ready' || !relativePath) { return; }
-    const node = fileRefs.current.get(diffAnchorKey(repoId, relativePath))
-      // Fall back to a path-only match if the repo wasn't carried.
-      || [...fileRefs.current.entries()].find(
-        ([k]) => k.endsWith(`::${relativePath}`),
-      )?.[1];
+    const node = resolveFileNode(repoId, relativePath);
     if (node && typeof node.scrollIntoView === 'function') {
       node.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
-  }, [state.status, repoId, relativePath, openRequestId, totalFiles]);
+  }, [state.status, repoId, relativePath, openRequestId, totalFiles, resolveFileNode]);
 
   // When the operator clicked a file's comment badge (not the name),
   // go one step further than the file-scroll above: scroll to the
@@ -176,10 +181,7 @@ export default function DiffPane({
   // file section so the view at least lands on the right file.
   useEffect(() => {
     if (!focusComment || state.status !== 'ready' || !relativePath) { return; }
-    const fileNode = fileRefs.current.get(diffAnchorKey(repoId, relativePath))
-      || [...fileRefs.current.entries()].find(
-        ([k]) => k.endsWith(`::${relativePath}`),
-      )?.[1];
+    const fileNode = resolveFileNode(repoId, relativePath);
     if (!fileNode) { return; }
     const thread = fileNode.querySelector('.diff-file-comment-thread');
     const target = thread || fileNode;
@@ -188,7 +190,7 @@ export default function DiffPane({
     }
   }, [
     focusComment, state.status, repoId, relativePath, openRequestId,
-    totalFiles, commentsByRepo,
+    totalFiles, commentsByRepo, resolveFileNode,
   ]);
 
   if (state.status === 'loading') {

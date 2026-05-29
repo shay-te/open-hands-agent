@@ -39,6 +39,7 @@ from kato_core_lib.helpers.review_comment_utils import (
     review_fix_context_from_mapping,
     review_fix_result,
 )
+from kato_core_lib.helpers.task_lookup_utils import find_task_by_id
 from kato_core_lib.helpers.text_utils import normalized_text, text_from_attr
 
 NON_FATAL_REVIEW_RESOLUTION_STATUS_CODES = {404, 409}
@@ -824,25 +825,26 @@ class ReviewCommentService(Service):
         then ran with only that repo cloned, even though the task
         was tagged for several.
         """
-        candidate_queues = (
-            ('assigned', getattr(self._task_service, 'get_assigned_tasks', None)),
-            ('review', getattr(self._task_service, 'get_review_tasks', None)),
+        _queue_labels = {
+            'get_assigned_tasks': 'assigned',
+            'get_review_tasks': 'review',
+        }
+
+        def _log_queue_error(queue_name: str) -> None:
+            self.logger.exception(
+                'failed to load %s tasks for workspace-clone resolution '
+                '(task %s); will try other queues / stub task',
+                _queue_labels.get(queue_name, queue_name), review_context.task_id,
+            )
+
+        task = find_task_by_id(
+            self._task_service,
+            review_context.task_id,
+            queues=('get_assigned_tasks', 'get_review_tasks'),
+            on_error=_log_queue_error,
         )
-        for queue_name, fetch in candidate_queues:
-            if not callable(fetch):
-                continue
-            try:
-                tasks = fetch() or []
-            except Exception:
-                self.logger.exception(
-                    'failed to load %s tasks for workspace-clone resolution '
-                    '(task %s); will try other queues / stub task',
-                    queue_name, review_context.task_id,
-                )
-                continue
-            for task in tasks:
-                if str(getattr(task, 'id', '') or '').strip() == review_context.task_id:
-                    return task
+        if task is not None:
+            return task
         from types import SimpleNamespace
         return SimpleNamespace(
             id=review_context.task_id,

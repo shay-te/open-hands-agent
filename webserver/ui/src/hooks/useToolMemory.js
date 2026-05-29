@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { resolveStorage } from '../utils/storage.js';
+import { readStorageString, writeStorageItem } from '../utils/storage.js';
 import { parseJsonOr } from '../utils/json.js';
 
 // Where the operator's "always allow / always deny" choices live in
@@ -21,24 +21,21 @@ export const _readPersistedForTest = readPersisted;
 export const _writePersistedForTest = writePersisted;
 
 function readPersisted() {
-  const store = resolveStorage();
-  if (!store) { return {}; }
-  try {
-    const parsed = parseJsonOr(store.getItem(STORAGE_KEY), null);
-    if (!parsed || typeof parsed !== 'object') { return {}; }
-    return parsed;
-  } catch (_) {
-    return {};
-  }
+  // Unavailable / throwing storage → null fallback, which fails the
+  // ``!parsed`` guard and returns {} — same as the old no-store /
+  // catch returns. Arrays pass ``typeof === 'object'`` and are
+  // returned as-is (existing tolerated behavior).
+  const parsed = parseJsonOr(readStorageString(STORAGE_KEY, null), null);
+  if (!parsed || typeof parsed !== 'object') { return {}; }
+  return parsed;
 }
 
 
 function writePersisted(decisions) {
-  const store = resolveStorage();
-  if (!store) { return; }
-  try {
-    store.setItem(STORAGE_KEY, JSON.stringify(decisions));
-  } catch (_) { /* quota / private-mode failures are non-fatal */ }
+  // ``JSON.stringify`` of the decisions object is always a truthy
+  // string, so this always setItem's; quota / private-mode failures
+  // are swallowed (non-fatal).
+  writeStorageItem(STORAGE_KEY, JSON.stringify(decisions), undefined);
 }
 
 

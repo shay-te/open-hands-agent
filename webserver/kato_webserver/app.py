@@ -273,6 +273,32 @@ def _validate_settings(updates: dict[str, str]) -> list[str]:
     return validate_settings_values(updates)
 
 
+def _validate_persist_and_respond(updates: dict):
+    """Validate → persist → standard "saved, restart required" response.
+
+    Shared tail for the three settings-write POST handlers
+    (task-providers / git-providers / all-settings). On validation
+    failure returns the ``400`` ``'; '``-joined error; on a write
+    ``OSError`` returns the ``500`` failure body; otherwise the
+    ``{ok, updated_keys, restart_required, message}`` success envelope.
+    Callers own their allowlist filtering and the "no recognised
+    updates" empty-payload guard — this is purely the common tail.
+    """
+    validation_errors = _validate_settings(updates)
+    if validation_errors:
+        return jsonify({'error': '; '.join(validation_errors)}), 400
+    try:
+        _persist_settings(updates)
+    except OSError as exc:
+        return jsonify({'error': f'failed to write settings file: {exc}'}), 500
+    return jsonify({
+        'ok': True,
+        'updated_keys': sorted(updates.keys()),
+        'restart_required': True,
+        'message': 'Saved. Restart kato for the change to take effect.',
+    })
+
+
 def _persist_settings(updates: dict) -> None:
     """Write UI-edited settings to ``~/.kato/settings.json`` (atomic).
 
@@ -402,6 +428,25 @@ _GIT_HOST_FIELDS: dict[str, tuple[str, ...]] = {
 }
 
 
+def _filtered_provider_updates(
+    field_map: dict[str, tuple[str, ...]], provider: str, fields,
+) -> dict[str, str]:
+    """Keep only ``fields`` entries whitelisted for ``provider``.
+
+    Shared by the task-provider / git-host POST handlers: a payload
+    can't smuggle env keys that don't belong to the named provider.
+    Each kept value is coerced to ``str(value or '')`` (so ``None`` /
+    missing becomes the empty string the ``.env`` layer expects).
+    ``fields`` is expected to already be a validated dict.
+    """
+    allowed = set(field_map[provider])
+    return {
+        key: str(value or '')
+        for key, value in fields.items()
+        if key in allowed
+    }
+
+
 def _read_env_file_values(path: Path) -> dict[str, str]:
     """Parse a ``.env``-style file into a dict.
 
@@ -438,6 +483,38 @@ def _read_env_file_values(path: Path) -> dict[str, str]:
     return out
 
 
+
+
+def _file_preview_payload(size: int, content: str, base_fields: dict):
+    """Binary-vs-text payload shaping for the ``/base-file`` preview.
+
+    Given a file's ``size``, its decoded ``content`` string, and the
+    route-specific ``base_fields`` (``{repo_id, path, base}``), returns
+    the ``jsonify`` payload:
+
+      * a NUL char in the first 8KB ⇒ ``{**base_fields, size, binary: True}``
+      * otherwise ⇒ ``{**base_fields, size, binary: False, content}``
+
+    The 1 MB cap is intentionally NOT here: both file routes guard on
+    ``size`` *before* fetching content (``/file`` skips ``read_bytes``,
+    ``/base-file`` skips ``file_text_at_ref``), so the cap can't move
+    into a helper that already receives the content.
+
+    ``/file`` deliberately does NOT route through this: it runs its NUL
+    heuristic on the raw *bytes* (``b'\\x00' in raw[:8192]``) before
+    decoding, and that 8KB window is measured in bytes — switching it to
+    this string-based check would shift the binary/text boundary for the
+    pathological case of a NUL byte sitting just past the 8KB mark behind
+    a multibyte-heavy prefix. Kept byte-exact there.
+    """
+    if '\x00' in content[:8192]:
+        return jsonify({**base_fields, 'size': size, 'binary': True})
+    return jsonify({
+        **base_fields,
+        'size': size,
+        'binary': False,
+        'content': content,
+    })
 
 
 def _is_inside(candidate, root) -> bool:
@@ -600,6 +677,99 @@ def _resolve_repo_cwd(
 # longer 409 on branch divergence.
 
 
+def _resolve_agent_method(
+    app: Flask, method_name: str, *, not_callable_message: str = '',
+):
+    """Resolve a bound agent-service method, or the wiring/guard error.
+
+    Returns ``(method, None)`` when the agent service is wired AND the
+    named method is callable. Otherwise returns ``(None, error_response)``
+    where the error is the standard ``503`` ("agent service not wired")
+    or a ``501`` JSON envelope the ~16 publish/git/comment/task routes
+    share.
+
+    ``not_callable_message`` overrides the 501 body — each route keeps
+    its own operator-facing phrasing (``does not support push`` vs
+    ``comments not supported`` vs ``does not support PR creation``)
+    verbatim. Defaults to ``agent service does not support <method>``.
+    """
+    agent_service = app.config.get('AGENT_SERVICE')
+    if agent_service is None:
+        return None, (jsonify({'error': 'agent service not wired'}), 503)
+    method = getattr(agent_service, method_name, None)
+    if not callable(method):
+        message = (
+            not_callable_message
+            or f'agent service does not support {method_name}'
+        )
+        return None, (jsonify({'error': message}), 501)
+    return method, None
+
+
+def _envelope_response(result, success_key: str, *, missing_key: str = 'no workspace'):
+    """Standard publish/git-route response: success key + substring status map.
+
+    ``result`` is the agent-service return (coerced to ``{}`` when
+    falsy). When it carries an ``error`` AND the operation did NOT
+    succeed (``success_key`` falsy), the status is ``404`` if
+    ``missing_key`` appears in the error string else ``500``. Otherwise
+    the payload is returned with the default ``200``.
+    """
+    result = result or {}
+    if result.get('error') and not result.get(success_key):
+        status = 404 if missing_key in str(result['error']) else 500
+        return jsonify(result), status
+    return jsonify(result)
+
+
+def _send_kato_png(*, cache_control: str = '', not_found_message: str = 'not found'):
+    """Serve ``<kato-repo>/kato.png`` for the logo / favicon routes.
+
+    ``cache_control`` (when non-empty) sets the response's
+    ``Cache-Control`` header — the favicon routes ask browsers to
+    revalidate so a fresh ``kato.png`` is picked up; the logo route
+    leaves it unset. ``not_found_message`` is the ``404`` body string
+    (``'logo not found'`` vs ``'favicon not found'``), kept verbatim
+    per route.
+    """
+    candidate = KATO_REPO_ROOT / 'kato.png'
+    if not candidate.exists():
+        return (not_found_message, 404)
+    response = send_file(candidate, mimetype='image/png')
+    if cache_control:
+        response.headers['Cache-Control'] = cache_control
+    return response
+
+
+def _get_task_override(app: Flask, key: str, task_id: str) -> str:
+    """Read a per-task override (model / effort) from its config store.
+
+    Treats a missing / ``None`` store as "no override" — returns the
+    empty string, matching the GET routes' ``... or {}`` fallback.
+    """
+    return (app.config.get(key) or {}).get(task_id, '')
+
+
+def _set_task_override(app: Flask, key: str, task_id: str, value: str = '') -> bool:
+    """Write (or clear) a per-task override; ``False`` when not wired.
+
+    A truthy ``value`` is stored; an empty ``value`` clears the
+    override (``pop``, back to the configured default). Returns
+    ``False`` when the store config slot is ``None`` so the caller can
+    return its ``503 {'error': 'not available'}`` — distinct from the
+    ``app.config.get(...) or {}`` read path, which must NOT mutate a
+    fresh throwaway dict.
+    """
+    store = app.config.get(key)
+    if store is None:
+        return False
+    if value:
+        store[task_id] = value
+    else:
+        store.pop(task_id, None)
+    return True
+
+
 def create_app(
     *,
     session_manager=None,
@@ -688,21 +858,14 @@ def _register_http_routes(app: Flask) -> None:
 
     @app.get('/api/sessions/<task_id>/model')
     def get_session_model(task_id: str):
-        overrides = app.config.get('TASK_MODEL_OVERRIDES') or {}
-        model = overrides.get(task_id, '')
-        return jsonify({'model': model})
+        return jsonify({'model': _get_task_override(app, 'TASK_MODEL_OVERRIDES', task_id)})
 
     @app.post('/api/sessions/<task_id>/model')
     def set_session_model(task_id: str):
         body = request.get_json(silent=True) or {}
         model = text_from_mapping(body, 'model')
-        overrides = app.config.get('TASK_MODEL_OVERRIDES')
-        if overrides is None:
+        if not _set_task_override(app, 'TASK_MODEL_OVERRIDES', task_id, model):
             return jsonify({'error': 'not available'}), 503
-        if model:
-            overrides[task_id] = model
-        else:
-            overrides.pop(task_id, None)
         return jsonify({'model': model})
 
     @app.get('/api/effort-levels')
@@ -718,15 +881,15 @@ def _register_http_routes(app: Flask) -> None:
 
     @app.get('/api/sessions/<task_id>/effort')
     def get_session_effort(task_id: str):
-        overrides = app.config.get('TASK_EFFORT_OVERRIDES') or {}
-        return jsonify({'effort': overrides.get(task_id, '')})
+        return jsonify({'effort': _get_task_override(app, 'TASK_EFFORT_OVERRIDES', task_id)})
 
     @app.post('/api/sessions/<task_id>/effort')
     def set_session_effort(task_id: str):
         body = request.get_json(silent=True) or {}
         effort = text_from_mapping(body, 'effort').lower()
-        overrides = app.config.get('TASK_EFFORT_OVERRIDES')
-        if overrides is None:
+        # Guard "not wired" BEFORE validation so a missing store still
+        # returns 503 (not a 400) even for an unknown effort.
+        if app.config.get('TASK_EFFORT_OVERRIDES') is None:
             return jsonify({'error': 'not available'}), 503
         # '' clears the override (back to Auto). Any explicit level must be
         # one the CLI actually advertises, so a typo can't reach the spawn.
@@ -735,10 +898,7 @@ def _register_http_routes(app: Flask) -> None:
                 'error': f'unknown effort {effort!r}; '
                 f'expected one of {_discover_chat_effort_levels(app)} or empty',
             }), 400
-        if effort:
-            overrides[task_id] = effort
-        else:
-            overrides.pop(task_id, None)
+        _set_task_override(app, 'TASK_EFFORT_OVERRIDES', task_id, effort)
         return jsonify({'effort': effort})
 
     @app.post('/api/scan/trigger')
@@ -999,25 +1159,12 @@ def _register_http_routes(app: Flask) -> None:
                 return jsonify({'error': f'unknown task provider: {provider}'}), 400
             if not isinstance(fields, dict):
                 return jsonify({'error': 'fields must be an object'}), 400
-            allowed = set(_TASK_PROVIDER_FIELDS[provider])
-            for key, value in fields.items():
-                if key in allowed:
-                    updates[key] = str(value or '')
+            updates.update(
+                _filtered_provider_updates(_TASK_PROVIDER_FIELDS, provider, fields),
+            )
         if not updates:
             return jsonify({'error': 'no recognised updates'}), 400
-        validation_errors = _validate_settings(updates)
-        if validation_errors:
-            return jsonify({'error': '; '.join(validation_errors)}), 400
-        try:
-            _persist_settings(updates)
-        except OSError as exc:
-            return jsonify({'error': f'failed to write settings file: {exc}'}), 500
-        return jsonify({
-            'ok': True,
-            'updated_keys': sorted(updates.keys()),
-            'restart_required': True,
-            'message': 'Saved. Restart kato for the change to take effect.',
-        })
+        return _validate_persist_and_respond(updates)
 
     @app.get('/api/git-providers')
     def list_git_providers():
@@ -1057,27 +1204,10 @@ def _register_http_routes(app: Flask) -> None:
             }), 400
         if not isinstance(fields, dict):
             return jsonify({'error': 'fields must be an object'}), 400
-        allowed = set(_GIT_HOST_FIELDS[provider])
-        updates = {
-            key: str(value or '')
-            for key, value in fields.items()
-            if key in allowed
-        }
+        updates = _filtered_provider_updates(_GIT_HOST_FIELDS, provider, fields)
         if not updates:
             return jsonify({'error': 'no recognised fields'}), 400
-        validation_errors = _validate_settings(updates)
-        if validation_errors:
-            return jsonify({'error': '; '.join(validation_errors)}), 400
-        try:
-            _persist_settings(updates)
-        except OSError as exc:
-            return jsonify({'error': f'failed to write settings file: {exc}'}), 500
-        return jsonify({
-            'ok': True,
-            'updated_keys': sorted(updates.keys()),
-            'restart_required': True,
-            'message': 'Saved. Restart kato for the change to take effect.',
-        })
+        return _validate_persist_and_respond(updates)
 
     @app.get('/api/all-settings')
     def list_all_settings():
@@ -1135,19 +1265,7 @@ def _register_http_routes(app: Flask) -> None:
                 updates[key] = str(value if value is not None else '')
         if not updates:
             return jsonify({'error': 'no recognised settings in payload'}), 400
-        validation_errors = _validate_settings(updates)
-        if validation_errors:
-            return jsonify({'error': '; '.join(validation_errors)}), 400
-        try:
-            _persist_settings(updates)
-        except OSError as exc:
-            return jsonify({'error': f'failed to write settings file: {exc}'}), 500
-        return jsonify({
-            'ok': True,
-            'updated_keys': sorted(updates.keys()),
-            'restart_required': True,
-            'message': 'Saved. Restart kato for the change to take effect.',
-        })
+        return _validate_persist_and_respond(updates)
 
     @app.get('/api/repository-approvals')
     def list_repository_approvals():
@@ -1279,34 +1397,27 @@ def _register_http_routes(app: Flask) -> None:
 
     @app.get('/logo.png')
     def logo():
-        candidate = KATO_REPO_ROOT / 'kato.png'
-        if not candidate.exists():
-            return ('logo not found', 404)
-        return send_file(candidate, mimetype='image/png')
+        return _send_kato_png(not_found_message='logo not found')
 
     @app.get('/favicon.png')
     def favicon_png():
-        candidate = KATO_REPO_ROOT / 'kato.png'
-        if not candidate.exists():
-            return ('favicon not found', 404)
-        response = send_file(candidate, mimetype='image/png')
         # Browsers cache favicons aggressively. Tell them to revalidate so
         # a fresh kato.png gets picked up without forcing the operator to
         # clear browser site data.
-        response.headers['Cache-Control'] = 'no-cache, must-revalidate'
-        return response
+        return _send_kato_png(
+            cache_control='no-cache, must-revalidate',
+            not_found_message='favicon not found',
+        )
 
     @app.get('/favicon.ico')
     def favicon_ico():
         # Browsers probe /favicon.ico by default even without a <link>
         # tag. Serve the same PNG (mislabelled as image/x-icon is fine,
         # every browser kato targets honors the actual content).
-        candidate = KATO_REPO_ROOT / 'kato.png'
-        if not candidate.exists():
-            return ('favicon not found', 404)
-        response = send_file(candidate, mimetype='image/png')
-        response.headers['Cache-Control'] = 'no-cache, must-revalidate'
-        return response
+        return _send_kato_png(
+            cache_control='no-cache, must-revalidate',
+            not_found_message='favicon not found',
+        )
 
     @app.get('/api/sessions/<task_id>/files')
     def list_session_files(task_id: str):
@@ -1597,22 +1708,10 @@ def _register_http_routes(app: Flask) -> None:
         content = file_text_at_ref(cwd, ref, rel_path)
         if content is None:
             return jsonify({'error': 'file not found at base'}), 404
-        if '\x00' in content[:8192]:
-            return jsonify({
-                'repo_id': repo_id,
-                'path': rel_path,
-                'base': base,
-                'size': size,
-                'binary': True,
-            })
-        return jsonify({
-            'repo_id': repo_id,
-            'path': rel_path,
-            'base': base,
-            'size': size,
-            'binary': False,
-            'content': content,
-        })
+        return _file_preview_payload(
+            size, content,
+            {'repo_id': repo_id, 'path': rel_path, 'base': base},
+        )
 
     @app.get('/api/sessions/<task_id>/commits')
     def list_repo_commits(task_id: str):
@@ -1682,12 +1781,12 @@ def _register_http_routes(app: Flask) -> None:
     @app.post('/api/sessions/<task_id>/approve-push')
     def approve_task_push(task_id: str):
         """Operator approves the paused push for a ``kato:wait-before-git-push`` task."""
-        agent_service = app.config.get('AGENT_SERVICE')
-        if agent_service is None:
-            return jsonify({'error': 'agent service not wired'}), 503
-        approve = getattr(agent_service, 'approve_push', None)
-        if not callable(approve):
-            return jsonify({'error': 'agent service does not support push approval'}), 501
+        approve, err = _resolve_agent_method(
+            app, 'approve_push',
+            not_callable_message='agent service does not support push approval',
+        )
+        if err:
+            return err
         result = approve(task_id)
         if result is None:
             return jsonify({
@@ -1714,31 +1813,25 @@ def _register_http_routes(app: Flask) -> None:
     @app.post('/api/sessions/<task_id>/push')
     def push_task(task_id: str):
         """Operator-triggered push from the planning UI's ``Push`` button."""
-        agent_service = app.config.get('AGENT_SERVICE')
-        if agent_service is None:
-            return jsonify({'error': 'agent service not wired'}), 503
-        push = getattr(agent_service, 'push_task', None)
-        if not callable(push):
-            return jsonify({'error': 'agent service does not support push'}), 501
-        result = push(task_id) or {}
-        if result.get('error') and not result.get('pushed'):
-            return jsonify(result), 404 if 'no workspace' in str(result['error']) else 500
-        return jsonify(result)
+        push, err = _resolve_agent_method(
+            app, 'push_task',
+            not_callable_message='agent service does not support push',
+        )
+        if err:
+            return err
+        return _envelope_response(push(task_id), 'pushed')
 
     @app.post('/api/sessions/<task_id>/pull')
     def pull_task(task_id: str):
         """Operator-triggered fast-forward pull from the planning UI's
         ``Pull`` button. Symmetric to ``/push``."""
-        agent_service = app.config.get('AGENT_SERVICE')
-        if agent_service is None:
-            return jsonify({'error': 'agent service not wired'}), 503
-        pull = getattr(agent_service, 'pull_task', None)
-        if not callable(pull):
-            return jsonify({'error': 'agent service does not support pull'}), 501
-        result = pull(task_id) or {}
-        if result.get('error') and not result.get('pulled'):
-            return jsonify(result), 404 if 'no workspace' in str(result['error']) else 500
-        return jsonify(result)
+        pull, err = _resolve_agent_method(
+            app, 'pull_task',
+            not_callable_message='agent service does not support pull',
+        )
+        if err:
+            return err
+        return _envelope_response(pull(task_id), 'pulled')
 
     @app.post('/api/sessions/<task_id>/merge-default-branch')
     def merge_default_branch(task_id: str):
@@ -1749,14 +1842,12 @@ def _register_http_routes(app: Flask) -> None:
         aborted) so the chat agent can resolve them — the clone is
         intentionally blocked from running git itself.
         """
-        agent_service = app.config.get('AGENT_SERVICE')
-        if agent_service is None:
-            return jsonify({'error': 'agent service not wired'}), 503
-        merge = getattr(agent_service, 'merge_default_branch_for_task', None)
-        if not callable(merge):
-            return jsonify(
-                {'error': 'agent service does not support merge-default'},
-            ), 501
+        merge, err = _resolve_agent_method(
+            app, 'merge_default_branch_for_task',
+            not_callable_message='agent service does not support merge-default',
+        )
+        if err:
+            return err
         result = merge(task_id) or {}
         # A conflicted merge is a SUCCESSFUL outcome of this button —
         # the operator wanted the default branch in so the agent can
@@ -1770,16 +1861,13 @@ def _register_http_routes(app: Flask) -> None:
     @app.post('/api/sessions/<task_id>/pull-request')
     def create_task_pull_request(task_id: str):
         """Operator-triggered PR open from the planning UI's ``Pull request`` button."""
-        agent_service = app.config.get('AGENT_SERVICE')
-        if agent_service is None:
-            return jsonify({'error': 'agent service not wired'}), 503
-        create = getattr(agent_service, 'create_pull_request_for_task', None)
-        if not callable(create):
-            return jsonify({'error': 'agent service does not support PR creation'}), 501
-        result = create(task_id) or {}
-        if result.get('error') and not result.get('created'):
-            return jsonify(result), 404 if 'no workspace' in str(result['error']) else 500
-        return jsonify(result)
+        create, err = _resolve_agent_method(
+            app, 'create_pull_request_for_task',
+            not_callable_message='agent service does not support PR creation',
+        )
+        if err:
+            return err
+        return _envelope_response(create(task_id), 'created')
 
     @app.post('/api/sessions/<task_id>/update-source')
     def update_task_source(task_id: str):
@@ -1787,16 +1875,13 @@ def _register_http_routes(app: Flask) -> None:
         task branch. Pure git plumbing — no AI involvement. Drives the
         planning UI's ``Update source`` button.
         """
-        agent_service = app.config.get('AGENT_SERVICE')
-        if agent_service is None:
-            return jsonify({'error': 'agent service not wired'}), 503
-        update = getattr(agent_service, 'update_source_for_task', None)
-        if not callable(update):
-            return jsonify({'error': 'agent service does not support source-update'}), 501
-        result = update(task_id) or {}
-        if result.get('error') and not result.get('updated'):
-            return jsonify(result), 404 if 'no workspace' in str(result['error']) else 500
-        return jsonify(result)
+        update, err = _resolve_agent_method(
+            app, 'update_source_for_task',
+            not_callable_message='agent service does not support source-update',
+        )
+        if err:
+            return err
+        return _envelope_response(update(task_id), 'updated')
 
     @app.get('/api/sessions/<task_id>/comments')
     def list_task_comments(task_id: str):
@@ -1819,12 +1904,12 @@ def _register_http_routes(app: Flask) -> None:
         — replies don't kick the agent (they're additional context;
         kato runs on top-of-thread).
         """
-        agent_service = app.config.get('AGENT_SERVICE')
-        if agent_service is None:
-            return jsonify({'error': 'agent service not wired'}), 503
-        add_comment = getattr(agent_service, 'add_task_comment', None)
-        if not callable(add_comment):
-            return jsonify({'error': 'comments not supported'}), 501
+        add_comment, err = _resolve_agent_method(
+            app, 'add_task_comment',
+            not_callable_message='comments not supported',
+        )
+        if err:
+            return err
         payload = request.get_json(silent=True) or {}
         result = add_comment(
             task_id,
@@ -1843,12 +1928,12 @@ def _register_http_routes(app: Flask) -> None:
 
     @app.post('/api/sessions/<task_id>/comments/<comment_id>/resolve')
     def resolve_task_comment(task_id: str, comment_id: str):
-        agent_service = app.config.get('AGENT_SERVICE')
-        if agent_service is None:
-            return jsonify({'error': 'agent service not wired'}), 503
-        resolve = getattr(agent_service, 'resolve_task_comment', None)
-        if not callable(resolve):
-            return jsonify({'error': 'comments not supported'}), 501
+        resolve, err = _resolve_agent_method(
+            app, 'resolve_task_comment',
+            not_callable_message='comments not supported',
+        )
+        if err:
+            return err
         payload = request.get_json(silent=True) or {}
         return jsonify(resolve(
             task_id, comment_id,
@@ -1865,12 +1950,12 @@ def _register_http_routes(app: Flask) -> None:
         "Kato addressed this review comment and pushed a follow-up
         update" reply on the source git platform.
         """
-        agent_service = app.config.get('AGENT_SERVICE')
-        if agent_service is None:
-            return jsonify({'error': 'agent service not wired'}), 503
-        mark = getattr(agent_service, 'mark_comment_addressed', None)
-        if not callable(mark):
-            return jsonify({'error': 'comments not supported'}), 501
+        mark, err = _resolve_agent_method(
+            app, 'mark_comment_addressed',
+            not_callable_message='comments not supported',
+        )
+        if err:
+            return err
         payload = request.get_json(silent=True) or {}
         return jsonify(mark(
             task_id, comment_id,
@@ -1879,33 +1964,33 @@ def _register_http_routes(app: Flask) -> None:
 
     @app.post('/api/sessions/<task_id>/comments/<comment_id>/reopen')
     def reopen_task_comment(task_id: str, comment_id: str):
-        agent_service = app.config.get('AGENT_SERVICE')
-        if agent_service is None:
-            return jsonify({'error': 'agent service not wired'}), 503
-        reopen = getattr(agent_service, 'reopen_task_comment', None)
-        if not callable(reopen):
-            return jsonify({'error': 'comments not supported'}), 501
+        reopen, err = _resolve_agent_method(
+            app, 'reopen_task_comment',
+            not_callable_message='comments not supported',
+        )
+        if err:
+            return err
         return jsonify(reopen(task_id, comment_id))
 
     @app.delete('/api/sessions/<task_id>/comments/<comment_id>')
     def delete_task_comment(task_id: str, comment_id: str):
-        agent_service = app.config.get('AGENT_SERVICE')
-        if agent_service is None:
-            return jsonify({'error': 'agent service not wired'}), 503
-        delete = getattr(agent_service, 'delete_task_comment', None)
-        if not callable(delete):
-            return jsonify({'error': 'comments not supported'}), 501
+        delete, err = _resolve_agent_method(
+            app, 'delete_task_comment',
+            not_callable_message='comments not supported',
+        )
+        if err:
+            return err
         return jsonify(delete(task_id, comment_id))
 
     @app.post('/api/sessions/<task_id>/comments/sync')
     def sync_task_comments(task_id: str):
         """Pull remote PR comments + ``git pull`` the workspace clone."""
-        agent_service = app.config.get('AGENT_SERVICE')
-        if agent_service is None:
-            return jsonify({'error': 'agent service not wired'}), 503
-        sync = getattr(agent_service, 'sync_remote_comments', None)
-        if not callable(sync):
-            return jsonify({'error': 'comments not supported'}), 501
+        sync, err = _resolve_agent_method(
+            app, 'sync_remote_comments',
+            not_callable_message='comments not supported',
+        )
+        if err:
+            return err
         payload = request.get_json(silent=True) or {}
         repo_id = text_from_mapping(payload, 'repo')
         if not repo_id:
@@ -1938,12 +2023,9 @@ def _register_http_routes(app: Flask) -> None:
         scan would produce. No agent spawn — the operator types
         into the chat tab when ready.
         """
-        agent_service = app.config.get('AGENT_SERVICE')
-        if agent_service is None:
-            return jsonify({'error': 'agent service not wired'}), 503
-        adopt = getattr(agent_service, 'adopt_task', None)
-        if not callable(adopt):
-            return jsonify({'error': 'agent service does not support adopt_task'}), 501
+        adopt, err = _resolve_agent_method(app, 'adopt_task')
+        if err:
+            return err
         result = adopt(task_id) or {}
         if result.get('error') and not result.get('adopted'):
             err = str(result.get('error', ''))
@@ -1979,12 +2061,12 @@ def _register_http_routes(app: Flask) -> None:
         call so the operator can attach a new repo without bouncing
         through YouTrack / Jira and the Sync button.
         """
-        agent_service = app.config.get('AGENT_SERVICE')
-        if agent_service is None:
-            return jsonify({'error': 'agent service not wired'}), 503
-        add_repo = getattr(agent_service, 'add_task_repository', None)
-        if not callable(add_repo):
-            return jsonify({'error': 'agent service does not support add-repository'}), 501
+        add_repo, err = _resolve_agent_method(
+            app, 'add_task_repository',
+            not_callable_message='agent service does not support add-repository',
+        )
+        if err:
+            return err
         payload = request.get_json(silent=True) or {}
         repository_id = text_from_mapping(payload, 'repository_id')
         if not repository_id:
@@ -2007,18 +2089,13 @@ def _register_http_routes(app: Flask) -> None:
         no longer on the task are LEFT ALONE — sync is purely
         additive.
         """
-        agent_service = app.config.get('AGENT_SERVICE')
-        if agent_service is None:
-            return jsonify({'error': 'agent service not wired'}), 503
-        sync = getattr(agent_service, 'sync_task_repositories', None)
-        if not callable(sync):
-            return jsonify({'error': 'agent service does not support repo sync'}), 501
-        result = sync(task_id) or {}
-        if result.get('error') and not result.get('synced'):
-            err = str(result.get('error', ''))
-            status = 404 if 'no workspace' in err else 500
-            return jsonify(result), status
-        return jsonify(result)
+        sync, err = _resolve_agent_method(
+            app, 'sync_task_repositories',
+            not_callable_message='agent service does not support repo sync',
+        )
+        if err:
+            return err
+        return _envelope_response(sync(task_id), 'synced')
 
     @app.post('/api/sessions/<task_id>/finish')
     def finish_task(task_id: str):
@@ -2026,12 +2103,12 @@ def _register_http_routes(app: Flask) -> None:
         the ``<KATO_TASK_DONE>`` sentinel. Pushes pending changes, opens
         a PR if none exists, and moves the ticket to In Review.
         """
-        agent_service = app.config.get('AGENT_SERVICE')
-        if agent_service is None:
-            return jsonify({'error': 'agent service not wired'}), 503
-        finish = getattr(agent_service, 'finish_task_planning_session', None)
-        if not callable(finish):
-            return jsonify({'error': 'agent service does not support finish'}), 501
+        finish, err = _resolve_agent_method(
+            app, 'finish_task_planning_session',
+            not_callable_message='agent service does not support finish',
+        )
+        if err:
+            return err
         result = finish(task_id) or {}
         if result.get('error') and not result.get('finished'):
             return jsonify(result), 500
@@ -2150,19 +2227,8 @@ def _register_status_routes(app: Flask) -> None:
             # render a tasteful "no live feed" line instead of waiting.
             def _empty():
                 yield _sse_message(SSE_EVENT_STATUS_DISABLED, {})
-            return Response(
-                stream_with_context(_empty()),
-                mimetype='text/event-stream',
-                headers={'Cache-Control': 'no-cache, no-transform'},
-            )
-        return Response(
-            stream_with_context(_status_event_stream(broadcaster)),
-            mimetype='text/event-stream',
-            headers={
-                'Cache-Control': 'no-cache, no-transform',
-                'X-Accel-Buffering': 'no',
-            },
-        )
+            return _sse_response(_empty(), accel=False)
+        return _sse_response(_status_event_stream(broadcaster))
 
 
 def _status_event_stream(broadcaster):
@@ -2233,17 +2299,10 @@ def _register_session_events_route(app: Flask) -> None:
         manager = app.config['SESSION_MANAGER']
         workspace_manager = app.config.get('WORKSPACE_MANAGER')
         agent_service = app.config.get('AGENT_SERVICE')
-        return Response(
-            stream_with_context(
-                _event_stream_generator(
-                    manager, workspace_manager, task_id, agent_service,
-                ),
+        return _sse_response(
+            _event_stream_generator(
+                manager, workspace_manager, task_id, agent_service,
             ),
-            mimetype='text/event-stream',
-            headers={
-                'Cache-Control': 'no-cache, no-transform',
-                'X-Accel-Buffering': 'no',
-            },
         )
 
 
@@ -2888,6 +2947,26 @@ def _drain_queued_task_comment(agent_service, task_id: str) -> bool:
     return bool(result.get('started'))
 
 
+def _sse_response(generator, *, accel: bool = True) -> Response:
+    """Wrap an SSE generator in the standard ``text/event-stream`` Response.
+
+    Always streams ``generator`` via ``stream_with_context`` with
+    ``Cache-Control: no-cache, no-transform``. When ``accel`` is true
+    (the live session + status feeds), also sets
+    ``X-Accel-Buffering: no`` so nginx doesn't buffer the stream; the
+    "feed disabled" one-shot stream passes ``accel=False`` to match its
+    header set exactly.
+    """
+    headers = {'Cache-Control': 'no-cache, no-transform'}
+    if accel:
+        headers['X-Accel-Buffering'] = 'no'
+    return Response(
+        stream_with_context(generator),
+        mimetype='text/event-stream',
+        headers=headers,
+    )
+
+
 def _sse_message(event_type: str, data: dict[str, Any]) -> str:
     """Serialize one SSE message frame.
 
@@ -2967,6 +3046,34 @@ def _session_record_to_dict(
     return payload
 
 
+def _iter_live_sessions(session_manager):
+    """Yield ``(record, session)`` for every record whose session resolves.
+
+    Shared best-effort walk behind the per-task session accumulators
+    (``_live_session_ids`` / ``_working_session_ids`` /
+    ``_pending_permission_tool_by_task``): a ``None`` manager or a
+    ``list_records`` failure yields nothing, a per-record
+    ``get_session`` failure is skipped, and ``None`` sessions are
+    dropped. ``_session_ids_by_task`` is intentionally NOT built on
+    this — it never calls ``get_session`` (it keys off the record's
+    own stored agent_session_id), so it has no session to yield.
+    """
+    if session_manager is None:
+        return
+    try:
+        records = session_manager.list_records()
+    except Exception:
+        return
+    for record in records:
+        try:
+            session = session_manager.get_session(record.task_id)
+        except Exception:
+            continue
+        if session is None:
+            continue
+        yield record, session
+
+
 def _session_ids_by_task(session_manager) -> dict[str, str]:
     if session_manager is None:
         return {}
@@ -2988,19 +3095,9 @@ def _working_session_ids(session_manager) -> set[str]:
     but not actively producing — operator can tell at a glance whether
     Claude is still chewing on a turn or just waiting for input.
     """
-    if session_manager is None:
-        return set()
-    try:
-        records = session_manager.list_records()
-    except Exception:
-        return set()
     working: set[str] = set()
-    for record in records:
-        try:
-            session = session_manager.get_session(record.task_id)
-        except Exception:
-            continue
-        if session is not None and getattr(session, 'is_working', False):
+    for record, session in _iter_live_sessions(session_manager):
+        if getattr(session, 'is_working', False):
             working.add(record.task_id)
     return working
 
@@ -3023,20 +3120,8 @@ def _pending_permission_tool_by_task(session_manager) -> dict[str, str]:
     flashes orange on every rapid-fire Bash request, which is the
     confused-operator UX in the reported screenshot.
     """
-    if session_manager is None:
-        return {}
-    try:
-        records = session_manager.list_records()
-    except Exception:
-        return {}
     pending: dict[str, str] = {}
-    for record in records:
-        try:
-            session = session_manager.get_session(record.task_id)
-        except Exception:
-            continue
-        if session is None:
-            continue
+    for record, session in _iter_live_sessions(session_manager):
         tool_name = _session_pending_permission_tool(session)
         if tool_name:
             # Empty-string tool name still marks pending (legacy
@@ -3102,19 +3187,9 @@ def _session_pending_permission_tool(session) -> str:
 
 def _live_session_ids(session_manager) -> set[str]:
     """Task ids that currently have an alive subprocess (best-effort)."""
-    if session_manager is None:
-        return set()
-    try:
-        records = session_manager.list_records()
-    except Exception:
-        return set()
     live: set[str] = set()
-    for record in records:
-        try:
-            session = session_manager.get_session(record.task_id)
-        except Exception:
-            continue
-        if session is not None and getattr(session, 'is_alive', False):
+    for record, session in _iter_live_sessions(session_manager):
+        if getattr(session, 'is_alive', False):
             live.add(record.task_id)
     return live
 

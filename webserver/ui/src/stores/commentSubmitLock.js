@@ -11,15 +11,12 @@
 // Same shape as ``toastStore.js`` — plain pub/sub, no React,
 // reachable from non-component code.
 
+import { createPubSub } from './pubsub.js';
+
 let _busy = false;
-const _listeners = new Set();
 
-
-function _emit() {
-  for (const fn of _listeners) {
-    try { fn(_busy); } catch (_) { /* never let one subscriber break others */ }
-  }
-}
+const _pubsub = createPubSub(() => _busy);
+const _emit = _pubsub.emit;
 
 
 export const commentSubmitLock = {
@@ -41,11 +38,5 @@ export const commentSubmitLock = {
     _emit();
   },
 
-  subscribe(fn) {
-    _listeners.add(fn);
-    // Wrapped in try/catch so a throwing subscriber can't take down
-    // the caller of subscribe() — same defense as _emit().
-    try { fn(_busy); } catch (_) { /* see _emit */ }
-    return () => { _listeners.delete(fn); };
-  },
+  subscribe: _pubsub.subscribe,
 };

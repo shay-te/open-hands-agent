@@ -9,33 +9,23 @@
 // unreadable storage) fall back to ``null`` so the caller can apply
 // its default.
 
-import { resolveStorage } from './storage.js';
+import { readStorageString, writeStorageItem } from './storage.js';
 
 export function readPersistedWidth(storageKey, storage) {
   if (!storageKey) { return null; }
-  const store = storage || resolveStorage();
-  if (!store) { return null; }
-  try {
-    const raw = store.getItem(storageKey);
-    if (raw === null || raw === undefined || raw === '') { return null; }
-    const parsed = parseInt(raw, 10);
-    return Number.isFinite(parsed) ? parsed : null;
-  } catch (_err) {
-    // Private-browsing / disabled-storage path — caller falls back to
-    // its default width.
-    return null;
-  }
+  // Unavailable / throwing storage → null fallback (private-browsing /
+  // disabled-storage path); the caller then uses its default width.
+  const raw = readStorageString(storageKey, null, storage);
+  if (raw === null || raw === undefined || raw === '') { return null; }
+  const parsed = parseInt(raw, 10);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 export function writePersistedWidth(storageKey, width, storage) {
   if (!storageKey) { return; }
   if (!Number.isFinite(width)) { return; }
-  const store = storage || resolveStorage();
-  if (!store) { return; }
-  try {
-    store.setItem(storageKey, String(width));
-  } catch (_err) {
-    // Best-effort persistence — a failed write just means the next
-    // mount uses the default width.
-  }
+  // ``String`` of a finite number is always truthy, so this always
+  // setItem's. A failed write is swallowed — the next mount just uses
+  // the default width.
+  writeStorageItem(storageKey, String(width), storage);
 }

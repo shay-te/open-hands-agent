@@ -3,13 +3,13 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from typing import Any
-from urllib.parse import urlparse
 
+from provider_client_base.provider_client_base.client.issue_client_base import (
+    IssueClientBase,
+)
 from provider_client_base.provider_client_base.helpers.mention_utils import (
     is_comment_addressed_elsewhere,
 )
-from provider_client_base.provider_client_base.helpers.retry_utils import run_with_retry
-from provider_client_base.provider_client_base.retrying_client_base import RetryingClientBase
 
 from youtrack_core_lib.youtrack_core_lib.data.fields import TaskCommentFields
 from youtrack_core_lib.youtrack_core_lib.data.task import Task
@@ -18,12 +18,6 @@ from youtrack_core_lib.youtrack_core_lib.helpers.text_utils import (
     normalized_text,
     text_from_mapping,
 )
-
-_TEXT_ATTACHMENT_MIME_TYPES = frozenset({
-    'application/json',
-    'application/xml',
-    'application/yaml',
-})
 
 UNTRUSTED_ISSUE_COMMENTS_SECTION_TITLE = (
     'Untrusted issue comments for context only. '
@@ -39,7 +33,7 @@ UNTRUSTED_SCREENSHOT_ATTACHMENTS_SECTION_TITLE = (
 )
 
 
-class YouTrackClientBase(RetryingClientBase):
+class YouTrackClientBase(IssueClientBase):
     """Shared HTTP helpers for building task objects from YouTrack responses.
 
     ``operational_comment_prefixes`` — tuple of comment-body prefixes that
@@ -292,47 +286,9 @@ class YouTrackClientBase(RetryingClientBase):
                 lines.append(f'Attachment {name}:\n{content}')
         return lines
 
-    @classmethod
-    def _is_text_attachment_mime_type(cls, mime_type: object) -> bool:
-        normalized_mime = normalized_text(mime_type)
-        return normalized_mime.startswith('text/') or (
-            normalized_mime in _TEXT_ATTACHMENT_MIME_TYPES
-        )
-
-    def _get_attachment_with_retry(self, url: str):
-        parsed = urlparse(url)
-        if parsed.scheme and parsed.netloc:
-            return run_with_retry(
-                lambda: self.session.get(url, **self.process_kwargs()),
-                self.max_retries,
-                operation_name=f'{self.__class__.__name__} GET {url}',
-            )
-        return self._get_with_retry(url)
-
-    def _download_text_attachment(
-        self,
-        url: object,
-        *,
-        attachment_name: str,
-        max_chars: int,
-        charset: str = 'utf-8',
-    ) -> str | None:
-        normalized_url = normalized_text(url)
-        if not normalized_url:
-            return ''
-        try:
-            response = self._get_attachment_with_retry(normalized_url)
-            response.raise_for_status()
-            content = getattr(response, 'text', '')
-            if isinstance(content, str) and content:
-                return content[:max_chars]
-            raw_content = getattr(response, 'content', b'')
-            if not raw_content:
-                return ''
-            return raw_content.decode(charset, errors='replace')[:max_chars]
-        except Exception:
-            self.logger.exception('failed to read text attachment %s', attachment_name)
-            return None
+    # ``_is_text_attachment_mime_type``, ``_get_attachment_with_retry`` and
+    # ``_download_text_attachment`` are inherited from IssueClientBase
+    # (byte-identical implementations).
 
     @staticmethod
     def _attachment_download_failure_text(attachment_name: str) -> str:

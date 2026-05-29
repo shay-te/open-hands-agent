@@ -35,30 +35,12 @@ class TaskClientFactory:
             )
             # Resolve interpolations before wrapping to avoid circular references.
             config_dict = OmegaConf.to_container(self._config, resolve=True)
-            youtrack_config = OmegaConf.create(
-                {
-                    'core_lib': {
-                        'youtrack_core_lib': OmegaConf.merge(
-                            config_dict,
-                            {'max_retries': self._max_retries},
-                        ),
-                    },
-                }
-            )
+            youtrack_config = self._wrap_merged_config('youtrack_core_lib', config_dict)
             return YouTrackCoreLib(youtrack_config).issue
 
         if platform == Platform.JIRA:
             from jira_core_lib.jira_core_lib.jira_core_lib import JiraCoreLib  # noqa: PLC0415
-            jira_config = OmegaConf.create(
-                {
-                    'core_lib': {
-                        'jira_core_lib': OmegaConf.merge(
-                            self._config,
-                            {'max_retries': self._max_retries},
-                        ),
-                    },
-                }
-            )
+            jira_config = self._wrap_merged_config('jira_core_lib', self._config)
             return JiraCoreLib(jira_config).issue
 
         if platform in {Platform.BITBUCKET, Platform.BITBUCKET_ISSUES}:
@@ -84,30 +66,27 @@ class TaskClientFactory:
 
         if platform in {Platform.GITHUB, Platform.GITHUB_ISSUES}:
             from github_core_lib.github_core_lib.github_core_lib import GitHubCoreLib  # noqa: PLC0415
-            github_config = OmegaConf.create(
-                {
-                    'core_lib': {
-                        'github_core_lib': OmegaConf.merge(
-                            self._config,
-                            {'max_retries': self._max_retries},
-                        ),
-                    },
-                }
-            )
+            github_config = self._wrap_merged_config('github_core_lib', self._config)
             return GitHubCoreLib(github_config).issue
 
         if platform in {Platform.GITLAB, Platform.GITLAB_ISSUES}:
             from gitlab_core_lib.gitlab_core_lib.gitlab_core_lib import GitLabCoreLib  # noqa: PLC0415
-            gitlab_config = OmegaConf.create(
-                {
-                    'core_lib': {
-                        'gitlab_core_lib': OmegaConf.merge(
-                            self._config,
-                            {'max_retries': self._max_retries},
-                        ),
-                    },
-                }
-            )
+            gitlab_config = self._wrap_merged_config('gitlab_core_lib', self._config)
             return GitLabCoreLib(gitlab_config).issue
 
         return None
+
+    def _wrap_merged_config(self, lib_key: str, base_config):
+        """Wrap ``base_config`` merged with ``max_retries`` under
+        ``core_lib.<lib_key>`` — the shared shape for the providers
+        whose config is a plain merge of the task config block."""
+        return OmegaConf.create(
+            {
+                'core_lib': {
+                    lib_key: OmegaConf.merge(
+                        base_config,
+                        {'max_retries': self._max_retries},
+                    ),
+                },
+            }
+        )

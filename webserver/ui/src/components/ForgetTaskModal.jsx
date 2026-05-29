@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { TAB_STATUS } from '../constants/tabStatus.js';
 import { deriveTabStatus } from '../utils/tabStatus.js';
+import { useEscapeKey } from '../hooks/useEscapeKey.js';
+import DialogShell from './DialogShell.jsx';
 
 /**
  * Hard-confirm dialog for the tab "X" (forget) button.
@@ -22,16 +24,7 @@ export default function ForgetTaskModal({ session, onConfirm, onCancel }) {
     cancelRef.current?.focus();
   }, []);
 
-  useEffect(() => {
-    function onKeyDown(event) {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        onCancel();
-      }
-    }
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onCancel]);
+  useEscapeKey(onCancel);
 
   if (!session) { return null; }
 
@@ -41,22 +34,15 @@ export default function ForgetTaskModal({ session, onConfirm, onCancel }) {
   const hasUnpushed = !!session.has_changes_pending;
 
   return (
-    <div
+    <DialogShell
       id="forget-task-modal"
-      className="modal"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="forget-task-title"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) { onCancel(); }
-      }}
+      ariaLabelledBy="forget-task-title"
+      title="Forget task?"
+      subtitle={taskId}
+      subtitleId="forget-task-name"
+      onClose={onCancel}
+      backdropClose
     >
-      <div className="modal-card">
-        <header className="modal-head">
-          <h2 id="forget-task-title">Forget task?</h2>
-          <span id="forget-task-name">{taskId}</span>
-        </header>
-
         <p className="forget-task-lead">
           This permanently deletes kato&rsquo;s local copy of{' '}
           <strong>{taskId}</strong>. It cannot be undone. Here&rsquo;s
@@ -124,7 +110,6 @@ export default function ForgetTaskModal({ session, onConfirm, onCancel }) {
             Forget {taskId}
           </button>
         </div>
-      </div>
-    </div>
+    </DialogShell>
   );
 }

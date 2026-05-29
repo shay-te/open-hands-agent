@@ -18,45 +18,33 @@ class RetryingClientBase(ClientBase):
         self.set_timeout(timeout)
         self.max_retries = max(1, max_retries)
 
-    def _get_with_retry(self, path: str, **kwargs):
+    def _abs_url(self, path: str) -> str:
+        return f'{self.base_url.rstrip("/")}/{path.lstrip("/")}'
+
+    def _request_with_retry(self, method: str, verb_callable, path: str, **kwargs):
         return run_with_retry(
-            lambda: self._get(path, **kwargs),
+            lambda: verb_callable(path, **kwargs),
             self.max_retries,
-            operation_name=self._retry_operation_name('GET', path),
+            operation_name=self._retry_operation_name(method, path),
         )
+
+    def _get_with_retry(self, path: str, **kwargs):
+        return self._request_with_retry('GET', self._get, path, **kwargs)
 
     def _post_with_retry(self, path: str, **kwargs):
-        return run_with_retry(
-            lambda: self._post(path, **kwargs),
-            self.max_retries,
-            operation_name=self._retry_operation_name('POST', path),
-        )
+        return self._request_with_retry('POST', self._post, path, **kwargs)
 
     def _put_with_retry(self, path: str, **kwargs):
-        return run_with_retry(
-            lambda: self._put(path, **kwargs),
-            self.max_retries,
-            operation_name=self._retry_operation_name('PUT', path),
-        )
+        return self._request_with_retry('PUT', self._put, path, **kwargs)
 
     def _patch(self, path: str, **kwargs):
-        url = f'{self.base_url.rstrip("/")}/{path.lstrip("/")}'
-        return self.session.patch(url, **self.process_kwargs(**kwargs))
+        return self.session.patch(self._abs_url(path), **self.process_kwargs(**kwargs))
 
     def _patch_with_retry(self, path: str, **kwargs):
-        return run_with_retry(
-            lambda: self._patch(path, **kwargs),
-            self.max_retries,
-            operation_name=self._retry_operation_name('PATCH', path),
-        )
+        return self._request_with_retry('PATCH', self._patch, path, **kwargs)
 
     def _delete_with_retry(self, path: str, **kwargs):
-        return run_with_retry(
-            lambda: self._delete(path, **kwargs),
-            self.max_retries,
-            operation_name=self._retry_operation_name('DELETE', path),
-        )
+        return self._request_with_retry('DELETE', self._delete, path, **kwargs)
 
     def _retry_operation_name(self, method: str, path: str) -> str:
-        url = f'{self.base_url.rstrip("/")}/{path.lstrip("/")}'
-        return f'{self.__class__.__name__} {method} {url}'
+        return f'{self.__class__.__name__} {method} {self._abs_url(path)}'

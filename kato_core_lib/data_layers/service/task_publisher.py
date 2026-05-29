@@ -23,7 +23,7 @@ from kato_core_lib.data_layers.service.task_state_service import TaskStateServic
 from kato_core_lib.data_layers.service.task_service import TaskService
 from kato_core_lib.helpers.error_handling_utils import run_best_effort
 from kato_core_lib.helpers.logging_utils import configure_logger
-from kato_core_lib.helpers.mission_logging_utils import log_mission_step
+from kato_core_lib.helpers.mission_logging_utils import MissionStepLoggerMixin
 from kato_core_lib.helpers.pull_request_utils import (
     pull_request_description,
     pull_request_repositories_text,
@@ -69,7 +69,7 @@ def _format_publish_failure(exc: Exception) -> str:
     return first_line
 
 
-class TaskPublisher(Service):
+class TaskPublisher(MissionStepLoggerMixin, Service):
     """Publish finished task work as pull requests, summary comments, and completion notifications."""
 
     DEFAULT_PUBLISH_MAX_RETRIES = 2
@@ -547,9 +547,6 @@ class TaskPublisher(Service):
             failure_args=(task.id,),
         )
 
-    def _log_task_step(self, task_id: str, message: str, *args) -> None:
-        log_mission_step(self.logger, task_id, message, *args)
-
     _RetryReturn = TypeVar('_RetryReturn')
 
     def _run_publish_with_retry(
@@ -603,29 +600,19 @@ def _record_task_completed(task, prepared_task, pull_requests) -> None:
     from kato_core_lib.helpers.audit_log_utils import (
         EVENT_TASK_COMPLETED,
         OUTCOME_SUCCESS,
-        append_audit_event,
+        append_task_audit_event,
     )
 
-    repositories = []
-    branch = ''
-    if prepared_task is not None:
-        repositories = [
-            str(getattr(repo, 'id', '') or '')
-            for repo in (getattr(prepared_task, 'repositories', None) or [])
-        ]
-        branch = str(getattr(prepared_task, 'branch_name', '') or '')
     pr_urls = []
     for entry in pull_requests or []:
         if isinstance(entry, dict):
             url = entry.get(PullRequestFields.URL, '') or ''
             if url:
                 pr_urls.append(str(url))
-    append_audit_event(
+    append_task_audit_event(
+        task,
+        prepared_task,
         event=EVENT_TASK_COMPLETED,
-        task_id=str(getattr(task, 'id', '') or ''),
-        ticket_summary=str(getattr(task, 'summary', '') or ''),
-        repositories=[r for r in repositories if r],
-        branch=branch,
-        pr_url=', '.join(pr_urls),
         outcome=OUTCOME_SUCCESS,
+        pr_url=', '.join(pr_urls),
     )

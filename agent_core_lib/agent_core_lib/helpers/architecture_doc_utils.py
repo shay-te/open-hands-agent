@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import logging
-import threading
-from pathlib import Path
+
+from agent_core_lib.agent_core_lib.helpers.cached_file_render import (
+    cached_file_render,
+)
 
 _LIVING_DOC_DIRECTIVE_TEMPLATE = (
     'Project architecture document: {path}\n'
@@ -25,38 +27,17 @@ _LIVING_DOC_DIRECTIVE_TEMPLATE = (
     'must NEVER run git); just edit.\n'
 )
 
-_cache: dict[str, tuple[float, int, str]] = {}
-_cache_lock = threading.Lock()
-
 
 def read_architecture_doc(
     path: str,
     *,
     logger: logging.Logger | None = None,
 ) -> str:
-    normalized = str(path or '').strip()
-    if not normalized:
-        return ''
-    file_path = Path(normalized).expanduser()
-    try:
-        stat = file_path.stat()
-        if not file_path.is_file():
-            raise OSError('not a file')
-    except OSError:
-        if normalized and logger is not None:
-            logger.warning(
-                'architecture doc path %s is not a file; skipping context injection',
-                file_path,
-            )
-        return ''
-    cache_key = str(file_path)
-    mtime = stat.st_mtime
-    size = stat.st_size
-    with _cache_lock:
-        cached = _cache.get(cache_key)
-        if cached is not None and cached[0] == mtime and cached[1] == size:
-            return cached[2]
-    value = _LIVING_DOC_DIRECTIVE_TEMPLATE.format(path=str(file_path))
-    with _cache_lock:
-        _cache[cache_key] = (mtime, size, value)
-    return value
+    return cached_file_render(
+        path,
+        lambda file_path: _LIVING_DOC_DIRECTIVE_TEMPLATE.format(path=str(file_path)),
+        logger=logger,
+        stat_error_message=(
+            'architecture doc path %s is not a file; skipping context injection'
+        ),
+    )

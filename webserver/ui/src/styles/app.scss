@@ -1,4 +1,52 @@
 /* AUTO-GENERATED from webserver/ui/src/styles/app.scss — do NOT edit   this file directly. Edit the .scss sources and run   `npm run build:css` (in webserver/ui) to recompile. */@use 'constants' as *;/* AUTO-GENERATED from webserver/ui/src/styles/app.scss — do NOT edit   this file directly. Edit the .scss sources and run   `npm run build:css` (in webserver/ui) to recompile. */
+
+// Slim custom WebKit scrollbar. Single source for the two glass-style
+// ::-webkit-scrollbar sites (.tabs-scroller — horizontal; #message-input
+// — vertical) that previously hand-rolled identical track/thumb rules.
+// $width sizes the bar (mapped to width: for vertical bars, height: for
+// horizontal ones); $thumb / $track are the thumb + track colours. The
+// thumb always brightens to $C-NEUTRAL-100-A32 on hover (matches both
+// sites). $thumb-radius / $track-radius / $thumb-border are optional so
+// each site keeps its exact radii + (tabs-scroller's) thumb border.
+@mixin custom-scrollbar(
+  $width,
+  $thumb,
+  $track,
+  $vertical: true,
+  $thumb-radius: null,
+  $track-radius: null,
+  $thumb-border: null
+) {
+  &::-webkit-scrollbar {
+    @if $vertical {
+      width: $width;
+    } @else {
+      height: $width;
+    }
+  }
+
+  &::-webkit-scrollbar-track {
+    background: $track;
+    @if $track-radius != null {
+      border-radius: $track-radius;
+    }
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: $thumb;
+    @if $thumb-radius != null {
+      border-radius: $thumb-radius;
+    }
+    @if $thumb-border != null {
+      border: $thumb-border;
+    }
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: $C-NEUTRAL-100-A32;
+  }
+}
+
 * {
   box-sizing: border-box;
 }
@@ -491,25 +539,17 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
    * pill — the pill looked decapitated. */
   padding-top: $SPACE-4;
   padding-bottom: $SPACE-4;
-}
 
-.tabs-scroller::-webkit-scrollbar {
-  height: 8px;
-}
-
-.tabs-scroller::-webkit-scrollbar-track {
-  background: $C-NEUTRAL-100-A06;
-  border-radius: $RADIUS-4;
-}
-
-.tabs-scroller::-webkit-scrollbar-thumb {
-  background: $C-NEUTRAL-100-A32;
-  border-radius: $RADIUS-4;
-  border: 1px solid $C-NEUTRAL-100-A06;
-}
-
-.tabs-scroller::-webkit-scrollbar-thumb:hover {
-  background: $C-NEUTRAL-100-A32;
+  /* WebKit: slim horizontal (height-sized) bar with a bordered thumb. */
+  @include custom-scrollbar(
+    $width: 8px,
+    $thumb: $C-NEUTRAL-100-A32,
+    $track: $C-NEUTRAL-100-A06,
+    $vertical: false,
+    $thumb-radius: $RADIUS-4,
+    $track-radius: $RADIUS-4,
+    $thumb-border: 1px solid $C-NEUTRAL-100-A06
+  );
 }
 
 .tabs-scroller #tab-list {
@@ -2430,6 +2470,17 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
    * frosted-glass background instead of the chunky default. */
   scrollbar-width: thin;
   scrollbar-color: $C-NEUTRAL-100-A14 transparent;
+
+  /* WebKit: matching slim vertical (width-sized) track + low-contrast
+   * thumb that brightens on hover. Same look as Claude/VS Code —
+   * visible only when the textarea actually overflows. */
+  @include custom-scrollbar(
+    $width: 6px,
+    $thumb: $C-NEUTRAL-100-A14,
+    $track: transparent,
+    $vertical: true,
+    $thumb-radius: $RADIUS-3
+  );
 }
 
 #message-input::placeholder {
@@ -2439,26 +2490,6 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 #message-input:disabled {
   color: $C-NEUTRAL-96-A28;
   cursor: not-allowed;
-}
-
-/* WebKit: matching slim track + low-contrast thumb that brightens
- * on hover. Same look as Claude/VS Code — visible only when the
- * textarea actually overflows. */
-#message-input::-webkit-scrollbar {
-  width: 6px;
-}
-
-#message-input::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-#message-input::-webkit-scrollbar-thumb {
-  background: $C-NEUTRAL-100-A14;
-  border-radius: $RADIUS-3;
-}
-
-#message-input::-webkit-scrollbar-thumb:hover {
-  background: $C-NEUTRAL-100-A32;
 }
 
 /* Round attach button — the iOS "+". Sits in the leading slot. */

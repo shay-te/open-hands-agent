@@ -10,6 +10,25 @@ AGENT_BACKEND_CLAUDE = 'claude'
 SUPPORTED_AGENT_BACKENDS = (AGENT_BACKEND_OPENHANDS, AGENT_BACKEND_CLAUDE)
 
 
+# Shared workflow-state value defaults. The progress/review entries are
+# common to TaskService (which also tracks 'done') and TaskStateService
+# (which tracks 'open' via its separate field-defaults map). Each service
+# composes its own ``_STATE_VALUE_DEFAULTS`` from this base.
+SHARED_STATE_VALUE_DEFAULTS = {
+    'progress': 'In Progress',
+    'review': 'In Review',
+}
+
+
+def configured_state_value(config: DictConfig, state_key: str, defaults: dict) -> str:
+    """Read ``<state_key>_state`` from ``config`` (falling back to ``defaults``).
+
+    Centralises the ``getattr(config, f'{state_key}_state', defaults[...])``
+    accessor shared by the task services.
+    """
+    return getattr(config, f'{state_key}_state', defaults[state_key])
+
+
 def resolved_agent_backend(open_cfg: DictConfig) -> str:
     """Return the configured agent backend, defaulting to OpenHands.
 

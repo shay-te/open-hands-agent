@@ -75,15 +75,11 @@ class OrphanWorkspaceScannerService(Service):
         Sorted by folder name so the result is deterministic and
         UIs can render a stable list.
         """
-        root = self._data_access.root
-        if not root.exists():
-            return []
         results: list[OrphanWorkspace] = []
-        metadata_filename = self._data_access.metadata_filename
-        for entry in sorted(root.iterdir()):
-            if not entry.is_dir():
-                continue
-            if (entry / metadata_filename).is_file():
+        for entry, has_metadata in self._data_access._iter_workspace_dirs(
+            self._data_access.root
+        ):
+            if has_metadata:
                 continue
             results.append(
                 OrphanWorkspace(

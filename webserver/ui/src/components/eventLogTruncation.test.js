@@ -5,7 +5,6 @@ import {
   TOOL_DETAILS_HARD_CAP,
   computeEventLogWindow,
   computeToolDetailsRender,
-  computeToolDetailsToggleLabel,
 } from './eventLogTruncation.js';
 
 // These rules cap the worst-case DOM rendered by EventLog +
@@ -48,21 +47,6 @@ test('computeToolDetailsRender does not flag overflow when expanded output fits 
   const result = computeToolDetailsRender(lines, true);
   assert.equal(result.visible.length, 500);
   assert.equal(result.overflowed, false);
-});
-
-test('computeToolDetailsToggleLabel reports the exact hidden line count', () => {
-  assert.equal(
-    computeToolDetailsToggleLabel(41, false),
-    'Show 1 more line',
-  );
-  assert.equal(
-    computeToolDetailsToggleLabel(100, false),
-    'Show 60 more lines',
-  );
-  assert.equal(
-    computeToolDetailsToggleLabel(100, true),
-    'Hide full output',
-  );
 });
 
 test('computeEventLogWindow returns full list under threshold', () => {

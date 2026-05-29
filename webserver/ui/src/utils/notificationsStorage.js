@@ -9,7 +9,7 @@
 // the helpers know nothing about React.
 
 import { NOTIFICATION_KIND } from '../constants/notificationKind.js';
-import { resolveStorage } from './storage.js';
+import { readStorageString, writeStorageItem } from './storage.js';
 import { parseJsonOr } from './json.js';
 
 export const ENABLED_STORAGE_KEY = 'kato.notifications';
@@ -35,34 +35,21 @@ export function defaultKindPrefs() {
 }
 
 export function readEnabled(storage) {
-  const store = storage || resolveStorage();
-  if (!store) { return false; }
-  try {
-    return store.getItem(ENABLED_STORAGE_KEY) === 'on';
-  } catch (_err) {
-    return false;
-  }
+  // Master toggle is the literal 'on'; anything else (missing key,
+  // unavailable / throwing storage → '' fallback) reads as off.
+  return readStorageString(ENABLED_STORAGE_KEY, '', storage) === 'on';
 }
 
 export function writeEnabled(value, storage) {
-  const store = storage || resolveStorage();
-  if (!store) { return; }
-  try {
-    store.setItem(ENABLED_STORAGE_KEY, value ? 'on' : 'off');
-  } catch (_err) {
-    // Private mode / quota — best effort.
-  }
+  // Both 'on' and 'off' are truthy strings, so this always setItem's.
+  writeStorageItem(ENABLED_STORAGE_KEY, value ? 'on' : 'off', storage);
 }
 
 export function readKindPrefs(storage) {
-  const store = storage || resolveStorage();
-  if (!store) { return defaultKindPrefs(); }
-  let raw;
-  try {
-    raw = store.getItem(KIND_STORAGE_KEY);
-  } catch (_err) {
-    return defaultKindPrefs();
-  }
+  // Unavailable / throwing storage → null fallback, which fails the
+  // ``!parsed`` guard below and funnels into ``defaultKindPrefs()`` —
+  // same as the old explicit no-store / catch returns.
+  const raw = readStorageString(KIND_STORAGE_KEY, null, storage);
   const parsed = parseJsonOr(raw, null);
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
     return defaultKindPrefs();
@@ -78,11 +65,8 @@ export function readKindPrefs(storage) {
 }
 
 export function writeKindPrefs(prefs, storage) {
-  const store = storage || resolveStorage();
-  if (!store) { return; }
-  try {
-    store.setItem(KIND_STORAGE_KEY, JSON.stringify(prefs));
-  } catch (_err) {
-    // Private mode / quota — best effort.
-  }
+  // ``JSON.stringify`` of the prefs object is always a truthy string,
+  // so this always setItem's (best-effort: swallows quota / private-
+  // mode throws).
+  writeStorageItem(KIND_STORAGE_KEY, JSON.stringify(prefs), storage);
 }

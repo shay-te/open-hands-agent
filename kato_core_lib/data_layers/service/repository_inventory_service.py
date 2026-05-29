@@ -360,23 +360,7 @@ class RepositoryInventoryService(Service):
         ignored_folders = self._ignored_repository_folders(repository_source)
         repositories: list[object] = []
         for discovered_repository in discover_git_repositories(root_path, ignored_folders):
-            local_path = normalized_text(discovered_repository.local_path)
-            folder_name = os.path.basename(local_path)
-            repo_slug = normalized_text(discovered_repository.repo_slug or folder_name)
-            repository_name = self._discovered_repository_name(folder_name, repo_slug)
-            aliases = [folder_name, repo_slug]
-            repositories.append(
-                SimpleNamespace(
-                    id=repository_id_from_name(repository_name),
-                    display_name=display_name_from_repo_slug(repository_name),
-                    local_path=local_path,
-                    provider=normalized_text(discovered_repository.provider),
-                    remote_url=normalized_text(discovered_repository.remote_url),
-                    owner=normalized_text(discovered_repository.owner),
-                    repo_slug=repo_slug,
-                    aliases=[alias for alias in aliases if alias],
-                )
-            )
+            repositories.append(self._build_repository_entry(discovered_repository))
         return repositories
 
     @classmethod

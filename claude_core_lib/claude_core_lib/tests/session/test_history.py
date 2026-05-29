@@ -127,6 +127,21 @@ class FindSessionIdForCwdTests(unittest.TestCase):
 
         self.assertEqual(result, 'sess-x')
 
+    def test_honours_env_override_when_no_projects_root_passed(self) -> None:
+        # Regression: previously find_session_id_for_cwd read the raw
+        # module default and ignored KATO_CLAUDE_SESSIONS_ROOT. With the
+        # resolver consolidated onto default_sessions_root(), an unset
+        # ``projects_root`` arg must fall through to the env override.
+        target_cwd = self.projects_root / 'workspaces' / 'PROJ-1' / 'repo'
+        target_cwd.mkdir(parents=True)
+        self._seed_session('enc-env', 'sess-env', cwd=str(target_cwd))
+        os.environ[_CLAUDE_SESSIONS_ROOT_ENV_KEY] = str(self.projects_root)
+        try:
+            result = find_session_id_for_cwd(str(target_cwd))
+        finally:
+            os.environ.pop(_CLAUDE_SESSIONS_ROOT_ENV_KEY, None)
+        self.assertEqual(result, 'sess-env')
+
     def test_skips_sessions_without_cwd_metadata(self) -> None:
         # A JSONL whose first 20 lines are queue-ops with no cwd: must
         # not crash, must not match anything.
@@ -622,6 +637,20 @@ class IterEventPathsTests(unittest.TestCase):
         paths = list(iter_event_paths(projects_root=self.projects_root))
         names = sorted(p.name for p in paths)
         self.assertEqual(names, ['s1.jsonl', 's2.jsonl', 's3.jsonl'])
+
+    def test_honours_env_override_when_no_projects_root_passed(self) -> None:
+        # Regression: previously iter_event_paths read the raw module
+        # default and ignored KATO_CLAUDE_SESSIONS_ROOT. With the
+        # resolver consolidated onto default_sessions_root(), an unset
+        # ``projects_root`` arg must fall through to the env override.
+        (self.projects_root / 'enc-z').mkdir()
+        (self.projects_root / 'enc-z' / 'only.jsonl').write_text('')
+        os.environ[_CLAUDE_SESSIONS_ROOT_ENV_KEY] = str(self.projects_root)
+        try:
+            names = sorted(p.name for p in iter_event_paths())
+        finally:
+            os.environ.pop(_CLAUDE_SESSIONS_ROOT_ENV_KEY, None)
+        self.assertEqual(names, ['only.jsonl'])
 
 
 class DeleteSessionFileTests(unittest.TestCase):

@@ -30,23 +30,36 @@ def collect_processing_results(service) -> list[dict]:
     return results
 
 
+def _best_effort_drain(service, method_name: str, failure_log_message: str) -> list[dict]:
+    """Best-effort call of ``service.<method_name>()`` returning a result list.
+
+    Returns ``[]`` when the method is missing/non-callable or raises (logging
+    ``failure_log_message``). Only a real list/tuple counts — a Mock service
+    (tests) returns a Mock, so anything non-list is treated as "nothing
+    drained" rather than blowing up the scan cycle on ``list(Mock())``.
+    """
+    operation = getattr(service, method_name, None)
+    if not callable(operation):
+        return []
+    try:
+        result = operation()
+    except Exception:
+        configure_logger(__name__).exception(failure_log_message)
+        return []
+    return list(result) if isinstance(result, (list, tuple)) else []
+
+
 def _advance_finished_local_comment_runs(service) -> list[dict]:
     """Scan-loop fallback: complete/requeue IN_PROGRESS comments whose session ended.
 
     Without this, a comment stays "⟳ kato working" if no SSE subscriber
     was watching when the turn's RESULT event fired.
     """
-    advance = getattr(service, 'advance_finished_comment_runs', None)
-    if not callable(advance):
-        return []
-    try:
-        advanced = advance()
-    except Exception:
-        configure_logger(__name__).exception(
-            'advance_finished_comment_runs failed; retrying next scan tick',
-        )
-        return []
-    return list(advanced) if isinstance(advanced, (list, tuple)) else []
+    return _best_effort_drain(
+        service,
+        'advance_finished_comment_runs',
+        'advance_finished_comment_runs failed; retrying next scan tick',
+    )
 
 
 def _drain_queued_local_comments(service) -> list[dict]:
@@ -59,20 +72,11 @@ def _drain_queued_local_comments(service) -> list[dict]:
     pickup on the next idle transition. Best-effort: a failure here
     must never abort the scan cycle.
     """
-    drain = getattr(service, 'drain_all_queued_task_comments', None)
-    if not callable(drain):
-        return []
-    try:
-        drained = drain()
-    except Exception:
-        configure_logger(__name__).exception(
-            'queued local-comment drain pass failed; retrying next scan tick',
-        )
-        return []
-    # Only a real list/tuple counts — a Mock service (tests) returns a
-    # Mock here; treat anything non-list as "nothing drained" rather
-    # than blowing up the scan cycle on ``list(Mock())``.
-    return list(drained) if isinstance(drained, (list, tuple)) else []
+    return _best_effort_drain(
+        service,
+        'drain_all_queued_task_comments',
+        'queued local-comment drain pass failed; retrying next scan tick',
+    )
 
 
 def _dispatch_assigned_tasks(service) -> list[dict]:

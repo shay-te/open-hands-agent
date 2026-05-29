@@ -9,6 +9,7 @@ import {
 } from '../api.js';
 import { AGENT_SESSION_ID } from '../constants/sessionFields.js';
 import { TAB_STATUS } from '../constants/tabStatus.js';
+import { useBusyAction } from '../hooks/useBusyAction.js';
 import { usePushApproval } from '../hooks/usePushApproval.js';
 import { useTaskPublish } from '../hooks/useTaskPublish.js';
 import { apiErrorMessage } from '../utils/apiError.js';
@@ -34,13 +35,10 @@ export default function SessionHeader({
   turnInFlight = false,
   searchSlot = null,
 }) {
-  const [stopping, setStopping] = useState(false);
   const [resuming, setResuming] = useState(false);
-  const [finishing, setFinishing] = useState(false);
-  const [updatingSource, setUpdatingSource] = useState(false);
-  const [mergingDefault, setMergingDefault] = useState(false);
   const [adoptModalOpen, setAdoptModalOpen] = useState(false);
-  const [syncing, setSyncing] = useState(false);
+  const pushApproval = usePushApproval(session?.task_id || '');
+  const taskPublish = useTaskPublish(session?.task_id || '');
 
   // Manual scan trigger — fires the autonomous scan job NOW so the
   // operator doesn't have to wait for the 3-minute auto-tick.
@@ -49,30 +47,178 @@ export default function SessionHeader({
   // iterates all assigned + review tasks). Keeps the operator in
   // control of when provider APIs (Bitbucket / GitHub / GitLab)
   // get hit, instead of the old 30s firehose.
-  async function onSyncNow() {
-    if (syncing) { return; }
-    setSyncing(true);
-    try {
-      const result = await triggerScan();
-      if (result.ok) {
-        toast.show({
-          kind: 'success',
-          title: 'Scan triggered',
-          message: 'Kato is checking for new tasks, status changes, and review comments.',
-        });
-      } else {
-        toast.show({
-          kind: 'error',
-          title: 'Scan failed',
-          message: apiErrorMessage(result, 'unknown error'),
-        });
-      }
-    } finally {
-      setSyncing(false);
+  const [syncing, onSyncNow] = useBusyAction(async () => {
+    const result = await triggerScan();
+    if (result.ok) {
+      toast.show({
+        kind: 'success',
+        title: 'Scan triggered',
+        message: 'Kato is checking for new tasks, status changes, and review comments.',
+      });
+    } else {
+      toast.show({
+        kind: 'error',
+        title: 'Scan failed',
+        message: apiErrorMessage(result, 'unknown error'),
+      });
     }
-  }
-  const pushApproval = usePushApproval(session?.task_id || '');
-  const taskPublish = useTaskPublish(session?.task_id || '');
+  });
+
+  // Stop the live subprocess, then hand the result up to the parent.
+  const [stopping, onStop] = useBusyAction(
+    () => postSession(session.task_id, 'stop'),
+    {
+      onDone: (result) => {
+        if (typeof onStopped === 'function') {
+          onStopped(result);
+        }
+      },
+    },
+  );
+
+  // Fetch + merge the repo's default branch into the task branch
+  // (the agent's clone can't run git itself). On conflict the
+  // markers are left in the tree and we tell the chat agent —
+  // listing the exact files — to resolve them.
+  const [mergingDefault, onMergeDefault] = useBusyAction(
+    () => mergeDefaultBranch(session.task_id),
+    {
+      onDone: async (result) => {
+        if (typeof taskPublish.refresh === 'function') {
+          taskPublish.refresh();
+        }
+        const body = result.body || {};
+        if (!result.ok && !body.has_conflicts && !body.merged) {
+          toast.show({
+            kind: 'error',
+            title: 'Merge failed',
+            message: apiErrorMessage(result, 'merge failed'),
+            durationMs: 12000,
+          });
+          return;
+        }
+        const conflicted = Array.isArray(body.conflicted_repositories)
+          ? body.conflicted_repositories : [];
+        if (conflicted.length > 0) {
+          const fileLines = conflicted.flatMap((repo) =>
+            (repo.conflicted_files || []).map(
+              (f) => `- ${repo.repository_id}: ${f}`,
+            ),
+          );
+          const defaultBranch =
+            conflicted[0]?.default_branch || 'the default branch';
+          // Tell the agent to resolve — it can't run git, but it CAN
+          // edit the conflicted files. kato's normal commit/push then
+          // finalises the merge.
+          const instruction =
+            `I merged origin/${defaultBranch} into this task branch and `
+            + `there are merge conflicts. The clone can't run git, so do `
+            + `NOT try git commands — just edit these files to resolve `
+            + `every conflict (remove all <<<<<<< / ======= / >>>>>>> `
+            + `markers, keeping both sides' intent where it makes sense), `
+            + `then continue:\n${fileLines.join('\n')}`;
+          const sent = await postChatMessage(session.task_id, instruction);
+          toast.show({
+            kind: 'warning',
+            title: `Merged ${defaultBranch} — conflicts to resolve`,
+            message: sent && sent.ok
+              ? `${fileLines.length} conflicted file(s). Asked Claude in the `
+                + 'chat to resolve them.'
+              : `${fileLines.length} conflicted file(s). Couldn't reach the `
+                + 'chat — resolve manually or message Claude yourself.',
+            durationMs: 12000,
+          });
+          return;
+        }
+        const mergedRepos = Array.isArray(body.merged_repositories)
+          ? body.merged_repositories : [];
+        if (mergedRepos.length > 0) {
+          const total = mergedRepos.reduce(
+            (n, r) => n + (Number(r.commits_merged) || 0), 0,
+          );
+          toast.show({
+            kind: 'success',
+            title: 'Default branch merged',
+            message: `Clean merge into ${mergedRepos.length} repo(s) `
+              + `(${total} commit(s)). No conflicts.`,
+            durationMs: 7000,
+          });
+          return;
+        }
+        toast.show({
+          kind: 'info',
+          title: 'Nothing to merge',
+          message: 'Task branch already contains the default branch '
+            + '(or no repo was eligible).',
+          durationMs: 6000,
+        });
+      },
+    },
+  );
+
+  const [updatingSource, onUpdateSource] = useBusyAction(
+    () => updateTaskSource(session.task_id),
+    {
+      onDone: (result) => {
+        if (typeof taskPublish.refresh === 'function') {
+          taskPublish.refresh();
+        }
+        const { title, message } = formatUpdateSourceResult(result);
+        const body = (result && result.body) || {};
+        const failed = (body.failed_repositories || []).length;
+        const updated = (body.updated_repositories || []).length;
+        const warnings = body.warnings || [];
+        // Stash conflicts (or any warning) downgrade success → warning
+        // so the toast is yellow, not green — operator should see it
+        // and act on the conflict markers in the working tree.
+        const hasWarnings = warnings.length > 0;
+        let kind;
+        if (!result.ok || failed > 0) {
+          kind = updated > 0 ? 'warning' : 'error';
+        } else if (hasWarnings) {
+          kind = 'warning';
+        } else {
+          kind = 'success';
+        }
+        toast.show({
+          kind,
+          title,
+          message,
+          durationMs: kind === 'error' ? 12000 : 8000,
+        });
+      },
+    },
+  );
+
+  const [finishing, onFinish] = useBusyAction(
+    () => finishTask(session.task_id),
+    {
+      onDone: (result) => {
+        // Force a publish-state refresh so the Push/PR buttons reflect
+        // the new state immediately (PR exists, nothing to push).
+        if (typeof taskPublish.refresh === 'function') {
+          taskPublish.refresh();
+        }
+        // Toast classification: full success → green, partial → amber,
+        // request-level failure → red. Multi-line message is fine — the
+        // toast component renders <pre> and wraps long lines.
+        const { title, message } = formatFinishResult(result, session.task_id);
+        const body = (result && result.body) || {};
+        const kind = !result.ok
+          ? 'error'
+          : body.finished
+            ? 'success'
+            : 'warning';
+        toast.show({
+          kind,
+          title,
+          message,
+          durationMs: kind === 'error' ? 12000 : 7000,
+        });
+      },
+    },
+  );
+
   if (!session) { return null; }
   const baseStatus = deriveTabStatus(session);
   const status = resolveTabStatus(session, needsAttention);
@@ -89,15 +235,6 @@ export default function SessionHeader({
     || streamLifecycle === SESSION_LIFECYCLE.IDLE
     || streamLifecycle === SESSION_LIFECYCLE.MISSING
   );
-
-  async function onStop() {
-    setStopping(true);
-    const result = await postSession(session.task_id, 'stop');
-    setStopping(false);
-    if (typeof onStopped === 'function') {
-      onStopped(result);
-    }
-  }
 
   async function onResumeClick() {
     if (resuming) { return; }
@@ -125,85 +262,6 @@ export default function SessionHeader({
     });
   }
 
-  // Fetch + merge the repo's default branch into the task branch
-  // (the agent's clone can't run git itself). On conflict the
-  // markers are left in the tree and we tell the chat agent —
-  // listing the exact files — to resolve them.
-  async function onMergeDefault() {
-    if (mergingDefault) { return; }
-    setMergingDefault(true);
-    const result = await mergeDefaultBranch(session.task_id);
-    setMergingDefault(false);
-    if (typeof taskPublish.refresh === 'function') {
-      taskPublish.refresh();
-    }
-    const body = result.body || {};
-    if (!result.ok && !body.has_conflicts && !body.merged) {
-      toast.show({
-        kind: 'error',
-        title: 'Merge failed',
-        message: apiErrorMessage(result, 'merge failed'),
-        durationMs: 12000,
-      });
-      return;
-    }
-    const conflicted = Array.isArray(body.conflicted_repositories)
-      ? body.conflicted_repositories : [];
-    if (conflicted.length > 0) {
-      const fileLines = conflicted.flatMap((repo) =>
-        (repo.conflicted_files || []).map(
-          (f) => `- ${repo.repository_id}: ${f}`,
-        ),
-      );
-      const defaultBranch =
-        conflicted[0]?.default_branch || 'the default branch';
-      // Tell the agent to resolve — it can't run git, but it CAN
-      // edit the conflicted files. kato's normal commit/push then
-      // finalises the merge.
-      const instruction =
-        `I merged origin/${defaultBranch} into this task branch and `
-        + `there are merge conflicts. The clone can't run git, so do `
-        + `NOT try git commands — just edit these files to resolve `
-        + `every conflict (remove all <<<<<<< / ======= / >>>>>>> `
-        + `markers, keeping both sides' intent where it makes sense), `
-        + `then continue:\n${fileLines.join('\n')}`;
-      const sent = await postChatMessage(session.task_id, instruction);
-      toast.show({
-        kind: 'warning',
-        title: `Merged ${defaultBranch} — conflicts to resolve`,
-        message: sent && sent.ok
-          ? `${fileLines.length} conflicted file(s). Asked Claude in the `
-            + 'chat to resolve them.'
-          : `${fileLines.length} conflicted file(s). Couldn't reach the `
-            + 'chat — resolve manually or message Claude yourself.',
-        durationMs: 12000,
-      });
-      return;
-    }
-    const mergedRepos = Array.isArray(body.merged_repositories)
-      ? body.merged_repositories : [];
-    if (mergedRepos.length > 0) {
-      const total = mergedRepos.reduce(
-        (n, r) => n + (Number(r.commits_merged) || 0), 0,
-      );
-      toast.show({
-        kind: 'success',
-        title: 'Default branch merged',
-        message: `Clean merge into ${mergedRepos.length} repo(s) `
-          + `(${total} commit(s)). No conflicts.`,
-        durationMs: 7000,
-      });
-      return;
-    }
-    toast.show({
-      kind: 'info',
-      title: 'Nothing to merge',
-      message: 'Task branch already contains the default branch '
-        + '(or no repo was eligible).',
-      durationMs: 6000,
-    });
-  }
-
   // Open the task's pull request(s) on the provider in new browser
   // tabs. Multi-repo tasks can have one PR per repo, so open them
   // all (the click is a direct user gesture, so the browser allows
@@ -215,67 +273,6 @@ export default function SessionHeader({
     if (urls.length === 0) { return; }
     urls.forEach((url) => {
       window.open(url, '_blank', 'noopener,noreferrer');
-    });
-  }
-
-  async function onUpdateSource() {
-    if (updatingSource) { return; }
-    setUpdatingSource(true);
-    const result = await updateTaskSource(session.task_id);
-    setUpdatingSource(false);
-    if (typeof taskPublish.refresh === 'function') {
-      taskPublish.refresh();
-    }
-    const { title, message } = formatUpdateSourceResult(result);
-    const body = (result && result.body) || {};
-    const failed = (body.failed_repositories || []).length;
-    const updated = (body.updated_repositories || []).length;
-    const warnings = body.warnings || [];
-    // Stash conflicts (or any warning) downgrade success → warning
-    // so the toast is yellow, not green — operator should see it
-    // and act on the conflict markers in the working tree.
-    const hasWarnings = warnings.length > 0;
-    let kind;
-    if (!result.ok || failed > 0) {
-      kind = updated > 0 ? 'warning' : 'error';
-    } else if (hasWarnings) {
-      kind = 'warning';
-    } else {
-      kind = 'success';
-    }
-    toast.show({
-      kind,
-      title,
-      message,
-      durationMs: kind === 'error' ? 12000 : 8000,
-    });
-  }
-
-  async function onFinish() {
-    if (finishing) { return; }
-    setFinishing(true);
-    const result = await finishTask(session.task_id);
-    setFinishing(false);
-    // Force a publish-state refresh so the Push/PR buttons reflect
-    // the new state immediately (PR exists, nothing to push).
-    if (typeof taskPublish.refresh === 'function') {
-      taskPublish.refresh();
-    }
-    // Toast classification: full success → green, partial → amber,
-    // request-level failure → red. Multi-line message is fine — the
-    // toast component renders <pre> and wraps long lines.
-    const { title, message } = formatFinishResult(result, session.task_id);
-    const body = (result && result.body) || {};
-    const kind = !result.ok
-      ? 'error'
-      : body.finished
-        ? 'success'
-        : 'warning';
-    toast.show({
-      kind,
-      title,
-      message,
-      durationMs: kind === 'error' ? 12000 : 7000,
     });
   }
 

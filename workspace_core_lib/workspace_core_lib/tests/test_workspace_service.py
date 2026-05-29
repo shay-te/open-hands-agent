@@ -498,18 +498,5 @@ class WorkspaceServicePreflightLogTests(unittest.TestCase):
         self.assertEqual(entries, [])
 
 
-class WorkspaceServiceNormalizeTextHelper(unittest.TestCase):
-    """Line 317: module-level ``_normalize_text`` helper (currently unused
-    but kept as a public-shaped utility — lock its contract)."""
-
-    def test_normalizes_none_to_empty(self) -> None:
-        from workspace_core_lib.workspace_core_lib.data_layers.service.workspace_service import (
-            _normalize_text,
-        )
-        self.assertEqual(_normalize_text(None), '')
-        self.assertEqual(_normalize_text(''), '')
-        self.assertEqual(_normalize_text('  hi  '), 'hi')
-
-
 if __name__ == '__main__':
     unittest.main()

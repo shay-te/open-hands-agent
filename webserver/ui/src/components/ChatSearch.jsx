@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import Icon from './Icon.jsx';
+import { useEscapeKey } from '../hooks/useEscapeKey.js';
 
 /**
  * Glass capsule search bar that floats over the top of the chat,
@@ -39,16 +40,12 @@ export default function ChatSearch({
     }
   }, [open]);
 
-  // Keyboard glue: Esc closes; Enter/Shift+Enter navigates while
-  // the input is focused.
+  // Keyboard glue: Esc closes (shared hook); Enter/Shift+Enter
+  // navigates while the input is focused.
+  useEscapeKey(close, open);
   useEffect(() => {
     if (!open) { return undefined; }
     function onKeyDown(event) {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        close();
-        return;
-      }
       if (event.key === 'Enter' && event.target === inputRef.current) {
         event.preventDefault();
         if (event.shiftKey) {

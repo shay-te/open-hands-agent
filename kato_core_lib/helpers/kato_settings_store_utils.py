@@ -32,6 +32,9 @@ import json
 import os
 from pathlib import Path
 
+from kato_core_lib.helpers.atomic_json_utils import atomic_write_json
+from kato_core_lib.helpers.kato_paths_utils import kato_home_path
+
 
 _SETTINGS_PATH_ENV_KEY = 'KATO_SETTINGS_FILE'
 
@@ -44,10 +47,7 @@ def kato_settings_path() -> Path:
     ``KATO_APPROVED_REPOSITORIES_PATH`` overrides the approvals
     sidecar location.
     """
-    override = os.environ.get(_SETTINGS_PATH_ENV_KEY, '').strip()
-    if override:
-        return Path(override).expanduser()
-    return Path.home() / '.kato' / 'settings.json'
+    return kato_home_path('settings.json', env_key=_SETTINGS_PATH_ENV_KEY)
 
 
 def read_kato_settings() -> dict[str, str]:
@@ -89,12 +89,15 @@ def write_kato_settings(updates: dict[str, str]) -> dict[str, str]:
     current.update({str(k): str(v) for k, v in updates.items() if k})
     path = kato_settings_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(path.suffix + '.tmp')
-    tmp.write_text(
-        json.dumps(current, indent=2, sort_keys=True) + '\n',
-        encoding='utf-8',
+    # Route through the shared atomic writer (sibling tmp + os.replace) but
+    # keep settings-specific behavior: surface OSError to the operator (the
+    # UI relies on it) and preserve the trailing newline for clean diffs.
+    atomic_write_json(
+        path,
+        current,
+        trailing_newline=True,
+        raise_on_error=True,
     )
-    os.replace(tmp, path)
     return current
 
 

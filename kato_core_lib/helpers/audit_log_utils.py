@@ -29,6 +29,8 @@ import os
 from datetime import datetime, timezone
 from pathlib import Path
 
+from kato_core_lib.helpers.kato_paths_utils import kato_home_path
+
 
 AUDIT_LOG_PATH_ENV_KEY = 'KATO_AUDIT_LOG_PATH'
 
@@ -48,10 +50,7 @@ def default_audit_log_path() -> Path:
     Honours ``KATO_AUDIT_LOG_PATH`` first (tests). Falls back to
     ``~/.kato/audit.log.jsonl`` in production.
     """
-    override = os.environ.get(AUDIT_LOG_PATH_ENV_KEY, '').strip()
-    if override:
-        return Path(override).expanduser()
-    return Path.home() / '.kato' / 'audit.log.jsonl'
+    return kato_home_path('audit.log.jsonl', env_key=AUDIT_LOG_PATH_ENV_KEY)
 
 
 def append_audit_event(
@@ -105,6 +104,41 @@ def append_audit_event(
             'history will be incomplete but task processing continues',
             target,
         )
+
+
+def append_task_audit_event(
+    task,
+    prepared_task,
+    *,
+    event: str,
+    outcome: str = OUTCOME_SUCCESS,
+    pr_url: str = '',
+    error: str = '',
+) -> None:
+    """Derive the task/repo/branch fields from ``(task, prepared_task)``
+    and append one audit record. Best-effort; never raises.
+
+    Shared by the task-completed (success + ``pr_url``) and task-failed
+    (failure + ``error``) audit funnels.
+    """
+    repositories: list[str] = []
+    branch = ''
+    if prepared_task is not None:
+        repositories = [
+            str(getattr(repo, 'id', '') or '')
+            for repo in (getattr(prepared_task, 'repositories', None) or [])
+        ]
+        branch = str(getattr(prepared_task, 'branch_name', '') or '')
+    append_audit_event(
+        event=event,
+        task_id=str(getattr(task, 'id', '') or ''),
+        ticket_summary=str(getattr(task, 'summary', '') or ''),
+        repositories=[r for r in repositories if r],
+        branch=branch,
+        pr_url=pr_url,
+        outcome=outcome,
+        error=error,
+    )
 
 
 def read_audit_records(path: Path | None = None) -> list[dict]:

@@ -113,22 +113,9 @@ def discover_checkout_repositories(root: Path | None) -> list[DiscoveredReposito
     for repo_dir in sorted(root.iterdir()):
         if not repo_dir.is_dir():
             continue
-        if not (repo_dir / '.git').exists():
-            continue
-        remote_url = _read_origin_url(repo_dir)
-        if not remote_url:
-            continue
-        repo_id = repo_dir.name
-        key = repo_id.lower()
-        if key in seen_ids:
-            continue
-        seen_ids.add(key)
-        discovered.append(DiscoveredRepository(
-            repository_id=repo_id,
-            remote_url=remote_url,
-            source='checkout',
-            workspace_path=str(repo_dir),
-        ))
+        entry = _discovered_repo_from_clone(repo_dir, 'checkout', seen_ids)
+        if entry is not None:
+            discovered.append(entry)
     return discovered
 
 
@@ -144,23 +131,43 @@ def discover_workspace_repositories(root: Path) -> list[DiscoveredRepository]:
         for repo_dir in sorted(task_dir.iterdir()):
             if not repo_dir.is_dir():
                 continue
-            if not (repo_dir / '.git').exists():
-                continue
-            remote_url = _read_origin_url(repo_dir)
-            if not remote_url:
-                continue
-            repo_id = repo_dir.name
-            if repo_id.lower() in seen_ids:
-                continue
-            seen_ids.add(repo_id.lower())
-            discovered.append(DiscoveredRepository(
-                repository_id=repo_id,
-                remote_url=remote_url,
-                source='workspace',
-                workspace_path=str(repo_dir),
-                task_id=task_dir.name,
-            ))
+            entry = _discovered_repo_from_clone(
+                repo_dir, 'workspace', seen_ids, task_id=task_dir.name,
+            )
+            if entry is not None:
+                discovered.append(entry)
     return discovered
+
+
+def _discovered_repo_from_clone(
+    repo_dir: Path,
+    source: str,
+    seen_ids: set[str],
+    task_id: str = '',
+) -> DiscoveredRepository | None:
+    """Build a ``DiscoveredRepository`` for a single clone directory.
+
+    Returns ``None`` (and leaves ``seen_ids`` untouched) when ``repo_dir``
+    isn't a git clone, has no origin URL, or its lowercased id was already
+    seen. Shared by the checkout and workspace walkers.
+    """
+    if not (repo_dir / '.git').exists():
+        return None
+    remote_url = _read_origin_url(repo_dir)
+    if not remote_url:
+        return None
+    repo_id = repo_dir.name
+    key = repo_id.lower()
+    if key in seen_ids:
+        return None
+    seen_ids.add(key)
+    return DiscoveredRepository(
+        repository_id=repo_id,
+        remote_url=remote_url,
+        source=source,
+        workspace_path=str(repo_dir),
+        task_id=task_id,
+    )
 
 
 def _read_origin_url(repo_dir: Path) -> str:

@@ -3,7 +3,11 @@ from omegaconf import DictConfig
 from core_lib.data_layers.service.service import Service
 
 from kato_core_lib.data_layers.data_access.task_data_access import TaskDataAccess
-from kato_core_lib.helpers.kato_config_utils import parse_issue_states
+from kato_core_lib.helpers.kato_config_utils import (
+    SHARED_STATE_VALUE_DEFAULTS,
+    configured_state_value,
+    parse_issue_states,
+)
 from kato_core_lib.helpers.text_utils import normalized_text
 
 
@@ -14,10 +18,7 @@ class TaskStateService(Service):
         'review': 'State',
         'open': 'progress',
     }
-    _STATE_VALUE_DEFAULTS = {
-        'progress': 'In Progress',
-        'review': 'In Review',
-    }
+    _STATE_VALUE_DEFAULTS = dict(SHARED_STATE_VALUE_DEFAULTS)
 
     def __init__(self, config: DictConfig, task_data_access: TaskDataAccess) -> None:
         self._config = config
@@ -55,10 +56,8 @@ class TaskStateService(Service):
         return getattr(self._config, config_key, default)
 
     def _configured_state_value(self, state_key: str) -> str:
-        return getattr(
-            self._config,
-            f'{state_key}_state',
-            self._STATE_VALUE_DEFAULTS[state_key],
+        return configured_state_value(
+            self._config, state_key, self._STATE_VALUE_DEFAULTS,
         )
 
     def _configured_open_state(self) -> str:

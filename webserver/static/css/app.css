@@ -489,23 +489,20 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
    * pill — the pill looked decapitated. */
   padding-top: 4px;
   padding-bottom: 4px;
+  /* WebKit: slim horizontal (height-sized) bar with a bordered thumb. */
 }
-
 .tabs-scroller::-webkit-scrollbar {
   height: 8px;
 }
-
 .tabs-scroller::-webkit-scrollbar-track {
   background: rgba(255, 255, 255, 0.06);
   border-radius: 4px;
 }
-
 .tabs-scroller::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.32);
   border-radius: 4px;
   border: 1px solid rgba(255, 255, 255, 0.06);
 }
-
 .tabs-scroller::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.32);
 }
@@ -2424,6 +2421,22 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
    * frosted-glass background instead of the chunky default. */
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
+  /* WebKit: matching slim vertical (width-sized) track + low-contrast
+   * thumb that brightens on hover. Same look as Claude/VS Code —
+   * visible only when the textarea actually overflows. */
+}
+#message-input::-webkit-scrollbar {
+  width: 6px;
+}
+#message-input::-webkit-scrollbar-track {
+  background: transparent;
+}
+#message-input::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 3px;
+}
+#message-input::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.32);
 }
 
 #message-input::placeholder {
@@ -2433,26 +2446,6 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 #message-input:disabled {
   color: rgba(245, 245, 247, 0.28);
   cursor: not-allowed;
-}
-
-/* WebKit: matching slim track + low-contrast thumb that brightens
- * on hover. Same look as Claude/VS Code — visible only when the
- * textarea actually overflows. */
-#message-input::-webkit-scrollbar {
-  width: 6px;
-}
-
-#message-input::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-#message-input::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.14);
-  border-radius: 3px;
-}
-
-#message-input::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.32);
 }
 
 /* Round attach button — the iOS "+". Sits in the leading slot. */

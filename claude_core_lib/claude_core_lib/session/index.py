@@ -200,7 +200,15 @@ def _parse_metadata(path: Path) -> ClaudeSessionMetadata | None:
     )
 
 
-def _parse_jsonl_line(line: str) -> dict | None:
+def parse_jsonl_dict_line(line: str) -> dict | None:
+    """Parse one JSONL line into a dict, or ``None``.
+
+    Single source of truth for the strip → ``json.loads`` →
+    ``isinstance dict`` sequence repeated across the session-store
+    readers (``history._coerce_event`` / ``history._peek_session_metadata``
+    and ``streaming._parse_stdout_line``). Returns ``None`` for a blank
+    line, invalid JSON, or a non-dict payload — never raises.
+    """
     line = line.strip()
     if not line:
         return None
@@ -211,6 +219,10 @@ def _parse_jsonl_line(line: str) -> dict | None:
     if not isinstance(record, dict):
         return None
     return record
+
+
+def _parse_jsonl_line(line: str) -> dict | None:
+    return parse_jsonl_dict_line(line)
 
 
 def _user_message_preview(record: dict) -> str:

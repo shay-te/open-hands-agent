@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 from shutil import which
 
+from kato_core_lib.helpers.dotenv_utils import parse_dotenv_text
 from kato_core_lib.helpers.kato_config_utils import (
     is_bedrock_model,
     is_openrouter_model,
@@ -100,14 +101,7 @@ def _read_env_file(path: str | None) -> dict[str, str]:
     if not env_path.exists():
         raise FileNotFoundError(f'env file not found: {path}')
 
-    values: dict[str, str] = {}
-    for raw_line in env_path.read_text(encoding='utf-8').splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith('#') or '=' not in line:
-            continue
-        key, value = line.split('=', 1)
-        values[key.strip()] = value.strip().strip('"').strip("'")
-    return values
+    return parse_dotenv_text(env_path.read_text(encoding='utf-8'))
 
 
 def _build_env(env_file: str | None) -> dict[str, str]:

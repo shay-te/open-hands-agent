@@ -25,6 +25,8 @@ def atomic_write_json(
     *,
     logger: logging.Logger | None = None,
     label: str = '',
+    trailing_newline: bool = False,
+    raise_on_error: bool = False,
 ) -> bool:
     """Write ``payload`` to ``path`` atomically as pretty-printed JSON.
 
@@ -32,13 +34,18 @@ def atomic_write_json(
     file, if any, is preserved). When ``logger`` is provided, an
     OSError is logged at WARNING with ``label`` woven into the message
     so operators can tell which subsystem's persistence cycle missed.
+
+    * ``trailing_newline`` appends a final ``\\n`` to the serialized JSON.
+    * ``raise_on_error`` re-raises the OSError instead of swallowing it —
+      used by callers (e.g. the settings store) that surface write
+      failures to the operator rather than silently dropping a cycle.
     """
     tmp_path = path.with_suffix(_TMP_SUFFIX)
+    serialized = json.dumps(payload, indent=2, sort_keys=True)
+    if trailing_newline:
+        serialized += '\n'
     try:
-        tmp_path.write_text(
-            json.dumps(payload, indent=2, sort_keys=True),
-            encoding='utf-8',
-        )
+        tmp_path.write_text(serialized, encoding='utf-8')
         tmp_path.replace(path)
         return True
     except OSError as exc:
@@ -47,4 +54,6 @@ def atomic_write_json(
             logger.warning(
                 'failed to persist json%s at %s: %s', label_text, path, exc,
             )
+        if raise_on_error:
+            raise
         return False

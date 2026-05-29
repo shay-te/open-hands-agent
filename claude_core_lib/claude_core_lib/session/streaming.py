@@ -38,7 +38,17 @@ from claude_core_lib.claude_core_lib.session.wire_protocol import (
     CLAUDE_SYSTEM_SUBTYPE_INIT,
     PERMISSION_REQUEST_EVENT_TYPES,
 )
-from agent_core_lib.agent_core_lib.helpers.architecture_doc_utils import read_architecture_doc
+from claude_core_lib.claude_core_lib.helpers.credential_scan import (
+    scan_text_for_credentials_and_phishing,
+)
+from claude_core_lib.claude_core_lib.helpers.spawn_utils import (
+    append_additional_dirs,
+    append_model_effort_flags,
+    build_appended_system_prompt,
+    build_claude_subprocess_env,
+    wrap_spawn_for_docker,
+)
+from claude_core_lib.claude_core_lib.session.index import parse_jsonl_dict_line
 from agent_core_lib.agent_core_lib.helpers.logging_utils import configure_logger
 from agent_core_lib.agent_core_lib.helpers.text_utils import (
     condensed_text,
@@ -198,7 +208,12 @@ class StreamingClaudeSession(object):
         self._allowed_tools = normalized_text(allowed_tools)
         self._disallowed_tools = normalized_text(disallowed_tools)
         self._max_turns = max_turns
-        self._effort = normalized_text(effort).lower()
+        # Route through the one-shot client's coercion so streaming and
+        # one-shot validate ``--effort`` against the same level set
+        # (derived from ``effort_levels.FALLBACK_EFFORT_LEVELS``) and a
+        # typo fails at spawn instead of mid-turn.
+        from claude_core_lib.claude_core_lib.cli_client import ClaudeCliClient as _CliClient
+        self._effort = _CliClient._coerce_effort(effort)
         self._resume_session_id = fix_session_id(resume_session_id)
         # One-shot guards so the session-id verification lines (see
         # ``_maybe_capture_session_id``) print exactly once per spawn:
@@ -447,63 +462,19 @@ class StreamingClaudeSession(object):
             # prompts (the recommended posture).
             spawn_cwd: str | None = self._cwd
             if self._docker_mode_on:
-                from sandbox_core_lib.sandbox_core_lib.manager import (
-                    SandboxError,
-                    check_spawn_rate,
-                    ensure_image,
-                    make_container_name,
-                    record_spawn,
-                    wrap_command,
-                )
-                try:
-                    ensure_image(logger=self.logger)
-                except SandboxError as exc:
-                    raise RuntimeError(
-                        f'failed to prepare Claude sandbox image: {exc}',
-                    ) from exc
-                # Refuse if sandbox spawns are flooding (catches runaway
-                # task scan loops and DoS attempts).
-                try:
-                    check_spawn_rate()
-                except SandboxError as exc:
-                    raise RuntimeError(
-                        f'sandbox spawn rate-limited: {exc}',
-                    ) from exc
-                container_name = make_container_name(self._task_id)
-                # Pre-spawn workspace check — refuse (don't just warn)
-                # if the operator's repo contains files that look like
-                # committed credentials. Operator can override via
-                # KATO_SANDBOX_ALLOW_WORKSPACE_SECRETS=true if these
-                # are intentional repo fixtures.
-                from sandbox_core_lib.sandbox_core_lib.manager import enforce_no_workspace_secrets
-                try:
-                    enforce_no_workspace_secrets(self._cwd, logger=self.logger)
-                except SandboxError as exc:
-                    raise RuntimeError(
-                        f'sandbox spawn blocked: {exc}',
-                    ) from exc
-                command = wrap_command(
+                # Run the six sandbox pre-spawn steps (ensure image,
+                # rate-check, name container, refuse workspace secrets,
+                # wrap, audit-log) via the shared helper so the
+                # streaming and one-shot paths stay in lockstep. The
+                # audit log fires before the subprocess starts so the
+                # operator has a record even if the container fails to
+                # come up.
+                command = wrap_spawn_for_docker(
                     command,
                     workspace_path=self._cwd,
-                    container_name=container_name,
                     task_id=self._task_id,
+                    logger=self.logger,
                 )
-                # Audit-log this spawn before the subprocess actually
-                # starts so the operator has a record even if the
-                # container fails to come up. ``env=None`` lets
-                # ``record_spawn`` consult the live ``os.environ``
-                # for ``KATO_SANDBOX_AUDIT_REQUIRED``.
-                try:
-                    record_spawn(
-                        task_id=self._task_id,
-                        container_name=container_name,
-                        workspace_path=self._cwd,
-                        logger=self.logger,
-                    )
-                except SandboxError as exc:
-                    raise RuntimeError(
-                        f'sandbox audit log required but failed: {exc}',
-                    ) from exc
                 # Docker sets the container WORKDIR to /workspace; the
                 # host cwd is irrelevant for the docker client itself.
                 spawn_cwd = None
@@ -817,12 +788,12 @@ class StreamingClaudeSession(object):
         ]
         if self._permission_prompt_tool:
             command.extend(['--permission-prompt-tool', self._permission_prompt_tool])
-        if self._model:
-            command.extend(['--model', self._model])
-        if self._max_turns is not None and self._max_turns > 0:
-            command.extend(['--max-turns', str(self._max_turns)])
-        if self._effort:
-            command.extend(['--effort', self._effort])
+        append_model_effort_flags(
+            command,
+            model=self._model,
+            max_turns=self._max_turns,
+            effort=self._effort,
+        )
         if self._allowed_tools:
             command.extend(['--allowedTools', self._allowed_tools])
         # Hard, non-overridable git denylist. Kato is the only component
@@ -833,26 +804,19 @@ class StreamingClaudeSession(object):
             self._disallowed_tools
         )
         command.extend(['--disallowedTools', merged_disallowed])
-        architecture_doc = read_architecture_doc(
-            self._architecture_doc_path, logger=self.logger,
-        )
-        from agent_core_lib.agent_core_lib.helpers.lessons_doc_utils import read_lessons_file
-        lessons_text = read_lessons_file(
-            self._lessons_path, logger=self.logger,
-        )
         # When ``KATO_CLAUDE_DOCKER=true`` the agent gets a short
         # description of the sandboxed environment appended to its
-        # system prompt — see ``kato.sandbox.system_prompt``. Composer
-        # joins the architecture doc, learned lessons, and the
-        # addendum into one value because the Claude CLI takes a
-        # single ``--append-system-prompt``. Mirrors the wiring in
-        # ``ClaudeCliClient._build_command`` so streaming and one-shot
+        # system prompt. The composer joins the architecture doc,
+        # learned lessons, and the addendum into one value because the
+        # Claude CLI takes a single ``--append-system-prompt``. Shared
+        # with ``ClaudeCliClient._build_command`` via
+        # ``build_appended_system_prompt`` so streaming and one-shot
         # spawns deliver identical guidance to the agent.
-        from sandbox_core_lib.sandbox_core_lib.system_prompt import compose_system_prompt
-        appended_system_prompt = compose_system_prompt(
-            architecture_doc,
+        appended_system_prompt = build_appended_system_prompt(
+            architecture_doc_path=self._architecture_doc_path,
+            lessons_path=self._lessons_path,
             docker_mode_on=self._docker_mode_on,
-            lessons=lessons_text,
+            logger=self.logger,
         )
         if appended_system_prompt:
             command.extend(['--append-system-prompt', appended_system_prompt])
@@ -872,15 +836,14 @@ class StreamingClaudeSession(object):
             # without waiting for the system event to arrive.
             self._agent_session_id = str(uuid.uuid4())
             command.extend(['--session-id', self._agent_session_id])
-        for directory in self._additional_dirs:
-            command.extend(['--add-dir', directory])
+        append_additional_dirs(command, self._additional_dirs)
         return command
 
     def _build_env(self) -> dict[str, str]:
-        env = os.environ.copy()
-        env.update(self._env_overrides)
-        env.setdefault('CLAUDE_CODE_NONINTERACTIVE', '1')
-        return env
+        # Shared headless-Claude env invariant; the streaming path also
+        # threads its per-session ``_env_overrides`` through first. See
+        # ``build_claude_subprocess_env``.
+        return build_claude_subprocess_env(self._env_overrides)
 
     def _spawn_reader_threads(self) -> None:
         stdout_thread = threading.Thread(
@@ -934,45 +897,21 @@ class StreamingClaudeSession(object):
     def _scan_terminal_for_credentials(self, event: SessionEvent) -> None:
         """WARNING-log credential AND phishing patterns in terminal text.
 
-        Pattern names + redacted previews only — full values are never
-        logged. Mirrors ``ClaudeCliClient._scan_response_for_credentials``
-        so the one-shot and streaming paths produce the same audit
-        signal. See ``BYPASS_PROTECTIONS.md`` residuals #16 (phishing)
-        and #18 (credential exfil).
+        Delegates to the shared
+        :func:`...helpers.credential_scan.
+        scan_text_for_credentials_and_phishing` (same helper the
+        one-shot ``ClaudeCliClient`` uses) so the two paths produce the
+        same audit signal. Pattern names + redacted previews only —
+        full values are never logged. See ``BYPASS_PROTECTIONS.md``
+        residuals #16 (phishing) and #18 (credential exfil).
         """
-        from sandbox_core_lib.sandbox_core_lib.credential_patterns import (
-            find_credential_patterns,
-            find_phishing_patterns,
-            summarize_findings,
-        )
-
         raw = event.raw or {}
         result_text = str(raw.get('result', '') or '')
-        if not result_text:
-            return
-        cred_findings = find_credential_patterns(result_text)
-        if cred_findings:
-            self.logger.warning(
-                'CREDENTIAL PATTERN DETECTED in streaming Claude session for '
-                'task %s: %s. The agent response has already been transmitted '
-                'to Anthropic; rotate the named credential(s) immediately. '
-                'See BYPASS_PROTECTIONS.md residual #18.',
-                self._task_id,
-                summarize_findings(cred_findings),
-            )
-        phishing_findings = find_phishing_patterns(result_text)
-        if phishing_findings:
-            self.logger.warning(
-                'PHISHING PATTERN DETECTED in streaming Claude session for '
-                'task %s: %s. The agent appears to be instructing the '
-                'operator to run shell commands on their host. Kato handles '
-                'infrastructure; the agent has no legitimate reason to '
-                'direct the operator to execute commands. Treat the '
-                'suggestion as untrusted. See BYPASS_PROTECTIONS.md '
-                'residual #16.',
-                self._task_id,
-                summarize_findings(phishing_findings),
-            )
+        scan_text_for_credentials_and_phishing(
+            result_text,
+            logger=self.logger,
+            context_label=f'streaming Claude session for task {self._task_id}',
+        )
 
     @staticmethod
     def _permission_request_details(event: SessionEvent) -> tuple[str, str]:
@@ -1163,16 +1102,17 @@ class StreamingClaudeSession(object):
             )
 
     def _parse_stdout_line(self, text: str) -> SessionEvent | None:
-        try:
-            payload = json.loads(text)
-        except json.JSONDecodeError:
+        # Shared strip → ``json.loads`` → dict-check (see
+        # ``index.parse_jsonl_dict_line``); the streaming path keeps its
+        # operator-facing warning by logging when the line could not be
+        # turned into an event dict.
+        payload = parse_jsonl_dict_line(text)
+        if payload is None:
             self.logger.warning(
                 'streaming claude session %s emitted non-JSON line: %s',
                 self._task_id,
                 condensed_text(text)[:240],
             )
-            return None
-        if not isinstance(payload, dict):
             return None
         return SessionEvent(raw=payload)
 

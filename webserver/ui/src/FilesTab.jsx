@@ -11,6 +11,7 @@ import {
 } from './api.js';
 import AddRepositoryModal from './components/AddRepositoryModal.jsx';
 import CommitDiffModal from './components/CommitDiffModal.jsx';
+import DiffKindIcon from './components/DiffKindIcon.jsx';
 import Icon from './components/Icon.jsx';
 import StickyHeader from './components/StickyHeader.jsx';
 import { useChatComposer } from './contexts/ChatComposerContext.jsx';
@@ -87,14 +88,6 @@ export function buildFilesCommentMeta(comments) {
   }
   return byRepo;
 }
-const DIFF_KIND_ICON = {
-  add: 'plus',
-  delete: 'minus',
-  modify: 'edit',
-  rename: 'edit',
-  copy: 'edit',
-};
-
 export default function FilesTab({
   taskId,
   workspaceVersion = 0,
@@ -1069,7 +1062,7 @@ function ChangedFilesTreeNode({
       onContextMenu={(event) => onOpenPathMenu(event, path, repoId)}
     >
       <span className="diff-file-tree-guide" />
-      <FilesDiffKindIcon kind={kind} />
+      <DiffKindIcon kind={kind} extraClass="tree-row-kind" />
       {conflictBadge}
       <span className="diff-file-tree-label files-changed-tree-label">
         {node.name}
@@ -1186,7 +1179,7 @@ function Node({
     <span className="tree-row-chevron tree-row-chevron-placeholder" />
   ) : null;
   const fileIcon = !isFolder && displayChangeMeta ? (
-    <FilesDiffKindIcon kind={displayChangeMeta.kind} />
+    <DiffKindIcon kind={displayChangeMeta.kind} extraClass="tree-row-kind" />
   ) : null;
   const conflictBadge = isConflicted ? (
     <span className="tree-row-conflict" aria-label="merge conflict">
@@ -1312,15 +1305,6 @@ function fileIsConflictedForFilesTree(file, conflictedSet) {
   const oldPath = file.oldPath || '';
   const newPath = file.newPath || '';
   return conflictedSet.has(oldPath) || conflictedSet.has(newPath);
-}
-
-function FilesDiffKindIcon({ kind }) {
-  const iconName = DIFF_KIND_ICON[kind] || 'edit';
-  return (
-    <span className={`diff-file-row-kind tree-row-kind kind-${kind || 'modify'}`}>
-      <Icon name={iconName} />
-    </span>
-  );
 }
 
 // Bitbucket-style 💬 N on a tree row when the file has open comment
