@@ -1018,6 +1018,50 @@ class ListTaskCommentsTests(unittest.TestCase):
         self.assertEqual(len(result), 1)
         store.list.assert_called_once()
 
+    def test_annotates_outdated_when_line_past_file_end(self) -> None:
+        # A comment anchored past the current file end is outdated; one
+        # within the file is not. Drives the tree hiding phantom badges.
+        from kato_core_lib.comment_core_lib import CommentRecord
+
+        service = AgentService(**_kwargs())
+        store = MagicMock()
+        gone = CommentRecord(
+            id='c1', body='x', repo_id='r1', author='a', source='local',
+            file_path='f.py', line=999,
+        )
+        here = CommentRecord(
+            id='c2', body='y', repo_id='r1', author='a', source='local',
+            file_path='f.py', line=3,
+        )
+        store.list.return_value = [gone, here]
+        with patch.object(service, '_comment_store_for', return_value=store), \
+             patch.object(service, '_file_line_count', return_value=10):
+            result = service.list_task_comments('T1')
+        by_id = {c['id']: c for c in result}
+        self.assertTrue(by_id['c1']['outdated'])
+        self.assertFalse(by_id['c2']['outdated'])
+
+    def test_file_level_and_unreadable_never_outdated(self) -> None:
+        from kato_core_lib.comment_core_lib import CommentRecord
+
+        service = AgentService(**_kwargs())
+        store = MagicMock()
+        file_level = CommentRecord(
+            id='c1', body='x', repo_id='r1', author='a', source='local',
+            file_path='', line=-1,
+        )
+        unreadable = CommentRecord(
+            id='c2', body='y', repo_id='r1', author='a', source='local',
+            file_path='f.py', line=5,
+        )
+        store.list.return_value = [file_level, unreadable]
+        with patch.object(service, '_comment_store_for', return_value=store), \
+             patch.object(service, '_file_line_count', return_value=None):
+            result = service.list_task_comments('T1')
+        # File-level never outdated; unreadable file => conservative False.
+        self.assertFalse(result[0]['outdated'])
+        self.assertFalse(result[1]['outdated'])
+
 
 class AddTaskCommentTests(unittest.TestCase):
     def test_returns_error_when_no_workspace(self) -> None:
@@ -1038,24 +1082,38 @@ class AddTaskCommentTests(unittest.TestCase):
             )
         self.assertFalse(result['ok'])
 
-    def test_reply_does_not_trigger_kato_run(self) -> None:
-        from kato_core_lib.comment_core_lib import CommentRecord
+    def test_reply_requeues_thread_root_and_triggers_kato(self) -> None:
+        # An operator reply re-engages kato: the thread's ROOT comment
+        # flips back to QUEUED (pending) and a run is triggered so kato
+        # addresses the new reply.
+        from kato_core_lib.comment_core_lib import CommentRecord, KatoCommentStatus
 
         service = AgentService(**_kwargs())
         store = MagicMock()
-        persisted = CommentRecord(
-            id='c1', body='reply', repo_id='r1', author='a',
-            source='local', parent_id='c0',
+        root = CommentRecord(
+            id='c0', body='fix this', repo_id='r1', author='operator',
+            source='local', parent_id='',
         )
-        store.add.return_value = persisted
+        reply = CommentRecord(
+            id='c1', body='no, do it differently', repo_id='r1',
+            author='operator', source='local', parent_id='c0',
+        )
+        store.add.return_value = reply
+        store.get.side_effect = lambda cid: {'c0': root}.get(cid)
         with patch.object(service, '_comment_store_for', return_value=store), \
-             patch.object(service, '_maybe_trigger_comment_run') as trigger:
+             patch.object(service, '_maybe_trigger_comment_run',
+                          return_value=True) as trigger:
             result = service.add_task_comment(
                 'T1', repo_id='r1', file_path='f.py',
-                body='reply', parent_id='c0',
+                body='no, do it differently', parent_id='c0',
             )
         self.assertTrue(result['ok'])
-        trigger.assert_not_called()
+        store.update_kato_status.assert_called_with(
+            'c0', kato_status=KatoCommentStatus.QUEUED.value,
+        )
+        trigger.assert_called_once_with('T1', 'c0')
+        self.assertEqual(result['requeued_root_id'], 'c0')
+        self.assertTrue(result['triggered_immediately'])
 
     def test_top_level_comment_triggers_kato_run(self) -> None:
         from kato_core_lib.comment_core_lib import CommentRecord
@@ -1077,6 +1135,28 @@ class AddTaskCommentTests(unittest.TestCase):
         self.assertTrue(result['ok'])
         trigger.assert_called_once()
         self.assertTrue(result['triggered_immediately'])
+
+    def test_comment_prompt_includes_thread_replies(self) -> None:
+        # A re-engaged run must see the operator's follow-up reply, not
+        # just the original comment, so kato addresses the new pushback.
+        from kato_core_lib.comment_core_lib import CommentRecord
+
+        service = AgentService(**_kwargs())
+        root = CommentRecord(
+            id='c0', body='fix this', repo_id='r1', author='operator',
+            source='local', parent_id='', file_path='f.py', line=5,
+        )
+        reply = CommentRecord(
+            id='c1', body='no, do it differently', repo_id='r1',
+            author='operator', source='local', parent_id='c0',
+        )
+        store = MagicMock()
+        store.list.return_value = [root, reply]
+        with patch.object(service, '_comment_store_for', return_value=store):
+            prompt = service._comment_agent_prompt('T1', root)
+        self.assertIn('fix this', prompt)
+        self.assertIn('no, do it differently', prompt)
+        self.assertIn('Operator:', prompt)
 
 
 class ResolveTaskCommentTests(unittest.TestCase):

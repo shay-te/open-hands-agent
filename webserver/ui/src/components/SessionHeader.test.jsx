@@ -129,39 +129,24 @@ describe('SessionHeader — task summary + status dot', () => {
 
 describe('SessionHeader — always prints the Claude session id', () => {
 
-  test('shows the short session id with the full id in the title', () => {
+  test('is NOT shown next to the task code (left side)', () => {
+    // The session id chip used to sit beside the task id, crowding the
+    // task code/title; it was removed there and now lives only by the
+    // ``Claude: <status>`` chip on the right.
     const { container } = render(
       <SessionHeader
         session={_session({ [AGENT_SESSION_ID]: 'abcdef12-3456-7890-abcd-ef1234567890' })}
         streamLifecycle={SESSION_LIFECYCLE.STREAMING}
       />,
     );
-    const el = container.querySelector('#session-claude-id');
-    const info = container.querySelector('.session-header-info');
-    expect(el).toBeInTheDocument();
-    expect(info).toContainElement(el);
-    expect(el).toHaveTextContent('sid:abcdef12…');
-    expect(el.getAttribute('title')).toContain(
-      'abcdef12-3456-7890-abcd-ef1234567890',
-    );
-  });
-
-  test('omitted when the record has no session id yet', () => {
-    const { container } = render(
-      <SessionHeader
-        session={_session({ [AGENT_SESSION_ID]: '' })}
-        streamLifecycle={SESSION_LIFECYCLE.CONNECTING}
-      />,
-    );
     expect(container.querySelector('#session-claude-id')).not.toBeInTheDocument();
+    const info = container.querySelector('.session-header-info');
+    expect(info.querySelector('.claude-session-id')).toBeNull();
   });
 
-  test('also rendered adjacent to the Claude: <status> chip on the right', () => {
-    // Operators reported losing track of which Claude conversation
-    // was working — the only id badge lived on the LEFT next to the
-    // task id, which scrolls out of view on narrow widths. A second
-    // copy lives next to the right-side ``Claude: <status>`` chip
-    // so the id is visible from either side of the header.
+  test('rendered adjacent to the Claude: <status> chip on the right', () => {
+    // The id badge lives next to the right-side ``Claude: <status>``
+    // chip so operators can see which conversation is working.
     const { container } = render(
       <SessionHeader
         session={_session({ [AGENT_SESSION_ID]: 'abcdef12-3456-7890-abcd-ef1234567890' })}

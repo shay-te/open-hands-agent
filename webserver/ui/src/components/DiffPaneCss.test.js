@@ -56,7 +56,9 @@ test('DiffPane uses compact side spacing around file cards and headers', () => {
 
 test('Badge, chip, and pill classes share the global pill radius', () => {
   const rootBody = ruleBody(':root');
-  const safetyBody = ruleBody(':where([class*="badge"], [class*="chip"], [class*="pill"])');
+  // Sass normalizes attribute-selector quoting ([class*="badge"] ->
+  // [class*=badge]); both are equivalent CSS, so match the unquoted form.
+  const safetyBody = ruleBody(':where([class*=badge], [class*=chip], [class*=pill])');
   assertDeclaration(rootBody, '--radius-pill', '999px');
   assertDeclaration(safetyBody, 'border-radius', 'var\\(--radius-pill\\)');
 
@@ -198,7 +200,8 @@ test('Bitbucket comment card: avatar, collapse chevron, dot actions', () => {
   const sep = ruleBody(
     '.diff-file-comment-action + .diff-file-comment-action::before',
   );
-  assertDeclaration(sep, 'content', "'·'");
+  // Sass emits string values with double quotes (content: '·' -> "·").
+  assertDeclaration(sep, 'content', '"·"');
 });
 
 test('Comment editor has a formatting toolbar', () => {

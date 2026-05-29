@@ -67,6 +67,10 @@ export function buildFilesCommentMeta(comments) {
   for (const comment of comments || []) {
     if (String(comment?.parent_id || '')) { continue; }
     if (comment?.status === 'resolved') { continue; }
+    // Outdated = the comment's anchor line no longer exists in the file
+    // (code was rewritten/shrank), so it renders nowhere. Don't badge a
+    // file for a comment that isn't visible — the backend computes this.
+    if (comment?.outdated) { continue; }
     const filePath = String(comment?.file_path || '').trim();
     if (!filePath) { continue; }
     const repoId = String(comment?.repo_id || '').trim();

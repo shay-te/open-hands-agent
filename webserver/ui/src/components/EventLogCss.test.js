@@ -33,7 +33,9 @@ test('EventLog sticky prompts collapse to three lines with snippet expand button
   const expandBody = ruleBody('.chat-sticky-prompt-expand');
   const fadeBody = ruleBody('.chat-sticky-prompt-text-wrap.is-collapsed::after');
 
-  assertDeclaration(wrapBody, 'max-height', 'calc\\(12\\.5px \\* 1\\.5 \\* 3\\)');
+  // 3 lines x 1.5 line-height x 12.5px font; Sass evaluates the static
+  // calc() at compile time to its exact equivalent, 56.25px.
+  assertDeclaration(wrapBody, 'max-height', '56\\.25px');
   assertDeclaration(wrapBody, 'overflow', 'hidden');
   assertDeclaration(expandBody, 'bottom', '0');
   assert.match(fadeBody, /background\s*:\s*linear-gradient\(/);

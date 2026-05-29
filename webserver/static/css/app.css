@@ -1,4 +1,4 @@
-/* AUTO-GENERATED from webserver/ui/src/styles/app.scss — do NOT edit   this file directly. Edit the .scss sources and run   `npm run build:css` (in webserver/ui) to recompile. */
+/* AUTO-GENERATED from webserver/ui/src/styles/app.scss — do NOT edit   this file directly. Edit the .scss sources and run   `npm run build:css` (in webserver/ui) to recompile. */ /* AUTO-GENERATED from webserver/ui/src/styles/app.scss — do NOT edit   this file directly. Edit the .scss sources and run   `npm run build:css` (in webserver/ui) to recompile. */
 * {
   box-sizing: border-box;
 }
@@ -55,7 +55,7 @@ header {
   align-items: center;
   gap: 12px;
   padding: 14px 24px;
-  border-bottom: 1px solid #171717;
+  border-bottom: 1px solid #1e1e1e;
   flex-shrink: 0;
 }
 
@@ -97,7 +97,7 @@ header .subtitle {
 header button:not(.header-status) {
   background: transparent;
   color: #a3a3a3;
-  border: 1px solid #262626;
+  border: 1px solid #2a2a2a;
   border-radius: 50%;
   width: 32px;
   height: 32px;
@@ -115,7 +115,7 @@ header button:not(.header-status) {
 header button:not(.header-status):hover {
   color: #e5e5e5;
   border-color: #404040;
-  background: #1f1f1f;
+  background: #1e1e1e;
 }
 
 header button:not(.header-status):disabled {
@@ -133,7 +133,7 @@ header .header-status {
   gap: 8px;
   padding: 4px 12px;
   border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.06);
   color: #d4d4d4;
   font: 12px/1 ui-monospace, monospace;
@@ -149,13 +149,13 @@ header .header-status.is-error {
 }
 
 header .header-status.is-warn {
-  background: rgba(245, 158, 11, 0.12);
+  background: rgba(245, 158, 11, 0.1);
   border-color: rgba(245, 158, 11, 0.35);
   color: #fde68a;
 }
 
 header .header-status.is-stale {
-  background: rgba(64, 64, 64, 0.20);
+  background: rgba(64, 64, 64, 0.2);
   border-color: rgba(64, 64, 64, 0.45);
   color: #a3a3a3;
 }
@@ -200,14 +200,14 @@ header button.header-status.is-clickable {
 }
 
 header button.header-status.is-clickable:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.06);
   border-color: rgba(255, 255, 255, 0.14);
 }
 
 header button.header-status.is-clickable.is-active {
-  background: rgba(10, 132, 255, 0.16);
+  background: rgba(10, 132, 255, 0.18);
   border-color: rgba(10, 132, 255, 0.45);
-  color: #d6e4ff;
+  color: #cce0ff;
 }
 
 header button.header-status.is-clickable.is-active .header-status-pulse {
@@ -229,8 +229,8 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   align-items: center;
   gap: 10px;
   padding: 6px 24px;
-  border-bottom: 1px solid #171717;
-  background: #050505;
+  border-bottom: 1px solid #1e1e1e;
+  background: #0a0a0a;
   flex-shrink: 0;
   font-family: ui-monospace, monospace;
   font-size: 12px;
@@ -287,7 +287,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 
 #status-bar-toggle {
   background: transparent;
-  border: 1px solid #262626;
+  border: 1px solid #2a2a2a;
   color: #a3a3a3;
   border-radius: 4px;
   padding: 0 8px;
@@ -303,8 +303,8 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 #status-bar-history {
   max-height: 220px;
   overflow-y: auto;
-  background: #050505;
-  border-bottom: 1px solid #171717;
+  background: #0a0a0a;
+  border-bottom: 1px solid #1e1e1e;
   padding: 6px 24px;
   flex-shrink: 0;
   font-family: ui-monospace, monospace;
@@ -423,9 +423,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   gap: 8px;
   padding: 10px 14px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  background: linear-gradient(180deg,
-      rgba(28, 28, 30, 0.65) 0%,
-      rgba(16, 16, 18, 0.75) 100%);
+  background: linear-gradient(180deg, rgba(28, 28, 30, 0.62) 0%, rgba(16, 16, 18, 0.75) 100%);
   -webkit-backdrop-filter: blur(24px) saturate(180%);
   backdrop-filter: blur(24px) saturate(180%);
   /* ``backdrop-filter`` above makes this strip its own stacking
@@ -483,7 +481,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
    * hops, and the wheel-to-horizontal handler covers the
    * scroll-wheel case. */
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.32) rgba(255, 255, 255, 0.04);
+  scrollbar-color: rgba(255, 255, 255, 0.32) rgba(255, 255, 255, 0.06);
   /* Vertical padding gives the active tab's drop-shadow + the
    * pinned-tab background ring room to render before
    * overflow-y:hidden clips them. Without ``padding-top`` the active
@@ -509,7 +507,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .tabs-scroller::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.50);
+  background: rgba(255, 255, 255, 0.5);
 }
 
 .tabs-scroller #tab-list {
@@ -536,7 +534,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
    * 16px discs on a ~28px-tall pill. */
   padding: 6px 14px 6px 12px;
   border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.06);
   color: rgba(245, 245, 247, 0.78);
   cursor: pointer;
@@ -547,16 +545,16 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .tabs-pane-top .tab:hover {
-  background: rgba(255, 255, 255, 0.10);
-  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.1);
   color: #f5f5f7;
 }
 
 .tabs-pane-top .tab.active {
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.14);
   border-color: rgba(255, 255, 255, 0.22);
-  color: #ffffff;
-  box-shadow: 0 1px 8px $C-NEUTRAL-00-A45, inset 0 1px 0 $C-NEUTRAL-100-A10;
+  color: #f5f5f7;
+  box-shadow: 0 1px 8px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 .tabs-pane-top .tab:active {
@@ -592,7 +590,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 .tabs-pane-top .tab .tab-forget-btn {
   background: transparent;
   border: none;
-  color: rgba(245, 245, 247, 0.45);
+  color: rgba(245, 245, 247, 0.42);
   font-size: 11px;
   line-height: 1;
   cursor: pointer;
@@ -627,7 +625,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
    * INSIDE the pill, not a stray glyph hanging off the rounded
    * edge. The hover state below deepens it to red. */
   background: rgba(255, 255, 255, 0.1);
-  color: rgba(245, 245, 247, 0.75);
+  color: rgba(245, 245, 247, 0.78);
 }
 
 .tabs-pane-top .tab .tab-forget-btn:hover {
@@ -645,7 +643,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 .tabs-pane-top .tab .tab-pin-btn {
   background: transparent;
   border: none;
-  color: rgba(245, 245, 247, 0.45);
+  color: rgba(245, 245, 247, 0.42);
   font-size: 11px;
   line-height: 1;
   cursor: pointer;
@@ -683,8 +681,8 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   /* Pinned button is always visible — that's the whole point of
    * pinning ("I want to see this stays pinned across reloads"). */
   visibility: visible;
-  background: rgba(255, 255, 255, 0.10);
-  color: rgba(245, 245, 247, 0.75);
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(245, 245, 247, 0.78);
 }
 
 .tabs-pane-top .tab .tab-pin-btn.is-pinned {
@@ -696,7 +694,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 
 .tabs-pane-top .tab .tab-pin-btn:hover {
   background: rgba(10, 132, 255, 0.65);
-  color: #fff;
+  color: #f5f5f7;
 }
 
 /* ───── pinned-tab sticky positioning ─────────────────────────────
@@ -731,7 +729,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 .tabs-pane-top .tab.needs-attention {
   background: rgba(249, 115, 22, 0.22);
   border-color: rgba(249, 115, 22, 0.55);
-  color: #fff;
+  color: #f5f5f7;
 }
 
 /* Status dot inside a top-mounted tab segment.
@@ -778,8 +776,8 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   height: 30px;
   border-radius: 50%;
   padding: 0;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.06);
   color: #f5f5f7;
   cursor: pointer;
   display: inline-flex;
@@ -791,7 +789,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .tabs-nav-button:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.13);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .tabs-nav-button:active:not(:disabled) {
@@ -820,8 +818,8 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.06);
   color: #f5f5f7;
   cursor: pointer;
   display: inline-flex;
@@ -834,7 +832,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .tabs-action:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.14);
 }
 
 .tabs-action:active:not(:disabled) {
@@ -842,7 +840,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .tabs-action:disabled {
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.06);
   color: rgba(245, 245, 247, 0.28);
   cursor: not-allowed;
 }
@@ -852,12 +850,12 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   background: rgba(10, 132, 255, 0.85);
   border-color: rgba(10, 132, 255, 0.55);
   color: #f0f9ff;
-  box-shadow: 0 1px 6px $C-CYAN-52-A35;
+  box-shadow: 0 1px 6px rgba(10, 132, 255, 0.35);
 }
 
 #tabs-add-task.tabs-action:hover {
   background: rgba(41, 151, 255, 0.95);
-  box-shadow: 0 1px 10px $C-CYAN-52-A55;
+  box-shadow: 0 1px 10px rgba(10, 132, 255, 0.55);
 }
 
 /* Empty-state copy when no tabs exist yet — sits inline in the
@@ -873,7 +871,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .tabs-pane-top .empty code {
-  background: rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.1);
   padding: 1px 5px;
   border-radius: 4px;
 }
@@ -883,7 +881,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
  * tab strip uses ``.tabs-pane-top`` rules above; the rules below
  * apply only to the original aside-style sidebar. */
 #tabs-pane:not(.tabs-pane-top) {
-  border-right: 1px solid #171717;
+  border-right: 1px solid #1e1e1e;
   overflow-y: auto;
   padding: 0 0 12px;
   display: flex;
@@ -907,7 +905,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 #tabs-pane:not(.tabs-pane-top) .tab:hover {
-  background: #171717;
+  background: #1e1e1e;
 }
 
 #tabs-pane:not(.tabs-pane-top) .tab:focus {
@@ -915,7 +913,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 #tabs-pane:not(.tabs-pane-top) .tab.active {
-  background: #171717;
+  background: #1e1e1e;
   border-left-color: #e5e5e5;
 }
 
@@ -962,8 +960,8 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   border-radius: 50%;
   display: inline-block;
   margin-top: 4px;
-  background: #262626;
-  border: 2px solid #171717;
+  background: #2a2a2a;
+  border: 2px solid #1e1e1e;
 }
 
 .status-active {
@@ -988,8 +986,8 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   border-color: #92400e;
 } /* orange: Claude working */
 .status-done {
-  background: #171717;
-  border-color: #262626;
+  background: #1e1e1e;
+  border-color: #2a2a2a;
 } /* dim */
 .status-terminated {
   background: #6b7280;
@@ -1012,8 +1010,8 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   background: conic-gradient(#ef4444, #f97316, transparent 58%, transparent);
   animation: kato-status-spin 0.9s linear infinite;
   pointer-events: none;
-  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 0);
-  mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 0);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #0a0a0a 0);
+  mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #0a0a0a 0);
 }
 
 .status-dot.is-loading {
@@ -1048,10 +1046,10 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 
 @keyframes kato-attention-pulse {
   0%, 100% {
-    box-shadow: 0 0 0 0 $C-ORANGE-53-A72;
+    box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.72);
   }
   50% {
-    box-shadow: 0 0 0 7px $C-ORANGE-53-A00;
+    box-shadow: 0 0 0 7px rgba(249, 115, 22, 0);
   }
 }
 .empty {
@@ -1106,7 +1104,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   min-width: 0;
   overflow: visible;
   padding: 10px 24px;
-  border-bottom: 1px solid #171717;
+  border-bottom: 1px solid #1e1e1e;
   position: relative;
   z-index: 20;
 }
@@ -1179,7 +1177,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   height: 34px;
   padding: 0;
   border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(255, 255, 255, 0.06);
   color: #f5f5f7;
   cursor: pointer;
@@ -1193,7 +1191,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 
 .session-action:hover {
   background: rgba(255, 255, 255, 0.14);
-  border-color: rgba(255, 255, 255, 0.20);
+  border-color: rgba(255, 255, 255, 0.22);
 }
 
 .session-action:active {
@@ -1201,9 +1199,9 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .session-action:disabled {
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.06);
   color: rgba(245, 245, 247, 0.28);
-  border-color: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.06);
   cursor: not-allowed;
   box-shadow: none;
 }
@@ -1212,36 +1210,36 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   background: rgba(5, 150, 105, 0.85); /* emerald-600 */
   border-color: rgba(16, 185, 129, 0.65);
   color: #ecfdf5;
-  box-shadow: 0 1px 6px $C-TEAL-30-A35;
+  box-shadow: 0 1px 6px rgba(5, 150, 105, 0.35);
 }
 
 .session-action.is-primary:hover {
   background: rgba(16, 185, 129, 0.95);
-  box-shadow: 0 1px 10px $C-TEAL-39-A55;
+  box-shadow: 0 1px 10px rgba(16, 185, 129, 0.55);
 }
 
 .session-action.is-warning {
   background: rgba(217, 119, 6, 0.85); /* amber-600 */
   border-color: rgba(245, 158, 11, 0.65);
   color: #fef3c7;
-  box-shadow: 0 1px 6px $C-ORANGE-44-A35;
+  box-shadow: 0 1px 6px rgba(217, 119, 6, 0.35);
 }
 
 .session-action.is-warning:hover {
   background: rgba(245, 158, 11, 0.95);
-  box-shadow: 0 1px 10px $C-ORANGE-50-A55;
+  box-shadow: 0 1px 10px rgba(245, 158, 11, 0.55);
 }
 
 .session-action.is-danger {
   background: rgba(185, 28, 28, 0.85); /* red-700 */
   border-color: rgba(220, 38, 38, 0.65);
   color: #fee2e2;
-  box-shadow: 0 1px 6px $C-RED-42-A35;
+  box-shadow: 0 1px 6px rgba(185, 28, 28, 0.35);
 }
 
 .session-action.is-danger:hover {
   background: rgba(220, 38, 38, 0.95);
-  box-shadow: 0 1px 10px $C-RED-51-A55;
+  box-shadow: 0 1px 10px rgba(220, 38, 38, 0.55);
 }
 
 /* Legacy text-button per-id rules (stop / resume / push / pull /
@@ -1291,9 +1289,9 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
    * negative top would yank the bar up over the previous turn's last
    * bubble. The flex gap on .chat-turn handles spacing instead. */
   margin: 0 -24px;
-  background: #0d0d0f;
-  border-bottom: 1px solid #1f1f22;
-  box-shadow: 0 4px 10px $C-NEUTRAL-00-A35;
+  background: #161616;
+  border-bottom: 1px solid #2a2a2a;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
 }
 
 .chat-sticky-prompt-toggle {
@@ -1338,14 +1336,14 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   bottom: 0;
   height: 2.5em;
   pointer-events: none;
-  background: linear-gradient(to bottom, rgba(13, 13, 15, 0.0) 0%, rgba(13, 13, 15, 0.86) 66%, #171717 100%);
+  background: linear-gradient(to bottom, rgba(13, 13, 15, 0) 0%, rgba(13, 13, 15, 0.86) 66%, #1e1e1e 100%);
 }
 
 .chat-sticky-prompt-text {
   display: block;
   font-size: 12.5px;
   line-height: 1.5;
-  color: #e5e5e7;
+  color: #e5e5e5;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -1418,8 +1416,8 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 .bubble.tool .bubble-content {
   font-family: ui-monospace, monospace;
   font-size: 13px;
-  background: #050505;
-  border: 1px solid #171717;
+  background: #0a0a0a;
+  border: 1px solid #1e1e1e;
   border-radius: 4px;
   padding: 6px 10px;
 }
@@ -1467,7 +1465,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 
 .bubble-tool-reveal:hover {
   background: rgba(147, 197, 253, 0.22);
-  color: #bfdbfe;
+  color: #cce0ff;
 }
 
 /* ----- tool-details code box -----
@@ -1499,7 +1497,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   bottom: 0;
   height: 96px;
   pointer-events: none;
-  background: linear-gradient(to bottom, rgba(13, 13, 15, 0.0) 0%, rgba(13, 13, 15, 0.86) 65%, #0a0a0a 100%);
+  background: linear-gradient(to bottom, rgba(13, 13, 15, 0) 0%, rgba(13, 13, 15, 0.86) 65%, #0a0a0a 100%);
 }
 
 .bubble-tool-details {
@@ -1531,7 +1529,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   border: 1px solid #374151;
   border-radius: 4px;
   cursor: pointer;
-  box-shadow: 0 4px 12px $C-NEUTRAL-00-A45;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
 }
 
 .bubble-tool-details-expand:hover {
@@ -1596,7 +1594,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 .bubble.assistant .bubble-content h6 {
   margin: 10px 0 3px;
   font-weight: 600;
-  color: #f5f5f5;
+  color: #f5f5f7;
   line-height: 1.25;
 }
 
@@ -1649,7 +1647,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .bubble.assistant .bubble-content a {
-  color: #60a5fa;
+  color: #579dff;
   text-decoration: underline;
 }
 
@@ -1666,19 +1664,19 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 .bubble.assistant .bubble-content th,
 .bubble.assistant .bubble-content td {
   padding: 4px 10px;
-  border: 1px solid #262626;
+  border: 1px solid #2a2a2a;
   text-align: left;
 }
 
 .bubble.assistant .bubble-content th {
-  background: #171717;
+  background: #1e1e1e;
   font-weight: 600;
 }
 
 .bubble.assistant .bubble-content hr {
   margin: 12px 0;
   border: 0;
-  border-top: 1px solid #262626;
+  border-top: 1px solid #2a2a2a;
 }
 
 .bubble.assistant .bubble-content .md-inline-code {
@@ -1690,16 +1688,16 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
    * (the operator-screenshot scenario: every list item had 3-5
    * ``code`` chips per line). */
   padding: 0 5px;
-  background: #050505;
-  border: 1px solid #1f1f1f;
+  background: #0a0a0a;
+  border: 1px solid #1e1e1e;
   border-radius: 3px;
-  color: #fcd34d;
+  color: #f5cd47;
 }
 
 .bubble.assistant .bubble-content .md-code-block {
   margin: 6px 0 10px;
-  background: #050505;
-  border: 1px solid #1f1f1f;
+  background: #0a0a0a;
+  border: 1px solid #1e1e1e;
   border-radius: 5px;
   overflow: hidden;
 }
@@ -1710,7 +1708,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   justify-content: space-between;
   padding: 4px 8px 4px 12px;
   background: #0a0a0a;
-  border-bottom: 1px solid #1f1f1f;
+  border-bottom: 1px solid #1e1e1e;
 }
 
 .bubble.assistant .bubble-content .md-code-block-lang {
@@ -1738,15 +1736,15 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .bubble.assistant .bubble-content .md-code-block-copy:hover {
-  background: #171717;
-  border-color: #262626;
-  color: #f5f5f5;
+  background: #1e1e1e;
+  border-color: #2a2a2a;
+  color: #f5f5f7;
 }
 
 .bubble.assistant .bubble-content .md-code-block-copy:focus-visible {
   outline: none;
   border-color: #34d399;
-  color: #f5f5f5;
+  color: #f5f5f7;
 }
 
 .bubble.assistant .bubble-content .md-code-block-pre {
@@ -2003,7 +2001,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 #event-log.is-searching .bubble--match .bubble-body {
   /* Faint highlight ring so the operator can scan matches
    * without losing the bubble's own kind-color signal. */
-  box-shadow: 0 0 0 2px $C-CYAN-52-A35;
+  box-shadow: 0 0 0 2px rgba(10, 132, 255, 0.35);
   border-radius: 8px;
   transition: box-shadow 120ms ease, background 120ms ease;
 }
@@ -2013,7 +2011,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
  * Enter/Shift-Enter actually moved the cursor without having
  * to count. */
 #event-log.is-searching .bubble--match-current .bubble-body {
-  box-shadow: 0 0 0 2px $C-CYAN-52-A95, 0 0 18px $C-CYAN-52-A35;
+  box-shadow: 0 0 0 2px rgba(10, 132, 255, 0.95), 0 0 18px rgba(10, 132, 255, 0.35);
   background: rgba(10, 132, 255, 0.06);
 }
 
@@ -2030,7 +2028,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   height: 34px;
   padding: 0;
   border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(255, 255, 255, 0.06);
   color: #f5f5f7;
   cursor: pointer;
@@ -2044,7 +2042,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 
 .chat-search-toggle:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.14);
-  border-color: rgba(255, 255, 255, 0.20);
+  border-color: rgba(255, 255, 255, 0.22);
 }
 
 .chat-search-toggle:active:not(:disabled) {
@@ -2056,7 +2054,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
    * effectively the "active" state for it, rather than fading it
    * to grey like a normal disabled button. */
   background: rgba(10, 132, 255, 0.18);
-  border-color: rgba(10, 132, 255, 0.40);
+  border-color: rgba(10, 132, 255, 0.4);
   color: rgba(245, 245, 247, 0.85);
   cursor: default;
 }
@@ -2079,13 +2077,11 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   gap: 8px;
   padding: 6px 8px 6px 14px;
   border-radius: 22px;
-  background: linear-gradient(180deg,
-      rgba(28, 28, 30, 0.62) 0%,
-      rgba(20, 20, 22, 0.55) 100%);
+  background: linear-gradient(180deg, rgba(28, 28, 30, 0.62) 0%, rgba(20, 20, 22, 0.55) 100%);
   -webkit-backdrop-filter: blur(28px) saturate(180%);
   backdrop-filter: blur(28px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 12px 32px $C-NEUTRAL-00-A45, 0 2px 8px $C-NEUTRAL-00-A35, inset 0 1px 0 $C-NEUTRAL-100-A06;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06);
   z-index: 11;
 }
 
@@ -2116,7 +2112,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   color: rgba(245, 245, 247, 0.65);
   padding: 2px 8px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.06);
   flex-shrink: 0;
   white-space: nowrap;
 }
@@ -2132,7 +2128,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(255, 255, 255, 0.06);
   color: #f5f5f7;
   cursor: pointer;
@@ -2195,13 +2191,11 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   flex-direction: column;
   gap: 4px;
   border-radius: 18px;
-  background: linear-gradient(180deg,
-      rgba(28, 28, 30, 0.62) 0%,
-      rgba(20, 20, 22, 0.55) 100%);
+  background: linear-gradient(180deg, rgba(28, 28, 30, 0.62) 0%, rgba(20, 20, 22, 0.55) 100%);
   -webkit-backdrop-filter: blur(28px) saturate(180%);
   backdrop-filter: blur(28px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 8px 24px $C-NEUTRAL-00-A40, inset 0 1px 0 $C-NEUTRAL-100-A06;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.06);
   z-index: 9;
   max-height: 240px;
   overflow-y: auto;
@@ -2215,15 +2209,15 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   gap: 8px;
   padding: 6px 10px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   color: rgba(245, 245, 247, 0.85);
   font-size: 13px;
 }
 
 .queued-message-row:hover {
-  background: rgba(255, 255, 255, 0.07);
-  border-color: rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
 }
 
 .queued-message-glyph {
@@ -2256,7 +2250,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   gap: 4px;
   padding: 4px 10px;
   background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 999px;
   color: rgba(245, 245, 247, 0.85);
   font-size: 12px;
@@ -2266,9 +2260,9 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .queued-message-steer:hover {
-  background: rgba(10, 132, 255, 0.40);
+  background: rgba(10, 132, 255, 0.4);
   border-color: rgba(10, 132, 255, 0.55);
-  color: #fff;
+  color: #f5f5f7;
 }
 
 .queued-message-steer svg {
@@ -2324,8 +2318,8 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   background: linear-gradient(180deg, rgba(28, 28, 30, 0.62) 0%, rgba(20, 20, 22, 0.55) 100%);
   -webkit-backdrop-filter: blur(28px) saturate(180%);
   backdrop-filter: blur(28px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 12px 32px $C-NEUTRAL-00-A45, 0 2px 8px $C-NEUTRAL-00-A35, inset 0 1px 0 $C-NEUTRAL-100-A06;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06);
   z-index: 10;
 }
 
@@ -2370,8 +2364,8 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   height: 56px;
   border-radius: 12px;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .message-attachment img {
@@ -2390,7 +2384,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   border-radius: 50%;
   border: none;
   background: rgba(0, 0, 0, 0.7);
-  color: #fff;
+  color: #f5f5f7;
   font-size: 14px;
   line-height: 1;
   cursor: pointer;
@@ -2424,7 +2418,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   /* Firefox: thin auto-coloured scrollbar that fades into the
    * frosted-glass background instead of the chunky default. */
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+  scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
 }
 
 #message-input::placeholder {
@@ -2432,7 +2426,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 #message-input:disabled {
-  color: rgba(245, 245, 247, 0.32);
+  color: rgba(245, 245, 247, 0.28);
   cursor: not-allowed;
 }
 
@@ -2448,12 +2442,12 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 #message-input::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.14);
   border-radius: 3px;
 }
 
 #message-input::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.32);
 }
 
 /* Round attach button — the iOS "+". Sits in the leading slot. */
@@ -2462,9 +2456,9 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.1);
   color: #f5f5f7;
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   padding: 0;
   font-size: 20px;
   font-weight: 400;
@@ -2477,8 +2471,8 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 #message-attach:hover {
-  background: rgba(255, 255, 255, 0.18);
-  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.14);
 }
 
 #message-attach:active {
@@ -2486,10 +2480,10 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 #message-attach:disabled {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.06);
   color: rgba(245, 245, 247, 0.22);
   cursor: not-allowed;
-  border-color: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.06);
 }
 
 /* Round send button — iOS-blue accent when armed, dimmed when
@@ -2511,13 +2505,13 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 1px 6px $C-CYAN-52-A45;
+  box-shadow: 0 1px 6px rgba(10, 132, 255, 0.45);
   transition: background 120ms ease, box-shadow 120ms ease, transform 90ms ease, opacity 120ms ease;
 }
 
 .message-send:hover {
   background: #2997ff;
-  box-shadow: 0 1px 10px $C-CYAN-52-A60;
+  box-shadow: 0 1px 10px rgba(10, 132, 255, 0.6);
 }
 
 .message-send:active {
@@ -2525,8 +2519,8 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .message-send:disabled {
-  background: rgba(255, 255, 255, 0.10);
-  color: rgba(245, 245, 247, 0.32);
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(245, 245, 247, 0.28);
   box-shadow: none;
   cursor: not-allowed;
 }
@@ -2535,7 +2529,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
  * yet; flushes when the turn finishes". */
 .message-send.is-queued {
   background: #f59e0b;
-  box-shadow: 0 1px 10px $C-ORANGE-50-A55;
+  box-shadow: 0 1px 10px rgba(245, 158, 11, 0.55);
 }
 
 .message-send.is-queued:hover {
@@ -2545,9 +2539,9 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 /* Compact, pill-shaped model picker living inside the capsule. */
 #message-form #model-selector {
   flex-shrink: 0;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.06);
   color: #f5f5f7;
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 16px;
   padding: 4px 10px;
   font-size: 12px;
@@ -2560,11 +2554,11 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 #message-form #model-selector:hover {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 code {
-  background: #171717;
+  background: #1e1e1e;
   padding: 2px 6px;
   border-radius: 4px;
 }
@@ -2581,8 +2575,8 @@ code {
 }
 
 .modal-card {
-  background: #050505;
-  border: 1px solid #262626;
+  background: #0a0a0a;
+  border: 1px solid #2a2a2a;
   border-radius: 8px;
   padding: 20px 24px;
   max-width: 720px;
@@ -2605,7 +2599,7 @@ code {
   display: flex;
   align-items: baseline;
   gap: 12px;
-  border-bottom: 1px solid #171717;
+  border-bottom: 1px solid #1e1e1e;
   padding-bottom: 10px;
 }
 
@@ -2637,7 +2631,7 @@ code {
 
 .permission-field-value {
   background: #0a0a0a;
-  border: 1px solid #171717;
+  border: 1px solid #1e1e1e;
   border-radius: 4px;
   padding: 8px 10px;
   color: #e5e5e5;
@@ -2690,7 +2684,7 @@ code {
 .modal-card textarea {
   background: #0a0a0a;
   color: #e5e5e5;
-  border: 1px solid #262626;
+  border: 1px solid #2a2a2a;
   border-radius: 4px;
   padding: 6px 8px;
   font: inherit;
@@ -2713,17 +2707,17 @@ code {
 
 .modal-actions .primary {
   background: #047857;
-  color: #fff;
+  color: #f5f5f7;
 }
 
 .modal-actions .secondary {
-  background: #262626;
+  background: #2a2a2a;
   color: #e5e5e5;
 }
 
 .modal-actions .danger {
   background: #b91c1c;
-  color: #fff;
+  color: #f5f5f7;
 }
 
 .modal-actions .primary:hover {
@@ -2752,7 +2746,7 @@ code {
 }
 
 .forget-task-lead strong {
-  color: #fff;
+  color: #f5f5f7;
 }
 
 .forget-task-effects {
@@ -2777,7 +2771,7 @@ code {
 
 .forget-task-effects code {
   background: #0a0a0a;
-  border: 1px solid #262626;
+  border: 1px solid #2a2a2a;
   border-radius: 3px;
   padding: 1px 4px;
   font-size: 11.5px;
@@ -2806,8 +2800,8 @@ code {
   min-height: 0;
   min-width: 0;
   background: #1e1e1e;
-  border-left: 1px solid #171717;
-  border-right: 1px solid #171717;
+  border-left: 1px solid #1e1e1e;
+  border-right: 1px solid #1e1e1e;
 }
 
 .editor-pane-header {
@@ -2816,9 +2810,7 @@ code {
   gap: 10px;
   padding: 8px 14px;
   border-bottom: 1px solid #2a2a2a;
-  background: linear-gradient(180deg,
-      rgba(28, 28, 30, 0.65) 0%,
-      rgba(20, 20, 22, 0.75) 100%);
+  background: linear-gradient(180deg, rgba(28, 28, 30, 0.62) 0%, rgba(16, 16, 18, 0.75) 100%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   backdrop-filter: blur(20px) saturate(180%);
 }
@@ -2842,7 +2834,7 @@ code {
   padding: 3px 9px;
   border-radius: var(--radius-pill);
   background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .editor-pane-body {
@@ -2905,8 +2897,8 @@ code {
   position: relative;
   min-width: 0;
   background: #1e1e1e;
-  border-left: 1px solid #171717;
-  border-right: 1px solid #171717;
+  border-left: 1px solid #1e1e1e;
+  border-right: 1px solid #1e1e1e;
 }
 
 /* The scroll container — explicitly sized by ``inset: 0`` (no flex
@@ -2972,7 +2964,7 @@ code {
   border: 1px solid #2a2a2a;
   border-radius: 10px;
   overflow: clip;
-  background: #050505;
+  background: #0a0a0a;
 }
 
 /* The box's title — ATTACHED to the box (its first child), sharing
@@ -3091,7 +3083,7 @@ code {
 }
 
 .monaco-editor .kato-add-comment-glyph:hover::before {
-  color: #fff;
+  color: #f5f5f7;
 }
 
 .editor-pane-chip-strip {
@@ -3110,7 +3102,7 @@ code {
   padding: 4px 10px;
   border-radius: var(--radius-pill);
   border: 1px solid #404040;
-  background: #1f1f1f;
+  background: #1e1e1e;
   color: #d4d4d4;
   font: 11px/1.2 ui-monospace, monospace;
   cursor: pointer;
@@ -3119,7 +3111,7 @@ code {
 }
 
 .editor-pane-chip:hover {
-  background: #262626;
+  background: #2a2a2a;
   border-color: #525252;
 }
 
@@ -3134,7 +3126,7 @@ code {
   font-size: 10px;
   padding: 2px 6px;
   border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .editor-pane-chip-body {
@@ -3152,12 +3144,12 @@ code {
 }
 
 .editor-pane-chip.kato-in_progress .editor-pane-chip-status {
-  background: rgba(59, 130, 246, 0.20);
+  background: rgba(59, 130, 246, 0.2);
   color: #93c5fd;
 }
 
 .editor-pane-chip.kato-addressed .editor-pane-chip-status {
-  background: rgba(34, 197, 94, 0.20);
+  background: rgba(34, 197, 94, 0.2);
   color: #86efac;
 }
 
@@ -3171,7 +3163,7 @@ code {
 }
 
 .editor-pane-chip.status-resolved .editor-pane-chip-status {
-  background: rgba(34, 197, 94, 0.12);
+  background: rgba(34, 197, 94, 0.1);
   color: #86efac;
 }
 
@@ -3194,7 +3186,7 @@ code {
 .editor-pane-zone-host {
   width: 100%;
   box-sizing: border-box;
-  background: #0d0d10;
+  background: #161616;
   border-top: 1px solid #2a2a2a;
   border-bottom: 1px solid #2a2a2a;
   border-left: 3px solid #3b82f6;
@@ -3251,7 +3243,7 @@ code {
 }
 
 .editor-pane-comment-jump:hover {
-  background: rgba(59, 130, 246, 0.10);
+  background: rgba(59, 130, 246, 0.1);
 }
 
 /* Left-panel uniform background — the Files/Changes panel (rendered
@@ -3270,11 +3262,11 @@ code {
 
 /* right-side pane (Files + Changes), mounted by the React bundle */
 #right-pane {
-  border-left: 1px solid #171717;
+  border-left: 1px solid #1e1e1e;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  background: #050505;
+  background: #0a0a0a;
   position: relative;
 }
 
@@ -3320,7 +3312,7 @@ code {
 
 body.kato-resizing #right-pane-resizer::before {
   background: #0a84ff;
-  box-shadow: 0 0 0 1px $C-CYAN-52-A35, 0 0 12px $C-CYAN-52-A55;
+  box-shadow: 0 0 0 1px rgba(10, 132, 255, 0.35), 0 0 12px rgba(10, 132, 255, 0.55);
 }
 
 body.kato-resizing {
@@ -3360,7 +3352,7 @@ body.kato-resizing {
 
 body.kato-resizing #left-pane-resizer::before {
   background: #0a84ff;
-  box-shadow: 0 0 0 1px $C-CYAN-52-A35, 0 0 12px $C-CYAN-52-A55;
+  box-shadow: 0 0 0 1px rgba(10, 132, 255, 0.35), 0 0 12px rgba(10, 132, 255, 0.55);
 }
 
 #right-pane-root {
@@ -3433,16 +3425,14 @@ body.kato-resizing #left-pane-resizer::before {
    * (``position: relative`` with no offsets is layout-neutral). */
   position: relative;
   z-index: 2;
-  background: linear-gradient(180deg,
-      rgba(28, 28, 30, 0.55) 0%,
-      rgba(20, 20, 22, 0.45) 100%);
+  background: linear-gradient(180deg, rgba(28, 28, 30, 0.55) 0%, rgba(20, 20, 22, 0.45) 100%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   backdrop-filter: blur(20px) saturate(180%);
 }
 
 .right-pane-tabs button {
   flex: 1;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.06);
   color: rgba(245, 245, 247, 0.78);
   padding: 7px 10px;
@@ -3456,8 +3446,8 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .right-pane-tabs button:hover {
-  background: rgba(255, 255, 255, 0.10);
-  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.1);
   color: #f5f5f7;
 }
 
@@ -3466,10 +3456,10 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .right-pane-tabs button.active {
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.14);
   border-color: rgba(255, 255, 255, 0.22);
-  color: #ffffff;
-  box-shadow: 0 1px 6px $C-NEUTRAL-00-A35, inset 0 1px 0 $C-NEUTRAL-100-A10;
+  color: #f5f5f7;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 .right-pane-body {
@@ -3517,7 +3507,7 @@ body.kato-resizing #left-pane-resizer::before {
   transform: translateY(-50%);
   display: inline-flex;
   font-size: 11px;
-  color: rgba(245, 245, 247, 0.40);
+  color: rgba(245, 245, 247, 0.42);
   pointer-events: none;
   transition: color 140ms ease;
 }
@@ -3533,7 +3523,7 @@ body.kato-resizing #left-pane-resizer::before {
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   backdrop-filter: blur(20px) saturate(180%);
   color: #f5f5f7;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 999px;
   /* Room for the leading icon (left) + the clear button (right). */
   padding: 7px 30px 7px 32px;
@@ -3544,14 +3534,14 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .files-tab-filter-input:focus {
-  background: rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.06);
   border-color: rgba(10, 132, 255, 0.65);
   /* Soft iOS focus ring — a halo, not a hard 2px outline. */
-  box-shadow: 0 0 0 4px $C-CYAN-52-A18, 0 1px 2px $C-NEUTRAL-00-A25 inset;
+  box-shadow: 0 0 0 4px rgba(10, 132, 255, 0.18), 0 1px 2px rgba(0, 0, 0, 0.25) inset;
 }
 
 .files-tab-filter-input::placeholder {
-  color: rgba(245, 245, 247, 0.40);
+  color: rgba(245, 245, 247, 0.42);
 }
 
 .files-tab-filter-input::-webkit-search-cancel-button {
@@ -3563,7 +3553,7 @@ body.kato-resizing #left-pane-resizer::before {
   right: 6px;
   top: 50%;
   transform: translateY(-50%);
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.1);
   border: none;
   color: #f5f5f7;
   cursor: pointer;
@@ -3593,7 +3583,7 @@ body.kato-resizing #left-pane-resizer::before {
 .files-tab-icon-btn,
 .changes-tab-icon-btn {
   background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   color: rgba(245, 245, 247, 0.85);
   width: 28px;
   height: 28px;
@@ -3611,7 +3601,7 @@ body.kato-resizing #left-pane-resizer::before {
 .files-tab-icon-btn:hover,
 .changes-tab-icon-btn:hover {
   background: rgba(255, 255, 255, 0.14);
-  border-color: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.14);
   color: #f5f5f7;
 }
 
@@ -3628,7 +3618,7 @@ body.kato-resizing #left-pane-resizer::before {
 
 .files-tab-text-btn {
   background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   color: rgba(245, 245, 247, 0.85);
   min-width: 32px;
   height: 28px;
@@ -3646,7 +3636,7 @@ body.kato-resizing #left-pane-resizer::before {
 
 .files-tab-text-btn:hover {
   background: rgba(255, 255, 255, 0.14);
-  border-color: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.14);
   color: #f5f5f7;
 }
 
@@ -3656,8 +3646,8 @@ body.kato-resizing #left-pane-resizer::before {
 
 .files-tab-text-btn.active {
   background: rgba(10, 132, 255, 0.22);
-  border-color: rgba(10, 132, 255, 0.42);
-  color: #66a6ff;
+  border-color: rgba(10, 132, 255, 0.45);
+  color: #579dff;
 }
 
 /* iOS-style accordion cards (files-repo, diff-repo, diff-file).
@@ -3667,7 +3657,7 @@ body.kato-resizing #left-pane-resizer::before {
   border-radius: 12px;
   margin-bottom: 10px;
   overflow: visible;
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .files-tab-repo-header {
@@ -3676,16 +3666,16 @@ body.kato-resizing #left-pane-resizer::before {
   align-items: center;
   padding: 10px 12px;
   border-radius: 12px 12px 0 0;
-  background: #1b1b1d;
+  background: #1e1e1e;
   cursor: pointer;
   font-size: 12px;
   font-weight: 600;
-  box-shadow: 0 1px 0 $C-NEUTRAL-100-A06;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06);
   transition: background 120ms ease;
 }
 
 .files-tab-repo-header:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .files-tab-repo-chevron {
@@ -3726,13 +3716,13 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .files-tab-repo-commits-btn:hover {
-  background: #262626;
+  background: #2a2a2a;
   color: #e5e5e5;
   border-color: #404040;
 }
 
 .files-tab-repo-commits-btn[aria-expanded=true] {
-  background: #262626;
+  background: #2a2a2a;
   color: #e5e5e5;
   border-color: #525252;
 }
@@ -3749,13 +3739,13 @@ body.kato-resizing #left-pane-resizer::before {
   list-style: none;
   margin: 0;
   padding: 4px 0;
-  background: #1a1a1a;
+  background: #1e1e1e;
   border: 1px solid #404040;
   border-radius: 4px;
   max-height: 360px;
   overflow-y: auto;
   min-width: 280px;
-  box-shadow: 0 4px 12px $C-NEUTRAL-00-A40;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
 .files-tab-commit-empty {
@@ -3784,7 +3774,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .files-tab-commit-row:hover {
-  background: #262626;
+  background: #2a2a2a;
 }
 
 .files-tab-commit-sha {
@@ -3807,10 +3797,10 @@ body.kato-resizing #left-pane-resizer::before {
  * (per-line gutter widgets are a follow-up), source-tagged badges,
  * resolve / reopen / delete inline. */
 .diff-file-comments {
-  border-top: 1px solid #262626;
+  border-top: 1px solid #2a2a2a;
   border-radius: 0 0 10px 10px;
   padding: 4px;
-  background: #0f0f0f;
+  background: #161616;
 }
 
 .diff-file-comments-empty {
@@ -3824,7 +3814,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .diff-file-comment-thread {
-  border: 1px solid #262626;
+  border: 1px solid #2a2a2a;
   border-radius: 4px;
   margin-bottom: 4px;
   background: #161616;
@@ -3844,7 +3834,7 @@ body.kato-resizing #left-pane-resizer::before {
 /* ----- Bitbucket-style comment card ----- */
 .diff-file-comment {
   padding: 6px;
-  border-bottom: 1px solid #262626;
+  border-bottom: 1px solid #2a2a2a;
 }
 
 .diff-file-comment:last-child {
@@ -3858,7 +3848,7 @@ body.kato-resizing #left-pane-resizer::before {
 .diff-file-comment.is-reply {
   margin-left: 28px;
   border-left: 2px solid #2f6feb;
-  background: #131313;
+  background: #161616;
 }
 
 .diff-file-comment-head {
@@ -3880,7 +3870,7 @@ body.kato-resizing #left-pane-resizer::before {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
+  color: #f5f5f7;
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.02em;
@@ -3910,7 +3900,7 @@ body.kato-resizing #left-pane-resizer::before {
 
 .diff-file-comment-source.is-remote {
   border-color: #047857;
-  color: #6ee7b7;
+  color: #79f2c0;
 }
 
 /* PENDING-style outlined status pill (Bitbucket look). */
@@ -3932,7 +3922,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .diff-file-comment-pill.is-addressed {
-  color: #6ee7b7;
+  color: #79f2c0;
 }
 
 .diff-file-comment-pill.is-failed {
@@ -3953,7 +3943,7 @@ body.kato-resizing #left-pane-resizer::before {
 .diff-file-comment-reply-count {
   font-size: 11px;
   color: #a3a3a3;
-  background: #1f1f1f;
+  background: #1e1e1e;
   border: 1px solid #2a2a2a;
   border-radius: 999px;
   padding: 1px 8px;
@@ -3971,7 +3961,7 @@ body.kato-resizing #left-pane-resizer::before {
   height: 26px;
   padding: 0;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(255, 255, 255, 0.06);
   color: rgba(245, 245, 247, 0.85);
   font: 600 11px/1 inherit;
@@ -3981,7 +3971,7 @@ body.kato-resizing #left-pane-resizer::before {
 
 .diff-file-comment-collapse:hover {
   background: rgba(255, 255, 255, 0.14);
-  border-color: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.14);
   color: #f5f5f7;
 }
 
@@ -4018,7 +4008,7 @@ body.kato-resizing #left-pane-resizer::before {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 12px;
   background: #0a0a0a;
-  border: 1px solid #262626;
+  border: 1px solid #2a2a2a;
   border-radius: 3px;
   padding: 0 4px;
 }
@@ -4027,7 +4017,7 @@ body.kato-resizing #left-pane-resizer::before {
   margin: 0 0 8px;
   padding: 8px 10px;
   background: #0a0a0a;
-  border: 1px solid #262626;
+  border: 1px solid #2a2a2a;
   border-radius: 4px;
   overflow-x: auto;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -4064,7 +4054,7 @@ body.kato-resizing #left-pane-resizer::before {
 .diff-file-comment-body .cmt-md-h {
   margin: 10px 0 4px;
   font-weight: 600;
-  color: #e5e7eb;
+  color: #e5e5e5;
   line-height: 1.3;
 }
 
@@ -4129,10 +4119,10 @@ body.kato-resizing #left-pane-resizer::before {
   flex-wrap: wrap;
   gap: 2px;
   padding: 4px;
-  border: 1px solid #262626;
+  border: 1px solid #2a2a2a;
   border-bottom: 0;
   border-radius: 4px 4px 0 0;
-  background: #0f0f0f;
+  background: #161616;
 }
 
 .diff-file-comments-toolbar-btn {
@@ -4148,7 +4138,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .diff-file-comments-toolbar-btn:hover:not(:disabled) {
-  background: #1f1f1f;
+  background: #1e1e1e;
   color: #e5e5e5;
 }
 
@@ -4162,10 +4152,10 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .diff-file-comments-form {
-  border: 1px solid #262626;
+  border: 1px solid #2a2a2a;
   border-radius: 4px;
   padding: 8px;
-  background: #131313;
+  background: #161616;
 }
 
 .diff-file-comments-reply-hint {
@@ -4196,7 +4186,7 @@ body.kato-resizing #left-pane-resizer::before {
    * operator could not see what they had typed. */
   max-height: 360px;
   overflow-y: auto;
-  background: #0f0f0f;
+  background: #161616;
   border: 1px solid #404040;
   border-radius: 3px;
   color: #e5e5e5;
@@ -4221,7 +4211,7 @@ body.kato-resizing #left-pane-resizer::before {
  * (border-radius:999px, 12px, soft transitions). */
 .diff-file-comments-submit {
   background: #1d4ed8;
-  color: #eff6ff;
+  color: #f0f9ff;
   border: 1px solid #2563eb;
   border-radius: 999px;
   padding: 6px 16px;
@@ -4247,8 +4237,8 @@ body.kato-resizing #left-pane-resizer::before {
  * horizontal padding so threads fill edge-to-edge like Bitbucket. */
 .diff-line-comments-host {
   background: #0a0a0a;
-  border-top: 1px solid #262626;
-  border-bottom: 1px solid #262626;
+  border-top: 1px solid #2a2a2a;
+  border-bottom: 1px solid #2a2a2a;
   padding: 0;
 }
 
@@ -4261,7 +4251,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .diff-line-comments-host .diff-file-comment-thread + .diff-file-comment-thread {
-  border-top: 1px solid #1f1f1f;
+  border-top: 1px solid #1e1e1e;
 }
 
 /* Hovering a diff line shows ONE blue "+" to add a comment — the
@@ -4308,7 +4298,7 @@ body.kato-resizing #left-pane-resizer::before {
   align-items: center;
   justify-content: center;
   background: #0c66e4;
-  color: #fff;
+  color: #f5f5f7;
   font: 700 13px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
   border-radius: 50%;
   pointer-events: none;
@@ -4332,7 +4322,7 @@ body.kato-resizing #left-pane-resizer::before {
   align-items: center;
   justify-content: center;
   background: #0c66e4;
-  color: #fff;
+  color: #f5f5f7;
   font: 700 13px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
   border-radius: 50%;
   pointer-events: none;
@@ -4349,7 +4339,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .diff-file-comments-cancel {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.1);
   color: rgba(245, 245, 247, 0.78);
   border-radius: 999px;
@@ -4362,7 +4352,7 @@ body.kato-resizing #left-pane-resizer::before {
 
 .diff-file-comments-cancel:hover {
   background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.14);
   color: #f5f5f7;
 }
 
@@ -4387,7 +4377,7 @@ body.kato-resizing #left-pane-resizer::before {
   margin-left: auto;
   padding: 5px 12px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(255, 255, 255, 0.06);
   color: rgba(245, 245, 247, 0.85);
   font: 600 11px/1 inherit;
@@ -4399,7 +4389,7 @@ body.kato-resizing #left-pane-resizer::before {
 .diff-file-collapse-toggle:hover:not(:disabled),
 .diff-file-add-file-comment:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.14);
-  border-color: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.14);
   color: #f5f5f7;
 }
 
@@ -4458,7 +4448,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .diff-repo-header:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .diff-repo-chevron {
@@ -4511,12 +4501,12 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .diff-line-stat.is-add {
-  color: #7ee7bc;
+  color: #79f2c0;
   background: rgba(16, 111, 74, 0.42);
 }
 
 .diff-line-stat.is-delete {
-  color: #ff9a95;
+  color: #ff9b91;
   background: rgba(127, 29, 29, 0.46);
 }
 
@@ -4573,7 +4563,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .tree-row-comments.is-addressed {
-  color: #6ee7b7;
+  color: #79f2c0;
   border-color: rgba(110, 231, 183, 0.4);
 }
 
@@ -4605,7 +4595,7 @@ body.kato-resizing #left-pane-resizer::before {
   border: 0;
   border-radius: 4px;
   background: transparent;
-  color: #a8a8ad;
+  color: #a3a3a3;
   font: 700 14px/1.25 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   text-align: left;
 }
@@ -4620,7 +4610,7 @@ body.kato-resizing #left-pane-resizer::before {
 
 .diff-file-tree-row.selected {
   background: #183252;
-  color: #66a6ff;
+  color: #579dff;
 }
 
 .diff-file-tree-row.is-file.selected:hover {
@@ -4652,7 +4642,7 @@ body.kato-resizing #left-pane-resizer::before {
 
 .diff-file-tree-chevron {
   width: 16px;
-  color: #a8a8ad;
+  color: #a3a3a3;
   display: inline-flex;
   justify-content: center;
   flex-shrink: 0;
@@ -4679,7 +4669,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .files-changed-tree-folder {
-  color: #a8a8ad;
+  color: #a3a3a3;
   font-size: 15px;
   font-weight: 600;
 }
@@ -4689,11 +4679,11 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .files-changed-tree-row.kind-add .files-changed-tree-label {
-  color: #8af2c4;
+  color: #79f2c0;
 }
 
 .files-changed-tree-row.kind-delete .files-changed-tree-label {
-  color: #ff9a95;
+  color: #ff9b91;
 }
 
 .files-changed-tree-row.kind-modify .files-changed-tree-label,
@@ -4703,7 +4693,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .files-changed-tree-row.selected .files-changed-tree-label {
-  color: #66a6ff;
+  color: #579dff;
 }
 
 .files-changed-tree-row .diff-line-stats {
@@ -4752,11 +4742,11 @@ body.kato-resizing #left-pane-resizer::before {
   font-size: 11px;
   border-radius: 3px;
   color: #d4d4d4;
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .diff-file-row-kind.kind-add {
-  color: #2ed38f;
+  color: #34d399;
   background: rgba(16, 111, 74, 0.42);
 }
 
@@ -4821,10 +4811,10 @@ body.kato-resizing #left-pane-resizer::before {
   z-index: 1000;
   min-width: 180px;
   padding: 5px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
-  background: #171719;
-  box-shadow: 0 18px 45px $C-NEUTRAL-00-A45;
+  background: #1e1e1e;
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.45);
 }
 
 .files-tab-context-menu-item,
@@ -4836,7 +4826,7 @@ body.kato-resizing #left-pane-resizer::before {
   border: 0;
   border-radius: 6px;
   background: transparent;
-  color: #e5e5e7;
+  color: #e5e5e5;
   font: 600 12px/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   text-align: left;
   cursor: pointer;
@@ -4858,7 +4848,7 @@ body.kato-resizing #left-pane-resizer::before {
 
 .diff-file-context-menu-item:disabled:hover {
   background: transparent;
-  color: #e5e5e7;
+  color: #e5e5e5;
 }
 
 .files-tab-message,
@@ -4884,7 +4874,7 @@ body.kato-resizing #left-pane-resizer::before {
   overflow: hidden;
   position: relative;
   border-radius: 4px;
-  color: #a8a8ad;
+  color: #a3a3a3;
   font: 700 14px/1.25 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   transition: background 90ms ease;
 }
@@ -4895,7 +4885,7 @@ body.kato-resizing #left-pane-resizer::before {
 
 .tree-row.selected {
   background: rgba(34, 95, 171, 0.38);
-  color: #66a6ff;
+  color: #579dff;
 }
 
 .tree-row-level-guides {
@@ -4910,7 +4900,7 @@ body.kato-resizing #left-pane-resizer::before {
 
 .tree-row-chevron {
   width: 16px;
-  color: #a8a8ad;
+  color: #a3a3a3;
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
@@ -4946,7 +4936,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .tree-row.selected .tree-row-name {
-  color: #66a6ff;
+  color: #579dff;
 }
 
 /* Changes tab */
@@ -4962,7 +4952,7 @@ body.kato-resizing #left-pane-resizer::before {
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 12px;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.025);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .diff-file-header {
@@ -4970,7 +4960,7 @@ body.kato-resizing #left-pane-resizer::before {
   gap: 8px;
   align-items: center;
   padding: 6px;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.06);
   font-size: 12px;
   font-family: ui-monospace, monospace;
   color: #f5f5f7;
@@ -5018,7 +5008,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .tree-row.changed-ancestor .tree-row-name {
-  color: #a8a8ad;
+  color: #a3a3a3;
 }
 
 .tree-row-line-stats {
@@ -5159,20 +5149,20 @@ body.kato-resizing #left-pane-resizer::before {
  * Tints tuned to match Bitbucket: broad hunks are muted, while
  * gutters and edited spans carry the stronger add/delete color. */
 .diff-file {
-  --diff-background-color: #050505;
+  --diff-background-color: #0a0a0a;
   --diff-text-color: #e5e5e5;
   --diff-font-family: ui-monospace, monospace;
   /* Gutter == code for changed lines: a brighter gutter shade made
    * the columns read as vertical stripes / a grid. Same colour on
    * both = each added/deleted line is ONE solid block, no grid. */
-  --diff-gutter-insert-background-color: #262626;
+  --diff-gutter-insert-background-color: #1d2b27;
   --diff-gutter-delete-background-color: #2d1f22;
   --diff-code-insert-background-color: #1d2b27;
   --diff-code-delete-background-color: #2d1f22;
   --diff-code-insert-edit-background-color: #0f5f42;
-  --diff-code-delete-edit-background-color: #7a2428;
-  --diff-gutter-selected-background-color: #262626;
-  --diff-code-selected-background-color: #262626;
+  --diff-code-delete-edit-background-color: #7f1d1d;
+  --diff-gutter-selected-background-color: #2a2a2a;
+  --diff-code-selected-background-color: #2a2a2a;
 }
 
 /* Bitbucket-style line numbers: muted but readable (the old #525252
@@ -5201,10 +5191,10 @@ body.kato-resizing #left-pane-resizer::before {
   gap: 10px;
   min-height: 26px;
   padding: 0 10px;
-  color: #a7a7ad;
+  color: #a3a3a3;
   background: #2f3033;
-  border-top: 1px solid #414247;
-  border-bottom: 1px solid #414247;
+  border-top: 1px solid #404040;
+  border-bottom: 1px solid #404040;
   font-family: ui-monospace, monospace;
   font-size: 12px;
 }
@@ -5224,8 +5214,8 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .diff-context-expander-btn:hover:not(:disabled) {
-  color: #e5e7eb;
-  background: rgba(255, 255, 255, 0.08);
+  color: #e5e5e5;
+  background: rgba(255, 255, 255, 0.06);
   border-color: rgba(255, 255, 255, 0.14);
 }
 
@@ -5279,7 +5269,7 @@ body.kato-resizing #left-pane-resizer::before {
 
 .diff-file .token.number,
 .diff-file .token.unit {
-  color: #fcd34d;
+  color: #f5cd47;
 }
 
 .diff-file .token.function,
@@ -5374,7 +5364,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .kato-safety-banner strong {
-  color: #ffffff;
+  color: #f5f5f7;
   letter-spacing: 0.02em;
 }
 
@@ -5383,7 +5373,7 @@ body.kato-resizing #left-pane-resizer::before {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: #050505;
+  background: #0a0a0a;
 }
 
 .orchestrator-feed-header {
@@ -5392,7 +5382,7 @@ body.kato-resizing #left-pane-resizer::before {
   justify-content: space-between;
   gap: 10px;
   padding: 12px 16px;
-  border-bottom: 1px solid #171717;
+  border-bottom: 1px solid #1e1e1e;
   flex-shrink: 0;
 }
 
@@ -5417,8 +5407,8 @@ body.kato-resizing #left-pane-resizer::before {
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.06);
   color: #a3a3a3;
   cursor: pointer;
   flex-shrink: 0;
@@ -5426,8 +5416,8 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .orchestrator-feed-close:hover {
-  background: rgba(255, 255, 255, 0.10);
-  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.14);
   color: #f5f5f7;
 }
 
@@ -5451,7 +5441,7 @@ body.kato-resizing #left-pane-resizer::before {
   grid-template-columns: 70px 40px 1fr;
   gap: 8px;
   padding: 4px 12px;
-  border-bottom: 1px solid #0d0d0d;
+  border-bottom: 1px solid #161616;
   color: #d4d4d4;
 }
 
@@ -5471,13 +5461,13 @@ body.kato-resizing #left-pane-resizer::before {
 
 .orchestrator-feed-row .lvl-info {
   color: #93c5fd;
-  background: rgba(59, 130, 246, 0.12);
+  background: rgba(59, 130, 246, 0.1);
 }
 
 .orchestrator-feed-row .lvl-warn,
 .orchestrator-feed-row .lvl-warning {
   color: #fbbf24;
-  background: rgba(245, 158, 11, 0.15);
+  background: rgba(245, 158, 11, 0.18);
 }
 
 .orchestrator-feed-row .lvl-error {
@@ -5528,26 +5518,26 @@ body.kato-resizing #left-pane-resizer::before {
 
 .orchestrator-feed-row .tok-progress {
   color: #fbbf24;
-  background: rgba(245, 158, 11, 0.10);
+  background: rgba(245, 158, 11, 0.1);
   border-radius: 3px;
   padding: 0 4px;
 }
 
 .orchestrator-feed-row .tok-num {
-  color: #fcd34d;
+  color: #f5cd47;
 }
 
 .orchestrator-feed-row .tok-code {
   font-family: ui-monospace, monospace;
   color: #fbcfe8;
-  background: rgba(244, 114, 182, 0.10);
+  background: rgba(244, 114, 182, 0.1);
   padding: 0 4px;
   border-radius: 3px;
 }
 
 .orchestrator-feed-footer {
   padding: 8px 12px;
-  border-top: 1px solid #171717;
+  border-top: 1px solid #1e1e1e;
   color: #525252;
   font-size: 12px;
   font-family: ui-monospace, monospace;
@@ -5565,7 +5555,7 @@ body.kato-resizing #left-pane-resizer::before {
   font: 11px/1 ui-monospace, monospace;
   padding: 3px 8px;
   border-radius: 999px;
-  border: 1px solid #262626;
+  border: 1px solid #2a2a2a;
   color: #a3a3a3;
   background: #0a0a0a;
   flex-shrink: 0;
@@ -5580,13 +5570,13 @@ body.kato-resizing #left-pane-resizer::before {
 .claude-status-approval {
   color: #fed7aa;
   border-color: #f97316;
-  background: #2a0f05;
+  background: #1c1207;
 }
 
 .claude-status-idle,
 .claude-status-streaming {
   color: #86efac;
-  border-color: #166534;
+  border-color: #0f5f42;
   background: #06140a;
 }
 
@@ -5661,14 +5651,14 @@ body.kato-resizing #left-pane-resizer::before {
   gap: 12px;
   align-items: flex-start;
   background: #1f2937;
-  color: #f9fafb;
+  color: #f5f5f7;
   border: 1px solid #374151;
   border-left-width: 4px;
   border-radius: 6px;
   padding: 10px 14px;
   min-width: 320px;
   max-width: 560px;
-  box-shadow: 0 8px 24px $C-NEUTRAL-00-A50;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
   animation: kato-toast-slide 0.18s ease-out;
   cursor: pointer;
   font: 13px/1.5 -apple-system, system-ui, sans-serif;
@@ -5714,7 +5704,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .toast-info .toast-glyph {
-  color: #60a5fa;
+  color: #579dff;
 }
 
 .toast-body {
@@ -5737,7 +5727,7 @@ body.kato-resizing #left-pane-resizer::before {
   font-size: 13px;
   white-space: pre-wrap;
   word-break: break-word;
-  color: #e5e7eb;
+  color: #e5e5e5;
 }
 
 .toast-close {
@@ -5753,7 +5743,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .toast-close:hover {
-  color: #f9fafb;
+  color: #f5f5f7;
 }
 
 @keyframes kato-toast-slide {
@@ -5785,7 +5775,7 @@ body.kato-resizing #left-pane-resizer::before {
   left: 50%;
   transform: translateX(-50%);
   background: #1f2937;
-  color: #f9fafb;
+  color: #f5f5f7;
   font: 13px/1.4 -apple-system, system-ui, sans-serif;
   font-style: normal;
   font-weight: 400;
@@ -5795,7 +5785,7 @@ body.kato-resizing #left-pane-resizer::before {
   max-width: 320px;
   width: max-content;
   border: 1px solid #374151;
-  box-shadow: 0 6px 16px $C-NEUTRAL-00-A45;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
   z-index: 1000;
   pointer-events: none;
   opacity: 0;
@@ -5920,7 +5910,7 @@ body.kato-resizing #left-pane-resizer::before {
 .notification-settings > button {
   background: transparent;
   color: #a3a3a3;
-  border: 1px solid #262626;
+  border: 1px solid #2a2a2a;
   border-radius: 50%;
   width: 32px;
   height: 32px;
@@ -5938,7 +5928,7 @@ body.kato-resizing #left-pane-resizer::before {
 .notification-settings > button:hover {
   color: #e5e5e5;
   border-color: #404040;
-  background: #1f1f1f;
+  background: #1e1e1e;
 }
 
 .notification-settings > button:disabled {
@@ -5950,8 +5940,8 @@ body.kato-resizing #left-pane-resizer::before {
   position: absolute;
   top: calc(100% + 6px);
   right: 0;
-  background: #050505;
-  border: 1px solid #171717;
+  background: #0a0a0a;
+  border: 1px solid #1e1e1e;
   border-radius: 6px;
   padding: 10px 12px;
   min-width: 240px;
@@ -5960,7 +5950,7 @@ body.kato-resizing #left-pane-resizer::before {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  box-shadow: 0 6px 20px $C-NEUTRAL-00-A40;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
 }
 
 .notification-settings-row {
@@ -5985,7 +5975,7 @@ body.kato-resizing #left-pane-resizer::before {
   width: 36px;
   height: 20px;
   border-radius: 999px;
-  background: #262626;
+  background: #2a2a2a;
   border: 1px solid #404040;
   position: relative;
   cursor: pointer;
@@ -6003,7 +5993,7 @@ body.kato-resizing #left-pane-resizer::before {
   height: 16px;
   border-radius: 50%;
   background: #f5f5f7;
-  box-shadow: 0 1px 3px $C-NEUTRAL-00-A45;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
   transition: transform 0.18s ease-out, background 0.18s ease-out;
 }
 
@@ -6062,7 +6052,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .notification-settings-divider {
-  border-top: 1px solid #171717;
+  border-top: 1px solid #1e1e1e;
   margin: 4px 0;
 }
 
@@ -6095,8 +6085,8 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .adopt-session-modal {
-  background: #171717;
-  border: 1px solid #262626;
+  background: #1e1e1e;
+  border: 1px solid #2a2a2a;
   border-radius: 6px;
   width: min(720px, 90vw);
   max-height: 80vh;
@@ -6111,7 +6101,7 @@ body.kato-resizing #left-pane-resizer::before {
   justify-content: space-between;
   align-items: center;
   padding: 12px 16px;
-  border-bottom: 1px solid #262626;
+  border-bottom: 1px solid #2a2a2a;
 }
 
 .adopt-session-modal-header h2 {
@@ -6143,7 +6133,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .adopt-session-modal-help code {
-  background: #262626;
+  background: #2a2a2a;
   padding: 1px 4px;
   border-radius: 3px;
   font-size: 11px;
@@ -6153,7 +6143,7 @@ body.kato-resizing #left-pane-resizer::before {
   margin: 12px 16px;
   padding: 6px 8px;
   background: #0a0a0a;
-  border: 1px solid #262626;
+  border: 1px solid #2a2a2a;
   border-radius: 4px;
   color: #e5e5e5;
   font: inherit;
@@ -6187,7 +6177,7 @@ body.kato-resizing #left-pane-resizer::before {
 .adopt-session-row {
   text-align: left;
   background: #0a0a0a;
-  border: 1px solid #262626;
+  border: 1px solid #2a2a2a;
   border-radius: 4px;
   padding: 8px 12px;
   cursor: pointer;
@@ -6199,12 +6189,12 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .adopt-session-row:hover {
-  background: #171717;
+  background: #1e1e1e;
   border-color: #404040;
 }
 
 .adopt-session-row.is-selected {
-  background: #1a1a1a;
+  background: #1e1e1e;
   border-color: #fbbf24;
 }
 
@@ -6267,15 +6257,15 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .adopt-session-badge.in-use {
-  background: #422006;
+  background: #3b1d0b;
   color: #fbbf24;
-  border: 1px solid #78350f;
+  border: 1px solid #7c2d12;
 }
 
 .adopt-session-badge.adopted {
   background: #052e16;
   color: #4ade80;
-  border: 1px solid #14532d;
+  border: 1px solid #0a4d2e;
 }
 
 .adopt-session-modal-footer {
@@ -6283,12 +6273,12 @@ body.kato-resizing #left-pane-resizer::before {
   justify-content: flex-end;
   gap: 8px;
   padding: 12px 16px;
-  border-top: 1px solid #262626;
+  border-top: 1px solid #2a2a2a;
 }
 
 .adopt-session-cancel,
 .adopt-session-confirm {
-  background: #262626;
+  background: #2a2a2a;
   color: #e5e5e5;
   border: 1px solid #404040;
   border-radius: 4px;
@@ -6298,7 +6288,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .adopt-session-confirm {
-  background: #1f3a8a;
+  background: #1e3a8a;
   border-color: #1d4ed8;
 }
 
@@ -6339,9 +6329,9 @@ body.kato-resizing #left-pane-resizer::before {
   right: 0;
   bottom: 0;
   width: min(720px, 100vw);
-  background: #0f0f10;
-  border-left: 1px solid #262626;
-  box-shadow: -8px 0 32px $C-NEUTRAL-00-A55;
+  background: #161616;
+  border-left: 1px solid #2a2a2a;
+  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.55);
   z-index: 1000;
   display: flex;
   flex-direction: column;
@@ -6358,7 +6348,7 @@ body.kato-resizing #left-pane-resizer::before {
   align-items: center;
   gap: 12px;
   padding: 14px 18px;
-  border-bottom: 1px solid #262626;
+  border-bottom: 1px solid #2a2a2a;
 }
 
 .settings-drawer-head h2 {
@@ -6370,7 +6360,7 @@ body.kato-resizing #left-pane-resizer::before {
 
 .settings-drawer-close {
   background: transparent;
-  border: 1px solid #262626;
+  border: 1px solid #2a2a2a;
   color: #a3a3a3;
   width: 28px;
   height: 28px;
@@ -6386,7 +6376,7 @@ body.kato-resizing #left-pane-resizer::before {
 .settings-drawer-close:hover {
   color: #e5e5e5;
   border-color: #525252;
-  background: #1f1f1f;
+  background: #1e1e1e;
 }
 
 .settings-drawer-tabs {
@@ -6394,7 +6384,7 @@ body.kato-resizing #left-pane-resizer::before {
   flex-wrap: wrap;
   gap: 4px;
   padding: 8px 12px;
-  border-bottom: 1px solid #262626;
+  border-bottom: 1px solid #2a2a2a;
   background: #0a0a0a;
 }
 
@@ -6411,13 +6401,13 @@ body.kato-resizing #left-pane-resizer::before {
 
 .settings-drawer-tab:hover {
   color: #e5e5e5;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .settings-drawer-tab.is-active {
   background: rgba(10, 132, 255, 0.18);
   border-color: rgba(10, 132, 255, 0.45);
-  color: #d6e4ff;
+  color: #cce0ff;
 }
 
 .settings-drawer-body {
@@ -6470,14 +6460,14 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .settings-drawer-field-hint code {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.06);
   padding: 1px 4px;
   border-radius: 3px;
 }
 
 .settings-drawer-input {
-  background: #050505;
-  border: 1px solid #262626;
+  background: #0a0a0a;
+  border: 1px solid #2a2a2a;
   border-radius: 4px;
   color: #f5f5f7;
   padding: 8px 10px;
@@ -6487,7 +6477,7 @@ body.kato-resizing #left-pane-resizer::before {
 
 .settings-drawer-input:focus {
   border-color: #0a84ff;
-  box-shadow: 0 0 0 2px $C-CYAN-52-A22;
+  box-shadow: 0 0 0 2px rgba(10, 132, 255, 0.22);
 }
 
 .settings-drawer-status-row {
@@ -6495,9 +6485,9 @@ body.kato-resizing #left-pane-resizer::before {
   flex-wrap: wrap;
   gap: 14px;
   padding: 10px 12px;
-  border: 1px solid #262626;
+  border: 1px solid #2a2a2a;
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(255, 255, 255, 0.06);
   margin-bottom: 14px;
 }
 
@@ -6555,7 +6545,7 @@ body.kato-resizing #left-pane-resizer::before {
 .settings-drawer-action-primary {
   background: #0a84ff;
   border-color: #0a84ff;
-  color: #fff;
+  color: #f5f5f7;
 }
 
 .settings-drawer-action-primary:hover:not(:disabled) {
@@ -6583,7 +6573,7 @@ body.kato-resizing #left-pane-resizer::before {
 .settings-drawer-restart-banner {
   padding: 10px 12px;
   border-radius: 5px;
-  background: rgba(245, 158, 11, 0.10);
+  background: rgba(245, 158, 11, 0.1);
   border: 1px solid rgba(245, 158, 11, 0.35);
   color: #fde68a;
   font-size: 12px;
@@ -6628,12 +6618,12 @@ body.kato-resizing #left-pane-resizer::before {
   letter-spacing: 0.06em;
   color: #737373;
   padding: 6px 8px;
-  border-bottom: 1px solid #262626;
+  border-bottom: 1px solid #2a2a2a;
 }
 
 .settings-drawer-approvals-table tbody td {
   padding: 8px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   vertical-align: top;
 }
 
@@ -6658,8 +6648,8 @@ body.kato-resizing #left-pane-resizer::before {
 .settings-drawer-approval-drift {
   margin-top: 6px;
   padding: 6px 8px;
-  background: rgba(245, 158, 11, 0.10);
-  border: 1px solid rgba(245, 158, 11, 0.30);
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
   border-radius: 4px;
   color: #fde68a;
   font-size: 11px;
@@ -6667,7 +6657,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .settings-drawer-approval-drift code {
-  background: rgba(0, 0, 0, 0.30);
+  background: rgba(0, 0, 0, 0.3);
   padding: 1px 4px;
   border-radius: 3px;
 }
@@ -6683,7 +6673,7 @@ body.kato-resizing #left-pane-resizer::before {
   width: 36px;
   height: 20px;
   border-radius: 999px;
-  background: #262626;
+  background: #2a2a2a;
   border: 1px solid #404040;
   position: relative;
   cursor: pointer;
@@ -6700,7 +6690,7 @@ body.kato-resizing #left-pane-resizer::before {
   height: 16px;
   border-radius: 50%;
   background: #f5f5f7;
-  box-shadow: 0 1px 3px $C-NEUTRAL-00-A45;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
   transition: transform 0.18s ease-out;
 }
 
@@ -6720,43 +6710,43 @@ body.kato-resizing #left-pane-resizer::before {
   letter-spacing: 0.06em;
   padding: 2px 6px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.06);
   color: #a3a3a3;
 }
 
 .settings-drawer-source.source-inventory {
   color: #93c5fd;
-  background: rgba(59, 130, 246, 0.10);
+  background: rgba(59, 130, 246, 0.1);
 }
 
 .settings-drawer-source.source-checkout {
   color: #86efac;
-  background: rgba(34, 197, 94, 0.10);
+  background: rgba(34, 197, 94, 0.1);
 }
 
 .settings-drawer-source.source-workspace {
   color: #c4b5fd;
-  background: rgba(139, 92, 246, 0.10);
+  background: rgba(139, 92, 246, 0.12);
 }
 
 .settings-drawer-source.source-orphan {
   color: #fca5a5;
-  background: rgba(239, 68, 68, 0.08);
+  background: rgba(239, 68, 68, 0.12);
 }
 
 .settings-drawer-source.source-env {
   color: #67e8f9;
-  background: rgba(6, 182, 212, 0.10);
+  background: rgba(6, 182, 212, 0.1);
 }
 
 .settings-drawer-source.source-kato_settings {
   color: #93c5fd;
-  background: rgba(59, 130, 246, 0.12);
+  background: rgba(59, 130, 246, 0.1);
 }
 
 .settings-drawer-source.source-env_file {
   color: #86efac;
-  background: rgba(34, 197, 94, 0.10);
+  background: rgba(34, 197, 94, 0.1);
 }
 
 .settings-drawer-source.source-unset {
@@ -6775,7 +6765,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .settings-drawer-divider {
-  border-top: 1px solid #262626;
+  border-top: 1px solid #2a2a2a;
   margin: 14px 0;
 }
 
@@ -6786,7 +6776,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .settings-drawer-field-label code {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.06);
   padding: 1px 5px;
   border-radius: 3px;
   font-size: 11px;
@@ -6799,7 +6789,7 @@ body.kato-resizing #left-pane-resizer::before {
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.14);
   color: rgba(245, 245, 247, 0.55);
   font-size: 10px;
@@ -6820,7 +6810,7 @@ body.kato-resizing #left-pane-resizer::before {
   position: fixed;
   transform: translate(-50%, calc(-100% - 10px));
   background: #1f2937;
-  color: #f9fafb;
+  color: #f5f5f7;
   font: 13px/1.5 -apple-system, system-ui, sans-serif;
   font-style: normal;
   font-weight: 400;
@@ -6831,7 +6821,7 @@ body.kato-resizing #left-pane-resizer::before {
   width: max-content;
   text-align: left;
   border: 1px solid #374151;
-  box-shadow: 0 6px 16px $C-NEUTRAL-00-A45;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
   z-index: 9999;
   pointer-events: none;
 }
@@ -6843,8 +6833,8 @@ body.kato-resizing #left-pane-resizer::before {
   margin: 0 0 14px 0;
   padding: 10px 12px;
   border-radius: 6px;
-  background: rgba(245, 158, 11, 0.10);
-  border: 1px solid rgba(245, 158, 11, 0.40);
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.4);
   color: #fde68a;
   font-size: 12px;
   line-height: 1.5;
@@ -6877,8 +6867,8 @@ body.kato-resizing #left-pane-resizer::before {
   width: 38px;
   height: 22px;
   border-radius: 999px;
-  background: #2a2a2d;
-  border: 1px solid #3a3a3d;
+  background: #2a2a2a;
+  border: 1px solid #2f3033;
   position: relative;
   cursor: pointer;
   flex-shrink: 0;
@@ -6895,7 +6885,7 @@ body.kato-resizing #left-pane-resizer::before {
   height: 18px;
   border-radius: 50%;
   background: #f5f5f7;
-  box-shadow: 0 1px 3px $C-NEUTRAL-00-A45;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
   transition: transform 0.16s ease-out;
 }
 
@@ -6947,8 +6937,8 @@ body.kato-resizing #left-pane-resizer::before {
   border: 1px solid #2b2f37;
   border-radius: 10px;
   padding: 12px 14px;
-  box-shadow: 0 8px 28px $C-NEUTRAL-00-A55, 0 0 0 1px $C-NEUTRAL-100-A06 inset;
-  color: #e5e7eb;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.06) inset;
+  color: #e5e5e5;
   font-size: 12px;
   line-height: 1.5;
   pointer-events: none;
@@ -6998,11 +6988,11 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .tab-tooltip-dot.status-provisioning {
-  background: #60a5fa;
+  background: #579dff;
 }
 
 .tab-tooltip-dot.status-review {
-  background: #60a5fa;
+  background: #579dff;
 }
 
 .tab-tooltip-dot.status-done {
@@ -7017,7 +7007,7 @@ body.kato-resizing #left-pane-resizer::before {
 .tab-tooltip-id {
   font-size: 13px;
   font-weight: 700;
-  color: #f9fafb;
+  color: #f5f5f7;
   letter-spacing: 0.01em;
 }
 
@@ -7034,11 +7024,11 @@ body.kato-resizing #left-pane-resizer::before {
 
 .tab-tooltip-badge.is-work {
   background: rgba(52, 211, 153, 0.16);
-  color: #6ee7b7;
+  color: #79f2c0;
 }
 
 .tab-tooltip-badge.is-idle {
-  background: rgba(96, 165, 250, 0.16);
+  background: rgba(96, 165, 250, 0.18);
   color: #93c5fd;
 }
 
@@ -7049,7 +7039,7 @@ body.kato-resizing #left-pane-resizer::before {
 
 .tab-tooltip-badge.is-wait {
   background: rgba(245, 158, 11, 0.18);
-  color: #fcd34d;
+  color: #f5cd47;
 }
 
 .tab-tooltip-summary {
@@ -7087,12 +7077,12 @@ body.kato-resizing #left-pane-resizer::before {
 
 .tab-tooltip-row dd {
   margin: 0;
-  color: #e5e7eb;
+  color: #e5e5e5;
   word-break: break-word;
 }
 
 .tab-tooltip-row dd.tone-warn {
-  color: #fcd34d;
+  color: #f5cd47;
 }
 
 .tab-tooltip-row dd.tone-error {

@@ -806,7 +806,60 @@ class AgentService(Service):
         records = (
             store.list_for_repo(repo_id) if repo_id else store.list()
         )
-        return [record.to_dict() for record in records]
+        # Annotate each comment with ``outdated``: its anchor line no
+        # longer exists in the current file (the code was rewritten /
+        # shrank), so it can't render in the diff. The UI hides outdated
+        # comments from the tree badge so a phantom 💬 N never points at a
+        # comment that isn't visible anywhere. Line-count lookups are
+        # cached per (repo, file) for this call.
+        line_counts: dict[tuple[str, str], int | None] = {}
+        out: list[dict[str, object]] = []
+        for record in records:
+            data = record.to_dict()
+            data['outdated'] = self._comment_anchor_is_outdated(
+                task_id, record, line_counts,
+            )
+            out.append(data)
+        return out
+
+    def _comment_anchor_is_outdated(self, task_id: str, record, cache: dict) -> bool:
+        """True when a line-anchored comment points past the current file.
+
+        Only line-anchored comments (``line >= 1``) can go stale this way;
+        file-level (``line < 1``) comments always render in the file panel.
+        Conservative: if the file can't be read (missing, binary, path
+        unresolved) we report NOT outdated so a lookup glitch never hides a
+        real comment.
+        """
+        line = int(getattr(record, 'line', -1) or -1)
+        if line < 1:
+            return False
+        repo_id = str(getattr(record, 'repo_id', '') or '').strip()
+        file_path = str(getattr(record, 'file_path', '') or '').strip()
+        if not repo_id or not file_path:
+            return False
+        key = (repo_id, file_path)
+        if key not in cache:
+            cache[key] = self._file_line_count(task_id, repo_id, file_path)
+        count = cache[key]
+        return count is not None and line > count
+
+    def _file_line_count(self, task_id: str, repo_id: str, file_path: str) -> int | None:
+        """Line count of a workspace file, or None when it can't be read."""
+        if self._workspace_manager is None:
+            return None
+        try:
+            repo_path = self._workspace_manager.repository_path(task_id, repo_id)
+        except Exception:
+            return None
+        target = repo_path / file_path
+        try:
+            if not target.is_file():
+                return None
+            with target.open('r', encoding='utf-8', errors='replace') as handle:
+                return sum(1 for _ in handle)
+        except Exception:
+            return None
 
     def add_task_comment(
         self,
@@ -851,12 +904,33 @@ class AgentService(Service):
             persisted = store.add(record)
         except ValueError as exc:
             return {'ok': False, 'error': str(exc)}
-        # Replies don't trigger a kato run — only top-of-thread
-        # comments do. The operator might be replying with
-        # additional context that won't ship until they re-comment
-        # at the root.
+        # An operator reply RE-ENGAGES kato: it flips the thread's root
+        # comment back to QUEUED (pending) and triggers a run, so kato
+        # addresses the new reply (e.g. "no, do it differently") instead
+        # of leaving the thread ADDRESSED. The re-run's prompt includes
+        # the thread replies (see ``_comment_agent_prompt``) so kato sees
+        # the latest pushback. Claude's own replies are added via
+        # ``_add_comment_agent_reply`` (store.add directly), NOT this
+        # path, so this never self-triggers a loop.
         if persisted.parent_id:
-            return {'ok': True, 'comment': persisted.to_dict()}
+            root = persisted
+            seen: set[str] = set()
+            while root.parent_id and root.id not in seen:
+                seen.add(root.id)
+                parent = store.get(root.parent_id)
+                if parent is None:
+                    break
+                root = parent
+            store.update_kato_status(
+                root.id, kato_status=KatoCommentStatus.QUEUED.value,
+            )
+            triggered = self._maybe_trigger_comment_run(str(task_id), root.id)
+            return {
+                'ok': True,
+                'comment': persisted.to_dict(),
+                'triggered_immediately': triggered,
+                'requeued_root_id': root.id,
+            }
         # Kick off the agent if the task is idle, otherwise queue.
         store.update_kato_status(
             persisted.id, kato_status=KatoCommentStatus.QUEUED.value,
@@ -1815,7 +1889,7 @@ class AgentService(Service):
         it is still ``is_alive``), preserving the ``--resume`` id on the
         record so conversation history carries over.
         """
-        prompt = self._comment_agent_prompt(record)
+        prompt = self._comment_agent_prompt(task_id, record)
         if self._session_manager is None:
             return self._spawn_comment_agent(task_id, record, prompt)
         session = self._session_manager.get_session(task_id)
@@ -1902,7 +1976,7 @@ class AgentService(Service):
         except Exception:
             return ''
 
-    def _comment_agent_prompt(self, record) -> str:
+    def _comment_agent_prompt(self, task_id, record) -> str:
         file_path = str(getattr(record, 'file_path', '') or '')
         line = int(getattr(record, 'line', -1) or -1)
         body = str(getattr(record, 'body', '') or '')
@@ -1911,10 +1985,27 @@ class AgentService(Service):
             if file_path and line > 0
             else (file_path or '(no file specified)')
         )
+        # Include the thread's follow-up replies so a re-engaged run sees
+        # the operator's latest pushback (e.g. "no, do it differently")
+        # instead of re-doing the original comment blind. Empty for a
+        # first run, so the common path is unchanged.
+        thread = self._comment_thread_replies(task_id, getattr(record, 'id', ''))
+        conversation = ''
+        if thread:
+            lines = []
+            for reply in thread:
+                who = 'Claude' if str(getattr(reply, 'author', '')) == 'claude' else 'Operator'
+                lines.append(f'{who}: {str(getattr(reply, "body", "") or "").strip()}')
+            conversation = (
+                '\n\nThread so far (oldest to newest) — address the '
+                'LATEST operator reply, which supersedes earlier turns:\n'
+                + '\n'.join(lines)
+            )
         return (
             'Operator-added review comment from the kato diff tab.\n\n'
             f'File: {location_hint}\n'
-            f'Comment: {body}\n\n'
+            f'Comment: {body}'
+            f'{conversation}\n\n'
             'Address this comment, commit the fix on the current task '
             'branch when a code change is needed. Your final response '
             'is copied into this comment thread as Claude\'s reply, so '
@@ -1922,6 +2013,37 @@ class AgentService(Service):
             'question rather than a fix request, answer the question '
             'without committing.'
         )
+
+    def _comment_thread_replies(self, task_id, root_id: str) -> list:
+        """Replies in the thread rooted at ``root_id``, oldest first.
+
+        Walks each comment's parent chain to find which thread it belongs
+        to, so a reply-to-a-reply still resolves to the right root. Excludes
+        the root itself. Best-effort: a store failure yields no replies.
+        """
+        root_id = str(root_id or '')
+        if not root_id:
+            return []
+        store = self._comment_store_for(task_id)
+        if store is None:
+            return []
+        try:
+            comments = list(store.list())
+        except Exception:
+            return []
+        by_id = {c.id: c for c in comments}
+
+        def root_of(comment):
+            seen = set()
+            cur = comment
+            while cur.parent_id and cur.parent_id in by_id and cur.id not in seen:
+                seen.add(cur.id)
+                cur = by_id[cur.parent_id]
+            return cur.id
+
+        replies = [c for c in comments if c.id != root_id and root_of(c) == root_id]
+        replies.sort(key=lambda c: float(getattr(c, 'created_at_epoch', 0) or 0))
+        return replies
 
     def _task_pull_request_id(self, task_id: str, repo_id: str) -> str:
         """Find the source-platform PR id for a (task, repo).

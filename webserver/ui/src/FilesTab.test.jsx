@@ -382,6 +382,22 @@ describe('buildFilesCommentMeta', () => {
     expect(entry.status).toBe('failed');
   });
 
+  test('outdated comments are not counted (no phantom badge)', () => {
+    const meta = buildFilesCommentMeta([
+      { id: 'c1', repo_id: 'r', file_path: 'src/a.js', parent_id: '', outdated: true },
+      { id: 'c2', repo_id: 'r', file_path: 'src/a.js', parent_id: '' },
+    ]);
+    // Only the live comment counts; the outdated one is dropped.
+    expect(meta.get('r').get('src/a.js').count).toBe(1);
+  });
+
+  test('a file whose only comment is outdated shows no badge', () => {
+    const meta = buildFilesCommentMeta([
+      { id: 'c1', repo_id: 'r', file_path: 'src/b.js', parent_id: '', outdated: true },
+    ]);
+    expect(meta.get('r')?.has('src/b.js')).toBeFalsy();
+  });
+
   test('unknown / idle kato_status leaves the badge status blank (neutral)', () => {
     const meta = buildFilesCommentMeta([
       { id: 'c1', repo_id: 'r', file_path: 'src/a.js', parent_id: '', kato_status: 'idle' },

@@ -346,26 +346,9 @@ export default function SessionHeader({
   // condition that the return statement consumes is precomputed
   // here so the JSX below is pure rendering.
   const taskSummary = session.task_summary || '';
-  const sessionIdBadge = agentSessionId ? (
-    <span
-      id="session-claude-id"
-      className="claude-session-id"
-      title={
-        `Agent session id: ${agentSessionId}\n`
-        + 'kato resumes this id across restarts — compare it '
-        + 'before/after a restart to confirm the conversation '
-        + 'was continued, not started fresh.'
-      }
-    >
-      sid:{agentSessionId.slice(0, 8)}…
-    </span>
-  ) : null;
-  // The same id chip rendered ALSO next to the ``Claude: <status>``
-  // pill on the right side of the header. The original badge lives
-  // next to the task id on the left, which is often scrolled out of
-  // view on narrow widths — operators reported losing track of which
-  // Claude conversation was working. Two anchors keeps it visible
-  // regardless of width.
+  // Session id chip lives only next to the ``Claude: <status>`` pill on
+  // the right. It used to ALSO sit beside the task id on the left, but
+  // that crowded the task code/title, so it was removed there.
   const sessionIdBadgeRight = agentSessionId ? (
     <span
       className="claude-session-id is-aside-status"
@@ -443,7 +426,6 @@ export default function SessionHeader({
             title={tabStatusTitle(baseStatus, needsAttention)}
           />
           <strong id="session-task-id">{session.task_id}</strong>
-          {sessionIdBadge}
           <span id="session-task-summary">{taskSummary}</span>
         </div>
         <div className="session-header-actions">

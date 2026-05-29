@@ -249,9 +249,11 @@ export default function DiffFileWithComments({
     const triggered = result.body?.triggered_immediately;
     toast.show({
       kind: 'success',
-      title: 'Comment added',
+      title: parentId ? 'Reply posted' : 'Comment added',
       message: parentId
-        ? '✓ reply posted (kato runs only on top-of-thread comments)'
+        ? (triggered
+          ? '✓ kato is re-addressing this thread now'
+          : '✓ thread re-queued — kato will pick up your reply when it goes idle')
         : (triggered
           ? '✓ kato is working on this comment now'
           : '✓ queued — kato will pick it up when the live agent goes idle'),

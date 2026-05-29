@@ -40,6 +40,7 @@
         "kato_failure_reason": "",
         "kato_status": "in_progress",
         "line": 12,
+        "outdated": false,
         "parent_id": "",
         "remote_id": "",
         "repo_id": "client",
