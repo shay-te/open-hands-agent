@@ -4,6 +4,7 @@ import {
   buildDiffFileTree,
   diffDisplayPath,
   diffFileKey,
+  isFileConflicted,
   parseRepoDiffs,
 } from '../diffModel.js';
 import { useChatComposer } from '../contexts/ChatComposerContext.jsx';
@@ -17,23 +18,6 @@ const EMPTY_COMMENTS = [];
 // section. Exported for unit tests.
 export function diffAnchorKey(repoId, path) {
   return `${repoId || ''}::${path}`;
-}
-
-// Locate one file's parsed diff inside the repo-diff list. Exported
-// for unit tests / callers that still want a single file.
-export function findDiffFile(repoDiffs, repoId, relativePath) {
-  if (!Array.isArray(repoDiffs) || repoDiffs.length === 0) { return null; }
-  const repo = repoId
-    ? repoDiffs.find((r) => r.repo_id === repoId) || (
-      repoDiffs.length === 1 ? repoDiffs[0] : null
-    )
-    : repoDiffs[0];
-  if (!repo) { return null; }
-  const file = (repo.files || []).find(
-    (f) => diffDisplayPath(f) === relativePath
-      || f.newPath === relativePath || f.oldPath === relativePath,
-  ) || null;
-  return file ? { repo, file } : { repo, file: null };
 }
 
 /**
@@ -246,9 +230,7 @@ export default function DiffPane({
                 const isTargetFile = key === targetKey
                   || (!repoId && path === relativePath);
                 const forceExpandToken = isTargetFile ? openRequestId : 0;
-                const conflicted = repo.conflictedFiles
-                  && (repo.conflictedFiles.has(file.newPath)
-                    || repo.conflictedFiles.has(file.oldPath));
+                const conflicted = isFileConflicted(file, repo.conflictedFiles);
                 return (
                   <div
                     key={diffFileKey(file)}

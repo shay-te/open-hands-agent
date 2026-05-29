@@ -11,7 +11,7 @@ import { formatToolUse, toolUseFilePath } from '../utils/formatToolUse.js';
 import { MessageFilter } from '../utils/MessageFilter.js';
 import { isPinnedToBottom, scrollToBottom } from '../utils/scrollUtils.js';
 import { cx } from '../utils/cx.js';
-import { countNoun } from '../utils/pluralize.js';
+import { countNoun, withImageCountSuffix } from '../utils/pluralize.js';
 import { messageContentText } from '../utils/messageContent.js';
 import {
   TOOL_DETAILS_COLLAPSE_THRESHOLD,
@@ -262,9 +262,7 @@ function bubblesFor(entry, index, onOpenFile, liveAgentSessionId = '') {
   if (entry?.source === ENTRY_SOURCE.LOCAL) {
     const text = entry.text || '';
     const count = Number(entry.imageCount || 0);
-    const display = count > 0
-      ? `${text}${text ? '\n' : ''}(${countNoun(count, 'image')} attached)`
-      : text;
+    const display = withImageCountSuffix(text, count);
     // Stable key derived from content — see ``localKey`` for the
     // rationale (window-index keys forced React unmounts on every
     // new event and dropped StickyPrompt expanded state).
@@ -440,9 +438,7 @@ function userBubbles(raw, index) {
   const imageCount = content.filter((b) => b && b.type === 'image').length;
   if (textPieces.length === 0 && imageCount === 0) { return []; }
   const text = textPieces.join('\n');
-  const display = imageCount > 0
-    ? `${text}${text ? '\n' : ''}(${countNoun(imageCount, 'image')} attached)`
-    : text;
+  const display = withImageCountSuffix(text, imageCount);
   return [
     <StickyPrompt key={keyOf(raw, index, 'user')} text={display} />,
   ];

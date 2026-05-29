@@ -35,17 +35,26 @@ function postEnvelope(url, jsonBody, method = 'POST') {
   });
 }
 
+// Drain a completed response into the "strict" envelope shape:
+// ``{ ok: true, body }`` on a 2xx, ``{ ok: false, status, error }``
+// on a non-2xx. Shared by ``requestEnvelopeStrict`` and the bespoke
+// ``fetchAllAssignedTasks`` (which can't use the wrapper directly —
+// it owns the fetch so it can bound it with an AbortController).
+async function strictEnvelopeFrom(response) {
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    return { ok: false, status: response.status, error: body.error || response.statusText };
+  }
+  return { ok: true, body };
+}
+
 // "Strict" envelope used by the list/fetch endpoints: ``{ ok: true, body }``
 // on success, ``{ ok: false, status, error }`` on a non-2xx response, and
 // ``{ ok: false, error }`` when fetch throws.
 async function requestEnvelopeStrict(url, init) {
   try {
     const response = await fetch(url, init);
-    const body = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      return { ok: false, status: response.status, error: body.error || response.statusText };
-    }
-    return { ok: true, body };
+    return strictEnvelopeFrom(response);
   } catch (err) {
     return { ok: false, error: String(err) };
   }
@@ -252,11 +261,7 @@ export async function fetchAllAssignedTasks({ timeoutMs = 30_000 } = {}) {
       '/api/tasks',
       controller ? { signal: controller.signal } : undefined,
     );
-    const body = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      return { ok: false, status: response.status, error: body.error || response.statusText };
-    }
-    return { ok: true, body };
+    return strictEnvelopeFrom(response);
   } catch (err) {
     if (err && err.name === 'AbortError') {
       return {

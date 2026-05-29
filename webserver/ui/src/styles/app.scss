@@ -5,7 +5,7 @@
 // — vertical) that previously hand-rolled identical track/thumb rules.
 // $width sizes the bar (mapped to width: for vertical bars, height: for
 // horizontal ones); $thumb / $track are the thumb + track colours. The
-// thumb always brightens to $C-NEUTRAL-100-A32 on hover (matches both
+// thumb always brightens to $C-NEUTRAL-96-A42 on hover (matches both
 // sites). $thumb-radius / $track-radius / $thumb-border are optional so
 // each site keeps its exact radii + (tabs-scroller's) thumb border.
 @mixin custom-scrollbar(
@@ -43,7 +43,7 @@
   }
 
   &::-webkit-scrollbar-thumb:hover {
-    background: $C-NEUTRAL-100-A32;
+    background: $C-NEUTRAL-96-A42;
   }
 }
 
@@ -84,7 +84,7 @@ body {
   margin: 0;
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
   background: $C-NEUTRAL-04;
-  color: $C-NEUTRAL-90;
+  color: $C-NEUTRAL-96;
   display: flex;
   flex-direction: column;
 }
@@ -103,7 +103,7 @@ header {
   align-items: center;
   gap: $SPACE-12;
   padding: $SPACE-14 $SPACE-24;
-  border-bottom: 1px solid $C-NEUTRAL-12;
+  border-bottom: 1px solid $C-NEUTRAL-16;
   flex-shrink: 0;
 }
 
@@ -161,9 +161,9 @@ header button:not(.header-status) {
 }
 
 header button:not(.header-status):hover {
-  color: $C-NEUTRAL-90;
-  border-color: $C-NEUTRAL-25;
-  background: $C-NEUTRAL-12;
+  color: $C-NEUTRAL-96;
+  border-color: $C-NEUTRAL-16;
+  background: $C-NEUTRAL-16;
 }
 
 header button:not(.header-status):disabled {
@@ -183,7 +183,7 @@ header .header-status {
   border-radius: var(--radius-pill);
   background: $C-NEUTRAL-100-A06;
   border: 1px solid $C-NEUTRAL-100-A06;
-  color: $C-NEUTRAL-83;
+  color: $C-NEUTRAL-96;
   font: 12px/1 ui-monospace, monospace;
   min-width: 0;
   margin-left: $SPACE-4;
@@ -227,7 +227,7 @@ header .header-status.is-warn .header-status-pulse {
 }
 
 header .header-status.is-stale .header-status-pulse {
-  background: $C-NEUTRAL-25;
+  background: $C-NEUTRAL-16;
   animation: none;
 }
 
@@ -249,7 +249,7 @@ header button.header-status.is-clickable {
 
 header button.header-status.is-clickable:hover {
   background: $C-NEUTRAL-100-A06;
-  border-color: $C-NEUTRAL-100-A14;
+  border-color: $C-NEUTRAL-100-A06;
 }
 
 header button.header-status.is-clickable.is-active {
@@ -277,19 +277,19 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   align-items: center;
   gap: $SPACE-10;
   padding: $SPACE-6 $SPACE-24;
-  border-bottom: 1px solid $C-NEUTRAL-12;
+  border-bottom: 1px solid $C-NEUTRAL-16;
   background: $C-NEUTRAL-04;
   flex-shrink: 0;
   font-family: ui-monospace, monospace;
   font-size: $TEXT-12;
-  color: $C-NEUTRAL-83;
+  color: $C-NEUTRAL-96;
 }
 
 #status-bar-pulse {
   width: 8px;
   height: 8px;
   border-radius: $RADIUS-CIRCLE;
-  background: $C-NEUTRAL-90;
+  background: $C-NEUTRAL-96;
   flex-shrink: 0;
   animation: kato-status-pulse 1.6s ease-in-out infinite;
 }
@@ -304,7 +304,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 #status-bar.is-stale #status-bar-pulse {
-  background: $C-NEUTRAL-25;
+  background: $C-NEUTRAL-16;
   animation: none;
 }
 
@@ -344,15 +344,15 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 #status-bar-toggle:hover {
-  color: $C-NEUTRAL-90;
-  border-color: $C-NEUTRAL-90;
+  color: $C-NEUTRAL-96;
+  border-color: $C-NEUTRAL-96;
 }
 
 #status-bar-history {
   max-height: 220px;
   overflow-y: auto;
   background: $C-NEUTRAL-04;
-  border-bottom: 1px solid $C-NEUTRAL-12;
+  border-bottom: 1px solid $C-NEUTRAL-16;
   padding: $SPACE-6 $SPACE-24;
   flex-shrink: 0;
   font-family: ui-monospace, monospace;
@@ -376,12 +376,12 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 #status-bar-history .ts {
-  color: $C-NEUTRAL-25;
+  color: $C-NEUTRAL-16;
   flex-shrink: 0;
 }
 
 #status-bar-history .lvl {
-  color: $C-NEUTRAL-25;
+  color: $C-NEUTRAL-16;
   min-width: 38px;
   flex-shrink: 0;
 }
@@ -531,7 +531,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
    * hops, and the wheel-to-horizontal handler covers the
    * scroll-wheel case. */
   scrollbar-width: thin;
-  scrollbar-color: $C-NEUTRAL-100-A32 $C-NEUTRAL-100-A06;
+  scrollbar-color: $C-NEUTRAL-96-A42 $C-NEUTRAL-100-A06;
   /* Vertical padding gives the active tab's drop-shadow + the
    * pinned-tab background ring room to render before
    * overflow-y:hidden clips them. Without ``padding-top`` the active
@@ -543,7 +543,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   /* WebKit: slim horizontal (height-sized) bar with a bordered thumb. */
   @include custom-scrollbar(
     $width: 8px,
-    $thumb: $C-NEUTRAL-100-A32,
+    $thumb: $C-NEUTRAL-96-A42,
     $track: $C-NEUTRAL-100-A06,
     $vertical: false,
     $thumb-radius: $RADIUS-4,
@@ -587,14 +587,14 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .tabs-pane-top .tab:hover {
-  background: $C-NEUTRAL-100-A10;
-  border-color: $C-NEUTRAL-100-A10;
+  background: $C-NEUTRAL-100-A06;
+  border-color: $C-NEUTRAL-100-A06;
   color: $C-NEUTRAL-96;
 }
 
 .tabs-pane-top .tab.active {
-  background: $C-NEUTRAL-100-A14;
-  border-color: $C-NEUTRAL-100-A14;
+  background: $C-NEUTRAL-100-A06;
+  border-color: $C-NEUTRAL-100-A06;
   color: $C-NEUTRAL-96;
   box-shadow: $SHADOW-1;
 }
@@ -666,13 +666,13 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   /* A faint enclosed disc so the × reads as a button that lives
    * INSIDE the pill, not a stray glyph hanging off the rounded
    * edge. The hover state below deepens it to red. */
-  background: $C-NEUTRAL-100-A10;
+  background: $C-NEUTRAL-100-A06;
   color: $C-NEUTRAL-96-A85;
 }
 
 .tabs-pane-top .tab .tab-forget-btn:hover {
   background: $C-RED-51-A95;
-  color: $C-ORANGE-96;
+  color: $C-NEUTRAL-96;
 }
 
 /* ───── tab-pin button ────────────────────────────────────────────
@@ -723,7 +723,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   /* Pinned button is always visible — that's the whole point of
    * pinning ("I want to see this stays pinned across reloads"). */
   visibility: visible;
-  background: $C-NEUTRAL-100-A10;
+  background: $C-NEUTRAL-100-A06;
   color: $C-NEUTRAL-96-A85;
 }
 
@@ -756,16 +756,16 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   /* Solid panel that mirrors the strip's gradient so scrolling
    * tabs are obscured behind the pinned cluster instead of
    * smearing through it. */
-  background: linear-gradient(180deg, $C-NEUTRAL-15-A96 0%, $C-NEUTRAL-10-A96 100%);
-  border-color: $C-NEUTRAL-100-A14;
+  background: linear-gradient(180deg, $C-NEUTRAL-05-A86 0%, $C-NEUTRAL-05-A86 100%);
+  border-color: $C-NEUTRAL-100-A06;
 }
 
 .tabs-pane-top .tab.is-pinned.active {
   /* Active + pinned = the same brighter background as a normal
    * active tab so the active-state signal isn't overwritten by the
    * pinned-panel base. */
-  background: linear-gradient(180deg, $C-NEUTRAL-23-A98 0%, $C-NEUTRAL-15-A96 100%);
-  border-color: $C-NEUTRAL-100-A32;
+  background: linear-gradient(180deg, $C-NEUTRAL-23-A98 0%, $C-NEUTRAL-05-A86 100%);
+  border-color: $C-NEUTRAL-96-A42;
 }
 
 .tabs-pane-top .tab.needs-attention {
@@ -831,7 +831,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .tabs-nav-button:hover:not(:disabled) {
-  background: $C-NEUTRAL-100-A10;
+  background: $C-NEUTRAL-100-A06;
 }
 
 .tabs-nav-button:active:not(:disabled) {
@@ -860,7 +860,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   width: 32px;
   height: 32px;
   border-radius: $RADIUS-CIRCLE;
-  border: 1px solid $C-NEUTRAL-100-A10;
+  border: 1px solid $C-NEUTRAL-100-A06;
   background: $C-NEUTRAL-100-A06;
   color: $C-NEUTRAL-96;
   cursor: pointer;
@@ -874,7 +874,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .tabs-action:hover:not(:disabled) {
-  background: $C-NEUTRAL-100-A14;
+  background: $C-NEUTRAL-100-A06;
 }
 
 .tabs-action:active:not(:disabled) {
@@ -891,12 +891,12 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 #tabs-add-task.tabs-action {
   background: $C-CYAN-52-A95;
   border-color: $C-CYAN-52-A55;
-  color: $C-CYAN-97;
+  color: $C-NEUTRAL-96;
   box-shadow: $SHADOW-2;
 }
 
 #tabs-add-task.tabs-action:hover {
-  background: $C-CYAN-58-A95;
+  background: $C-CYAN-52-A95;
   box-shadow: $SHADOW-3;
 }
 
@@ -913,7 +913,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .tabs-pane-top .empty code {
-  background: $C-NEUTRAL-100-A10;
+  background: $C-NEUTRAL-100-A06;
   padding: $SPACE-1 $SPACE-5;
   border-radius: $RADIUS-4;
 }
@@ -923,7 +923,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
  * tab strip uses ``.tabs-pane-top`` rules above; the rules below
  * apply only to the original aside-style sidebar. */
 #tabs-pane:not(.tabs-pane-top) {
-  border-right: 1px solid $C-NEUTRAL-12;
+  border-right: 1px solid $C-NEUTRAL-16;
   overflow-y: auto;
   padding: 0 0 $SPACE-12;
   display: flex;
@@ -947,7 +947,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 #tabs-pane:not(.tabs-pane-top) .tab:hover {
-  background: $C-NEUTRAL-12;
+  background: $C-NEUTRAL-16;
 }
 
 #tabs-pane:not(.tabs-pane-top) .tab:focus {
@@ -955,8 +955,8 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 #tabs-pane:not(.tabs-pane-top) .tab.active {
-  background: $C-NEUTRAL-12;
-  border-left-color: $C-NEUTRAL-90;
+  background: $C-NEUTRAL-16;
+  border-left-color: $C-NEUTRAL-96;
 }
 
 #tabs-pane:not(.tabs-pane-top) .tab strong {
@@ -976,7 +976,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   align-self: center;
   background: transparent;
   border: none;
-  color: $C-NEUTRAL-25;
+  color: $C-NEUTRAL-16;
   font-size: $TEXT-18;
   line-height: 1;
   cursor: pointer;
@@ -992,7 +992,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 
 #tabs-pane:not(.tabs-pane-top) .tab-forget-btn:hover {
   background: $C-RED-42;
-  color: $C-ORANGE-96;
+  color: $C-NEUTRAL-96;
 }
 
 .status-dot {
@@ -1003,7 +1003,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   display: inline-block;
   margin-top: $SPACE-4;
   background: $C-NEUTRAL-16;
-  border: 2px solid $C-NEUTRAL-12;
+  border: 2px solid $C-NEUTRAL-16;
 }
 
 .status-active {
@@ -1013,36 +1013,36 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   /* alive subprocess but the current turn has closed (Claude said
    * "Done") — dim the green so the sidebar visually distinguishes
    * "still chewing" from "waiting for input". */
-  background: $C-TEAL-16;
+  background: $C-GREEN-17;
   opacity: 0.55;
 }
 
 .status-idle {
-  background: $C-NEUTRAL-25;
+  background: $C-NEUTRAL-16;
 } /* slate: tab present, no subprocess */
 .status-review {
-  background: $C-BLUE-53;
+  background: $C-BLUE-48;
 } /* blue:  awaiting review */
 .status-working {
   background: $C-ORANGE-50;
   border-color: $C-ORANGE-31;
 } /* orange: Claude working */
 .status-done {
-  background: $C-NEUTRAL-12;
+  background: $C-NEUTRAL-16;
   border-color: $C-NEUTRAL-16;
 } /* dim */
 .status-terminated {
-  background: $C-CYAN-46;
+  background: $C-NEUTRAL-45;
 } /* gray: stopped */
 .status-provisioning {
-  background: $C-NEUTRAL-90;
+  background: $C-NEUTRAL-96;
 } /* white: cloning */
 .status-errored {
   background: $C-RED-42;
 } /* red:   half-broken workspace */
 .status-attention {
   background: $C-ORANGE-53;
-  border-color: $C-ORANGE-28;
+  border-color: $C-RED-31;
 } /* orange-red: needs approval */
 .status-dot.status-attention::after {
   content: "";
@@ -1146,7 +1146,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   min-width: 0;
   overflow: visible;
   padding: $SPACE-10 $SPACE-24;
-  border-bottom: 1px solid $C-NEUTRAL-12;
+  border-bottom: 1px solid $C-NEUTRAL-16;
   position: relative;
   z-index: 20;
 }
@@ -1194,7 +1194,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
    action row rendered inert (the .session-action:disabled rule
    already greys the buttons). The bar never disappears. */
 #session-header.is-empty #session-task-summary.is-placeholder {
-  color: $C-NEUTRAL-55;
+  color: $C-CYAN-53;
   font-weight: 600;
 }
 
@@ -1219,7 +1219,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   height: 34px;
   padding: 0;
   border-radius: $RADIUS-CIRCLE;
-  border: 1px solid $C-NEUTRAL-100-A10;
+  border: 1px solid $C-NEUTRAL-100-A06;
   background: $C-NEUTRAL-100-A06;
   color: $C-NEUTRAL-96;
   cursor: pointer;
@@ -1232,8 +1232,8 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .session-action:hover {
-  background: $C-NEUTRAL-100-A14;
-  border-color: $C-NEUTRAL-100-A14;
+  background: $C-NEUTRAL-100-A06;
+  border-color: $C-NEUTRAL-100-A06;
 }
 
 .session-action:active {
@@ -1250,7 +1250,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 
 .session-action.is-primary {
   background: $C-TEAL-30-A85; /* emerald-600 */
-  border-color: $C-TEAL-39-A65;
+  border-color: $C-TEAL-39-A55;
   color: $C-GREEN-96;
   box-shadow: $SHADOW-6;
 }
@@ -1273,9 +1273,9 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .session-action.is-danger {
-  background: $C-RED-42-A85; /* red-700 */
+  background: $C-RED-51-A75; /* red-700 */
   border-color: $C-RED-51-A75;
-  color: $C-RED-94;
+  color: $C-RED-89;
   box-shadow: $SHADOW-10;
 }
 
@@ -1331,7 +1331,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
    * negative top would yank the bar up over the previous turn's last
    * bubble. The flex gap on .chat-turn handles spacing instead. */
   margin: 0 $SPACE-NEG-24;
-  background: $C-NEUTRAL-09;
+  background: $C-NEUTRAL-04;
   border-bottom: 1px solid $C-NEUTRAL-16;
   box-shadow: $SHADOW-12;
 }
@@ -1347,7 +1347,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   border: none;
   text-align: left;
   font: inherit;
-  color: $C-NEUTRAL-83;
+  color: $C-NEUTRAL-96;
 }
 
 .chat-sticky-prompt-label {
@@ -1356,7 +1356,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: $C-CYAN-46;
+  color: $C-NEUTRAL-45;
   padding-top: $SPACE-2;
 }
 
@@ -1383,14 +1383,14 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   bottom: $SPACE-9;
   height: 2.5em;
   pointer-events: none;
-  background: linear-gradient(to bottom, $C-NEUTRAL-05-A00 0%, $C-NEUTRAL-05-A86 66%, $C-NEUTRAL-12 100%);
+  background: linear-gradient(to bottom, $C-NEUTRAL-05-A00 0%, $C-NEUTRAL-05-A86 66%, $C-NEUTRAL-16 100%);
 }
 
 .chat-sticky-prompt-text {
   display: block;
   font-size: $TEXT-12_5;
   line-height: 1.5;
-  color: $C-NEUTRAL-90;
+  color: $C-NEUTRAL-96;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -1421,7 +1421,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   height: 8px;
   border-radius: $RADIUS-CIRCLE;
   margin-top: $SPACE-8;
-  background: $C-NEUTRAL-25;
+  background: $C-NEUTRAL-16;
   flex-shrink: 0;
 }
 
@@ -1441,7 +1441,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .bubble-content {
-  color: $C-NEUTRAL-90;
+  color: $C-NEUTRAL-96;
 }
 
 .bubble.user .bubble-dot {
@@ -1449,7 +1449,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .bubble.user .bubble-content {
-  color: $C-NEUTRAL-90;
+  color: $C-NEUTRAL-96;
 }
 
 .bubble.assistant .bubble-dot {
@@ -1457,14 +1457,14 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .bubble.tool .bubble-dot {
-  background: $C-NEUTRAL-90;
+  background: $C-NEUTRAL-96;
 }
 
 .bubble.tool .bubble-content {
   font-family: ui-monospace, monospace;
   font-size: $TEXT-13;
   background: $C-NEUTRAL-04;
-  border: 1px solid $C-NEUTRAL-12;
+  border: 1px solid $C-NEUTRAL-16;
   border-radius: $RADIUS-4;
   padding: $SPACE-6 $SPACE-10;
 }
@@ -1555,7 +1555,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   border-radius: $RADIUS-3;
   font-family: ui-monospace, monospace;
   font-size: $TEXT-12;
-  color: $C-NEUTRAL-83;
+  color: $C-NEUTRAL-96;
   white-space: pre-wrap;
   word-break: break-word;
   /* No scrollbars — overflow is hidden via the wrapper. Horizontal
@@ -1571,16 +1571,16 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   padding: $SPACE-4 $SPACE-12;
   font-size: $TEXT-11;
   font-family: inherit;
-  color: $C-NEUTRAL-90;
+  color: $C-NEUTRAL-96;
   background: $C-CYAN-17;
-  border: 1px solid $C-CYAN-27;
+  border: 1px solid $C-CYAN-17;
   border-radius: $RADIUS-4;
   cursor: pointer;
   box-shadow: $SHADOW-13;
 }
 
 .bubble-tool-details-expand:hover {
-  background: $C-CYAN-27;
+  background: $C-CYAN-17;
   border-color: $C-NEUTRAL-32;
 }
 
@@ -1596,7 +1596,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .bubble-tool-details-line.removed {
-  background: $C-RED-23;
+  background: $C-RED-31;
   color: $C-RED-89;
 }
 
@@ -1689,12 +1689,12 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 .bubble.assistant .bubble-content blockquote {
   margin: 0 0 $SPACE-4;
   padding: $SPACE-4 $SPACE-12;
-  border-left: 3px solid $C-NEUTRAL-25;
+  border-left: 3px solid $C-NEUTRAL-16;
   color: $C-NEUTRAL-64;
 }
 
 .bubble.assistant .bubble-content a {
-  color: $C-CYAN-67;
+  color: $C-CYAN-52;
   text-decoration: underline;
 }
 
@@ -1716,7 +1716,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .bubble.assistant .bubble-content th {
-  background: $C-NEUTRAL-12;
+  background: $C-NEUTRAL-16;
   font-weight: 600;
 }
 
@@ -1736,15 +1736,15 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
    * ``code`` chips per line). */
   padding: 0 $SPACE-5;
   background: $C-NEUTRAL-04;
-  border: 1px solid $C-NEUTRAL-12;
+  border: 1px solid $C-NEUTRAL-16;
   border-radius: $RADIUS-3;
-  color: $C-AMBER-62;
+  color: $C-ORANGE-56;
 }
 
 .bubble.assistant .bubble-content .md-code-block {
   margin: $SPACE-6 0 $SPACE-10;
   background: $C-NEUTRAL-04;
-  border: 1px solid $C-NEUTRAL-12;
+  border: 1px solid $C-NEUTRAL-16;
   border-radius: $RADIUS-5;
   overflow: hidden;
 }
@@ -1755,7 +1755,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   justify-content: space-between;
   padding: $SPACE-4 $SPACE-8 $SPACE-4 $SPACE-12;
   background: $C-NEUTRAL-04;
-  border-bottom: 1px solid $C-NEUTRAL-12;
+  border-bottom: 1px solid $C-NEUTRAL-16;
 }
 
 .bubble.assistant .bubble-content .md-code-block-lang {
@@ -1783,7 +1783,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .bubble.assistant .bubble-content .md-code-block-copy:hover {
-  background: $C-NEUTRAL-12;
+  background: $C-NEUTRAL-16;
   border-color: $C-NEUTRAL-16;
   color: $C-NEUTRAL-96;
 }
@@ -1805,7 +1805,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   font-family: ui-monospace, monospace;
   font-size: $TEXT-12_5;
   line-height: 1.5;
-  color: $C-NEUTRAL-90;
+  color: $C-NEUTRAL-96;
   white-space: pre;
 }
 
@@ -1817,13 +1817,13 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   font-family: inherit;
   color: $C-NEUTRAL-64;
   background: transparent;
-  border: 1px solid $C-NEUTRAL-25;
+  border: 1px solid $C-NEUTRAL-16;
   border-radius: $RADIUS-3;
   cursor: pointer;
 }
 
 .bubble-tool-details-toggle:hover {
-  color: $C-NEUTRAL-90;
+  color: $C-NEUTRAL-96;
   border-color: $C-NEUTRAL-32;
 }
 
@@ -1835,25 +1835,25 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   font-family: inherit;
   color: $C-NEUTRAL-64;
   background: transparent;
-  border: 1px solid $C-NEUTRAL-25;
+  border: 1px solid $C-NEUTRAL-16;
   border-radius: $RADIUS-3;
   cursor: pointer;
 }
 
 .event-log-show-older:hover {
-  color: $C-NEUTRAL-90;
+  color: $C-NEUTRAL-96;
   border-color: $C-NEUTRAL-32;
 }
 
 .bubble-tool-details-overflow {
   margin: $SPACE-4 0 0;
   font-size: $TEXT-11;
-  color: $C-ORANGE-44;
+  color: $C-ORANGE-53;
   font-style: italic;
 }
 
 .bubble.system .bubble-dot {
-  background: $C-NEUTRAL-25;
+  background: $C-NEUTRAL-16;
 }
 
 .bubble.system .bubble-content {
@@ -1937,7 +1937,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .working-indicator.is-waiting-approval {
-  color: $C-ORANGE-61;
+  color: $C-ORANGE-53;
   font-style: normal;
 }
 
@@ -1948,7 +1948,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: $C-ORANGE-07;
+  color: $C-NEUTRAL-04;
   background: $C-ORANGE-53;
   font: 700 10px/1 ui-monospace, monospace;
   animation: kato-attention-pop 1.2s ease-in-out infinite;
@@ -2075,7 +2075,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   height: 34px;
   padding: 0;
   border-radius: $RADIUS-CIRCLE;
-  border: 1px solid $C-NEUTRAL-100-A10;
+  border: 1px solid $C-NEUTRAL-100-A06;
   background: $C-NEUTRAL-100-A06;
   color: $C-NEUTRAL-96;
   cursor: pointer;
@@ -2088,8 +2088,8 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .chat-search-toggle:hover:not(:disabled) {
-  background: $C-NEUTRAL-100-A14;
-  border-color: $C-NEUTRAL-100-A14;
+  background: $C-NEUTRAL-100-A06;
+  border-color: $C-NEUTRAL-100-A06;
 }
 
 .chat-search-toggle:active:not(:disabled) {
@@ -2126,7 +2126,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   border-radius: $RADIUS-22;
   background: linear-gradient(180deg,
       $C-NEUTRAL-11-A62 0%,
-      $C-NEUTRAL-08-A55 100%);
+      $C-NEUTRAL-11-A62 100%);
   -webkit-backdrop-filter: blur(28px) saturate(180%);
   backdrop-filter: blur(28px) saturate(180%);
   border: 1px solid $C-NEUTRAL-100-A06;
@@ -2167,7 +2167,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .chat-search-count.is-empty {
-  background: $C-RED-51-A18;
+  background: $C-RED-60-A12;
   color: $C-RED-94-A85;
 }
 
@@ -2177,7 +2177,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   width: 28px;
   height: 28px;
   border-radius: $RADIUS-CIRCLE;
-  border: 1px solid $C-NEUTRAL-100-A10;
+  border: 1px solid $C-NEUTRAL-100-A06;
   background: $C-NEUTRAL-100-A06;
   color: $C-NEUTRAL-96;
   cursor: pointer;
@@ -2192,7 +2192,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 
 .chat-search-nav:hover:not(:disabled),
 .chat-search-close:hover {
-  background: $C-NEUTRAL-100-A14;
+  background: $C-NEUTRAL-100-A06;
 }
 
 .chat-search-nav:active:not(:disabled),
@@ -2242,7 +2242,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   border-radius: $RADIUS-18;
   background: linear-gradient(180deg,
       $C-NEUTRAL-11-A62 0%,
-      $C-NEUTRAL-08-A55 100%);
+      $C-NEUTRAL-11-A62 100%);
   -webkit-backdrop-filter: blur(28px) saturate(180%);
   backdrop-filter: blur(28px) saturate(180%);
   border: 1px solid $C-NEUTRAL-100-A06;
@@ -2251,7 +2251,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   max-height: 240px;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: $C-NEUTRAL-100-A32 transparent;
+  scrollbar-color: $C-NEUTRAL-96-A42 transparent;
 }
 
 .queued-message-row {
@@ -2268,7 +2268,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 
 .queued-message-row:hover {
   background: $C-NEUTRAL-100-A06;
-  border-color: $C-NEUTRAL-100-A10;
+  border-color: $C-NEUTRAL-100-A06;
 }
 
 .queued-message-glyph {
@@ -2343,7 +2343,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 
 .queued-message-remove:hover {
   background: $C-RED-51-A75;
-  color: $C-ORANGE-96;
+  color: $C-NEUTRAL-96;
 }
 
 .queued-message-remove svg {
@@ -2366,7 +2366,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   /* Frosted glass — translucent dark base + backdrop blur + a
    * faint inner highlight makes it read as a physical pane
    * sitting over the chat. */
-  background: linear-gradient(180deg, $C-NEUTRAL-11-A62 0%, $C-NEUTRAL-08-A55 100%);
+  background: linear-gradient(180deg, $C-NEUTRAL-11-A62 0%, $C-NEUTRAL-11-A62 100%);
   -webkit-backdrop-filter: blur(28px) saturate(180%);
   backdrop-filter: blur(28px) saturate(180%);
   border: 1px solid $C-NEUTRAL-100-A06;
@@ -2434,7 +2434,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   height: 18px;
   border-radius: $RADIUS-CIRCLE;
   border: none;
-  background: $C-NEUTRAL-00-A55;
+  background: $C-NEUTRAL-11-A62;
   color: $C-NEUTRAL-96;
   font-size: $TEXT-14;
   line-height: 1;
@@ -2446,7 +2446,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .message-attachment-remove:hover {
-  background: $C-RED-42-A95;
+  background: $C-RED-51-A95;
 }
 
 /* The textarea — no visible chrome inside the glass capsule.
@@ -2469,14 +2469,14 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   /* Firefox: thin auto-coloured scrollbar that fades into the
    * frosted-glass background instead of the chunky default. */
   scrollbar-width: thin;
-  scrollbar-color: $C-NEUTRAL-100-A14 transparent;
+  scrollbar-color: $C-NEUTRAL-100-A06 transparent;
 
   /* WebKit: matching slim vertical (width-sized) track + low-contrast
    * thumb that brightens on hover. Same look as Claude/VS Code —
    * visible only when the textarea actually overflows. */
   @include custom-scrollbar(
     $width: 6px,
-    $thumb: $C-NEUTRAL-100-A14,
+    $thumb: $C-NEUTRAL-100-A06,
     $track: transparent,
     $vertical: true,
     $thumb-radius: $RADIUS-3
@@ -2498,9 +2498,9 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   width: 34px;
   height: 34px;
   border-radius: $RADIUS-CIRCLE;
-  background: $C-NEUTRAL-100-A10;
+  background: $C-NEUTRAL-100-A06;
   color: $C-NEUTRAL-96;
-  border: 1px solid $C-NEUTRAL-100-A10;
+  border: 1px solid $C-NEUTRAL-100-A06;
   padding: 0;
   font-size: $TEXT-20;
   font-weight: 400;
@@ -2513,8 +2513,8 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 #message-attach:hover {
-  background: $C-NEUTRAL-100-A14;
-  border-color: $C-NEUTRAL-100-A14;
+  background: $C-NEUTRAL-100-A06;
+  border-color: $C-NEUTRAL-100-A06;
 }
 
 #message-attach:active {
@@ -2552,7 +2552,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .message-send:hover {
-  background: $C-CYAN-58;
+  background: $C-CYAN-52;
   box-shadow: $SHADOW-19;
 }
 
@@ -2561,7 +2561,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .message-send:disabled {
-  background: $C-NEUTRAL-100-A10;
+  background: $C-NEUTRAL-100-A06;
   color: $C-NEUTRAL-96-A28;
   box-shadow: none;
   cursor: not-allowed;
@@ -2583,7 +2583,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   flex-shrink: 0;
   background: $C-NEUTRAL-100-A06;
   color: $C-NEUTRAL-96;
-  border: 1px solid $C-NEUTRAL-100-A10;
+  border: 1px solid $C-NEUTRAL-100-A06;
   border-radius: $RADIUS-16;
   padding: $SPACE-4 $SPACE-10;
   font-size: $TEXT-12;
@@ -2596,11 +2596,11 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 #message-form .composer-select:hover {
-  background: $C-NEUTRAL-100-A10;
+  background: $C-NEUTRAL-100-A06;
 }
 
 code {
-  background: $C-NEUTRAL-12;
+  background: $C-NEUTRAL-16;
   padding: $SPACE-2 $SPACE-6;
   border-radius: $RADIUS-4;
 }
@@ -2641,13 +2641,13 @@ code {
   display: flex;
   align-items: baseline;
   gap: $SPACE-12;
-  border-bottom: 1px solid $C-NEUTRAL-12;
+  border-bottom: 1px solid $C-NEUTRAL-16;
   padding-bottom: $SPACE-10;
 }
 
 #permission-tool-name {
   font: 600 18px ui-monospace, monospace;
-  color: $C-NEUTRAL-90;
+  color: $C-NEUTRAL-96;
 }
 
 #permission-fields {
@@ -2673,10 +2673,10 @@ code {
 
 .permission-field-value {
   background: $C-NEUTRAL-04;
-  border: 1px solid $C-NEUTRAL-12;
+  border: 1px solid $C-NEUTRAL-16;
   border-radius: $RADIUS-4;
   padding: $SPACE-8 $SPACE-10;
-  color: $C-NEUTRAL-90;
+  color: $C-NEUTRAL-96;
   white-space: pre-wrap;
   word-break: break-word;
   max-height: 240px;
@@ -2714,18 +2714,18 @@ code {
   align-items: center;
   gap: $SPACE-8;
   font-size: $TEXT-12;
-  color: $C-NEUTRAL-83;
+  color: $C-NEUTRAL-96;
 }
 
 .modal-remember code {
   background: transparent;
-  color: $C-NEUTRAL-83;
+  color: $C-NEUTRAL-96;
   padding: 0;
 }
 
 .modal-card textarea {
   background: $C-NEUTRAL-04;
-  color: $C-NEUTRAL-90;
+  color: $C-NEUTRAL-96;
   border: 1px solid $C-NEUTRAL-16;
   border-radius: $RADIUS-4;
   padding: $SPACE-6 $SPACE-8;
@@ -2754,7 +2754,7 @@ code {
 
 .modal-actions .secondary {
   background: $C-NEUTRAL-16;
-  color: $C-NEUTRAL-90;
+  color: $C-NEUTRAL-96;
 }
 
 .modal-actions .danger {
@@ -2767,23 +2767,23 @@ code {
 }
 
 .modal-actions .secondary:hover {
-  background: $C-NEUTRAL-25;
+  background: $C-NEUTRAL-16;
 }
 
 .modal-actions .danger:hover {
-  background: $C-RED-51;
+  background: $C-RED-60;
 }
 
 /* ───── forget-task hard-confirm dialog ───── */
 #forget-task-name {
   font: 600 16px ui-monospace, monospace;
-  color: $C-NEUTRAL-90;
+  color: $C-NEUTRAL-96;
 }
 
 .forget-task-lead {
   margin: 0;
   font-size: $TEXT-13;
-  color: $C-NEUTRAL-83;
+  color: $C-NEUTRAL-96;
   line-height: 1.5;
 }
 
@@ -2808,7 +2808,7 @@ code {
 }
 
 .forget-task-effects strong {
-  color: $C-NEUTRAL-90;
+  color: $C-NEUTRAL-96;
 }
 
 .forget-task-effects code {
@@ -2817,7 +2817,7 @@ code {
   border-radius: $RADIUS-3;
   padding: $SPACE-1 $SPACE-4;
   font-size: $TEXT-11_5;
-  color: $C-NEUTRAL-83;
+  color: $C-NEUTRAL-96;
 }
 
 .forget-task-warning {
@@ -2841,9 +2841,9 @@ code {
   flex-direction: column;
   min-height: 0;
   min-width: 0;
-  background: $C-NEUTRAL-12;
-  border-left: 1px solid $C-NEUTRAL-12;
-  border-right: 1px solid $C-NEUTRAL-12;
+  background: $C-NEUTRAL-16;
+  border-left: 1px solid $C-NEUTRAL-16;
+  border-right: 1px solid $C-NEUTRAL-16;
 }
 
 .editor-pane-header {
@@ -2901,7 +2901,7 @@ code {
   padding: $SPACE-40;
   text-align: center;
   color: $C-NEUTRAL-96-A65;
-  background: $C-NEUTRAL-12;
+  background: $C-NEUTRAL-16;
 }
 
 .editor-pane-empty p {
@@ -2918,7 +2918,7 @@ code {
   padding: $SPACE-20;
   font-size: $TEXT-12;
   color: $C-NEUTRAL-96-A65;
-  background: $C-NEUTRAL-12;
+  background: $C-NEUTRAL-16;
   height: 100%;
 }
 
@@ -2940,9 +2940,9 @@ code {
    * removes that entire class of failure. */
   position: relative;
   min-width: 0;
-  background: $C-NEUTRAL-12;
-  border-left: 1px solid $C-NEUTRAL-12;
-  border-right: 1px solid $C-NEUTRAL-12;
+  background: $C-NEUTRAL-16;
+  border-left: 1px solid $C-NEUTRAL-16;
+  border-right: 1px solid $C-NEUTRAL-16;
 }
 
 /* The scroll container — explicitly sized by ``inset: 0`` (no flex
@@ -2979,8 +2979,8 @@ code {
   margin: 0 0 $SPACE-6;
   padding: $SPACE-6 $SPACE-4;
   font: 600 12px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
-  color: $C-CYAN-65;
-  background: $C-NEUTRAL-12;
+  color: $C-NEUTRAL-64;
+  background: $C-NEUTRAL-16;
   border-bottom: 1px solid $C-NEUTRAL-16;
 }
 
@@ -3026,7 +3026,7 @@ code {
   align-items: center;
   gap: $SPACE-8;
   padding: $SPACE-6;
-  background: $C-NEUTRAL-12;
+  background: $C-NEUTRAL-16;
 }
 
 .diff-pane .diff-file-header::before {
@@ -3035,7 +3035,7 @@ code {
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background: $C-NEUTRAL-09;
+  background: $C-NEUTRAL-04;
   border: 1px solid $C-NEUTRAL-16;
   border-radius: $RADIUS-10-10-0-0;
 }
@@ -3136,7 +3136,7 @@ code {
   gap: $SPACE-6;
   padding: $SPACE-8 $SPACE-14;
   border-bottom: 1px solid $C-NEUTRAL-16;
-  background: $C-NEUTRAL-08-A50;
+  background: $C-NEUTRAL-00-A45;
 }
 
 .editor-pane-chip {
@@ -3145,9 +3145,9 @@ code {
   gap: $SPACE-8;
   padding: $SPACE-4 $SPACE-10;
   border-radius: var(--radius-pill);
-  border: 1px solid $C-NEUTRAL-25;
-  background: $C-NEUTRAL-12;
-  color: $C-NEUTRAL-83;
+  border: 1px solid $C-NEUTRAL-16;
+  background: $C-NEUTRAL-16;
+  color: $C-NEUTRAL-96;
   font: 11px/1.2 ui-monospace, monospace;
   cursor: pointer;
   max-width: 320px;
@@ -3188,17 +3188,17 @@ code {
 }
 
 .editor-pane-chip.kato-in_progress .editor-pane-chip-status {
-  background: $C-CYAN-60-A20;
+  background: $C-CYAN-52-A18;
   color: $C-CYAN-78;
 }
 
 .editor-pane-chip.kato-addressed .editor-pane-chip-status {
-  background: $C-GREEN-45-A20;
-  color: $C-GREEN-73;
+  background: $C-GREEN-45-A10;
+  color: $C-GREEN-71;
 }
 
 .editor-pane-chip.kato-failed .editor-pane-chip-status {
-  background: $C-RED-60-A22;
+  background: $C-RED-60-A12;
   color: $C-RED-82;
 }
 
@@ -3208,12 +3208,12 @@ code {
 
 .editor-pane-chip.status-resolved .editor-pane-chip-status {
   background: $C-GREEN-45-A10;
-  color: $C-GREEN-73;
+  color: $C-GREEN-71;
 }
 
 .editor-pane-composer-wrap {
   border-top: 1px solid $C-NEUTRAL-16;
-  background: $C-NEUTRAL-04-A50;
+  background: $C-NEUTRAL-00-A45;
 }
 
 .editor-pane-composer-head {
@@ -3230,10 +3230,10 @@ code {
 .editor-pane-zone-host {
   width: 100%;
   box-sizing: border-box;
-  background: $C-NEUTRAL-09;
+  background: $C-NEUTRAL-04;
   border-top: 1px solid $C-NEUTRAL-16;
   border-bottom: 1px solid $C-NEUTRAL-16;
-  border-left: 3px solid $C-CYAN-60;
+  border-left: 3px solid $C-CYAN-52;
 }
 
 .editor-pane-composer-inline {
@@ -3243,7 +3243,7 @@ code {
 
 .editor-pane-comments-panel {
   border-top: 1px solid $C-NEUTRAL-16;
-  background: $C-NEUTRAL-08-A50;
+  background: $C-NEUTRAL-00-A45;
   max-height: 40%;
   overflow-y: auto;
   padding: $SPACE-8 $SPACE-14;
@@ -3273,7 +3273,7 @@ code {
 .editor-pane-comment-jump {
   background: transparent;
   color: $C-CYAN-78;
-  border: 1px solid $C-CYAN-60-A35;
+  border: 1px solid $C-CYAN-52-A40;
   border-radius: $RADIUS-4;
   padding: $SPACE-2 $SPACE-8;
   font: 11px/1.2 ui-monospace, monospace;
@@ -3282,12 +3282,12 @@ code {
 
 .editor-pane-comment-jump.is-file {
   color: $C-NEUTRAL-64;
-  border-color: $C-NEUTRAL-25;
+  border-color: $C-NEUTRAL-16;
   cursor: default;
 }
 
 .editor-pane-comment-jump:hover {
-  background: $C-CYAN-60-A10;
+  background: $C-CYAN-52-A18;
 }
 
 /* Left-panel uniform background — the Files/Changes panel (rendered
@@ -3306,7 +3306,7 @@ code {
 
 /* right-side pane (Files + Changes), mounted by the React bundle */
 #right-pane {
-  border-left: 1px solid $C-NEUTRAL-12;
+  border-left: 1px solid $C-NEUTRAL-16;
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -3428,7 +3428,7 @@ body.kato-resizing #left-pane-resizer::before {
 
 .left-pane-empty-title {
   margin: 0 0 $SPACE-8 0;
-  color: $C-NEUTRAL-90;
+  color: $C-NEUTRAL-96;
   font-size: $TEXT-14;
   font-weight: 600;
 }
@@ -3470,8 +3470,8 @@ body.kato-resizing #left-pane-resizer::before {
   position: relative;
   z-index: 2;
   background: linear-gradient(180deg,
-      $C-NEUTRAL-11-A55 0%,
-      $C-NEUTRAL-08-A45 100%);
+      $C-NEUTRAL-11-A62 0%,
+      $C-NEUTRAL-00-A45 100%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   backdrop-filter: blur(20px) saturate(180%);
 }
@@ -3492,8 +3492,8 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .right-pane-tabs button:hover {
-  background: $C-NEUTRAL-100-A10;
-  border-color: $C-NEUTRAL-100-A10;
+  background: $C-NEUTRAL-100-A06;
+  border-color: $C-NEUTRAL-100-A06;
   color: $C-NEUTRAL-96;
 }
 
@@ -3502,8 +3502,8 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .right-pane-tabs button.active {
-  background: $C-NEUTRAL-100-A14;
-  border-color: $C-NEUTRAL-100-A14;
+  background: $C-NEUTRAL-100-A06;
+  border-color: $C-NEUTRAL-100-A06;
   color: $C-NEUTRAL-96;
   box-shadow: $SHADOW-21;
 }
@@ -3599,7 +3599,7 @@ body.kato-resizing #left-pane-resizer::before {
   right: 6px;
   top: 50%;
   transform: translateY(-50%);
-  background: $C-NEUTRAL-100-A10;
+  background: $C-NEUTRAL-100-A06;
   border: none;
   color: $C-NEUTRAL-96;
   cursor: pointer;
@@ -3615,7 +3615,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .files-tab-filter-clear:hover {
-  background: $C-NEUTRAL-100-A14;
+  background: $C-NEUTRAL-100-A06;
 }
 
 /* ───── iOS round icon toolbar — files + changes ────────────────── */
@@ -3646,8 +3646,8 @@ body.kato-resizing #left-pane-resizer::before {
 
 .files-tab-icon-btn:hover,
 .changes-tab-icon-btn:hover {
-  background: $C-NEUTRAL-100-A14;
-  border-color: $C-NEUTRAL-100-A14;
+  background: $C-NEUTRAL-100-A06;
+  border-color: $C-NEUTRAL-100-A06;
   color: $C-NEUTRAL-96;
 }
 
@@ -3681,8 +3681,8 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .files-tab-text-btn:hover {
-  background: $C-NEUTRAL-100-A14;
-  border-color: $C-NEUTRAL-100-A14;
+  background: $C-NEUTRAL-100-A06;
+  border-color: $C-NEUTRAL-100-A06;
   color: $C-NEUTRAL-96;
 }
 
@@ -3693,7 +3693,7 @@ body.kato-resizing #left-pane-resizer::before {
 .files-tab-text-btn.active {
   background: $C-CYAN-52-A18;
   border-color: $C-CYAN-52-A40;
-  color: $C-CYAN-67;
+  color: $C-CYAN-52;
 }
 
 /* iOS-style accordion cards (files-repo, diff-repo, diff-file).
@@ -3712,7 +3712,7 @@ body.kato-resizing #left-pane-resizer::before {
   align-items: center;
   padding: $SPACE-10 $SPACE-12;
   border-radius: $RADIUS-12-12-0-0;
-  background: $C-NEUTRAL-12;
+  background: $C-NEUTRAL-16;
   cursor: pointer;
   font-size: $TEXT-12;
   font-weight: 600;
@@ -3763,13 +3763,13 @@ body.kato-resizing #left-pane-resizer::before {
 
 .files-tab-repo-commits-btn:hover {
   background: $C-NEUTRAL-16;
-  color: $C-NEUTRAL-90;
-  border-color: $C-NEUTRAL-25;
+  color: $C-NEUTRAL-96;
+  border-color: $C-NEUTRAL-16;
 }
 
 .files-tab-repo-commits-btn[aria-expanded=true] {
   background: $C-NEUTRAL-16;
-  color: $C-NEUTRAL-90;
+  color: $C-NEUTRAL-96;
   border-color: $C-NEUTRAL-32;
 }
 
@@ -3785,8 +3785,8 @@ body.kato-resizing #left-pane-resizer::before {
   list-style: none;
   margin: 0;
   padding: $SPACE-4 0;
-  background: $C-NEUTRAL-12;
-  border: 1px solid $C-NEUTRAL-25;
+  background: $C-NEUTRAL-16;
+  border: 1px solid $C-NEUTRAL-16;
   border-radius: $RADIUS-4;
   max-height: 360px;
   overflow-y: auto;
@@ -3815,7 +3815,7 @@ body.kato-resizing #left-pane-resizer::before {
   border: 0;
   padding: $SPACE-6 $SPACE-12;
   cursor: pointer;
-  color: $C-NEUTRAL-83;
+  color: $C-NEUTRAL-96;
   font: 12px/1.3 inherit;
 }
 
@@ -3846,7 +3846,7 @@ body.kato-resizing #left-pane-resizer::before {
   border-top: 1px solid $C-NEUTRAL-16;
   border-radius: $RADIUS-0-0-10-10;
   padding: $SPACE-4;
-  background: $C-NEUTRAL-09;
+  background: $C-NEUTRAL-04;
 }
 
 .diff-file-comments-empty {
@@ -3863,7 +3863,7 @@ body.kato-resizing #left-pane-resizer::before {
   border: 1px solid $C-NEUTRAL-16;
   border-radius: $RADIUS-4;
   margin-bottom: $SPACE-4;
-  background: $C-NEUTRAL-09;
+  background: $C-NEUTRAL-04;
 }
 
 .diff-file-comment-thread.is-resolved {
@@ -3873,7 +3873,7 @@ body.kato-resizing #left-pane-resizer::before {
 .diff-file-comment-resolved-banner {
   padding: $SPACE-6 $SPACE-10;
   background: $C-BLUE-33;
-  color: $C-CYAN-93;
+  color: $C-CYAN-90;
   font: 11px/1.4 inherit;
 }
 
@@ -3893,8 +3893,8 @@ body.kato-resizing #left-pane-resizer::before {
 
 .diff-file-comment.is-reply {
   margin-left: $SPACE-28;
-  border-left: 2px solid $C-CYAN-55;
-  background: $C-NEUTRAL-09;
+  border-left: 2px solid $C-CYAN-47;
+  background: $C-NEUTRAL-04;
 }
 
 .diff-file-comment-head {
@@ -3926,13 +3926,13 @@ body.kato-resizing #left-pane-resizer::before {
 
 .diff-file-comment-author {
   font-weight: 600;
-  color: $C-NEUTRAL-90;
+  color: $C-NEUTRAL-96;
 }
 
 .diff-file-comment-source {
   padding: $SPACE-1 $SPACE-6;
   border-radius: var(--radius-pill);
-  border: 1px solid $C-NEUTRAL-100-A14;
+  border: 1px solid $C-NEUTRAL-100-A06;
   font-size: $TEXT-9;
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -3989,7 +3989,7 @@ body.kato-resizing #left-pane-resizer::before {
 .diff-file-comment-reply-count {
   font-size: $TEXT-11;
   color: $C-NEUTRAL-64;
-  background: $C-NEUTRAL-12;
+  background: $C-NEUTRAL-16;
   border: 1px solid $C-NEUTRAL-16;
   border-radius: $RADIUS-PILL;
   padding: $SPACE-1 $SPACE-8;
@@ -4007,7 +4007,7 @@ body.kato-resizing #left-pane-resizer::before {
   height: 26px;
   padding: 0;
   border-radius: $RADIUS-PILL;
-  border: 1px solid $C-NEUTRAL-100-A10;
+  border: 1px solid $C-NEUTRAL-100-A06;
   background: $C-NEUTRAL-100-A06;
   color: $C-NEUTRAL-96-A85;
   font: 600 11px/1 inherit;
@@ -4016,8 +4016,8 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .diff-file-comment-collapse:hover {
-  background: $C-NEUTRAL-100-A14;
-  border-color: $C-NEUTRAL-100-A14;
+  background: $C-NEUTRAL-100-A06;
+  border-color: $C-NEUTRAL-100-A06;
   color: $C-NEUTRAL-96;
 }
 
@@ -4030,7 +4030,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .diff-file-comment-body {
-  color: $C-NEUTRAL-83;
+  color: $C-NEUTRAL-96;
   font-size: $TEXT-13;
   line-height: 1.5;
   word-break: break-word;
@@ -4074,7 +4074,7 @@ body.kato-resizing #left-pane-resizer::before {
 .diff-file-comment-body .cmt-md-quote {
   margin: 0 0 $SPACE-8;
   padding: $SPACE-2 0 $SPACE-2 $SPACE-10;
-  border-left: 3px solid $C-NEUTRAL-25;
+  border-left: 3px solid $C-NEUTRAL-16;
   color: $C-NEUTRAL-64;
 }
 
@@ -4100,7 +4100,7 @@ body.kato-resizing #left-pane-resizer::before {
 .diff-file-comment-body .cmt-md-h {
   margin: $SPACE-10 0 $SPACE-4;
   font-weight: 600;
-  color: $C-NEUTRAL-90;
+  color: $C-NEUTRAL-96;
   line-height: 1.3;
 }
 
@@ -4119,7 +4119,7 @@ body.kato-resizing #left-pane-resizer::before {
 .diff-file-comment-body .cmt-md-h5,
 .diff-file-comment-body .cmt-md-h6 {
   font-size: $TEXT-12;
-  color: $C-NEUTRAL-83;
+  color: $C-NEUTRAL-96;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -4168,7 +4168,7 @@ body.kato-resizing #left-pane-resizer::before {
   border: 1px solid $C-NEUTRAL-16;
   border-bottom: 0;
   border-radius: $RADIUS-4-4-0-0;
-  background: $C-NEUTRAL-09;
+  background: $C-NEUTRAL-04;
 }
 
 .diff-file-comments-toolbar-btn {
@@ -4184,8 +4184,8 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .diff-file-comments-toolbar-btn:hover:not(:disabled) {
-  background: $C-NEUTRAL-12;
-  color: $C-NEUTRAL-90;
+  background: $C-NEUTRAL-16;
+  color: $C-NEUTRAL-96;
 }
 
 .diff-file-comments-toolbar-btn:disabled {
@@ -4201,7 +4201,7 @@ body.kato-resizing #left-pane-resizer::before {
   border: 1px solid $C-NEUTRAL-16;
   border-radius: $RADIUS-4;
   padding: $SPACE-8;
-  background: $C-NEUTRAL-09;
+  background: $C-NEUTRAL-04;
 }
 
 .diff-file-comments-reply-hint {
@@ -4232,10 +4232,10 @@ body.kato-resizing #left-pane-resizer::before {
    * operator could not see what they had typed. */
   max-height: 360px;
   overflow-y: auto;
-  background: $C-NEUTRAL-09;
-  border: 1px solid $C-NEUTRAL-25;
+  background: $C-NEUTRAL-04;
+  border: 1px solid $C-NEUTRAL-16;
   border-radius: $RADIUS-3;
-  color: $C-NEUTRAL-90;
+  color: $C-NEUTRAL-96;
   padding: $SPACE-8;
   font: 12px/1.5 ui-monospace, monospace;
   resize: vertical;
@@ -4244,7 +4244,7 @@ body.kato-resizing #left-pane-resizer::before {
 
 .diff-file-comments-textarea:focus {
   outline: none;
-  border-color: $C-BLUE-53;
+  border-color: $C-BLUE-48;
 }
 
 .diff-file-comments-form-actions {
@@ -4257,8 +4257,8 @@ body.kato-resizing #left-pane-resizer::before {
  * (border-radius:999px, 12px, soft transitions). */
 .diff-file-comments-submit {
   background: $C-BLUE-48;
-  color: $C-CYAN-97;
-  border: 1px solid $C-BLUE-53;
+  color: $C-NEUTRAL-96;
+  border: 1px solid $C-BLUE-48;
   border-radius: $RADIUS-PILL;
   padding: $SPACE-6 $SPACE-16;
   font: 600 12px/1 inherit;
@@ -4267,7 +4267,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .diff-file-comments-submit:hover:not(:disabled) {
-  background: $C-BLUE-53;
+  background: $C-BLUE-48;
 }
 
 .diff-file-comments-submit:active:not(:disabled) {
@@ -4297,7 +4297,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .diff-line-comments-host .diff-file-comment-thread + .diff-file-comment-thread {
-  border-top: 1px solid $C-NEUTRAL-12;
+  border-top: 1px solid $C-NEUTRAL-16;
 }
 
 /* Hovering a diff line shows ONE blue "+" to add a comment — the
@@ -4386,7 +4386,7 @@ body.kato-resizing #left-pane-resizer::before {
 
 .diff-file-comments-cancel {
   background: $C-NEUTRAL-100-A06;
-  border: 1px solid $C-NEUTRAL-100-A10;
+  border: 1px solid $C-NEUTRAL-100-A06;
   color: $C-NEUTRAL-96-A85;
   border-radius: $RADIUS-PILL;
   padding: $SPACE-6 $SPACE-16;
@@ -4397,8 +4397,8 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .diff-file-comments-cancel:hover {
-  background: $C-NEUTRAL-100-A10;
-  border-color: $C-NEUTRAL-100-A14;
+  background: $C-NEUTRAL-100-A06;
+  border-color: $C-NEUTRAL-100-A06;
   color: $C-NEUTRAL-96;
 }
 
@@ -4423,7 +4423,7 @@ body.kato-resizing #left-pane-resizer::before {
   margin-left: auto;
   padding: $SPACE-5 $SPACE-12;
   border-radius: $RADIUS-PILL;
-  border: 1px solid $C-NEUTRAL-100-A10;
+  border: 1px solid $C-NEUTRAL-100-A06;
   background: $C-NEUTRAL-100-A06;
   color: $C-NEUTRAL-96-A85;
   font: 600 11px/1 inherit;
@@ -4434,8 +4434,8 @@ body.kato-resizing #left-pane-resizer::before {
 .diff-repo-sync-comments:hover:not(:disabled),
 .diff-file-collapse-toggle:hover:not(:disabled),
 .diff-file-add-file-comment:hover:not(:disabled) {
-  background: $C-NEUTRAL-100-A14;
-  border-color: $C-NEUTRAL-100-A14;
+  background: $C-NEUTRAL-100-A06;
+  border-color: $C-NEUTRAL-100-A06;
   color: $C-NEUTRAL-96;
 }
 
@@ -4552,7 +4552,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .diff-line-stat.is-delete {
-  color: $C-RED-78;
+  color: $C-RED-82;
   background: $C-RED-31-A46;
 }
 
@@ -4569,7 +4569,7 @@ body.kato-resizing #left-pane-resizer::before {
   flex-shrink: 0;
   padding: $SPACE-1 $SPACE-7;
   border-radius: $RADIUS-PILL;
-  border: 1px solid $C-NEUTRAL-100-A14;
+  border: 1px solid $C-NEUTRAL-100-A06;
   background: $C-NEUTRAL-100-A06;
   color: $C-NEUTRAL-79;
   font: 600 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -4587,7 +4587,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .tree-row-comments.is-clickable:hover {
-  background: $C-NEUTRAL-100-A10;
+  background: $C-NEUTRAL-100-A06;
 }
 
 .tree-row-comments.is-clickable:focus-visible {
@@ -4651,16 +4651,16 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .diff-file-tree-row.is-file:hover {
-  background: $C-NEUTRAL-13;
+  background: $C-NEUTRAL-16;
 }
 
 .diff-file-tree-row.selected {
-  background: $C-CYAN-21;
-  color: $C-CYAN-67;
+  background: $C-CYAN-17;
+  color: $C-CYAN-52;
 }
 
 .diff-file-tree-row.is-file.selected:hover {
-  background: $C-CYAN-21;
+  background: $C-CYAN-17;
 }
 
 .diff-file-tree-row.conflicted .diff-file-tree-label {
@@ -4679,7 +4679,7 @@ body.kato-resizing #left-pane-resizer::before {
   bottom: 0;
   width: calc(var(--depth) * $SPACE-22);
   pointer-events: none;
-  background-image: repeating-linear-gradient(to right, transparent 0, transparent 1px, $C-NEUTRAL-100-A10 1px, $C-NEUTRAL-100-A10 2px, transparent 2px, transparent $SPACE-22);
+  background-image: repeating-linear-gradient(to right, transparent 0, transparent 1px, $C-NEUTRAL-100-A06 1px, $C-NEUTRAL-100-A06 2px, transparent 2px, transparent $SPACE-22);
 }
 
 .diff-file-tree-row[style*="--depth: 0"] .diff-file-tree-guide {
@@ -4729,17 +4729,17 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .files-changed-tree-row.kind-delete .files-changed-tree-label {
-  color: $C-RED-78;
+  color: $C-RED-82;
 }
 
 .files-changed-tree-row.kind-modify .files-changed-tree-label,
 .files-changed-tree-row.kind-rename .files-changed-tree-label,
 .files-changed-tree-row.kind-copy .files-changed-tree-label {
-  color: $C-ORANGE-65;
+  color: $C-ORANGE-50;
 }
 
 .files-changed-tree-row.selected .files-changed-tree-label {
-  color: $C-CYAN-67;
+  color: $C-CYAN-52;
 }
 
 .files-changed-tree-row .diff-line-stats {
@@ -4760,7 +4760,7 @@ body.kato-resizing #left-pane-resizer::before {
   border: none;
   border-radius: $RADIUS-6;
   background: transparent;
-  color: $C-NEUTRAL-83;
+  color: $C-NEUTRAL-96;
   font: 12px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace;
   text-align: left;
   cursor: pointer;
@@ -4787,7 +4787,7 @@ body.kato-resizing #left-pane-resizer::before {
   font-weight: 700;
   font-size: $TEXT-11;
   border-radius: $RADIUS-3;
-  color: $C-NEUTRAL-83;
+  color: $C-NEUTRAL-96;
   background: $C-NEUTRAL-100-A06;
 }
 
@@ -4797,7 +4797,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .diff-file-row-kind.kind-delete {
-  color: $C-RED-76;
+  color: $C-RED-71;
   background: $C-RED-31-A46;
 }
 
@@ -4857,9 +4857,9 @@ body.kato-resizing #left-pane-resizer::before {
   z-index: 1000;
   min-width: 180px;
   padding: $SPACE-5;
-  border: 1px solid $C-NEUTRAL-100-A10;
+  border: 1px solid $C-NEUTRAL-100-A06;
   border-radius: $RADIUS-8;
-  background: $C-NEUTRAL-12;
+  background: $C-NEUTRAL-16;
   box-shadow: $SHADOW-25;
 }
 
@@ -4872,7 +4872,7 @@ body.kato-resizing #left-pane-resizer::before {
   border: 0;
   border-radius: $RADIUS-6;
   background: transparent;
-  color: $C-NEUTRAL-90;
+  color: $C-NEUTRAL-96;
   font: 600 12px/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   text-align: left;
   cursor: pointer;
@@ -4894,7 +4894,7 @@ body.kato-resizing #left-pane-resizer::before {
 
 .diff-file-context-menu-item:disabled:hover {
   background: transparent;
-  color: $C-NEUTRAL-90;
+  color: $C-NEUTRAL-96;
 }
 
 .files-tab-message,
@@ -4931,7 +4931,7 @@ body.kato-resizing #left-pane-resizer::before {
 
 .tree-row.selected {
   background: $C-CYAN-40-A38;
-  color: $C-CYAN-67;
+  color: $C-CYAN-52;
 }
 
 .tree-row-level-guides {
@@ -4941,7 +4941,7 @@ body.kato-resizing #left-pane-resizer::before {
   bottom: -4px;
   width: calc(var(--level) * 14px);
   pointer-events: none;
-  background-image: repeating-linear-gradient(to right, transparent 0, transparent 13px, $C-NEUTRAL-100-A10 13px, $C-NEUTRAL-100-A10 14px);
+  background-image: repeating-linear-gradient(to right, transparent 0, transparent 13px, $C-NEUTRAL-100-A06 13px, $C-NEUTRAL-100-A06 14px);
 }
 
 .tree-row-chevron {
@@ -4978,11 +4978,11 @@ body.kato-resizing #left-pane-resizer::before {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: $C-NEUTRAL-73;
+  color: $C-NEUTRAL-64;
 }
 
 .tree-row.selected .tree-row-name {
-  color: $C-CYAN-67;
+  color: $C-CYAN-52;
 }
 
 /* Changes tab */
@@ -5050,7 +5050,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .tree-row.changed .tree-row-name {
-  color: $C-NEUTRAL-73;
+  color: $C-NEUTRAL-64;
 }
 
 .tree-row.changed-ancestor .tree-row-name {
@@ -5074,7 +5074,7 @@ body.kato-resizing #left-pane-resizer::before {
   border: none;
   border-radius: $RADIUS-CIRCLE;
   background: transparent;
-  color: $C-CYAN-46;
+  color: $C-NEUTRAL-45;
   cursor: pointer;
   font-size: $TEXT-10;
   opacity: 0;
@@ -5087,13 +5087,13 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .tree-row-diff-btn:hover {
-  background: $C-GREEN-58-A16;
-  color: $C-GREEN-58;
+  background: $C-GREEN-45-A10;
+  color: $C-GREEN-52;
 }
 
 .tree-row-diff-btn:focus-visible {
   opacity: 1;
-  outline: 2px solid $C-GREEN-58-A60;
+  outline: 2px solid $C-GREEN-58-A55;
   outline-offset: 1px;
 }
 
@@ -5104,7 +5104,7 @@ body.kato-resizing #left-pane-resizer::before {
    * same ``isChanged``), so a fixed gap is all that's needed. */
   margin-left: $SPACE-6;
   margin-right: $SPACE-6;
-  color: $C-GREEN-58;
+  color: $C-GREEN-52;
   font-size: $TEXT-11;
   font-weight: 700;
   flex-shrink: 0;
@@ -5127,7 +5127,7 @@ body.kato-resizing #left-pane-resizer::before {
   align-items: center;
   min-width: 0;
   overflow: hidden;
-  color: $C-NEUTRAL-90;
+  color: $C-NEUTRAL-96;
 }
 
 .diff-file-path-button {
@@ -5162,7 +5162,7 @@ body.kato-resizing #left-pane-resizer::before {
 
 .diff-file-path-button:hover .diff-file-path-segment,
 .diff-file-path-button:focus-visible .diff-file-path-segment {
-  color: $C-CYAN-77;
+  color: $C-CYAN-78;
 }
 
 .diff-file-header .diff-file-path-button:focus,
@@ -5196,7 +5196,7 @@ body.kato-resizing #left-pane-resizer::before {
  * gutters and edited spans carry the stronger add/delete color. */
 .diff-file {
   --diff-background-color: #{$C-NEUTRAL-04};
-  --diff-text-color: #{$C-NEUTRAL-90};
+  --diff-text-color: #{$C-NEUTRAL-96};
   --diff-font-family: ui-monospace, monospace;
   /* Gutter == code for changed lines: a brighter gutter shade made
    * the columns read as vertical stripes / a grid. Same colour on
@@ -5205,7 +5205,7 @@ body.kato-resizing #left-pane-resizer::before {
   --diff-gutter-delete-background-color: #{$C-RED-15};
   --diff-code-insert-background-color: #{$C-TEAL-14};
   --diff-code-delete-background-color: #{$C-RED-15};
-  --diff-code-insert-edit-background-color: #{$C-GREEN-22};
+  --diff-code-insert-edit-background-color: #{$C-GREEN-17};
   --diff-code-delete-edit-background-color: #{$C-RED-31};
   --diff-gutter-selected-background-color: #{$C-NEUTRAL-16};
   --diff-code-selected-background-color: #{$C-NEUTRAL-16};
@@ -5224,7 +5224,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .diff-file .diff-context-expander {
-  background: $C-NEUTRAL-19;
+  background: $C-NEUTRAL-16;
 }
 
 .diff-file .diff-context-expander-cell {
@@ -5238,9 +5238,9 @@ body.kato-resizing #left-pane-resizer::before {
   min-height: 26px;
   padding: 0 $SPACE-10;
   color: $C-NEUTRAL-64;
-  background: $C-NEUTRAL-19;
-  border-top: 1px solid $C-NEUTRAL-25;
-  border-bottom: 1px solid $C-NEUTRAL-25;
+  background: $C-NEUTRAL-16;
+  border-top: 1px solid $C-NEUTRAL-16;
+  border-bottom: 1px solid $C-NEUTRAL-16;
   font-family: ui-monospace, monospace;
   font-size: $TEXT-12;
 }
@@ -5254,15 +5254,15 @@ body.kato-resizing #left-pane-resizer::before {
   border: 1px solid transparent;
   border-radius: $RADIUS-4;
   background: transparent;
-  color: $C-BLUE-74;
+  color: $C-NEUTRAL-64;
   cursor: pointer;
   font: inherit;
 }
 
 .diff-context-expander-btn:hover:not(:disabled) {
-  color: $C-NEUTRAL-90;
+  color: $C-NEUTRAL-96;
   background: $C-NEUTRAL-100-A06;
-  border-color: $C-NEUTRAL-100-A14;
+  border-color: $C-NEUTRAL-100-A06;
 }
 
 .diff-context-expander-btn:disabled {
@@ -5271,7 +5271,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .diff-context-expander-label {
-  color: $C-BLUE-74;
+  color: $C-NEUTRAL-64;
 }
 
 /* Syntax highlighting for tokens produced by ``tokenizeHunks``
@@ -5283,39 +5283,39 @@ body.kato-resizing #left-pane-resizer::before {
 .diff-file .token.comment,
 .diff-file .token.prolog,
 .diff-file .token.cdata {
-  color: $C-CYAN-46;
+  color: $C-NEUTRAL-45;
   font-style: italic;
 }
 
 .diff-file .token.keyword {
-  color: $C-RED-78;
+  color: $C-RED-82;
 }
 
 .diff-file .token.boolean,
 .diff-file .token.constant,
 .diff-file .token.atrule {
-  color: $C-RED-78;
+  color: $C-RED-82;
 }
 
 .diff-file .token.tag {
-  color: $C-CYAN-67;
+  color: $C-CYAN-52;
 }
 
 .diff-file .token.string {
-  color: $C-AMBER-62;
+  color: $C-ORANGE-56;
 }
 
 .diff-file .token.attr-value {
-  color: $C-AMBER-62;
+  color: $C-ORANGE-56;
 }
 
 .diff-file .token.template-string {
-  color: $C-AMBER-62;
+  color: $C-ORANGE-56;
 }
 
 .diff-file .token.number,
 .diff-file .token.unit {
-  color: $C-AMBER-62;
+  color: $C-ORANGE-56;
 }
 
 .diff-file .token.function,
@@ -5336,7 +5336,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .diff-file .token.selector {
-  color: $C-CYAN-67;
+  color: $C-CYAN-52;
 }
 
 .diff-file .token.variable {
@@ -5345,7 +5345,7 @@ body.kato-resizing #left-pane-resizer::before {
 
 .diff-file .token.operator,
 .diff-file .token.punctuation {
-  color: $C-CYAN-84;
+  color: $C-CYAN-90;
 }
 
 .diff-file .token.regex {
@@ -5362,7 +5362,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .diff-file .token.inserted {
-  color: $C-GREEN-73;
+  color: $C-GREEN-71;
 }
 
 .diff-file .token.italic {
@@ -5382,7 +5382,7 @@ body.kato-resizing #left-pane-resizer::before {
   gap: $SPACE-10;
   padding: $SPACE-8 $SPACE-16;
   background: $C-RED-42;
-  color: $C-ORANGE-96;
+  color: $C-NEUTRAL-96;
   font-size: $TEXT-13;
   line-height: 1.4;
   border-bottom: 1px solid $C-RED-31;
@@ -5428,7 +5428,7 @@ body.kato-resizing #left-pane-resizer::before {
   justify-content: space-between;
   gap: $SPACE-10;
   padding: $SPACE-12 $SPACE-16;
-  border-bottom: 1px solid $C-NEUTRAL-12;
+  border-bottom: 1px solid $C-NEUTRAL-16;
   flex-shrink: 0;
 }
 
@@ -5453,7 +5453,7 @@ body.kato-resizing #left-pane-resizer::before {
   width: 26px;
   height: 26px;
   border-radius: $RADIUS-CIRCLE;
-  border: 1px solid $C-NEUTRAL-100-A10;
+  border: 1px solid $C-NEUTRAL-100-A06;
   background: $C-NEUTRAL-100-A06;
   color: $C-NEUTRAL-64;
   cursor: pointer;
@@ -5462,8 +5462,8 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .orchestrator-feed-close:hover {
-  background: $C-NEUTRAL-100-A10;
-  border-color: $C-NEUTRAL-100-A14;
+  background: $C-NEUTRAL-100-A06;
+  border-color: $C-NEUTRAL-100-A06;
   color: $C-NEUTRAL-96;
 }
 
@@ -5487,8 +5487,8 @@ body.kato-resizing #left-pane-resizer::before {
   grid-template-columns: 70px 40px 1fr;
   gap: $SPACE-8;
   padding: $SPACE-4 $SPACE-12;
-  border-bottom: 1px solid $C-NEUTRAL-09;
-  color: $C-NEUTRAL-83;
+  border-bottom: 1px solid $C-NEUTRAL-04;
+  color: $C-NEUTRAL-96;
 }
 
 .orchestrator-feed-row .ts {
@@ -5507,7 +5507,7 @@ body.kato-resizing #left-pane-resizer::before {
 
 .orchestrator-feed-row .lvl-info {
   color: $C-CYAN-78;
-  background: $C-CYAN-60-A10;
+  background: $C-CYAN-52-A18;
 }
 
 .orchestrator-feed-row .lvl-warn,
@@ -5518,7 +5518,7 @@ body.kato-resizing #left-pane-resizer::before {
 
 .orchestrator-feed-row .lvl-error {
   color: $C-RED-71;
-  background: $C-RED-60-A22;
+  background: $C-RED-60-A12;
 }
 
 .orchestrator-feed-row .lvl-debug {
@@ -5527,7 +5527,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .orchestrator-feed-row .msg {
-  color: $C-NEUTRAL-90;
+  color: $C-NEUTRAL-96;
   word-break: break-word;
 }
 
@@ -5550,7 +5550,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .orchestrator-feed-row .tok-path {
-  color: $C-GREEN-73;
+  color: $C-GREEN-71;
 }
 
 .orchestrator-feed-row .tok-addr {
@@ -5570,7 +5570,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .orchestrator-feed-row .tok-num {
-  color: $C-AMBER-62;
+  color: $C-ORANGE-56;
 }
 
 .orchestrator-feed-row .tok-code {
@@ -5583,7 +5583,7 @@ body.kato-resizing #left-pane-resizer::before {
 
 .orchestrator-feed-footer {
   padding: $SPACE-8 $SPACE-12;
-  border-top: 1px solid $C-NEUTRAL-12;
+  border-top: 1px solid $C-NEUTRAL-16;
   color: $C-NEUTRAL-32;
   font-size: $TEXT-12;
   font-family: ui-monospace, monospace;
@@ -5610,20 +5610,20 @@ body.kato-resizing #left-pane-resizer::before {
 .claude-status-working {
   color: $C-AMBER-77;
   border-color: $C-ORANGE-37;
-  background: $C-ORANGE-07;
+  background: $C-NEUTRAL-04;
 }
 
 .claude-status-approval {
   color: $C-ORANGE-83;
   border-color: $C-ORANGE-53;
-  background: $C-ORANGE-07;
+  background: $C-NEUTRAL-04;
 }
 
 .claude-status-idle,
 .claude-status-streaming {
-  color: $C-GREEN-73;
-  border-color: $C-GREEN-22;
-  background: $C-GREEN-05;
+  color: $C-GREEN-71;
+  border-color: $C-GREEN-17;
+  background: $C-TEAL-14;
 }
 
 .claude-status-connecting,
@@ -5698,7 +5698,7 @@ body.kato-resizing #left-pane-resizer::before {
   align-items: flex-start;
   background: $C-CYAN-17;
   color: $C-NEUTRAL-96;
-  border: 1px solid $C-CYAN-27;
+  border: 1px solid $C-CYAN-17;
   border-left-width: 4px;
   border-radius: $RADIUS-6;
   padding: $SPACE-10 $SPACE-14;
@@ -5711,12 +5711,12 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .toast:focus-visible {
-  outline: 2px solid $C-BLUE-53;
+  outline: 2px solid $C-BLUE-48;
   outline-offset: 2px;
 }
 
 .toast-success {
-  border-left-color: $C-TEAL-39;
+  border-left-color: $C-GREEN-52;
 }
 
 .toast-error {
@@ -5728,7 +5728,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .toast-info {
-  border-left-color: $C-CYAN-60;
+  border-left-color: $C-CYAN-52;
 }
 
 .toast-glyph {
@@ -5750,7 +5750,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .toast-info .toast-glyph {
-  color: $C-CYAN-67;
+  color: $C-CYAN-52;
 }
 
 .toast-body {
@@ -5773,13 +5773,13 @@ body.kato-resizing #left-pane-resizer::before {
   font-size: $TEXT-13;
   white-space: pre-wrap;
   word-break: break-word;
-  color: $C-NEUTRAL-90;
+  color: $C-NEUTRAL-96;
 }
 
 .toast-close {
   background: transparent;
   border: 0;
-  color: $C-CYAN-65;
+  color: $C-NEUTRAL-64;
   cursor: pointer;
   font-size: $TEXT-18;
   line-height: 1;
@@ -5830,7 +5830,7 @@ body.kato-resizing #left-pane-resizer::before {
   white-space: normal;
   max-width: 320px;
   width: max-content;
-  border: 1px solid $C-CYAN-27;
+  border: 1px solid $C-CYAN-17;
   box-shadow: $SHADOW-27;
   z-index: 1000;
   pointer-events: none;
@@ -5972,9 +5972,9 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .notification-settings > button:hover {
-  color: $C-NEUTRAL-90;
-  border-color: $C-NEUTRAL-25;
-  background: $C-NEUTRAL-12;
+  color: $C-NEUTRAL-96;
+  border-color: $C-NEUTRAL-16;
+  background: $C-NEUTRAL-16;
 }
 
 .notification-settings > button:disabled {
@@ -5987,7 +5987,7 @@ body.kato-resizing #left-pane-resizer::before {
   top: calc(100% + 6px);
   right: 0;
   background: $C-NEUTRAL-04;
-  border: 1px solid $C-NEUTRAL-12;
+  border: 1px solid $C-NEUTRAL-16;
   border-radius: $RADIUS-6;
   padding: $SPACE-10 $SPACE-12;
   min-width: 240px;
@@ -6004,7 +6004,7 @@ body.kato-resizing #left-pane-resizer::before {
   align-items: center;
   gap: $SPACE-12;
   padding: $SPACE-6 $SPACE-4;
-  color: $C-NEUTRAL-83;
+  color: $C-NEUTRAL-96;
   cursor: pointer;
   user-select: none;
 }
@@ -6022,7 +6022,7 @@ body.kato-resizing #left-pane-resizer::before {
   height: 20px;
   border-radius: $RADIUS-PILL;
   background: $C-NEUTRAL-16;
-  border: 1px solid $C-NEUTRAL-25;
+  border: 1px solid $C-NEUTRAL-16;
   position: relative;
   cursor: pointer;
   transition: background 0.18s ease-out, border-color 0.18s ease-out;
@@ -6068,7 +6068,7 @@ body.kato-resizing #left-pane-resizer::before {
 
 .notification-settings-master {
   font-weight: 600;
-  color: $C-NEUTRAL-90;
+  color: $C-NEUTRAL-96;
   justify-content: space-between;
   padding: $SPACE-10 $SPACE-4;
 }
@@ -6098,7 +6098,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .notification-settings-divider {
-  border-top: 1px solid $C-NEUTRAL-12;
+  border-top: 1px solid $C-NEUTRAL-16;
   margin: $SPACE-4 0;
 }
 
@@ -6123,7 +6123,7 @@ body.kato-resizing #left-pane-resizer::before {
 .adopt-session-modal-backdrop {
   position: fixed;
   inset: 0;
-  background: $C-NEUTRAL-00-A55;
+  background: $C-NEUTRAL-11-A62;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -6131,14 +6131,14 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .adopt-session-modal {
-  background: $C-NEUTRAL-12;
+  background: $C-NEUTRAL-16;
   border: 1px solid $C-NEUTRAL-16;
   border-radius: $RADIUS-6;
   width: min(720px, 90vw);
   max-height: 80vh;
   display: flex;
   flex-direction: column;
-  color: $C-NEUTRAL-90;
+  color: $C-NEUTRAL-96;
   font-size: $TEXT-13;
 }
 
@@ -6154,7 +6154,7 @@ body.kato-resizing #left-pane-resizer::before {
   margin: 0;
   font-size: $TEXT-14;
   font-weight: 500;
-  color: $C-NEUTRAL-90;
+  color: $C-NEUTRAL-96;
 }
 
 .adopt-session-close {
@@ -6168,7 +6168,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .adopt-session-close:hover {
-  color: $C-NEUTRAL-90;
+  color: $C-NEUTRAL-96;
 }
 
 .adopt-session-modal-help {
@@ -6191,13 +6191,13 @@ body.kato-resizing #left-pane-resizer::before {
   background: $C-NEUTRAL-04;
   border: 1px solid $C-NEUTRAL-16;
   border-radius: $RADIUS-4;
-  color: $C-NEUTRAL-90;
+  color: $C-NEUTRAL-96;
   font: inherit;
 }
 
 .adopt-session-search:focus {
   outline: none;
-  border-color: $C-NEUTRAL-25;
+  border-color: $C-NEUTRAL-16;
 }
 
 .adopt-session-list {
@@ -6235,12 +6235,12 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .adopt-session-row:hover {
-  background: $C-NEUTRAL-12;
-  border-color: $C-NEUTRAL-25;
+  background: $C-NEUTRAL-16;
+  border-color: $C-NEUTRAL-16;
 }
 
 .adopt-session-row.is-selected {
-  background: $C-NEUTRAL-12;
+  background: $C-NEUTRAL-16;
   border-color: $C-ORANGE-56;
 }
 
@@ -6252,7 +6252,7 @@ body.kato-resizing #left-pane-resizer::before {
 
 .adopt-session-cwd {
   font-family: monospace;
-  color: $C-NEUTRAL-83;
+  color: $C-NEUTRAL-96;
   font-size: $TEXT-12;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -6305,12 +6305,12 @@ body.kato-resizing #left-pane-resizer::before {
 .adopt-session-badge.in-use {
   background: $C-ORANGE-14;
   color: $C-ORANGE-56;
-  border: 1px solid $C-ORANGE-28;
+  border: 1px solid $C-RED-31;
 }
 
 .adopt-session-badge.adopted {
   background: $C-GREEN-10;
-  color: $C-GREEN-58;
+  color: $C-GREEN-52;
   border: 1px solid $C-GREEN-17;
 }
 
@@ -6325,8 +6325,8 @@ body.kato-resizing #left-pane-resizer::before {
 .adopt-session-cancel,
 .adopt-session-confirm {
   background: $C-NEUTRAL-16;
-  color: $C-NEUTRAL-90;
-  border: 1px solid $C-NEUTRAL-25;
+  color: $C-NEUTRAL-96;
+  border: 1px solid $C-NEUTRAL-16;
   border-radius: $RADIUS-4;
   padding: $SPACE-4 $SPACE-12;
   cursor: pointer;
@@ -6375,7 +6375,7 @@ body.kato-resizing #left-pane-resizer::before {
   right: 0;
   bottom: 0;
   width: min(720px, 100vw);
-  background: $C-NEUTRAL-09;
+  background: $C-NEUTRAL-04;
   border-left: 1px solid $C-NEUTRAL-16;
   box-shadow: $SHADOW-30;
   z-index: 1000;
@@ -6420,9 +6420,9 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .settings-drawer-close:hover {
-  color: $C-NEUTRAL-90;
+  color: $C-NEUTRAL-96;
   border-color: $C-NEUTRAL-32;
-  background: $C-NEUTRAL-12;
+  background: $C-NEUTRAL-16;
 }
 
 .settings-drawer-tabs {
@@ -6446,7 +6446,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .settings-drawer-tab:hover {
-  color: $C-NEUTRAL-90;
+  color: $C-NEUTRAL-96;
   background: $C-NEUTRAL-100-A06;
 }
 
@@ -6496,7 +6496,7 @@ body.kato-resizing #left-pane-resizer::before {
 
 .settings-drawer-field-label {
   font-size: $TEXT-12;
-  color: $C-NEUTRAL-83;
+  color: $C-NEUTRAL-96;
 }
 
 .settings-drawer-field-hint {
@@ -6552,7 +6552,7 @@ body.kato-resizing #left-pane-resizer::before {
 
 .settings-drawer-kv-value {
   font: 12px/1.4 ui-monospace, monospace;
-  color: $C-NEUTRAL-90;
+  color: $C-NEUTRAL-96;
   word-break: break-all;
 }
 
@@ -6565,7 +6565,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .settings-drawer-kv-value.source-env_file {
-  color: $C-GREEN-73;
+  color: $C-GREEN-71;
 }
 
 .settings-drawer-kv-value.source-unset {
@@ -6607,12 +6607,12 @@ body.kato-resizing #left-pane-resizer::before {
 
 .settings-drawer-action-secondary {
   background: transparent;
-  border-color: $C-NEUTRAL-25;
+  border-color: $C-NEUTRAL-16;
   color: $C-NEUTRAL-64;
 }
 
 .settings-drawer-action-secondary:hover:not(:disabled) {
-  color: $C-NEUTRAL-90;
+  color: $C-NEUTRAL-96;
   border-color: $C-NEUTRAL-32;
 }
 
@@ -6720,7 +6720,7 @@ body.kato-resizing #left-pane-resizer::before {
   height: 20px;
   border-radius: $RADIUS-PILL;
   background: $C-NEUTRAL-16;
-  border: 1px solid $C-NEUTRAL-25;
+  border: 1px solid $C-NEUTRAL-16;
   position: relative;
   cursor: pointer;
   transition: background 0.18s ease-out, border-color 0.18s ease-out;
@@ -6762,11 +6762,11 @@ body.kato-resizing #left-pane-resizer::before {
 
 .settings-drawer-source.source-inventory {
   color: $C-CYAN-78;
-  background: $C-CYAN-60-A10;
+  background: $C-CYAN-52-A18;
 }
 
 .settings-drawer-source.source-checkout {
-  color: $C-GREEN-73;
+  color: $C-GREEN-71;
   background: $C-GREEN-45-A10;
 }
 
@@ -6787,11 +6787,11 @@ body.kato-resizing #left-pane-resizer::before {
 
 .settings-drawer-source.source-kato_settings {
   color: $C-CYAN-78;
-  background: $C-CYAN-60-A10;
+  background: $C-CYAN-52-A18;
 }
 
 .settings-drawer-source.source-env_file {
-  color: $C-GREEN-73;
+  color: $C-GREEN-71;
   background: $C-GREEN-45-A10;
 }
 
@@ -6836,7 +6836,7 @@ body.kato-resizing #left-pane-resizer::before {
   height: 16px;
   border-radius: $RADIUS-CIRCLE;
   background: $C-NEUTRAL-100-A06;
-  border: 1px solid $C-NEUTRAL-100-A14;
+  border: 1px solid $C-NEUTRAL-100-A06;
   color: $C-NEUTRAL-96-A65;
   font-size: $TEXT-10;
   font-style: normal;
@@ -6846,7 +6846,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .settings-drawer-field-info:hover {
-  background: $C-NEUTRAL-100-A14;
+  background: $C-NEUTRAL-100-A06;
   color: $C-NEUTRAL-96;
 }
 
@@ -6866,7 +6866,7 @@ body.kato-resizing #left-pane-resizer::before {
   max-width: 280px;
   width: max-content;
   text-align: left;
-  border: 1px solid $C-CYAN-27;
+  border: 1px solid $C-CYAN-17;
   box-shadow: $SHADOW-27;
   z-index: 9999;
   pointer-events: none;
@@ -6887,7 +6887,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .settings-drawer-field-name {
-  color: $C-NEUTRAL-90;
+  color: $C-NEUTRAL-96;
   font-size: $TEXT-12;
   font-weight: 600;
 }
@@ -6914,7 +6914,7 @@ body.kato-resizing #left-pane-resizer::before {
   height: $SPACE-22;
   border-radius: $RADIUS-PILL;
   background: $C-NEUTRAL-16;
-  border: 1px solid $C-NEUTRAL-19;
+  border: 1px solid $C-NEUTRAL-16;
   position: relative;
   cursor: pointer;
   flex-shrink: 0;
@@ -6949,12 +6949,12 @@ body.kato-resizing #left-pane-resizer::before {
   border: 1px solid $C-RED-60-A35;
   border-radius: $RADIUS-6;
   padding: $SPACE-10 $SPACE-12;
-  background: $C-RED-60-A04;
+  background: $C-RED-60-A12;
 }
 
 .settings-drawer-field.is-danger .settings-drawer-toggle:checked {
-  background: $C-RED-51;
-  border-color: $C-RED-51;
+  background: $C-RED-60;
+  border-color: $C-RED-60;
 }
 
 .settings-drawer-field-warning {
@@ -6979,12 +6979,12 @@ body.kato-resizing #left-pane-resizer::before {
   z-index: 1200;
   width: max-content;
   max-width: 380px;
-  background: $C-BLUE-10-2;
-  border: 1px solid $C-BLUE-19;
+  background: $C-NEUTRAL-04;
+  border: 1px solid $C-CYAN-17;
   border-radius: $RADIUS-10;
   padding: $SPACE-12 $SPACE-14;
   box-shadow: $SHADOW-32;
-  color: $C-NEUTRAL-90;
+  color: $C-NEUTRAL-96;
   font-size: $TEXT-12;
   line-height: 1.5;
   pointer-events: none;
@@ -7018,7 +7018,7 @@ body.kato-resizing #left-pane-resizer::before {
   height: 8px;
   border-radius: $RADIUS-CIRCLE;
   flex-shrink: 0;
-  background: $C-CYAN-46;
+  background: $C-NEUTRAL-45;
 }
 
 .tab-tooltip-dot.status-active {
@@ -7034,11 +7034,11 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .tab-tooltip-dot.status-provisioning {
-  background: $C-CYAN-67;
+  background: $C-CYAN-52;
 }
 
 .tab-tooltip-dot.status-review {
-  background: $C-CYAN-67;
+  background: $C-CYAN-52;
 }
 
 .tab-tooltip-dot.status-done {
@@ -7065,7 +7065,7 @@ body.kato-resizing #left-pane-resizer::before {
   border-radius: var(--radius-pill);
   white-space: nowrap;
   background: $C-NEUTRAL-100-A06;
-  color: $C-CYAN-65;
+  color: $C-NEUTRAL-64;
 }
 
 .tab-tooltip-badge.is-work {
@@ -7080,17 +7080,17 @@ body.kato-resizing #left-pane-resizer::before {
 
 .tab-tooltip-badge.is-sleep {
   background: $C-CYAN-65-A16;
-  color: $C-CYAN-84;
+  color: $C-CYAN-90;
 }
 
 .tab-tooltip-badge.is-wait {
   background: $C-ORANGE-50-A10;
-  color: $C-AMBER-62;
+  color: $C-ORANGE-56;
 }
 
 .tab-tooltip-summary {
   margin: 0 0 $SPACE-8 0;
-  color: $C-CYAN-84;
+  color: $C-CYAN-90;
   /* Wrap, but cap at ~3 lines so a verbose ticket title doesn't
    * make a giant card. */
   display: -webkit-box;
@@ -7102,7 +7102,7 @@ body.kato-resizing #left-pane-resizer::before {
 .tab-tooltip-rows {
   margin: 0;
   padding-top: $SPACE-8;
-  border-top: 1px solid $C-BLUE-19;
+  border-top: 1px solid $C-CYAN-17;
   display: grid;
   grid-template-columns: max-content 1fr;
   column-gap: $SPACE-12;
@@ -7114,7 +7114,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .tab-tooltip-row dt {
-  color: $C-CYAN-46;
+  color: $C-NEUTRAL-45;
   font-size: $TEXT-10;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -7123,12 +7123,12 @@ body.kato-resizing #left-pane-resizer::before {
 
 .tab-tooltip-row dd {
   margin: 0;
-  color: $C-NEUTRAL-90;
+  color: $C-NEUTRAL-96;
   word-break: break-word;
 }
 
 .tab-tooltip-row dd.tone-warn {
-  color: $C-AMBER-62;
+  color: $C-ORANGE-56;
 }
 
 .tab-tooltip-row dd.tone-error {

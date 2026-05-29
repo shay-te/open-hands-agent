@@ -6,7 +6,6 @@
 import { BUBBLE_KIND } from '../constants/bubbleKind.js';
 import { CLAUDE_EVENT, CLAUDE_SYSTEM_SUBTYPE } from '../constants/claudeEvent.js';
 import { ENTRY_SOURCE } from '../constants/entrySource.js';
-import { NOTIFICATION_KIND } from '../constants/notificationKind.js';
 import { messageContentText } from './messageContent.js';
 
 const HEARTBEAT_MESSAGE_PREFIX = 'Idle · next scan in';
@@ -25,14 +24,6 @@ const HIDDEN_CHAT_EVENT_TYPES = new Set([
   CLAUDE_EVENT.PERMISSION_RESPONSE,
   'rate_limit_event',
 ]);
-
-// Notification kinds that fire often during a normal turn. They get
-// per-task throttling so a burst of permission requests during one turn
-// produces one ping, not a dozen.
-const RATE_LIMITED_NOTIFICATION_KINDS = new Set([
-  NOTIFICATION_KIND.ATTENTION,
-]);
-const NOTIFICATION_RATE_LIMIT_MS = 8_000;
 
 export class MessageFilter {
   // ----- status-feed (top status bar + orchestrator activity feed) -----
@@ -135,47 +126,6 @@ export class MessageFilter {
     return result;
   }
 
-  // ----- browser notifications -----
-
-  // Decides whether a `notify()` call for `(taskId, kind)` should fire.
-  // Returns `{ allow: bool, reason?: string }`. The caller passes:
-  //   - kindPrefs: per-kind on/off map from useNotifications
-  //   - activeTaskId: the currently-focused task (suppress same-task
-  //                   notifications when the operator is already looking
-  //                   at the chat that produced them)
-  //   - lastFireMap:  per-key (kind+taskId) timestamp of last fire,
-  //                   maintained by the caller as a Map
-  //   - now:          monotonic millis (defaults to Date.now())
-  //
-  // The lastFireMap is mutated in place when allow=true so the caller
-  // doesn't need to track the bookkeeping separately.
-  static shouldFireNotification({
-    kind,
-    taskId,
-    kindPrefs,
-    activeTaskId,
-    lastFireMap,
-    documentHidden = false,
-    now = Date.now(),
-  }) {
-    if (!kindPrefs || kindPrefs[kind] === false) {
-      return { allow: false, reason: 'kind disabled' };
-    }
-    // Operator is already looking at this task's chat — no need to
-    // notify them about something they're watching live.
-    if (!documentHidden && taskId && taskId === activeTaskId) {
-      return { allow: false, reason: 'active task in foreground' };
-    }
-    if (RATE_LIMITED_NOTIFICATION_KINDS.has(kind) && lastFireMap) {
-      const key = `${kind}:${taskId || ''}`;
-      const last = lastFireMap.get(key);
-      if (last && now - last < NOTIFICATION_RATE_LIMIT_MS) {
-        return { allow: false, reason: 'rate-limited' };
-      }
-      lastFireMap.set(key, now);
-    }
-    return { allow: true };
-  }
 }
 
 // Classify an entry against the rate-limit retry pattern. Returns
@@ -258,8 +208,6 @@ function _hasMatchingLocalUser(recentEntries, serverText, lookback) {
 export const _internals = {
   HEARTBEAT_MESSAGE_PREFIX,
   HIDDEN_CHAT_EVENT_TYPES,
-  RATE_LIMITED_NOTIFICATION_KINDS,
-  NOTIFICATION_RATE_LIMIT_MS,
   RATE_LIMIT_TEXT_PREFIX,
   TASK_NOTIFICATION_PREFIX,
 };

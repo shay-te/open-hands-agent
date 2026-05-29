@@ -12,6 +12,17 @@ import { toast } from '../stores/toastStore.js';
 // both consumers reuse the exact wording (load-bearing for how
 // kato pushes replies on remote-sourced threads).
 
+// Shared toast wording for a freshly-posted (non-reply) comment:
+// whether kato picked it up immediately or queued it behind the
+// live turn. Both the diff view and the editor pane use this exact
+// pair of strings, so it lives here next to the other shared
+// comment-UI helpers.
+export function katoTriggeredMessage(triggered) {
+  return triggered
+    ? '✓ kato is working on this comment now'
+    : '✓ queued — kato will pick it up when the live agent goes idle';
+}
+
 export function buildThreads(comments) {
   const byId = new Map();
   for (const comment of comments) {

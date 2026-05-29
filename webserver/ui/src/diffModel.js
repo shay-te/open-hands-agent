@@ -11,6 +11,7 @@
 // in exactly the contexts it was before.
 import { parseDiff } from 'react-diff-view';
 import 'react-diff-view/style/index.css';
+import { basenameOf } from './utils/basenameOf.js';
 
 export function diffLabelForStatus(status) {
   switch (String(status || '').toLowerCase()) {
@@ -83,18 +84,38 @@ function normalizeDiff(entry) {
   };
 }
 
-// Exported for tests.
-export function basenameOf(path) {
-  if (!path) { return ''; }
-  const trimmed = path.replace(/[\\/]+$/, '');
-  const idx = Math.max(trimmed.lastIndexOf('/'), trimmed.lastIndexOf('\\'));
-  return idx >= 0 ? trimmed.slice(idx + 1) : trimmed;
-}
+// Re-exported (defined in ``utils/basenameOf.js``) so existing
+// importers + the diffModel test keep their ``diffModel.js`` import.
+export { basenameOf };
 
 export function diffFileKey(file) {
   const oldPath = file.oldPath || '';
   const newPath = file.newPath || '';
   return `${file.type}:${oldPath}->${newPath}`;
+}
+
+// ``repo:path`` label for clipboard / chat references. Drops the
+// ``repo:`` prefix when there is no repo id (single-repo workspace)
+// and falls back to the repo id alone when no path is supplied.
+// Shared by FilesTab and DiffFileWithComments so both produce the
+// exact same relative-path string.
+export function formatRepoRelativePath(repoId, relativePath) {
+  const repo = String(repoId || '').trim();
+  const path = String(relativePath || '').trim();
+  if (!repo) { return path; }
+  if (!path) { return repo; }
+  return `${repo}:${path}`;
+}
+
+// True when either side of a diff file appears in the conflicted-set.
+// Empty / missing sets short-circuit to false. Shared by the file
+// tree (FilesTab) and the stacked diff pane so both flag the same
+// rows as conflicted.
+export function isFileConflicted(file, conflictedSet) {
+  if (!conflictedSet || conflictedSet.size === 0) { return false; }
+  const oldPath = file.oldPath || '';
+  const newPath = file.newPath || '';
+  return conflictedSet.has(oldPath) || conflictedSet.has(newPath);
 }
 
 // The real, human path of a diff entry. react-diff-view sets the

@@ -34,7 +34,7 @@ export function useStatusFeed(onEntry) {
       // Drop idle-heartbeat entries from the rolling history so a long
       // idle window doesn't push real activity off the top. They still
       // update `latest` so the live bar shows the countdown.
-      const isHeartbeat = String(entry.message || '').startsWith('Idle · next scan in');
+      const isHeartbeat = MessageFilter.isStatusFeedHeartbeat(entry);
       setLatest(entry);
       if (!isHeartbeat) {
         setHistory((prev) => {

@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { cx } from '../utils/cx.js';
 import { TAB_STATUS } from '../constants/tabStatus.js';
-import { deriveTabStatus, resolveTabStatus, tabStatusTitle } from '../utils/tabStatus.js';
+import { deriveTabStatus, resolveTabStatus, statusDotClass, tabStatusTitle } from '../utils/tabStatus.js';
 import Icon from './Icon.jsx';
 import TabTooltip from './TabTooltip.jsx';
 
@@ -24,12 +24,7 @@ export default function Tab({
     pinned && 'is-pinned',
   );
   const idleAlive = status === TAB_STATUS.ACTIVE && session?.working === false;
-  const dotClass = cx(
-    'status-dot',
-    `status-${status}`,
-    isLoading && 'is-loading',
-    idleAlive && 'is-idle-alive',
-  );
+  const dotClass = statusDotClass(status, { isLoading, idleAlive });
 
   // Hover-card state. ``anchorRect`` is a frozen snapshot of the
   // <li>'s viewport rect taken when the card opens — TabTooltip

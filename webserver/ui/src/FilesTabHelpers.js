@@ -1,3 +1,5 @@
+import { basenameOf } from './utils/basenameOf.js';
+
 export function normalizeTrees(payload) {
   const trees = Array.isArray(payload?.trees) ? payload.trees : null;
   if (trees && trees.length > 0) {
@@ -82,13 +84,6 @@ export function activateTreeNode(node) {
   if (node.isInternal) {
     node.toggle();
   }
-}
-
-function basenameOf(path) {
-  if (!path) { return ''; }
-  const trimmed = path.replace(/[\\/]+$/, '');
-  const idx = Math.max(trimmed.lastIndexOf('/'), trimmed.lastIndexOf('\\'));
-  return idx >= 0 ? trimmed.slice(idx + 1) : trimmed;
 }
 
 // Lenient, VS-Code / Cmd+P-style fuzzy match for the file search.

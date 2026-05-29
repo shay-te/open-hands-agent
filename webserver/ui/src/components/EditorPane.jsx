@@ -14,6 +14,7 @@ import {
   CommentBubble,
   CommentForm,
   buildThreads,
+  katoTriggeredMessage,
 } from './CommentWidgets.jsx';
 import { useChatComposer } from '../contexts/ChatComposerContext.jsx';
 import { toast } from '../stores/toastStore.js';
@@ -155,9 +156,7 @@ export default function EditorPane({ openFile, onCommentSpawned }) {
       title: 'Comment added',
       message: parentId
         ? '✓ reply posted (kato runs only on top-of-thread comments)'
-        : (triggered
-          ? '✓ kato is working on this comment now'
-          : '✓ queued — kato will pick it up when the live agent goes idle'),
+        : katoTriggeredMessage(triggered),
       durationMs: 5000,
     });
     setActiveLine(null);
@@ -193,9 +192,7 @@ export default function EditorPane({ openFile, onCommentSpawned }) {
     toast.show({
       kind: 'success',
       title: 'Comment reopened',
-      message: triggered
-        ? '✓ kato is working on this comment now'
-        : '✓ queued — kato will pick it up when the live agent goes idle',
+      message: katoTriggeredMessage(triggered),
       durationMs: 5000,
     });
     refreshComments();

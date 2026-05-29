@@ -27,7 +27,7 @@ import {
   resolveTaskComment,
 } from '../api.js';
 import { toast } from '../stores/toastStore.js';
-import { diffDisplayPath } from '../diffModel.js';
+import { diffDisplayPath, formatRepoRelativePath } from '../diffModel.js';
 import { copyTextToClipboard } from '../utils/clipboard.js';
 import { apiErrorMessage } from '../utils/apiError.js';
 import { commentDraftKey } from '../utils/composerDraft.js';
@@ -37,6 +37,7 @@ import {
   CommentForm,
   CommentThread,
   buildThreads,
+  katoTriggeredMessage,
 } from './CommentWidgets.jsx';
 import StickyHeader from './StickyHeader.jsx';
 import {
@@ -241,9 +242,7 @@ export default function DiffFileWithComments({
         ? (triggered
           ? '✓ kato is re-addressing this thread now'
           : '✓ thread re-queued — kato will pick up your reply when it goes idle')
-        : (triggered
-          ? '✓ kato is working on this comment now'
-          : '✓ queued — kato will pick it up when the live agent goes idle'),
+        : katoTriggeredMessage(triggered),
       durationMs: 5000,
     });
     setActiveLine(null);
@@ -304,9 +303,7 @@ export default function DiffFileWithComments({
     toast.show({
       kind: 'success',
       title: 'Comment reopened',
-      message: triggered
-        ? '✓ kato is working on this comment now'
-        : '✓ queued — kato will pick it up when the live agent goes idle',
+      message: katoTriggeredMessage(triggered),
       durationMs: 5000,
     });
     notifyMutated();
@@ -822,13 +819,4 @@ export default function DiffFileWithComments({
       </div>
     </section>
   );
-}
-
-
-function formatRepoRelativePath(repoId, relativePath) {
-  const repo = String(repoId || '').trim();
-  const path = String(relativePath || '').trim();
-  if (!repo) { return path; }
-  if (!path) { return repo; }
-  return `${repo}:${path}`;
 }

@@ -6,7 +6,7 @@ import {
 import { toast } from '../stores/toastStore.js';
 import { apiErrorMessage } from '../utils/apiError.js';
 import { useSettingsResource } from '../hooks/useSettingsResource.js';
-import PanelMessage from './settings/PanelMessage.jsx';
+import SettingsPanelBody from './settings/SettingsPanelBody.jsx';
 import SettingsPanelHead from './settings/SettingsPanelHead.jsx';
 import SettingsActions from './settings/SettingsActions.jsx';
 
@@ -128,14 +128,7 @@ export default function RepositoryApprovalsSettingsPanel() {
         </p>
       </SettingsPanelHead>
 
-      {loading && (
-        <PanelMessage>Loading repositories…</PanelMessage>
-      )}
-      {error && (
-        <PanelMessage error>{error}</PanelMessage>
-      )}
-
-      {!loading && !error && (
+      <SettingsPanelBody loading={loading} error={error} loadingMessage="Loading repositories…">
         <>
           {meta.rows.length === 0 ? (
             <p className="settings-drawer-message">
@@ -227,7 +220,7 @@ export default function RepositoryApprovalsSettingsPanel() {
             primaryLabel="Save changes"
           />
         </>
-      )}
+      </SettingsPanelBody>
     </div>
   );
 }

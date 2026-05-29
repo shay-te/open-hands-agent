@@ -20,6 +20,8 @@ import {
   changedFileOpenTarget,
   countFileChangeStats,
   diffDisplayPath,
+  formatRepoRelativePath,
+  isFileConflicted,
   parseRepoDiffs,
 } from './diffModel.js';
 import { toast } from './stores/toastStore.js';
@@ -1037,7 +1039,7 @@ function ChangedFilesTreeNode({
   const path = diffDisplayPath(file);
   const kind = file.type || 'modify';
   const selected = selectedKey === changedFileSelectionKey(file);
-  const conflicted = fileIsConflictedForFilesTree(file, conflictedFiles);
+  const conflicted = isFileConflicted(file, conflictedFiles);
   const className = [
     'diff-file-tree-row',
     'files-changed-tree-row',
@@ -1267,14 +1269,6 @@ function joinRelativePath(parent, child) {
   return `${left}/${right}`;
 }
 
-function formatRepoRelativePath(repoId, relativePath) {
-  const repo = String(repoId || '').trim();
-  const path = String(relativePath || '').trim();
-  if (!repo) { return path; }
-  if (!path) { return repo; }
-  return `${repo}:${path}`;
-}
-
 function focusTargetMatchesRepo(target, repoTree, repoCount) {
   if (!target) { return false; }
   const targetRepo = String(target.repoId || '').trim();
@@ -1298,13 +1292,6 @@ function findChangedFileFocusInfo(nodes, targetPath, ancestors = []) {
     }
   }
   return null;
-}
-
-function fileIsConflictedForFilesTree(file, conflictedSet) {
-  if (!conflictedSet || conflictedSet.size === 0) { return false; }
-  const oldPath = file.oldPath || '';
-  const newPath = file.newPath || '';
-  return conflictedSet.has(oldPath) || conflictedSet.has(newPath);
 }
 
 // Bitbucket-style 💬 N on a tree row when the file has open comment

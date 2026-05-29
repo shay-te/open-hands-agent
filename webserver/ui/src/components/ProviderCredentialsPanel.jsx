@@ -3,7 +3,7 @@ import { useSettingsResource } from '../hooks/useSettingsResource.js';
 import { useRestartingSave } from '../hooks/useRestartingSave.js';
 import { isSecretKey, buildDraftFor } from '../utils/providerFields.js';
 import { sourceLabel } from '../utils/settingsSource.js';
-import PanelMessage from './settings/PanelMessage.jsx';
+import SettingsPanelBody from './settings/SettingsPanelBody.jsx';
 import SettingsPanelHead from './settings/SettingsPanelHead.jsx';
 import SettingsActions from './settings/SettingsActions.jsx';
 import RestartBanner from './settings/RestartBanner.jsx';
@@ -85,14 +85,7 @@ export default function ProviderCredentialsPanel({
         </p>
       </SettingsPanelHead>
 
-      {loading && (
-        <PanelMessage>{loadingMessage}</PanelMessage>
-      )}
-      {error && (
-        <PanelMessage error>{error}</PanelMessage>
-      )}
-
-      {!loading && !error && (
+      <SettingsPanelBody loading={loading} error={error} loadingMessage={loadingMessage}>
         <>
           <label className="settings-drawer-field">
             <span className="settings-drawer-field-label">{selectLabel}</span>
@@ -156,7 +149,7 @@ export default function ProviderCredentialsPanel({
 
           <RestartBanner show={savedAt} />
         </>
-      )}
+      </SettingsPanelBody>
     </div>
   );
 }

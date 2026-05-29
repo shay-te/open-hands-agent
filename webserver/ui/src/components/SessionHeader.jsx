@@ -14,7 +14,7 @@ import { usePushApproval } from '../hooks/usePushApproval.js';
 import { useTaskPublish } from '../hooks/useTaskPublish.js';
 import { apiErrorMessage } from '../utils/apiError.js';
 import { cx } from '../utils/cx.js';
-import { deriveTabStatus, resolveTabStatus, tabStatusTitle } from '../utils/tabStatus.js';
+import { deriveTabStatus, resolveTabStatus, statusDotClass, tabStatusTitle } from '../utils/tabStatus.js';
 import { SESSION_LIFECYCLE } from '../hooks/useSessionStream.js';
 import { toast } from '../stores/toastStore.js';
 import AdoptSessionModal from './AdoptSessionModal.jsx';
@@ -268,10 +268,8 @@ export default function SessionHeader({
   // the batch). ``noopener,noreferrer`` keeps the opened pages from
   // reaching back into the planning UI.
   function onOpenPullRequest() {
-    const urls = Array.isArray(taskPublish.pullRequestUrls)
-      ? taskPublish.pullRequestUrls.filter(Boolean) : [];
-    if (urls.length === 0) { return; }
-    urls.forEach((url) => {
+    if (prUrls.length === 0) { return; }
+    prUrls.forEach((url) => {
       window.open(url, '_blank', 'noopener,noreferrer');
     });
   }
@@ -279,12 +277,7 @@ export default function SessionHeader({
   const idleAlive = status === TAB_STATUS.ACTIVE
     && !turnInFlight
     && session?.working === false;
-  const dotClass = cx(
-    'status-dot',
-    `status-${status}`,
-    isLoading && 'is-loading',
-    idleAlive && 'is-idle-alive',
-  );
+  const dotClass = statusDotClass(status, { isLoading, idleAlive });
   const stopLabel = stopping ? 'Stopping…' : 'Stop';
   const resumeLabel = resuming ? 'Resuming…' : 'Resume';
   const pushLabel = pushApproval.busy ? 'Pushing…' : 'Approve push';
@@ -327,18 +320,18 @@ export default function SessionHeader({
     || taskPublish.hasPullRequest
     || taskPublish.prBusy;
   const prTitle = prTitleFor(taskPublish);
-  const openPrUrls = Array.isArray(taskPublish.pullRequestUrls)
+  const prUrls = Array.isArray(taskPublish.pullRequestUrls)
     ? taskPublish.pullRequestUrls.filter(Boolean) : [];
-  const openPrDisabled = openPrUrls.length === 0;
+  const openPrDisabled = prUrls.length === 0;
   let openPrTitle;
   if (openPrDisabled) {
     openPrTitle = 'No pull request yet — open one with the adjacent '
       + 'Pull request button (or Done) first.';
-  } else if (openPrUrls.length === 1) {
+  } else if (prUrls.length === 1) {
     openPrTitle = 'Open the pull request on the provider in a new '
       + 'browser tab.';
   } else {
-    openPrTitle = `Open all ${openPrUrls.length} pull requests `
+    openPrTitle = `Open all ${prUrls.length} pull requests `
       + '(one per repository) in new browser tabs.';
   }
   // Per AGENTS.md "no logic inside JSX": every label / element /

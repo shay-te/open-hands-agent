@@ -24,6 +24,10 @@ vi.mock('../diffModel.js', () => ({
     nodes: (files || []).map((f) => ({ kind: 'file', file: f })),
     stats: { added: 0, deleted: 0 },
   }),
+  isFileConflicted: (f, set) => {
+    if (!set || set.size === 0) { return false; }
+    return set.has(f.oldPath || '') || set.has(f.newPath || '');
+  },
 }));
 vi.mock('./DiffFileWithComments.jsx', () => ({
   default: (props) => (
@@ -58,7 +62,7 @@ vi.mock('../contexts/ChatComposerContext.jsx', () => ({
   useChatComposer: () => ({ appendToInput: vi.fn() }),
 }));
 
-import DiffPane, { findDiffFile, diffAnchorKey } from './DiffPane.jsx';
+import DiffPane, { diffAnchorKey } from './DiffPane.jsx';
 import { fetchDiff, fetchTaskComments } from '../api.js';
 import { parseRepoDiffs } from '../diffModel.js';
 
@@ -98,30 +102,6 @@ describe('diffAnchorKey', () => {
     expect(diffAnchorKey('client', 'src/App.jsx')).toBe('client::src/App.jsx');
     expect(diffAnchorKey('', 'a.js')).toBe('::a.js');
     expect(diffAnchorKey(undefined, 'a.js')).toBe('::a.js');
-  });
-});
-
-
-describe('findDiffFile — still resolves a single file', () => {
-  test('matches on display path within the selected repo', () => {
-    const m = findDiffFile(_repoDiffs(), 'client', 'src/App.jsx');
-    expect(m.repo.repo_id).toBe('client');
-    expect(m.file.newPath).toBe('src/App.jsx');
-  });
-
-  test('an added file resolves via its /dev/null old side too', () => {
-    const m = findDiffFile(_repoDiffs(), 'client', '/dev/null');
-    expect(m.file.newPath).toBe('src/new.js');
-  });
-
-  test('selects the repo by id', () => {
-    const m = findDiffFile(_repoDiffs(), 'backend', 'api/auth.py');
-    expect(m.repo.repo_id).toBe('backend');
-  });
-
-  test('repo found, file absent → file null; empty input → null', () => {
-    expect(findDiffFile(_repoDiffs(), 'client', 'nope').file).toBeNull();
-    expect(findDiffFile([], 'client', 'x')).toBeNull();
   });
 });
 

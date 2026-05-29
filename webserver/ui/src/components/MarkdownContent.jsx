@@ -105,5 +105,3 @@ const MARKDOWN_COMPONENTS = {
   code: InlineCode,
   a: MarkdownLink,
 };
-
-export { childrenToText };

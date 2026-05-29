@@ -1,5 +1,6 @@
 import { AGENT_SESSION_ID } from '../constants/sessionFields.js';
 import { TAB_STATUS } from '../constants/tabStatus.js';
+import { cx } from './cx.js';
 
 // Single source of truth for the per-task base status.
 //
@@ -28,6 +29,21 @@ export function deriveTabStatus(session) {
 export function resolveTabStatus(session, needsAttention) {
   if (needsAttention) { return TAB_STATUS.ATTENTION; }
   return deriveTabStatus(session);
+}
+
+// The status-dot className. Tab and SessionHeader both paint the
+// same dot — one ``status-dot`` base, a ``status-<status>`` colour
+// class, plus the provisioning ``is-loading`` and the
+// ``is-idle-alive`` modifiers. ``idleAlive`` is passed in by the
+// caller so each surface keeps its own derivation (SessionHeader
+// additionally factors in ``!turnInFlight``).
+export function statusDotClass(status, { isLoading = false, idleAlive = false } = {}) {
+  return cx(
+    'status-dot',
+    `status-${status}`,
+    isLoading && 'is-loading',
+    idleAlive && 'is-idle-alive',
+  );
 }
 
 export function tabStatusTitle(baseStatus, needsAttention = false) {

@@ -331,6 +331,19 @@ function pendingRequestId(pending) {
   );
 }
 
+// Unwrap an SSE ``MessageEvent`` into ``{ envelope, raw }``. Both the
+// live ``session_event`` and replayed ``session_history_event`` streams
+// share this shape: a JSON body, an optional ``{ event }`` wrapper, and
+// a ``{ raw }`` payload. Returns ``null`` when there's no usable raw
+// event so callers can bail with a single guard.
+function unwrapSessionEvent(event) {
+  const payload = safeParseJSON(event.data);
+  const envelope = payload?.event || payload;
+  const raw = envelope?.raw || envelope;
+  if (!raw) { return null; }
+  return { envelope, raw };
+}
+
 export function useSessionStream(taskId, onIncomingEvent) {
   const [state, dispatch] = useReducer(
     reducer,
@@ -380,10 +393,9 @@ export function useSessionStream(taskId, onIncomingEvent) {
     );
 
     stream.addEventListener('session_event', (event) => {
-      const payload = safeParseJSON(event.data);
-      const envelope = payload?.event || payload;
-      const raw = envelope?.raw || envelope;
-      if (!raw) { return; }
+      const unwrapped = unwrapSessionEvent(event);
+      if (!unwrapped) { return; }
+      const { envelope, raw } = unwrapped;
       dispatch({
         type: ACTION_INCOMING_EVENT,
         event: raw,
@@ -394,11 +406,9 @@ export function useSessionStream(taskId, onIncomingEvent) {
       }
     });
     stream.addEventListener('session_history_event', (event) => {
-      const payload = safeParseJSON(event.data);
-      const envelope = payload?.event || payload;
-      const raw = envelope?.raw || envelope;
-      if (!raw) { return; }
-      dispatch({ type: ACTION_INCOMING_HISTORY, event: raw });
+      const unwrapped = unwrapSessionEvent(event);
+      if (!unwrapped) { return; }
+      dispatch({ type: ACTION_INCOMING_HISTORY, event: unwrapped.raw });
     });
     stream.addEventListener('session_idle', () => {
       dispatch({ type: ACTION_LIFECYCLE, value: SESSION_LIFECYCLE.IDLE });
