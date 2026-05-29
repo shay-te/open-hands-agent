@@ -9,16 +9,11 @@
 // unreadable storage) fall back to ``null`` so the caller can apply
 // its default.
 
-function defaultStorage() {
-  if (typeof window !== 'undefined' && window.localStorage) {
-    return window.localStorage;
-  }
-  return null;
-}
+import { resolveStorage } from './storage.js';
 
 export function readPersistedWidth(storageKey, storage) {
   if (!storageKey) { return null; }
-  const store = storage || defaultStorage();
+  const store = storage || resolveStorage();
   if (!store) { return null; }
   try {
     const raw = store.getItem(storageKey);
@@ -35,7 +30,7 @@ export function readPersistedWidth(storageKey, storage) {
 export function writePersistedWidth(storageKey, width, storage) {
   if (!storageKey) { return; }
   if (!Number.isFinite(width)) { return; }
-  const store = storage || defaultStorage();
+  const store = storage || resolveStorage();
   if (!store) { return; }
   try {
     store.setItem(storageKey, String(width));

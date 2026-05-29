@@ -509,7 +509,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .tabs-scroller::-webkit-scrollbar-thumb:hover {
-  background: $C-NEUTRAL-100-A50;
+  background: $C-NEUTRAL-100-A32;
 }
 
 .tabs-scroller #tab-list {
@@ -538,7 +538,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   border-radius: var(--radius-pill);
   background: $C-NEUTRAL-100-A06;
   border: 1px solid $C-NEUTRAL-100-A06;
-  color: $C-NEUTRAL-96-A78;
+  color: $C-NEUTRAL-96-A85;
   cursor: pointer;
   white-space: nowrap;
   max-width: 220px;
@@ -554,7 +554,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 
 .tabs-pane-top .tab.active {
   background: $C-NEUTRAL-100-A14;
-  border-color: $C-NEUTRAL-100-A22;
+  border-color: $C-NEUTRAL-100-A14;
   color: $C-NEUTRAL-96;
   box-shadow: $SHADOW-1;
 }
@@ -575,7 +575,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 
 .tabs-pane-top .tab p {
   margin: 0;
-  color: $C-NEUTRAL-96-A55;
+  color: $C-NEUTRAL-96-A65;
   font-size: $TEXT-11;
   max-width: 140px;
   overflow: hidden;
@@ -627,11 +627,11 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
    * INSIDE the pill, not a stray glyph hanging off the rounded
    * edge. The hover state below deepens it to red. */
   background: $C-NEUTRAL-100-A10;
-  color: $C-NEUTRAL-96-A78;
+  color: $C-NEUTRAL-96-A85;
 }
 
 .tabs-pane-top .tab .tab-forget-btn:hover {
-  background: $C-RED-51-A85;
+  background: $C-RED-51-A95;
   color: $C-ORANGE-96;
 }
 
@@ -684,7 +684,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
    * pinning ("I want to see this stays pinned across reloads"). */
   visibility: visible;
   background: $C-NEUTRAL-100-A10;
-  color: $C-NEUTRAL-96-A78;
+  color: $C-NEUTRAL-96-A85;
 }
 
 .tabs-pane-top .tab .tab-pin-btn.is-pinned {
@@ -725,7 +725,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
    * active tab so the active-state signal isn't overwritten by the
    * pinned-panel base. */
   background: linear-gradient(180deg, $C-NEUTRAL-23-A98 0%, $C-NEUTRAL-15-A96 100%);
-  border-color: $C-NEUTRAL-100-A26;
+  border-color: $C-NEUTRAL-100-A32;
 }
 
 .tabs-pane-top .tab.needs-attention {
@@ -867,7 +867,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   flex: 1;
   margin: 0;
   padding: 0 $SPACE-4;
-  color: $C-NEUTRAL-96-A55;
+  color: $C-NEUTRAL-96-A65;
   font-size: $TEXT-12;
   white-space: normal;
 }
@@ -1039,7 +1039,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 .tab.needs-attention {
   border-left-color: $C-ORANGE-53;
-  background: $C-ORANGE-53-A11;
+  background: $C-ORANGE-53-A22;
 }
 
 .tab.needs-attention .status-dot {
@@ -1193,7 +1193,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 
 .session-action:hover {
   background: $C-NEUTRAL-100-A14;
-  border-color: $C-NEUTRAL-100-A22;
+  border-color: $C-NEUTRAL-100-A14;
 }
 
 .session-action:active {
@@ -1234,7 +1234,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 
 .session-action.is-danger {
   background: $C-RED-42-A85; /* red-700 */
-  border-color: $C-RED-51-A65;
+  border-color: $C-RED-51-A75;
   color: $C-RED-94;
   box-shadow: $SHADOW-10;
 }
@@ -1882,7 +1882,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   padding: $SPACE-3 $SPACE-10;
   border-radius: $RADIUS-PILL;
   border: 1px solid $C-ORANGE-56-A55;
-  background: $C-ORANGE-56-A12;
+  background: $C-ORANGE-56-A16;
   color: $C-ORANGE-56;
   font: inherit;
   font-size: $TEXT-11;
@@ -1892,7 +1892,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .working-indicator-continue:hover {
-  background: $C-ORANGE-56-A22;
+  background: $C-ORANGE-56-A16;
   color: $C-AMBER-77;
 }
 
@@ -2049,7 +2049,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 
 .chat-search-toggle:hover:not(:disabled) {
   background: $C-NEUTRAL-100-A14;
-  border-color: $C-NEUTRAL-100-A22;
+  border-color: $C-NEUTRAL-100-A14;
 }
 
 .chat-search-toggle:active:not(:disabled) {
@@ -2095,7 +2095,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .chat-search-icon {
-  color: $C-NEUTRAL-96-A70;
+  color: $C-NEUTRAL-96-A65;
   display: inline-flex;
   align-items: center;
   flex-shrink: 0;
@@ -2161,7 +2161,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .chat-search-nav:disabled {
-  color: $C-NEUTRAL-96-A22;
+  color: $C-NEUTRAL-96-A28;
   cursor: not-allowed;
 }
 
@@ -2238,7 +2238,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: $C-NEUTRAL-96-A55;
+  color: $C-NEUTRAL-96-A65;
 }
 
 .queued-message-glyph svg {
@@ -2296,7 +2296,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   background: transparent;
   border: none;
   border-radius: $RADIUS-CIRCLE;
-  color: $C-NEUTRAL-96-A55;
+  color: $C-NEUTRAL-96-A65;
   cursor: pointer;
   transition: background 120ms ease, color 120ms ease;
 }
@@ -2394,7 +2394,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   height: 18px;
   border-radius: $RADIUS-CIRCLE;
   border: none;
-  background: $C-NEUTRAL-00-A70;
+  background: $C-NEUTRAL-00-A55;
   color: $C-NEUTRAL-96;
   font-size: $TEXT-14;
   line-height: 1;
@@ -2492,7 +2492,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 
 #message-attach:disabled {
   background: $C-NEUTRAL-100-A06;
-  color: $C-NEUTRAL-96-A22;
+  color: $C-NEUTRAL-96-A28;
   cursor: not-allowed;
   border-color: $C-NEUTRAL-100-A06;
 }
@@ -2869,7 +2869,7 @@ code {
   height: 100%;
   padding: $SPACE-40;
   text-align: center;
-  color: $C-NEUTRAL-96-A55;
+  color: $C-NEUTRAL-96-A65;
   background: $C-NEUTRAL-12;
 }
 
@@ -3152,7 +3152,7 @@ code {
 }
 
 .editor-pane-chip.kato-queued .editor-pane-chip-status {
-  background: $C-ORANGE-50-A18;
+  background: $C-ORANGE-50-A10;
   color: $C-ORANGE-56;
 }
 
@@ -3449,7 +3449,7 @@ body.kato-resizing #left-pane-resizer::before {
   flex: 1;
   background: $C-NEUTRAL-100-A06;
   border: 1px solid $C-NEUTRAL-100-A06;
-  color: $C-NEUTRAL-96-A78;
+  color: $C-NEUTRAL-96-A85;
   padding: $SPACE-7 $SPACE-10;
   font: inherit;
   font-size: $TEXT-12;
@@ -3472,7 +3472,7 @@ body.kato-resizing #left-pane-resizer::before {
 
 .right-pane-tabs button.active {
   background: $C-NEUTRAL-100-A14;
-  border-color: $C-NEUTRAL-100-A22;
+  border-color: $C-NEUTRAL-100-A14;
   color: $C-NEUTRAL-96;
   box-shadow: $SHADOW-21;
 }
@@ -3584,7 +3584,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .files-tab-filter-clear:hover {
-  background: $C-NEUTRAL-100-A22;
+  background: $C-NEUTRAL-100-A14;
 }
 
 /* ───── iOS round icon toolbar — files + changes ────────────────── */
@@ -4356,7 +4356,7 @@ body.kato-resizing #left-pane-resizer::before {
 .diff-file-comments-cancel {
   background: $C-NEUTRAL-100-A06;
   border: 1px solid $C-NEUTRAL-100-A10;
-  color: $C-NEUTRAL-96-A78;
+  color: $C-NEUTRAL-96-A85;
   border-radius: $RADIUS-PILL;
   padding: $SPACE-6 $SPACE-16;
   font: 600 12px/1 inherit;
@@ -4928,7 +4928,7 @@ body.kato-resizing #left-pane-resizer::before {
 
 .tree-row-icon {
   width: 12px;
-  color: $C-NEUTRAL-96-A78;
+  color: $C-NEUTRAL-96-A85;
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
@@ -5482,12 +5482,12 @@ body.kato-resizing #left-pane-resizer::before {
 .orchestrator-feed-row .lvl-warn,
 .orchestrator-feed-row .lvl-warning {
   color: $C-ORANGE-56;
-  background: $C-ORANGE-50-A18;
+  background: $C-ORANGE-50-A10;
 }
 
 .orchestrator-feed-row .lvl-error {
   color: $C-RED-71;
-  background: $C-RED-60-A18;
+  background: $C-RED-60-A22;
 }
 
 .orchestrator-feed-row .lvl-debug {
@@ -6092,7 +6092,7 @@ body.kato-resizing #left-pane-resizer::before {
 .adopt-session-modal-backdrop {
   position: fixed;
   inset: 0;
-  background: $C-NEUTRAL-00-A60;
+  background: $C-NEUTRAL-00-A55;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -6643,7 +6643,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .settings-drawer-approvals-table tr.has-drift {
-  background: $C-ORANGE-50-A04;
+  background: $C-ORANGE-50-A10;
 }
 
 .settings-drawer-approval-id {
@@ -6664,7 +6664,7 @@ body.kato-resizing #left-pane-resizer::before {
   margin-top: $SPACE-6;
   padding: $SPACE-6 $SPACE-8;
   background: $C-ORANGE-50-A10;
-  border: 1px solid $C-ORANGE-50-A30;
+  border: 1px solid $C-ORANGE-50-A35;
   border-radius: $RADIUS-4;
   color: $C-AMBER-77;
   font-size: $TEXT-11;
@@ -6672,7 +6672,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .settings-drawer-approval-drift code {
-  background: $C-NEUTRAL-00-A30;
+  background: $C-NEUTRAL-00-A35;
   padding: $SPACE-1 $SPACE-4;
   border-radius: $RADIUS-3;
 }
@@ -6806,7 +6806,7 @@ body.kato-resizing #left-pane-resizer::before {
   border-radius: $RADIUS-CIRCLE;
   background: $C-NEUTRAL-100-A06;
   border: 1px solid $C-NEUTRAL-100-A14;
-  color: $C-NEUTRAL-96-A55;
+  color: $C-NEUTRAL-96-A65;
   font-size: $TEXT-10;
   font-style: normal;
   cursor: default;
@@ -6849,7 +6849,7 @@ body.kato-resizing #left-pane-resizer::before {
   padding: $SPACE-10 $SPACE-12;
   border-radius: $RADIUS-6;
   background: $C-ORANGE-50-A10;
-  border: 1px solid $C-ORANGE-50-A40;
+  border: 1px solid $C-ORANGE-50-A35;
   color: $C-AMBER-77;
   font-size: $TEXT-12;
   line-height: 1.5;
@@ -7053,7 +7053,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .tab-tooltip-badge.is-wait {
-  background: $C-ORANGE-50-A18;
+  background: $C-ORANGE-50-A10;
   color: $C-AMBER-62;
 }
 

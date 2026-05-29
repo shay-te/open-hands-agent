@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { adoptTask, fetchAllAssignedTasks } from '../api.js';
 import { toast } from '../stores/toastStore.js';
+import { apiErrorMessage } from '../utils/apiError.js';
+import ModalShell from './ModalShell.jsx';
+import ModalFooterActions from './ModalFooterActions.jsx';
 
 // Left-panel "+ Add task" picker. Lists every task assigned to
 // kato (open, in progress, in review, done), filters by id /
@@ -59,7 +62,7 @@ export default function AdoptTaskModal({
     const result = await adoptTask(selectedId);
     setAdopting(false);
     if (!result.ok) {
-      const err = (result.body && result.body.error) || result.error || 'adopt failed';
+      const err = apiErrorMessage(result, 'adopt failed');
       toast.show({
         kind: 'error',
         title: 'Could not adopt task',
@@ -83,27 +86,12 @@ export default function AdoptTaskModal({
   }
 
   return (
-    <div
-      className="adopt-session-modal-backdrop"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Adopt task"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) { onClose(); }
-      }}
+    <ModalShell
+      ariaLabel="Adopt task"
+      title="Adopt a task"
+      extraClass="adopt-task-modal"
+      onClose={onClose}
     >
-      <div className="adopt-session-modal adopt-task-modal">
-        <header className="adopt-session-modal-header">
-          <h2>Adopt a task</h2>
-          <button
-            type="button"
-            className="adopt-session-close"
-            onClick={onClose}
-            aria-label="Close"
-          >
-            ×
-          </button>
-        </header>
         <p className="adopt-session-modal-help">
           Pick a task assigned to kato. Kato will provision a per-task
           workspace and clone every repository the task touches (driven
@@ -163,25 +151,14 @@ export default function AdoptTaskModal({
             );
           })}
         </div>
-        <footer className="adopt-session-modal-footer">
-          <button
-            type="button"
-            className="adopt-session-cancel"
-            onClick={onClose}
-            disabled={adopting}
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="adopt-session-confirm"
-            onClick={onConfirm}
-            disabled={!selectedId || adopting}
-          >
-            {adopting ? 'Adopting…' : 'Adopt task'}
-          </button>
-        </footer>
-      </div>
-    </div>
+        <ModalFooterActions
+          onCancel={onClose}
+          onConfirm={onConfirm}
+          busy={adopting}
+          canConfirm={Boolean(selectedId)}
+          confirmLabel="Adopt task"
+          busyLabel="Adopting…"
+        />
+    </ModalShell>
   );
 }

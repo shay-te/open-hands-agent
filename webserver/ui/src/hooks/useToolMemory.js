@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { resolveStorage } from '../utils/storage.js';
+import { parseJsonOr } from '../utils/json.js';
 
 // Where the operator's "always allow / always deny" choices live in
 // localStorage. Keyed by tool name (e.g. ``Bash``, ``Edit``, ``Write``)
@@ -19,13 +21,10 @@ export const _readPersistedForTest = readPersisted;
 export const _writePersistedForTest = writePersisted;
 
 function readPersisted() {
-  if (typeof window === 'undefined' || !window.localStorage) {
-    return {};
-  }
+  const store = resolveStorage();
+  if (!store) { return {}; }
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) { return {}; }
-    const parsed = JSON.parse(raw);
+    const parsed = parseJsonOr(store.getItem(STORAGE_KEY), null);
     if (!parsed || typeof parsed !== 'object') { return {}; }
     return parsed;
   } catch (_) {
@@ -35,9 +34,10 @@ function readPersisted() {
 
 
 function writePersisted(decisions) {
-  if (typeof window === 'undefined' || !window.localStorage) { return; }
+  const store = resolveStorage();
+  if (!store) { return; }
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(decisions));
+    store.setItem(STORAGE_KEY, JSON.stringify(decisions));
   } catch (_) { /* quota / private-mode failures are non-fatal */ }
 }
 

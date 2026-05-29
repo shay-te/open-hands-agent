@@ -141,9 +141,6 @@ vi.mock('./components/RightPane.jsx', () => ({
 vi.mock('./components/SafetyBanner.jsx', () => ({
   default: () => null,
 }));
-vi.mock('./components/StatusBar.jsx', () => ({
-  default: () => <div data-testid="status-bar" />,
-}));
 vi.mock('./components/ToastContainer.jsx', () => ({
   default: () => null,
 }));

@@ -10,6 +10,8 @@ import { ENTRY_SOURCE } from '../constants/entrySource.js';
 import { formatToolUse, toolUseFilePath } from '../utils/formatToolUse.js';
 import { MessageFilter } from '../utils/MessageFilter.js';
 import { isPinnedToBottom, scrollToBottom } from '../utils/scrollUtils.js';
+import { cx } from '../utils/cx.js';
+import { countNoun } from '../utils/pluralize.js';
 import {
   TOOL_DETAILS_COLLAPSE_THRESHOLD,
   TOOL_DETAILS_HARD_CAP,
@@ -212,7 +214,7 @@ export default function EventLog({
       className="event-log-show-older"
       onClick={() => setShowAll(true)}
     >
-      {`Show ${hiddenCount} earlier event${hiddenCount === 1 ? '' : 's'}`}
+      {`Show ${countNoun(hiddenCount, 'earlier event')}`}
     </button>
   ) : null;
   return (
@@ -260,7 +262,7 @@ function bubblesFor(entry, index, onOpenFile, liveAgentSessionId = '') {
     const text = entry.text || '';
     const count = Number(entry.imageCount || 0);
     const display = count > 0
-      ? `${text}${text ? '\n' : ''}(${count} image${count === 1 ? '' : 's'} attached)`
+      ? `${text}${text ? '\n' : ''}(${countNoun(count, 'image')} attached)`
       : text;
     // Stable key derived from content — see ``localKey`` for the
     // rationale (window-index keys forced React unmounts on every
@@ -438,7 +440,7 @@ function userBubbles(raw, index) {
   if (textPieces.length === 0 && imageCount === 0) { return []; }
   const text = textPieces.join('\n');
   const display = imageCount > 0
-    ? `${text}${text ? '\n' : ''}(${imageCount} image${imageCount === 1 ? '' : 's'} attached)`
+    ? `${text}${text ? '\n' : ''}(${countNoun(imageCount, 'image')} attached)`
     : text;
   return [
     <StickyPrompt key={keyOf(raw, index, 'user')} text={display} />,
@@ -454,15 +456,15 @@ function StickyPrompt({ text }) {
   const promptText = String(text || '');
   const lineCount = promptText.split('\n').length;
   const isCollapsible = lineCount > 3 || promptText.length > 180;
-  const promptClass = [
+  const promptClass = cx(
     'chat-sticky-prompt',
-    expanded ? 'is-expanded' : '',
-    isCollapsible ? 'is-collapsible' : '',
-  ].filter(Boolean).join(' ');
-  const textWrapClass = [
+    expanded && 'is-expanded',
+    isCollapsible && 'is-collapsible',
+  );
+  const textWrapClass = cx(
     'chat-sticky-prompt-text-wrap',
-    isCollapsible && !expanded ? 'is-collapsed' : '',
-  ].filter(Boolean).join(' ');
+    isCollapsible && !expanded && 'is-collapsed',
+  );
   const expandLabel = expanded ? 'Click to collapse' : 'Click to expand';
   const expandButton = isCollapsible ? (
     <button
@@ -566,10 +568,10 @@ function ToolDetails({ details }) {
   ) : null;
   const overflows = lines.length > TOOL_DETAILS_COLLAPSE_THRESHOLD;
   const isCollapsed = overflows && !expanded;
-  const wrapClass = [
+  const wrapClass = cx(
     'bubble-tool-details-wrap',
-    isCollapsed ? 'is-collapsed' : '',
-  ].filter(Boolean).join(' ');
+    isCollapsed && 'is-collapsed',
+  );
   const expandButton = overflows ? (
     <button
       type="button"
@@ -586,7 +588,7 @@ function ToolDetails({ details }) {
           {renderInfo.visible.map((line, lineIdx) => (
             <span
               key={lineIdx}
-              className={`bubble-tool-details-line ${_diffLineKind(line)}`}
+              className={cx('bubble-tool-details-line', _diffLineKind(line))}
             >
               {line || ' '}
               {'\n'}

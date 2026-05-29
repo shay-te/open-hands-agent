@@ -10,20 +10,23 @@
 // ``storage`` arg). Keeps the module unit-testable in node:test without
 // jsdom.
 
+import { resolveStorage } from './storage.js';
+
 export const DRAFT_STORAGE_PREFIX = 'kato.composer.draft.';
 
 export function draftStorageKey(taskId) {
   return taskId ? `${DRAFT_STORAGE_PREFIX}${taskId}` : '';
 }
 
-// ``storage`` defaults to window.localStorage in the browser. Tests
-// pass a Map-backed fake so the draft logic can be exercised without
-// jsdom and without leaking state across cases.
-function defaultStorage() {
-  if (typeof window !== 'undefined' && window.localStorage) {
-    return window.localStorage;
-  }
-  return null;
+export const COMMENT_DRAFT_PREFIX = 'kato.comment.draft.';
+
+// Draft-storage key for an inline review-comment form. ``lineSegment`` is
+// the gutter line key (or the literal 'file' for the file-level form);
+// ``replyTo`` is the id of the comment being replied to, or falsy for a
+// top-level (root) comment. Centralised here so the gutter form and the
+// file-level form can't drift in prefix/separator and silently split a draft.
+export function commentDraftKey(taskId, repoId, path, lineSegment, replyTo) {
+  return `${COMMENT_DRAFT_PREFIX}${taskId}|${repoId}|${path}|${lineSegment}|${replyTo || 'root'}`;
 }
 
 // Generic key-based variants. Used by callers that own their own
@@ -32,7 +35,7 @@ function defaultStorage() {
 // supply the chat-composer prefix.
 export function readDraftByKey(key, storage) {
   if (!key) { return ''; }
-  const store = storage || defaultStorage();
+  const store = storage || resolveStorage();
   if (!store) { return ''; }
   try {
     return store.getItem(key) || '';
@@ -46,7 +49,7 @@ export function readDraftByKey(key, storage) {
 
 export function writeDraftByKey(key, value, storage) {
   if (!key) { return; }
-  const store = storage || defaultStorage();
+  const store = storage || resolveStorage();
   if (!store) { return; }
   try {
     if (value) {

@@ -11,6 +11,8 @@ import { AGENT_SESSION_ID } from '../constants/sessionFields.js';
 import { TAB_STATUS } from '../constants/tabStatus.js';
 import { usePushApproval } from '../hooks/usePushApproval.js';
 import { useTaskPublish } from '../hooks/useTaskPublish.js';
+import { apiErrorMessage } from '../utils/apiError.js';
+import { cx } from '../utils/cx.js';
 import { deriveTabStatus, resolveTabStatus, tabStatusTitle } from '../utils/tabStatus.js';
 import { SESSION_LIFECYCLE } from '../hooks/useSessionStream.js';
 import { toast } from '../stores/toastStore.js';
@@ -62,7 +64,7 @@ export default function SessionHeader({
         toast.show({
           kind: 'error',
           title: 'Scan failed',
-          message: result.error || result.body?.error || 'unknown error',
+          message: apiErrorMessage(result, 'unknown error'),
         });
       }
     } finally {
@@ -140,7 +142,7 @@ export default function SessionHeader({
       toast.show({
         kind: 'error',
         title: 'Merge failed',
-        message: String(body.error || result.error || 'merge failed'),
+        message: apiErrorMessage(result, 'merge failed'),
         durationMs: 12000,
       });
       return;
@@ -280,12 +282,12 @@ export default function SessionHeader({
   const idleAlive = status === TAB_STATUS.ACTIVE
     && !turnInFlight
     && session?.working === false;
-  const dotClass = [
+  const dotClass = cx(
     'status-dot',
     `status-${status}`,
-    isLoading ? 'is-loading' : '',
-    idleAlive ? 'is-idle-alive' : '',
-  ].filter(Boolean).join(' ');
+    isLoading && 'is-loading',
+    idleAlive && 'is-idle-alive',
+  );
   const stopLabel = stopping ? 'Stopping…' : 'Stop';
   const resumeLabel = resuming ? 'Resuming…' : 'Resume';
   const pushLabel = pushApproval.busy ? 'Pushing…' : 'Approve push';
@@ -584,7 +586,7 @@ export function SessionHeaderPlaceholder() {
           <button
             key={b.icon}
             type="button"
-            className={`session-action${b.primary ? ' is-primary' : ''}`}
+            className={cx('session-action', b.primary && 'is-primary')}
             disabled
             tabIndex={-1}
             aria-label={b.label}

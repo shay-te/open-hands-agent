@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { fetchAllSettings, updateAllSettings } from '../api.js';
-import { toast } from '../stores/toastStore.js';
+import { apiErrorMessage } from '../utils/apiError.js';
+import { useRestartingSave } from '../hooks/useRestartingSave.js';
+import { sourceLabel } from '../utils/settingsSource.js';
+import PanelMessage from './settings/PanelMessage.jsx';
+import SettingsPanelHead from './settings/SettingsPanelHead.jsx';
+import SettingsActions from './settings/SettingsActions.jsx';
+import RestartBanner from './settings/RestartBanner.jsx';
 
 // Generic, schema-driven settings panel. One instance renders ONE
 // section of the ``/api/all-settings`` schema (General, Claude
@@ -14,13 +20,6 @@ import { toast } from '../stores/toastStore.js';
 // (server whitelists to the schema). The operator's .env is never
 // touched. Restart required — banner shown after a save.
 
-function sourceLabel(source) {
-  if (source === 'env') { return 'live'; }
-  if (source === 'kato_settings') { return 'saved'; }
-  if (source === 'env_file') { return '.env'; }
-  return 'unset';
-}
-
 export default function SchemaSettingsPanel({ sectionId }) {
   const [state, setState] = useState({
     loading: true,
@@ -29,8 +28,6 @@ export default function SchemaSettingsPanel({ sectionId }) {
     settingsFilePath: '',
   });
   const [draft, setDraft] = useState({});
-  const [saving, setSaving] = useState(false);
-  const [savedAt, setSavedAt] = useState(null);
 
   const refresh = useCallback(async () => {
     setState((prev) => ({ ...prev, loading: true, error: '' }));
@@ -38,7 +35,7 @@ export default function SchemaSettingsPanel({ sectionId }) {
     if (!result.ok) {
       setState({
         loading: false,
-        error: String(result.body?.error || result.error || 'load failed'),
+        error: apiErrorMessage(result, 'load failed'),
         sections: [], settingsFilePath: '',
       });
       return;
@@ -82,35 +79,14 @@ export default function SchemaSettingsPanel({ sectionId }) {
     setDraft((cur) => ({ ...cur, [key]: value }));
   }
 
-  async function save() {
-    if (dirtyKeys.length === 0) { return; }
-    const updates = {};
-    for (const k of dirtyKeys) { updates[k] = draft[k]; }
-    setSaving(true);
-    try {
-      const result = await updateAllSettings(updates);
-      if (!result.ok) {
-        toast.show({
-          kind: 'error',
-          title: 'Save failed',
-          message: String(result.body?.error || result.error || 'save failed'),
-          durationMs: 8000,
-        });
-        return;
-      }
-      toast.show({
-        kind: 'success',
-        title: 'Saved',
-        message: result.body?.message
-          || 'Restart kato for the change to take effect.',
-        durationMs: 7000,
-      });
-      setSavedAt(Date.now());
-      refresh();
-    } finally {
-      setSaving(false);
-    }
-  }
+  const { saving, savedAt, save } = useRestartingSave(
+    () => {
+      const updates = {};
+      for (const k of dirtyKeys) { updates[k] = draft[k]; }
+      return updateAllSettings(updates);
+    },
+    { onSaved: refresh },
+  );
 
   function revert() {
     if (!section) { return; }
@@ -122,29 +98,28 @@ export default function SchemaSettingsPanel({ sectionId }) {
   if (state.loading) {
     return (
       <div className="settings-drawer-panel">
-        <p className="settings-drawer-message">Loading settings…</p>
+        <PanelMessage>Loading settings…</PanelMessage>
       </div>
     );
   }
   if (state.error) {
     return (
       <div className="settings-drawer-panel">
-        <p className="settings-drawer-message is-error">{state.error}</p>
+        <PanelMessage error>{state.error}</PanelMessage>
       </div>
     );
   }
   if (!section) {
     return (
       <div className="settings-drawer-panel">
-        <p className="settings-drawer-message">Unknown settings section.</p>
+        <PanelMessage>Unknown settings section.</PanelMessage>
       </div>
     );
   }
 
   return (
     <div className="settings-drawer-panel">
-      <header className="settings-drawer-panel-head">
-        <h3>{section.title || section.label}</h3>
+      <SettingsPanelHead title={section.title || section.label}>
         <p>
           {section.description}
           {' '}Saved to
@@ -152,7 +127,7 @@ export default function SchemaSettingsPanel({ sectionId }) {
           {' '}— your <code>.env</code> is left untouched (read as a
           fallback).
         </p>
-      </header>
+      </SettingsPanelHead>
 
       {section.warning && (
         <div className="settings-drawer-section-warning">
@@ -171,34 +146,18 @@ export default function SchemaSettingsPanel({ sectionId }) {
         ))}
       </div>
 
-      <div className="settings-drawer-actions">
-        <button
-          type="button"
-          className="settings-drawer-action-secondary"
-          onClick={revert}
-          disabled={saving || dirtyKeys.length === 0}
-        >
-          Revert
-        </button>
-        <button
-          type="button"
-          className="settings-drawer-action-primary"
-          onClick={save}
-          disabled={saving || dirtyKeys.length === 0}
-        >
-          {saving
-            ? 'Saving…'
-            : (dirtyKeys.length
-              ? `Save ${dirtyKeys.length} change${dirtyKeys.length === 1 ? '' : 's'}`
-              : 'Save')}
-        </button>
-      </div>
+      <SettingsActions
+        onSecondary={revert}
+        secondaryDisabled={saving || dirtyKeys.length === 0}
+        onSave={save}
+        saving={saving}
+        canSave={dirtyKeys.length > 0}
+        primaryLabel={dirtyKeys.length
+          ? `Save ${dirtyKeys.length} change${dirtyKeys.length === 1 ? '' : 's'}`
+          : 'Save'}
+      />
 
-      {savedAt && (
-        <div className="settings-drawer-restart-banner">
-          ⚠ Restart kato for the change to take effect.
-        </div>
-      )}
+      <RestartBanner show={savedAt} />
     </div>
   );
 }

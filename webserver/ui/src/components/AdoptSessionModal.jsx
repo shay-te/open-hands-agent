@@ -2,7 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { adoptAgentSession, fetchClaudeSessions } from '../api.js';
 import { AGENT_SESSION_ID } from '../constants/sessionFields.js';
 import { toast } from '../stores/toastStore.js';
+import { apiErrorMessage } from '../utils/apiError.js';
 import { formatRelativeTime } from '../utils/relativeTime.js';
+import ModalShell from './ModalShell.jsx';
+import ModalFooterActions from './ModalFooterActions.jsx';
 
 // "In use" badge shows when the transcript file was modified
 // recently — proxy for "VS Code is still holding this session open."
@@ -48,9 +51,7 @@ export default function AdoptSessionModal({ taskId, onClose, onAdopted }) {
     const result = await adoptAgentSession(taskId, selectedSessionId);
     setAdopting(false);
     if (!result.ok) {
-      const message = (result.body && result.body.error)
-        || result.error
-        || 'adoption failed';
+      const message = apiErrorMessage(result, 'adoption failed');
       toast.show({
         kind: 'error',
         title: 'Could not adopt session',
@@ -75,27 +76,11 @@ export default function AdoptSessionModal({ taskId, onClose, onAdopted }) {
   }
 
   return (
-    <div
-      className="adopt-session-modal-backdrop"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Adopt Claude session"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) { onClose(); }
-      }}
+    <ModalShell
+      ariaLabel="Adopt Claude session"
+      title={<>Adopt Claude session for {taskId}</>}
+      onClose={onClose}
     >
-      <div className="adopt-session-modal">
-        <header className="adopt-session-modal-header">
-          <h2>Adopt Claude session for {taskId}</h2>
-          <button
-            type="button"
-            className="adopt-session-close"
-            onClick={onClose}
-            aria-label="Close"
-          >
-            ×
-          </button>
-        </header>
         <p className="adopt-session-modal-help">
           Pick an existing Claude Code session (e.g. one you started in
           the VS Code extension). Kato will <code>--resume</code> it on
@@ -193,25 +178,14 @@ export default function AdoptSessionModal({ taskId, onClose, onAdopted }) {
             );
           })}
         </div>
-        <footer className="adopt-session-modal-footer">
-          <button
-            type="button"
-            className="adopt-session-cancel"
-            onClick={onClose}
-            disabled={adopting}
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="adopt-session-confirm"
-            onClick={onAdopt}
-            disabled={!selectedSession || adopting}
-          >
-            {adopting ? 'Adopting…' : 'Adopt selected'}
-          </button>
-        </footer>
-      </div>
-    </div>
+        <ModalFooterActions
+          onCancel={onClose}
+          onConfirm={onAdopt}
+          busy={adopting}
+          canConfirm={!!selectedSession}
+          confirmLabel="Adopt selected"
+          busyLabel="Adopting…"
+        />
+    </ModalShell>
   );
 }

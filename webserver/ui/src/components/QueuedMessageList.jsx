@@ -1,4 +1,5 @@
 import Icon from './Icon.jsx';
+import { countNoun } from '../utils/pluralize.js';
 
 // Floating list of queued chat messages, rendered above the
 // MessageForm composer. Each row shows the queued text (truncated)
@@ -40,7 +41,7 @@ function QueuedRow({ item, onSteer, onRemove }) {
   const text = String(item?.text || '').trim();
   const imageCount = Array.isArray(item?.images) ? item.images.length : 0;
   const display = imageCount > 0
-    ? `${text}${text ? ' · ' : ''}(${imageCount} image${imageCount === 1 ? '' : 's'})`
+    ? `${text}${text ? ' · ' : ''}(${countNoun(imageCount, 'image')})`
     : text;
   return (
     <li className="queued-message-row">

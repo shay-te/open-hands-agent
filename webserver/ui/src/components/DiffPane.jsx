@@ -7,6 +7,7 @@ import {
   parseRepoDiffs,
 } from '../diffModel.js';
 import { useChatComposer } from '../contexts/ChatComposerContext.jsx';
+import { apiErrorMessage } from '../utils/apiError.js';
 import DiffFileWithComments from './DiffFileWithComments.jsx';
 
 const EMPTY_COMMENTS = [];
@@ -123,7 +124,7 @@ export default function DiffPane({
         }
         next.set(rid, {
           loading: false,
-          error: result.ok ? '' : String(result.error || 'failed to load comments'),
+          error: result.ok ? '' : apiErrorMessage(result, 'failed to load comments'),
           byFile,
         });
       }

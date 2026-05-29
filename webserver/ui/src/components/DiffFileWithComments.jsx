@@ -29,6 +29,8 @@ import {
 import { toast } from '../stores/toastStore.js';
 import { diffDisplayPath } from '../diffModel.js';
 import { copyTextToClipboard } from '../utils/clipboard.js';
+import { apiErrorMessage } from '../utils/apiError.js';
+import { commentDraftKey } from '../utils/composerDraft.js';
 import { tokenizeHunks } from '../utils/diffSyntax.js';
 import {
   CommentForm,
@@ -241,7 +243,7 @@ export default function DiffFileWithComments({
       toast.show({
         kind: 'error',
         title: 'Could not add comment',
-        message: (result.body && result.body.error) || result.error || 'add failed',
+        message: apiErrorMessage(result, 'add failed'),
         durationMs: 8000,
       });
       return false;
@@ -273,7 +275,7 @@ export default function DiffFileWithComments({
     if (!result.ok) {
       toast.show({
         kind: 'error', title: 'Resolve failed',
-        message: (result.body && result.body.error) || result.error || '',
+        message: apiErrorMessage(result),
       });
       return;
     }
@@ -309,7 +311,7 @@ export default function DiffFileWithComments({
     if (!result.ok) {
       toast.show({
         kind: 'error', title: 'Reopen failed',
-        message: (result.body && result.body.error) || result.error || '',
+        message: apiErrorMessage(result),
       });
       return;
     }
@@ -336,7 +338,7 @@ export default function DiffFileWithComments({
     if (!result.ok) {
       toast.show({
         kind: 'error', title: 'Delete failed',
-        message: (result.body && result.body.error) || result.error || '',
+        message: apiErrorMessage(result),
       });
       return;
     }
@@ -348,7 +350,7 @@ export default function DiffFileWithComments({
     if (!result.ok) {
       toast.show({
         kind: 'error', title: 'Mark addressed failed',
-        message: (result.body && result.body.error) || result.error || '',
+        message: apiErrorMessage(result),
       });
       return;
     }
@@ -416,7 +418,7 @@ export default function DiffFileWithComments({
               onSubmit={(body) => onSubmit(lineKey, body, replyTo)}
               onCancel={() => { setActiveLine(null); setReplyTo(''); }}
               replyMode={!!replyTo}
-              draftKey={`kato.comment.draft.${taskId}|${repoId}|${path}|${lineKey}|${replyTo || 'root'}`}
+              draftKey={commentDraftKey(taskId, repoId, path, lineKey, replyTo)}
             />
           )}
         </div>
@@ -723,7 +725,7 @@ export default function DiffFileWithComments({
           : null
       }
       replyMode={fileFormReplyMode}
-      draftKey={`kato.comment.draft.${taskId}|${repoId}|${path}|file|${(fileFormReplyMode && replyTo) || 'root'}`}
+      draftKey={commentDraftKey(taskId, repoId, path, 'file', fileFormReplyMode && replyTo)}
     />
   ) : null;
   const commentsLoadingMessage = commentsLoading && comments.length === 0 ? (

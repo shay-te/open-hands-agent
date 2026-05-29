@@ -2,6 +2,7 @@ import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import Icon from './Icon.jsx';
+import { copyTextToClipboard } from '../utils/clipboard.js';
 
 // Renders Claude assistant text as GitHub-flavored markdown.
 // Fenced ``` blocks get a copy button; everything else (headings,
@@ -43,7 +44,7 @@ function FencedCodeBlock({ language, text }) {
   const [copied, setCopied] = useState(false);
   const onCopy = async () => {
     try {
-      await navigator.clipboard.writeText(text);
+      await copyTextToClipboard(text);
       setCopied(true);
       // Revert the icon after a short tick so the operator sees the
       // confirmation without the button getting stuck on "copied".

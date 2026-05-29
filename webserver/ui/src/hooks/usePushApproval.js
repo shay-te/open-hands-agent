@@ -1,41 +1,32 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { approveTaskPush, fetchAwaitingPushApproval } from '../api.js';
+import { useBusyAction } from './useBusyAction.js';
+import { usePolling } from './usePolling.js';
 
 const POLL_INTERVAL_MS = 5000;
 
 export function usePushApproval(taskId) {
   const [awaiting, setAwaiting] = useState(false);
-  const [busy, setBusy] = useState(false);
 
+  // The poll below is disabled when there's no task; reset the flag so a
+  // stale "awaiting" doesn't linger after the task clears.
   useEffect(() => {
-    if (!taskId) { setAwaiting(false); return; }
-    let cancelled = false;
-    async function check() {
-      try {
-        const body = await fetchAwaitingPushApproval(taskId);
-        if (!cancelled) {
-          setAwaiting(!!body?.awaiting_push_approval);
-        }
-      } catch (_) {
-        // Best-effort; UI keeps last known state.
-      }
-    }
-    check();
-    const handle = window.setInterval(check, POLL_INTERVAL_MS);
-    return () => {
-      cancelled = true;
-      window.clearInterval(handle);
-    };
+    if (!taskId) { setAwaiting(false); }
   }, [taskId]);
 
-  const approve = useCallback(async () => {
-    if (!taskId || busy) { return null; }
-    setBusy(true);
-    const result = await approveTaskPush(taskId);
-    setBusy(false);
-    if (result.ok) { setAwaiting(false); }
-    return result;
-  }, [taskId, busy]);
+  usePolling(async () => {
+    try {
+      const body = await fetchAwaitingPushApproval(taskId);
+      setAwaiting(!!body?.awaiting_push_approval);
+    } catch (_) {
+      // Best-effort; UI keeps last known state.
+    }
+  }, POLL_INTERVAL_MS, [taskId], { enabled: !!taskId });
+
+  const [busy, approve] = useBusyAction(
+    () => approveTaskPush(taskId),
+    { enabled: !!taskId, onDone: (result) => { if (result.ok) { setAwaiting(false); } } },
+  );
 
   return { awaiting, busy, approve };
 }

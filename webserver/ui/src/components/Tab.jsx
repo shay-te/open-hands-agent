@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { cx } from '../utils/cx.js';
 import { TAB_STATUS } from '../constants/tabStatus.js';
 import { deriveTabStatus, resolveTabStatus, tabStatusTitle } from '../utils/tabStatus.js';
 import Icon from './Icon.jsx';
@@ -16,19 +17,19 @@ export default function Tab({
   const baseStatus = deriveTabStatus(session);
   const status = resolveTabStatus(session, needsAttention);
   const isLoading = baseStatus === TAB_STATUS.PROVISIONING;
-  const className = [
+  const className = cx(
     'tab',
-    active ? 'active' : '',
-    needsAttention ? 'needs-attention' : '',
-    pinned ? 'is-pinned' : '',
-  ].filter(Boolean).join(' ');
+    active && 'active',
+    needsAttention && 'needs-attention',
+    pinned && 'is-pinned',
+  );
   const idleAlive = status === TAB_STATUS.ACTIVE && session?.working === false;
-  const dotClass = [
+  const dotClass = cx(
     'status-dot',
     `status-${status}`,
-    isLoading ? 'is-loading' : '',
-    idleAlive ? 'is-idle-alive' : '',
-  ].filter(Boolean).join(' ');
+    isLoading && 'is-loading',
+    idleAlive && 'is-idle-alive',
+  );
 
   // Hover-card state. ``anchorRect`` is a frozen snapshot of the
   // <li>'s viewport rect taken when the card opens — TabTooltip
@@ -99,7 +100,7 @@ export default function Tab({
         {changesIndicator}
         <button
           type="button"
-          className={`tab-pin-btn ${pinned ? 'is-pinned' : ''}`.trim()}
+          className={cx('tab-pin-btn', pinned && 'is-pinned')}
           aria-label={pinned ? 'Unpin this task' : 'Pin this task'}
           aria-pressed={pinned}
           title={pinned ? 'Unpin tab' : 'Pin tab to the left'}

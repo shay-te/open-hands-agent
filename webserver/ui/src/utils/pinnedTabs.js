@@ -16,21 +16,17 @@
 // ``storage`` arg). Tests pass a Map-backed fake so the logic
 // stays exercisable without jsdom.
 
-export const PINNED_TABS_STORAGE_KEY = 'kato.tabs.pinned';
+import { resolveStorage } from './storage.js';
+import { parseJsonOr } from './json.js';
 
-function defaultStorage() {
-  if (typeof window !== 'undefined' && window.localStorage) {
-    return window.localStorage;
-  }
-  return null;
-}
+export const PINNED_TABS_STORAGE_KEY = 'kato.tabs.pinned';
 
 // Read the pinned-task-id list from storage. Defensive against:
 // missing storage, missing key, malformed JSON, non-array payload,
 // non-string entries (filtered out), and duplicates (dedup, keeping
 // first occurrence). Returns ``[]`` for any failure mode.
 export function readPinnedIds(storage) {
-  const store = storage || defaultStorage();
+  const store = storage || resolveStorage();
   if (!store) { return []; }
   let raw;
   try {
@@ -38,13 +34,7 @@ export function readPinnedIds(storage) {
   } catch {
     return [];
   }
-  if (!raw) { return []; }
-  let parsed;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    return [];
-  }
+  const parsed = parseJsonOr(raw, null);
   if (!Array.isArray(parsed)) { return []; }
   const seen = new Set();
   const out = [];
@@ -60,7 +50,7 @@ export function readPinnedIds(storage) {
 // Replace the pinned-task-id list. Filters non-strings / blanks /
 // dupes the same way readPinnedIds does so the round-trip is stable.
 export function writePinnedIds(ids, storage) {
-  const store = storage || defaultStorage();
+  const store = storage || resolveStorage();
   if (!store) { return; }
   const seen = new Set();
   const sanitized = [];

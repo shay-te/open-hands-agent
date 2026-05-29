@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { addTaskRepository, fetchInventoryRepositories } from '../api.js';
 import { toast } from '../stores/toastStore.js';
+import { apiErrorMessage } from '../utils/apiError.js';
+import ModalShell from './ModalShell.jsx';
+import ModalFooterActions from './ModalFooterActions.jsx';
 
 // "+ Add repository" picker for the Files tab. Lists every repo in
 // kato's inventory, filters out ones already on the task, lets the
@@ -33,7 +36,7 @@ export default function AddRepositoryModal({
       .then((result) => {
         if (cancelled) { return; }
         if (!result.ok) {
-          setError(String(result.error || 'failed to load repositories'));
+          setError(apiErrorMessage(result, 'failed to load repositories'));
           setRepositories([]);
           return;
         }
@@ -72,9 +75,7 @@ export default function AddRepositoryModal({
       toast.show({
         kind: 'error',
         title: 'Could not add repository',
-        message: (result.body && result.body.error)
-          || result.error
-          || 'add failed',
+        message: apiErrorMessage(result, 'add failed'),
         durationMs: 12000,
       });
       return;
@@ -109,27 +110,11 @@ export default function AddRepositoryModal({
   }
 
   return (
-    <div
-      className="adopt-session-modal-backdrop"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Add repository to task"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) { onClose(); }
-      }}
+    <ModalShell
+      ariaLabel="Add repository to task"
+      title={<>Add repository to {taskId}</>}
+      onClose={onClose}
     >
-      <div className="adopt-session-modal">
-        <header className="adopt-session-modal-header">
-          <h2>Add repository to {taskId}</h2>
-          <button
-            type="button"
-            className="adopt-session-close"
-            onClick={onClose}
-            aria-label="Close"
-          >
-            ×
-          </button>
-        </header>
         <p className="adopt-session-modal-help">
           Pick a repository from kato's inventory. Kato will tag the
           task with <code>kato:repo:&lt;id&gt;</code> and clone the
@@ -190,25 +175,14 @@ export default function AddRepositoryModal({
             );
           })}
         </div>
-        <footer className="adopt-session-modal-footer">
-          <button
-            type="button"
-            className="adopt-session-cancel"
-            onClick={onClose}
-            disabled={adding}
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="adopt-session-confirm"
-            onClick={onConfirm}
-            disabled={!selectedId || adding}
-          >
-            {adding ? 'Adding…' : 'Add to task'}
-          </button>
-        </footer>
-      </div>
-    </div>
+        <ModalFooterActions
+          onCancel={onClose}
+          onConfirm={onConfirm}
+          busy={adding}
+          canConfirm={Boolean(selectedId)}
+          confirmLabel="Add to task"
+          busyLabel="Adding…"
+        />
+    </ModalShell>
   );
 }

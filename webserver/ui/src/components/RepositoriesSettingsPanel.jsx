@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { fetchSettings, updateSettings } from '../api.js';
 import { toast } from '../stores/toastStore.js';
+import { apiErrorMessage } from '../utils/apiError.js';
+import { sourceLabelVerbose } from '../utils/settingsSource.js';
+import PanelMessage from './settings/PanelMessage.jsx';
+import SettingsPanelHead from './settings/SettingsPanelHead.jsx';
+import SettingsActions from './settings/SettingsActions.jsx';
+import RestartBanner from './settings/RestartBanner.jsx';
 
 // "Repositories" tab inside the SettingsDrawer. Operator-editable
 // REPOSITORY_ROOT_PATH — the folder kato walks for ``.git`` to
@@ -66,7 +72,7 @@ export default function RepositoriesSettingsPanel() {
         toast.show({
           kind: 'error',
           title: 'Save failed',
-          message: String(result.body?.error || result.error || 'save failed'),
+          message: apiErrorMessage(result, 'save failed'),
           durationMs: 8000,
         });
         return;
@@ -86,19 +92,11 @@ export default function RepositoriesSettingsPanel() {
   }
 
   const dirty = draft.trim() !== state.value;
-  let sourceLabel = 'Unset';
-  if (state.source === 'env') {
-    sourceLabel = 'Live (process env)';
-  } else if (state.source === 'kato_settings') {
-    sourceLabel = 'Saved (~/.kato/settings.json)';
-  } else if (state.source === 'env_file') {
-    sourceLabel = 'From .env file (legacy fallback)';
-  }
+  const sourceLabel = sourceLabelVerbose(state.source);
 
   return (
     <div className="settings-drawer-panel">
-      <header className="settings-drawer-panel-head">
-        <h3>Repositories</h3>
+      <SettingsPanelHead title="Repositories">
         <p>
           The folder kato walks for ``.git`` directories to
           auto-discover repos. Saved to
@@ -106,13 +104,13 @@ export default function RepositoriesSettingsPanel() {
           {' '}as <code>REPOSITORY_ROOT_PATH</code> (your <code>.env</code>
           {' '}is left untouched — kato still reads it as a fallback).
         </p>
-      </header>
+      </SettingsPanelHead>
 
       {state.loading && (
-        <p className="settings-drawer-message">Loading current setting…</p>
+        <PanelMessage>Loading current setting…</PanelMessage>
       )}
       {state.error && (
-        <p className="settings-drawer-message is-error">{state.error}</p>
+        <PanelMessage error>{state.error}</PanelMessage>
       )}
 
       {!state.loading && !state.error && (
@@ -150,30 +148,15 @@ export default function RepositoriesSettingsPanel() {
             </span>
           </div>
 
-          <div className="settings-drawer-actions">
-            <button
-              type="button"
-              className="settings-drawer-action-secondary"
-              onClick={() => setDraft(state.value)}
-              disabled={!dirty || saving}
-            >
-              Revert
-            </button>
-            <button
-              type="button"
-              className="settings-drawer-action-primary"
-              onClick={save}
-              disabled={!dirty || saving}
-            >
-              {saving ? 'Saving…' : 'Save'}
-            </button>
-          </div>
+          <SettingsActions
+            onSecondary={() => setDraft(state.value)}
+            secondaryDisabled={!dirty || saving}
+            onSave={save}
+            saving={saving}
+            canSave={dirty}
+          />
 
-          {savedAt && (
-            <div className="settings-drawer-restart-banner">
-              ⚠ Restart kato for the change to take effect.
-            </div>
-          )}
+          <RestartBanner show={savedAt} />
         </>
       )}
     </div>

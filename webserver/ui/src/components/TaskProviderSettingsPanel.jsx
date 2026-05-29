@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { fetchTaskProviders, updateTaskProvider } from '../api.js';
 import { toast } from '../stores/toastStore.js';
+import { apiErrorMessage } from '../utils/apiError.js';
+import { sourceLabel } from '../utils/settingsSource.js';
+import { isSecretKey, buildDraftFor } from '../utils/providerFields.js';
+import PanelMessage from './settings/PanelMessage.jsx';
+import SettingsPanelHead from './settings/SettingsPanelHead.jsx';
+import SettingsActions from './settings/SettingsActions.jsx';
+import RestartBanner from './settings/RestartBanner.jsx';
 
 // "Task provider" tab — where tickets live + which platform kato
 // polls. The "Active provider" dropdown writes ``KATO_ISSUE_PLATFORM``;
@@ -17,13 +24,6 @@ const PROVIDER_LABELS = {
   gitlab: 'GitLab Issues',
   bitbucket: 'Bitbucket Issues',
 };
-
-function isSecretKey(key) {
-  const lower = key.toLowerCase();
-  return lower.includes('token')
-    || lower.includes('secret')
-    || lower.includes('password');
-}
 
 export default function TaskProviderSettingsPanel() {
   const [state, setState] = useState({
@@ -45,7 +45,7 @@ export default function TaskProviderSettingsPanel() {
     if (!result.ok) {
       setState({
         loading: false,
-        error: String(result.body?.error || result.error || 'load failed'),
+        error: apiErrorMessage(result, 'load failed'),
         active: '', supported: [], providers: {}, settingsFilePath: '',
       });
       return;
@@ -90,7 +90,7 @@ export default function TaskProviderSettingsPanel() {
         toast.show({
           kind: 'error',
           title: 'Save failed',
-          message: String(result.body?.error || result.error || 'save failed'),
+          message: apiErrorMessage(result, 'save failed'),
           durationMs: 8000,
         });
         return;
@@ -113,8 +113,7 @@ export default function TaskProviderSettingsPanel() {
 
   return (
     <div className="settings-drawer-panel">
-      <header className="settings-drawer-panel-head">
-        <h3>Task provider</h3>
+      <SettingsPanelHead title="Task provider">
         <p>
           Where tickets live + which platform kato polls for assigned
           work. The dropdown sets <code>KATO_ISSUE_PLATFORM</code>;
@@ -123,13 +122,13 @@ export default function TaskProviderSettingsPanel() {
           {' '}(your <code>.env</code> is left untouched — kato still
           reads it as a fallback).
         </p>
-      </header>
+      </SettingsPanelHead>
 
       {state.loading && (
-        <p className="settings-drawer-message">Loading task providers…</p>
+        <PanelMessage>Loading task providers…</PanelMessage>
       )}
       {state.error && (
-        <p className="settings-drawer-message is-error">{state.error}</p>
+        <PanelMessage error>{state.error}</PanelMessage>
       )}
 
       {!state.loading && !state.error && (
@@ -188,49 +187,18 @@ export default function TaskProviderSettingsPanel() {
             })}
           </div>
 
-          <div className="settings-drawer-actions">
-            <button
-              type="button"
-              className="settings-drawer-action-secondary"
-              onClick={refresh}
-              disabled={saving}
-            >
-              Revert
-            </button>
-            <button
-              type="button"
-              className="settings-drawer-action-primary"
-              onClick={save}
-              disabled={!isDirty || saving}
-            >
-              {saving ? 'Saving…' : 'Save'}
-            </button>
-          </div>
+          <SettingsActions
+            onSecondary={refresh}
+            secondaryLabel="Revert"
+            onSave={save}
+            saving={saving}
+            canSave={isDirty}
+            primaryLabel="Save"
+          />
 
-          {savedAt && (
-            <div className="settings-drawer-restart-banner">
-              ⚠ Restart kato for the change to take effect.
-            </div>
-          )}
+          <RestartBanner show={savedAt} />
         </>
       )}
     </div>
   );
-}
-
-
-function buildDraftFor(providers, name) {
-  const fields = (providers?.[name]?.fields) || {};
-  const out = {};
-  for (const key of Object.keys(fields)) {
-    out[key] = fields[key]?.value || '';
-  }
-  return out;
-}
-
-function sourceLabel(source) {
-  if (source === 'env') { return 'live'; }
-  if (source === 'kato_settings') { return 'saved'; }
-  if (source === 'env_file') { return '.env'; }
-  return 'unset';
 }

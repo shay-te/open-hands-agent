@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   createTaskPullRequest,
   fetchTaskPublishState,
   pullTask,
   pushTask,
 } from '../api.js';
+import { useBusyAction } from './useBusyAction.js';
+import { usePolling } from './usePolling.js';
 
 const POLL_INTERVAL_MS = 10_000;
 
@@ -21,9 +23,6 @@ export function useTaskPublish(taskId) {
   const [hasChangesToPush, setHasChangesToPush] = useState(false);
   const [hasPullRequest, setHasPullRequest] = useState(false);
   const [pullRequestUrls, setPullRequestUrls] = useState([]);
-  const [pushBusy, setPushBusy] = useState(false);
-  const [pullBusy, setPullBusy] = useState(false);
-  const [prBusy, setPrBusy] = useState(false);
 
   const refresh = useCallback(async () => {
     if (!taskId) {
@@ -46,47 +45,17 @@ export function useTaskPublish(taskId) {
     }
   }, [taskId]);
 
-  useEffect(() => {
-    if (!taskId) { return undefined; }
-    let cancelled = false;
-    const tick = async () => {
-      if (cancelled) { return; }
-      await refresh();
-    };
-    tick();
-    const handle = window.setInterval(tick, POLL_INTERVAL_MS);
-    return () => {
-      cancelled = true;
-      window.clearInterval(handle);
-    };
-  }, [taskId, refresh]);
+  usePolling(refresh, POLL_INTERVAL_MS, [taskId], { enabled: !!taskId });
 
-  const push = useCallback(async () => {
-    if (!taskId || pushBusy) { return null; }
-    setPushBusy(true);
-    const result = await pushTask(taskId);
-    setPushBusy(false);
-    refresh();
-    return result;
-  }, [taskId, pushBusy, refresh]);
-
-  const pull = useCallback(async () => {
-    if (!taskId || pullBusy) { return null; }
-    setPullBusy(true);
-    const result = await pullTask(taskId);
-    setPullBusy(false);
-    refresh();
-    return result;
-  }, [taskId, pullBusy, refresh]);
-
-  const createPullRequest = useCallback(async () => {
-    if (!taskId || prBusy) { return null; }
-    setPrBusy(true);
-    const result = await createTaskPullRequest(taskId);
-    setPrBusy(false);
-    refresh();
-    return result;
-  }, [taskId, prBusy, refresh]);
+  const [pushBusy, push] = useBusyAction(
+    () => pushTask(taskId), { enabled: !!taskId, onDone: refresh },
+  );
+  const [pullBusy, pull] = useBusyAction(
+    () => pullTask(taskId), { enabled: !!taskId, onDone: refresh },
+  );
+  const [prBusy, createPullRequest] = useBusyAction(
+    () => createTaskPullRequest(taskId), { enabled: !!taskId, onDone: refresh },
+  );
 
   return {
     hasWorkspace,

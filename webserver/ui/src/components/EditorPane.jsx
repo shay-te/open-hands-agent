@@ -17,6 +17,8 @@ import {
 } from './CommentWidgets.jsx';
 import { useChatComposer } from '../contexts/ChatComposerContext.jsx';
 import { toast } from '../stores/toastStore.js';
+import { apiErrorMessage } from '../utils/apiError.js';
+import { commentDraftKey } from '../utils/composerDraft.js';
 
 /**
  * Read-only Monaco editor that lives in the middle column.
@@ -120,7 +122,7 @@ export default function EditorPane({ openFile, onCommentSpawned }) {
         setComments(Array.isArray(result.body?.comments) ? result.body.comments : []);
         setCommentsError('');
       } else {
-        setCommentsError(String(result.error || 'failed to load comments'));
+        setCommentsError(apiErrorMessage(result, 'failed to load comments'));
       }
     } finally {
       setCommentsLoading(false);
@@ -142,7 +144,7 @@ export default function EditorPane({ openFile, onCommentSpawned }) {
       toast.show({
         kind: 'error',
         title: 'Could not add comment',
-        message: (result.body && result.body.error) || result.error || 'add failed',
+        message: apiErrorMessage(result, 'add failed'),
         durationMs: 8000,
       });
       return false;
@@ -172,7 +174,7 @@ export default function EditorPane({ openFile, onCommentSpawned }) {
     if (!result.ok) {
       toast.show({
         kind: 'error', title: 'Resolve failed',
-        message: (result.body && result.body.error) || result.error || 'resolve failed',
+        message: apiErrorMessage(result, 'resolve failed'),
       });
       return;
     }
@@ -183,7 +185,7 @@ export default function EditorPane({ openFile, onCommentSpawned }) {
     if (!result.ok) {
       toast.show({
         kind: 'error', title: 'Reopen failed',
-        message: (result.body && result.body.error) || result.error || 'reopen failed',
+        message: apiErrorMessage(result, 'reopen failed'),
       });
       return;
     }
@@ -206,7 +208,7 @@ export default function EditorPane({ openFile, onCommentSpawned }) {
     if (!result.ok) {
       toast.show({
         kind: 'error', title: 'Delete failed',
-        message: (result.body && result.body.error) || result.error || 'delete failed',
+        message: apiErrorMessage(result, 'delete failed'),
       });
       return;
     }
@@ -217,7 +219,7 @@ export default function EditorPane({ openFile, onCommentSpawned }) {
     if (!result.ok) {
       toast.show({
         kind: 'error', title: 'Mark addressed failed',
-        message: (result.body && result.body.error) || result.error || 'mark addressed failed',
+        message: apiErrorMessage(result, 'mark addressed failed'),
       });
       return;
     }
@@ -522,7 +524,7 @@ export default function EditorPane({ openFile, onCommentSpawned }) {
             placeholder="What should kato do about this line?"
             onSubmit={(b) => onCommentSubmit(activeLine, b)}
             onCancel={() => setActiveLine(null)}
-            draftKey={`kato.comment.draft.${taskId}|${repoId}|${filePath}|line:${activeLine}|root`}
+            draftKey={commentDraftKey(taskId, repoId, filePath, `line:${activeLine}`)}
           />
         </div>,
         zoneNode,
@@ -538,7 +540,7 @@ export default function EditorPane({ openFile, onCommentSpawned }) {
             placeholder="What should kato do about this file?"
             onSubmit={(b) => onCommentSubmit(activeLine, b)}
             onCancel={() => setActiveLine(null)}
-            draftKey={`kato.comment.draft.${taskId}|${repoId}|${filePath}|file|root`}
+            draftKey={commentDraftKey(taskId, repoId, filePath, 'file')}
           />
         </div>
       )}
@@ -591,7 +593,7 @@ export default function EditorPane({ openFile, onCommentSpawned }) {
                   replyMode
                   onSubmit={(b) => onCommentSubmit(root.line, b, root.id)}
                   onCancel={() => setReplyTo('')}
-                  draftKey={`kato.comment.draft.${taskId}|${repoId}|${filePath}|reply:${root.id}|root`}
+                  draftKey={commentDraftKey(taskId, repoId, filePath, `reply:${root.id}`)}
                 />
               )}
             </div>

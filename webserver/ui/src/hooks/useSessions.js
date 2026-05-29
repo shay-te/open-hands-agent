@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { fetchSessionList } from '../api.js';
+import { usePolling } from './usePolling.js';
 
 const REFRESH_INTERVAL_MS = 5000;
 
@@ -13,11 +14,7 @@ export function useSessions() {
     } catch (_) { /* next tick retries */ }
   }, []);
 
-  useEffect(() => {
-    refresh();
-    const id = setInterval(refresh, REFRESH_INTERVAL_MS);
-    return () => clearInterval(id);
-  }, [refresh]);
+  usePolling(refresh, REFRESH_INTERVAL_MS);
 
   return { sessions, refresh };
 }

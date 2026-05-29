@@ -236,14 +236,41 @@ def conflicted_paths(cwd: str) -> list[str]:
     return sorted(paths)
 
 
+def _diff_base(cwd: str, base_ref: str) -> str:
+    """The ref the working tree is diffed against: ``merge-base(base_ref, HEAD)``.
+
+    ``base_ref`` is the current *tip* of the destination branch (e.g.
+    ``origin/master``). Diffing the working tree straight against it is
+    two-dot semantics, so the moment ``master`` advances past the task
+    branch's fork point, every file added to ``master`` *after* the fork
+    shows up as a phantom DELETION — the operator saw thousands of
+    deleted lines (migrations, services) that weren't in the PR at all.
+
+    The PR uses three-dot ``base...HEAD`` (i.e. the merge-base). Anchoring
+    on the merge-base here makes the Changes tab / Files tree agree with
+    the PR, while ``git diff <merge-base>`` still spans merge-base →
+    working tree so uncommitted work stays visible.
+
+    Falls back to ``base_ref`` when there is no common ancestor (unrelated
+    histories) or git cannot resolve the merge-base — no worse than the
+    old tip-diff behaviour in that corner case.
+    """
+    if not cwd or not base_ref:
+        return base_ref
+    out = run_git(cwd, ['merge-base', base_ref, 'HEAD'], timeout=10)
+    return (out or '').strip() or base_ref
+
+
 def changed_paths(cwd: str, base_ref: str) -> list[str]:
     """Repo-relative paths that differ from ``base_ref``.
 
     Same coverage as the Changes-tab diff (``diff_against_base``) so
     the Files tree and the Changes tab agree on "what changed":
 
-      * ``git diff --name-only <base_ref>`` — tracked files with
-        committed OR uncommitted edits vs the destination tip;
+      * ``git diff --name-only <merge-base>`` — tracked files with
+        committed OR uncommitted edits since the branch forked
+        (merge-base of ``base_ref`` and HEAD — see ``_diff_base`` for
+        why the tip of ``base_ref`` is the wrong anchor);
       * ``git ls-files --others --exclude-standard`` — untracked,
         non-ignored files Claude just wrote (not yet in the index,
         so the diff above misses them).
@@ -255,7 +282,7 @@ def changed_paths(cwd: str, base_ref: str) -> list[str]:
     if not cwd or not base_ref:
         return []
     paths: set[str] = set()
-    tracked = run_git(cwd, ['diff', '--name-only', base_ref], timeout=20)
+    tracked = run_git(cwd, ['diff', '--name-only', _diff_base(cwd, base_ref)], timeout=20)
     if tracked:
         for line in tracked.splitlines():
             path = line.strip()
@@ -378,16 +405,18 @@ def diff_against_base(cwd: str, base_ref: str) -> str:
     chatting — they want to see what Claude has done so far, regardless
     of whether it's been committed yet. We union three things:
 
-      * ``git diff <base_ref>`` — working tree (tracked + staged) vs the
-        destination tip. Catches both committed and uncommitted edits in
-        one call.
+      * ``git diff <merge-base>`` — working tree (tracked + staged) vs the
+        merge-base of ``base_ref`` and HEAD (NOT the destination tip — see
+        ``_diff_base``). Catches both committed and uncommitted edits in
+        one call, and matches the PR's three-dot diff so master advancing
+        past the fork point doesn't surface phantom deletions.
       * Untracked-but-not-ignored files — Claude's freshly-written files
         won't appear in the diff above until they're added to the index,
         so we synthesize one ``new file`` hunk per untracked path.
       * Large untracked files get a placeholder hunk instead of dumping
         megabytes into the response.
     """
-    main_diff = run_git(cwd, ['diff', base_ref], timeout=30) or ''
+    main_diff = run_git(cwd, ['diff', _diff_base(cwd, base_ref)], timeout=30) or ''
     return _elide_oversized_file_diffs(main_diff) + _untracked_files_as_diff(cwd)
 
 

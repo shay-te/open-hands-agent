@@ -31,7 +31,11 @@ test('EventLog sticky prompts wrap instead of truncating to one line', () => {
 test('EventLog sticky prompts collapse to three lines with snippet expand button', () => {
   const wrapBody = ruleBody('.chat-sticky-prompt-text-wrap.is-collapsed');
   const expandBody = ruleBody('.chat-sticky-prompt-expand');
-  const fadeBody = ruleBody('.chat-sticky-prompt-text-wrap.is-collapsed::after');
+  // The fade spans the FULL prompt box, so it lives on the full-width
+  // toggle (under the "You asked" label too), not just the text column.
+  const fadeBody = ruleBody(
+    '.chat-sticky-prompt.is-collapsible:not(.is-expanded) .chat-sticky-prompt-toggle::after',
+  );
 
   // 3 lines x 1.5 line-height x 12.5px font; Sass evaluates the static
   // calc() at compile time to its exact equivalent, 56.25px.
@@ -39,4 +43,7 @@ test('EventLog sticky prompts collapse to three lines with snippet expand button
   assertDeclaration(wrapBody, 'overflow', 'hidden');
   assertDeclaration(expandBody, 'bottom', '0');
   assert.match(fadeBody, /background\s*:\s*linear-gradient\(/);
+  // Full-width: the fade pins to both edges of the prompt box.
+  assertDeclaration(fadeBody, 'left', '0');
+  assertDeclaration(fadeBody, 'right', '0');
 });

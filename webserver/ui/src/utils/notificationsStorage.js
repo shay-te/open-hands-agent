@@ -9,6 +9,8 @@
 // the helpers know nothing about React.
 
 import { NOTIFICATION_KIND } from '../constants/notificationKind.js';
+import { resolveStorage } from './storage.js';
+import { parseJsonOr } from './json.js';
 
 export const ENABLED_STORAGE_KEY = 'kato.notifications';
 export const KIND_STORAGE_KEY = 'kato.notifications.kinds';
@@ -32,15 +34,8 @@ export function defaultKindPrefs() {
   return { ...DEFAULT_KIND_PREFS };
 }
 
-function defaultStorage() {
-  if (typeof window !== 'undefined' && window.localStorage) {
-    return window.localStorage;
-  }
-  return null;
-}
-
 export function readEnabled(storage) {
-  const store = storage || defaultStorage();
+  const store = storage || resolveStorage();
   if (!store) { return false; }
   try {
     return store.getItem(ENABLED_STORAGE_KEY) === 'on';
@@ -50,7 +45,7 @@ export function readEnabled(storage) {
 }
 
 export function writeEnabled(value, storage) {
-  const store = storage || defaultStorage();
+  const store = storage || resolveStorage();
   if (!store) { return; }
   try {
     store.setItem(ENABLED_STORAGE_KEY, value ? 'on' : 'off');
@@ -60,7 +55,7 @@ export function writeEnabled(value, storage) {
 }
 
 export function readKindPrefs(storage) {
-  const store = storage || defaultStorage();
+  const store = storage || resolveStorage();
   if (!store) { return defaultKindPrefs(); }
   let raw;
   try {
@@ -68,13 +63,7 @@ export function readKindPrefs(storage) {
   } catch (_err) {
     return defaultKindPrefs();
   }
-  if (!raw) { return defaultKindPrefs(); }
-  let parsed;
-  try {
-    parsed = JSON.parse(raw);
-  } catch (_err) {
-    return defaultKindPrefs();
-  }
+  const parsed = parseJsonOr(raw, null);
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
     return defaultKindPrefs();
   }
@@ -89,7 +78,7 @@ export function readKindPrefs(storage) {
 }
 
 export function writeKindPrefs(prefs, storage) {
-  const store = storage || defaultStorage();
+  const store = storage || resolveStorage();
   if (!store) { return; }
   try {
     store.setItem(KIND_STORAGE_KEY, JSON.stringify(prefs));

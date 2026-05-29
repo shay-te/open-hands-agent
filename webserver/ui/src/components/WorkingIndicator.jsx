@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { cx } from '../utils/cx.js';
 
 const PHRASES = [
   'thinking',
@@ -67,11 +68,11 @@ export default function WorkingIndicator({
     ? Math.max(0, Math.floor((now - lastEventAt) / 1000))
     : 0;
   const stalled = lastEventAt > 0 && idleSeconds >= STALL_THRESHOLD_SECONDS;
-  const className = [
+  const className = cx(
     'working-indicator',
-    stalled ? 'is-stalled' : '',
-    waitingForApproval ? 'is-waiting-approval' : '',
-  ].filter(Boolean).join(' ');
+    stalled && 'is-stalled',
+    waitingForApproval && 'is-waiting-approval',
+  );
   const activityText = lastEventAt > 0
     ? `last activity ${formatSeconds(idleSeconds)} ago`
     : '';

@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { fetchGitProviders, updateGitProvider } from '../api.js';
 import { toast } from '../stores/toastStore.js';
+import { apiErrorMessage } from '../utils/apiError.js';
+import { sourceLabel } from '../utils/settingsSource.js';
+import { isSecretKey, buildDraftFor } from '../utils/providerFields.js';
+import PanelMessage from './settings/PanelMessage.jsx';
+import SettingsPanelHead from './settings/SettingsPanelHead.jsx';
+import SettingsActions from './settings/SettingsActions.jsx';
+import RestartBanner from './settings/RestartBanner.jsx';
 
 // "Git provider" tab — credentials kato uses to clone / push /
 // open PRs. Only the real git hosts (Bitbucket / GitHub / GitLab);
@@ -15,13 +22,6 @@ const HOST_LABELS = {
   github: 'GitHub',
   gitlab: 'GitLab',
 };
-
-function isSecretKey(key) {
-  const lower = key.toLowerCase();
-  return lower.includes('token')
-    || lower.includes('secret')
-    || lower.includes('password');
-}
 
 export default function GitProvidersSettingsPanel() {
   const [state, setState] = useState({
@@ -42,7 +42,7 @@ export default function GitProvidersSettingsPanel() {
     if (!result.ok) {
       setState({
         loading: false,
-        error: String(result.body?.error || result.error || 'load failed'),
+        error: apiErrorMessage(result, 'load failed'),
         supported: [], providers: {}, settingsFilePath: '',
       });
       return;
@@ -84,7 +84,7 @@ export default function GitProvidersSettingsPanel() {
         toast.show({
           kind: 'error',
           title: 'Save failed',
-          message: String(result.body?.error || result.error || 'save failed'),
+          message: apiErrorMessage(result, 'save failed'),
           durationMs: 8000,
         });
         return;
@@ -107,8 +107,7 @@ export default function GitProvidersSettingsPanel() {
 
   return (
     <div className="settings-drawer-panel">
-      <header className="settings-drawer-panel-head">
-        <h3>Git provider</h3>
+      <SettingsPanelHead title="Git provider">
         <p>
           Credentials kato uses to clone, push branches, and open PRs.
           Kato picks the host automatically from each repo's remote
@@ -117,13 +116,13 @@ export default function GitProvidersSettingsPanel() {
           {' '}(your <code>.env</code> is left untouched — kato still
           reads it as a fallback).
         </p>
-      </header>
+      </SettingsPanelHead>
 
       {state.loading && (
-        <p className="settings-drawer-message">Loading git hosts…</p>
+        <PanelMessage>Loading git hosts…</PanelMessage>
       )}
       {state.error && (
-        <p className="settings-drawer-message is-error">{state.error}</p>
+        <PanelMessage error>{state.error}</PanelMessage>
       )}
 
       {!state.loading && !state.error && (
@@ -183,49 +182,18 @@ export default function GitProvidersSettingsPanel() {
             })}
           </div>
 
-          <div className="settings-drawer-actions">
-            <button
-              type="button"
-              className="settings-drawer-action-secondary"
-              onClick={refresh}
-              disabled={saving}
-            >
-              Revert
-            </button>
-            <button
-              type="button"
-              className="settings-drawer-action-primary"
-              onClick={save}
-              disabled={!isDirty || saving}
-            >
-              {saving ? 'Saving…' : 'Save'}
-            </button>
-          </div>
+          <SettingsActions
+            onSecondary={refresh}
+            secondaryLabel="Revert"
+            onSave={save}
+            saving={saving}
+            canSave={isDirty}
+            primaryLabel="Save"
+          />
 
-          {savedAt && (
-            <div className="settings-drawer-restart-banner">
-              ⚠ Restart kato for the change to take effect.
-            </div>
-          )}
+          <RestartBanner show={savedAt} />
         </>
       )}
     </div>
   );
-}
-
-
-function buildDraftFor(providers, name) {
-  const fields = (providers?.[name]?.fields) || {};
-  const out = {};
-  for (const key of Object.keys(fields)) {
-    out[key] = fields[key]?.value || '';
-  }
-  return out;
-}
-
-function sourceLabel(source) {
-  if (source === 'env') { return 'live'; }
-  if (source === 'kato_settings') { return 'saved'; }
-  if (source === 'env_file') { return '.env'; }
-  return 'unset';
 }

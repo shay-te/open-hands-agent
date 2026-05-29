@@ -4,6 +4,10 @@ import {
   updateRepositoryApprovals,
 } from '../api.js';
 import { toast } from '../stores/toastStore.js';
+import { apiErrorMessage } from '../utils/apiError.js';
+import PanelMessage from './settings/PanelMessage.jsx';
+import SettingsPanelHead from './settings/SettingsPanelHead.jsx';
+import SettingsActions from './settings/SettingsActions.jsx';
 
 // "Repository approvals" tab — the UI replacement for the old
 // ``./kato approve-repo`` CLI picker. Lists every candidate kato
@@ -38,7 +42,7 @@ export default function RepositoryApprovalsSettingsPanel() {
     if (!result.ok) {
       setState({
         loading: false,
-        error: String(result.body?.error || result.error || 'load failed'),
+        error: apiErrorMessage(result, 'load failed'),
         rows: [],
         storagePath: '',
       });
@@ -113,7 +117,7 @@ export default function RepositoryApprovalsSettingsPanel() {
         toast.show({
           kind: 'error',
           title: 'Save failed',
-          message: String(result.body?.error || result.error || 'save failed'),
+          message: apiErrorMessage(result, 'save failed'),
           durationMs: 8000,
         });
         return;
@@ -134,21 +138,20 @@ export default function RepositoryApprovalsSettingsPanel() {
 
   return (
     <div className="settings-drawer-panel">
-      <header className="settings-drawer-panel-head">
-        <h3>Repository approvals</h3>
+      <SettingsPanelHead title="Repository approvals">
         <p>
           Kato refuses tasks on repos that aren't on this list. Toggle
           to approve, pick <strong>restricted</strong> (re-check the
           remote URL at runtime) or <strong>trusted</strong> (skip the
           recheck). Stored in <code>{state.storagePath || '~/.kato/approved-repositories.json'}</code>.
         </p>
-      </header>
+      </SettingsPanelHead>
 
       {state.loading && (
-        <p className="settings-drawer-message">Loading repositories…</p>
+        <PanelMessage>Loading repositories…</PanelMessage>
       )}
       {state.error && (
-        <p className="settings-drawer-message is-error">{state.error}</p>
+        <PanelMessage error>{state.error}</PanelMessage>
       )}
 
       {!state.loading && !state.error && (
@@ -234,24 +237,14 @@ export default function RepositoryApprovalsSettingsPanel() {
             </table>
           )}
 
-          <div className="settings-drawer-actions">
-            <button
-              type="button"
-              className="settings-drawer-action-secondary"
-              onClick={refresh}
-              disabled={saving}
-            >
-              Refresh
-            </button>
-            <button
-              type="button"
-              className="settings-drawer-action-primary"
-              onClick={save}
-              disabled={!hasChanges || saving}
-            >
-              {saving ? 'Saving…' : 'Save changes'}
-            </button>
-          </div>
+          <SettingsActions
+            onSecondary={refresh}
+            secondaryLabel="Refresh"
+            onSave={save}
+            saving={saving}
+            canSave={hasChanges}
+            primaryLabel="Save changes"
+          />
         </>
       )}
     </div>
