@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { fetchSettings, updateSettings } from '../api.js';
 import { toast } from '../stores/toastStore.js';
-import { apiErrorMessage } from '../utils/apiError.js';
+import { useRestartingSave } from '../hooks/useRestartingSave.js';
+import { useSettingsResource } from '../hooks/useSettingsResource.js';
 import { sourceLabelVerbose } from '../utils/settingsSource.js';
 import PanelMessage from './settings/PanelMessage.jsx';
 import SettingsPanelHead from './settings/SettingsPanelHead.jsx';
@@ -18,46 +19,27 @@ import RestartBanner from './settings/RestartBanner.jsx';
 // "restart required" prominently after every successful save.
 
 export default function RepositoriesSettingsPanel() {
-  const [state, setState] = useState({
-    loading: true,
-    error: '',
-    value: '',
-    source: 'unset',
-    settingsFilePath: '',
-  });
+  const [meta, setMeta] = useState({ value: '', source: 'unset', settingsFilePath: '' });
   const [draft, setDraft] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [savedAt, setSavedAt] = useState(null);
 
-  const refresh = useCallback(async () => {
-    setState((prev) => ({ ...prev, loading: true, error: '' }));
-    const result = await fetchSettings();
-    if (!result.ok) {
-      setState({
-        loading: false,
-        error: String(result.error || result.body?.error || 'load failed'),
-        value: '', source: 'unset', settingsFilePath: '',
-      });
-      return;
-    }
-    const repo = result.body?.repository_root_path || {};
-    setState({
-      loading: false,
-      error: '',
+  const { loading, error, refresh } = useSettingsResource(fetchSettings, (body) => {
+    const repo = body?.repository_root_path || {};
+    setMeta({
       value: String(repo.value || ''),
       source: String(repo.source || 'unset'),
-      settingsFilePath: String(
-        result.body?.settings_file_path || result.body?.env_file_path || '',
-      ),
+      settingsFilePath: String(body?.settings_file_path || body?.env_file_path || ''),
     });
     setDraft(String(repo.value || ''));
-  }, []);
+  });
 
-  useEffect(() => { refresh(); }, [refresh]);
+  const { saving, savedAt, save: saveRoot } = useRestartingSave(
+    () => updateSettings({ repository_root_path: draft.trim() }),
+    { onSaved: refresh },
+  );
 
-  async function save() {
-    const trimmed = draft.trim();
-    if (!trimmed) {
+  // Keep the empty-path pre-check as a caller-side guard.
+  const save = () => {
+    if (!draft.trim()) {
       toast.show({
         kind: 'error',
         title: 'Empty path',
@@ -65,34 +47,11 @@ export default function RepositoriesSettingsPanel() {
       });
       return;
     }
-    setSaving(true);
-    try {
-      const result = await updateSettings({ repository_root_path: trimmed });
-      if (!result.ok) {
-        toast.show({
-          kind: 'error',
-          title: 'Save failed',
-          message: apiErrorMessage(result, 'save failed'),
-          durationMs: 8000,
-        });
-        return;
-      }
-      toast.show({
-        kind: 'success',
-        title: 'Saved',
-        message: result.body?.message
-          || 'Restart kato for the change to take effect.',
-        durationMs: 7000,
-      });
-      setSavedAt(Date.now());
-      refresh();
-    } finally {
-      setSaving(false);
-    }
-  }
+    return saveRoot();
+  };
 
-  const dirty = draft.trim() !== state.value;
-  const sourceLabel = sourceLabelVerbose(state.source);
+  const dirty = draft.trim() !== meta.value;
+  const sourceLabel = sourceLabelVerbose(meta.source);
 
   return (
     <div className="settings-drawer-panel">
@@ -100,20 +59,20 @@ export default function RepositoriesSettingsPanel() {
         <p>
           The folder kato walks for ``.git`` directories to
           auto-discover repos. Saved to
-          {' '}<code>{state.settingsFilePath || '~/.kato/settings.json'}</code>
+          {' '}<code>{meta.settingsFilePath || '~/.kato/settings.json'}</code>
           {' '}as <code>REPOSITORY_ROOT_PATH</code> (your <code>.env</code>
           {' '}is left untouched — kato still reads it as a fallback).
         </p>
       </SettingsPanelHead>
 
-      {state.loading && (
+      {loading && (
         <PanelMessage>Loading current setting…</PanelMessage>
       )}
-      {state.error && (
-        <PanelMessage error>{state.error}</PanelMessage>
+      {error && (
+        <PanelMessage error>{error}</PanelMessage>
       )}
 
-      {!state.loading && !state.error && (
+      {!loading && !error && (
         <>
           <label className="settings-drawer-field">
             <span className="settings-drawer-field-label">Folder path</span>
@@ -137,19 +96,19 @@ export default function RepositoriesSettingsPanel() {
             <span className="settings-drawer-kv">
               <span className="settings-drawer-kv-key">Current</span>
               <code className="settings-drawer-kv-value">
-                {state.value || '(unset)'}
+                {meta.value || '(unset)'}
               </code>
             </span>
             <span className="settings-drawer-kv">
               <span className="settings-drawer-kv-key">Source</span>
-              <span className={`settings-drawer-kv-value source-${state.source}`}>
+              <span className={`settings-drawer-kv-value source-${meta.source}`}>
                 {sourceLabel}
               </span>
             </span>
           </div>
 
           <SettingsActions
-            onSecondary={() => setDraft(state.value)}
+            onSecondary={() => setDraft(meta.value)}
             secondaryDisabled={!dirty || saving}
             onSave={save}
             saving={saving}

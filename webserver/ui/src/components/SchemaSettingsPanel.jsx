@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { fetchAllSettings, updateAllSettings } from '../api.js';
-import { apiErrorMessage } from '../utils/apiError.js';
 import { useRestartingSave } from '../hooks/useRestartingSave.js';
+import { useSettingsResource } from '../hooks/useSettingsResource.js';
 import { sourceLabel } from '../utils/settingsSource.js';
 import PanelMessage from './settings/PanelMessage.jsx';
 import SettingsPanelHead from './settings/SettingsPanelHead.jsx';
@@ -21,33 +21,12 @@ import RestartBanner from './settings/RestartBanner.jsx';
 // touched. Restart required — banner shown after a save.
 
 export default function SchemaSettingsPanel({ sectionId }) {
-  const [state, setState] = useState({
-    loading: true,
-    error: '',
-    sections: [],
-    settingsFilePath: '',
-  });
+  const [meta, setMeta] = useState({ sections: [], settingsFilePath: '' });
   const [draft, setDraft] = useState({});
 
-  const refresh = useCallback(async () => {
-    setState((prev) => ({ ...prev, loading: true, error: '' }));
-    const result = await fetchAllSettings();
-    if (!result.ok) {
-      setState({
-        loading: false,
-        error: apiErrorMessage(result, 'load failed'),
-        sections: [], settingsFilePath: '',
-      });
-      return;
-    }
-    const body = result.body || {};
+  const { loading, error, refresh } = useSettingsResource(fetchAllSettings, (body) => {
     const sections = Array.isArray(body.sections) ? body.sections : [];
-    setState({
-      loading: false,
-      error: '',
-      sections,
-      settingsFilePath: String(body.settings_file_path || ''),
-    });
+    setMeta({ sections, settingsFilePath: String(body.settings_file_path || '') });
     // Seed the draft from server values for THIS section's fields.
     const section = sections.find((s) => s.id === sectionId);
     const seed = {};
@@ -55,13 +34,11 @@ export default function SchemaSettingsPanel({ sectionId }) {
       seed[f.key] = f.value ?? '';
     }
     setDraft(seed);
-  }, [sectionId]);
-
-  useEffect(() => { refresh(); }, [refresh]);
+  });
 
   const section = useMemo(
-    () => state.sections.find((s) => s.id === sectionId) || null,
-    [state.sections, sectionId],
+    () => meta.sections.find((s) => s.id === sectionId) || null,
+    [meta.sections, sectionId],
   );
 
   const dirtyKeys = useMemo(() => {
@@ -95,17 +72,17 @@ export default function SchemaSettingsPanel({ sectionId }) {
     setDraft(seed);
   }
 
-  if (state.loading) {
+  if (loading) {
     return (
       <div className="settings-drawer-panel">
         <PanelMessage>Loading settings…</PanelMessage>
       </div>
     );
   }
-  if (state.error) {
+  if (error) {
     return (
       <div className="settings-drawer-panel">
-        <PanelMessage error>{state.error}</PanelMessage>
+        <PanelMessage error>{error}</PanelMessage>
       </div>
     );
   }
@@ -123,7 +100,7 @@ export default function SchemaSettingsPanel({ sectionId }) {
         <p>
           {section.description}
           {' '}Saved to
-          {' '}<code>{state.settingsFilePath || '~/.kato/settings.json'}</code>
+          {' '}<code>{meta.settingsFilePath || '~/.kato/settings.json'}</code>
           {' '}— your <code>.env</code> is left untouched (read as a
           fallback).
         </p>

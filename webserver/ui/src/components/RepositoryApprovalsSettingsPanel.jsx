@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   fetchRepositoryApprovals,
   updateRepositoryApprovals,
 } from '../api.js';
 import { toast } from '../stores/toastStore.js';
 import { apiErrorMessage } from '../utils/apiError.js';
+import { useSettingsResource } from '../hooks/useSettingsResource.js';
 import PanelMessage from './settings/PanelMessage.jsx';
 import SettingsPanelHead from './settings/SettingsPanelHead.jsx';
 import SettingsActions from './settings/SettingsActions.jsx';
@@ -23,12 +24,7 @@ const MODE_RESTRICTED = 'restricted';
 const MODE_TRUSTED = 'trusted';
 
 export default function RepositoryApprovalsSettingsPanel() {
-  const [state, setState] = useState({
-    loading: true,
-    error: '',
-    rows: [],
-    storagePath: '',
-  });
+  const [meta, setMeta] = useState({ rows: [], storagePath: '' });
   // Per-row pending edits keyed by repository_id. Each value is
   // ``{ approved: bool, mode: 'restricted' | 'trusted' }``. We
   // compare against the original row on save to compute the
@@ -36,28 +32,13 @@ export default function RepositoryApprovalsSettingsPanel() {
   const [edits, setEdits] = useState({});
   const [saving, setSaving] = useState(false);
 
-  const refresh = useCallback(async () => {
-    setState((prev) => ({ ...prev, loading: true, error: '' }));
-    const result = await fetchRepositoryApprovals();
-    if (!result.ok) {
-      setState({
-        loading: false,
-        error: apiErrorMessage(result, 'load failed'),
-        rows: [],
-        storagePath: '',
-      });
-      return;
-    }
-    setState({
-      loading: false,
-      error: '',
-      rows: Array.isArray(result.body?.repositories) ? result.body.repositories : [],
-      storagePath: String(result.body?.storage_path || ''),
+  const { loading, error, refresh } = useSettingsResource(fetchRepositoryApprovals, (body) => {
+    setMeta({
+      rows: Array.isArray(body?.repositories) ? body.repositories : [],
+      storagePath: String(body?.storage_path || ''),
     });
     setEdits({});
-  }, []);
-
-  useEffect(() => { refresh(); }, [refresh]);
+  });
 
   function rowState(row) {
     const e = edits[row.repository_id];
@@ -71,11 +52,11 @@ export default function RepositoryApprovalsSettingsPanel() {
   function patchEdit(repoId, patch) {
     setEdits((current) => ({
       ...current,
-      [repoId]: { ...rowStateFor(current, state.rows, repoId), ...patch },
+      [repoId]: { ...rowStateFor(current, meta.rows, repoId), ...patch },
     }));
   }
 
-  const hasChanges = state.rows.some((row) => {
+  const hasChanges = meta.rows.some((row) => {
     const e = edits[row.repository_id];
     if (!e) { return false; }
     if ((!!e.approved) !== !!row.approved) { return true; }
@@ -88,7 +69,7 @@ export default function RepositoryApprovalsSettingsPanel() {
   async function save() {
     const approve = [];
     const revoke = [];
-    for (const row of state.rows) {
+    for (const row of meta.rows) {
       const e = edits[row.repository_id];
       if (!e) { continue; }
       const wasApproved = !!row.approved;
@@ -143,20 +124,20 @@ export default function RepositoryApprovalsSettingsPanel() {
           Kato refuses tasks on repos that aren't on this list. Toggle
           to approve, pick <strong>restricted</strong> (re-check the
           remote URL at runtime) or <strong>trusted</strong> (skip the
-          recheck). Stored in <code>{state.storagePath || '~/.kato/approved-repositories.json'}</code>.
+          recheck). Stored in <code>{meta.storagePath || '~/.kato/approved-repositories.json'}</code>.
         </p>
       </SettingsPanelHead>
 
-      {state.loading && (
+      {loading && (
         <PanelMessage>Loading repositories…</PanelMessage>
       )}
-      {state.error && (
-        <PanelMessage error>{state.error}</PanelMessage>
+      {error && (
+        <PanelMessage error>{error}</PanelMessage>
       )}
 
-      {!state.loading && !state.error && (
+      {!loading && !error && (
         <>
-          {state.rows.length === 0 ? (
+          {meta.rows.length === 0 ? (
             <p className="settings-drawer-message">
               No repositories discovered yet. Set
               <code> REPOSITORY_ROOT_PATH </code>
@@ -175,7 +156,7 @@ export default function RepositoryApprovalsSettingsPanel() {
                 </tr>
               </thead>
               <tbody>
-                {state.rows.map((row) => {
+                {meta.rows.map((row) => {
                   const e = rowState(row);
                   return (
                     <tr
@@ -254,7 +235,7 @@ export default function RepositoryApprovalsSettingsPanel() {
 
 // Like ``rowState`` but resolved against a snapshot — used inside
 // the setEdits updater where the new edit needs the previous state
-// without a fresh closure over ``state.rows``.
+// without a fresh closure over ``meta.rows``.
 function rowStateFor(currentEdits, rows, repoId) {
   const e = currentEdits[repoId];
   if (e) { return e; }

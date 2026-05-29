@@ -1731,7 +1731,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   align-items: center;
   justify-content: center;
   width: 24px;
-  height: 22px;
+  height: $SPACE-22;
   padding: 0;
   background: transparent;
   border: 1px solid transparent;
@@ -1986,7 +1986,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
    * visible instead of slipping behind it. Falls back to a single-
    * row sentinel (94px capsule + 18px bottom offset = 112px) when
    * the variable hasn't been set yet (first paint, no ResizeObserver). */
-  padding-bottom: calc(var(--composer-h, 94px) + #{$SPACE-28});
+  padding-bottom: calc(var(--composer-h, $SPACE-94) + #{$SPACE-28});
 }
 
 /* ───── chat search: bubble match / no-match states ──────────────
@@ -2190,7 +2190,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   /* Same width / centring as the composer below — reads as a
    * stacked pair. */
   left: 50%;
-  bottom: calc(var(--composer-h, 94px) + 26px);
+  bottom: calc(var(--composer-h, $SPACE-94) + 26px);
   transform: translateX(-50%);
   width: min(720px, 100% - 32px);
   list-style: none;
@@ -2287,8 +2287,8 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 
 .queued-message-remove {
   flex-shrink: 0;
-  width: 22px;
-  height: 22px;
+  width: $SPACE-22;
+  height: $SPACE-22;
   padding: 0;
   display: inline-flex;
   align-items: center;
@@ -4606,7 +4606,7 @@ body.kato-resizing #left-pane-resizer::before {
   gap: $SPACE-8;
   min-height: 26px;
   width: 100%;
-  padding: $SPACE-3 $SPACE-8 $SPACE-3 calc(#{$SPACE-4} + var(--depth) * 22px);
+  padding: $SPACE-3 $SPACE-8 $SPACE-3 calc(#{$SPACE-4} + var(--depth) * $SPACE-22);
   border: 0;
   border-radius: $RADIUS-4;
   background: transparent;
@@ -4638,7 +4638,7 @@ body.kato-resizing #left-pane-resizer::before {
 
 .diff-file-tree-guide {
   position: absolute;
-  left: 22px;
+  left: $SPACE-22;
   /* Span EXACTLY the row (rows are contiguous, no gap). The old
    * ``top:-3px; bottom:-3px`` made every row's guide overlap its
    * neighbour's by 6px, so the 1px gradient lines double-drew in
@@ -4646,9 +4646,9 @@ body.kato-resizing #left-pane-resizer::before {
    * form one continuous, uniform 1px line per depth level. */
   top: 0;
   bottom: 0;
-  width: calc(var(--depth) * 22px);
+  width: calc(var(--depth) * $SPACE-22);
   pointer-events: none;
-  background-image: repeating-linear-gradient(to right, transparent 0, transparent 1px, $C-NEUTRAL-100-A10 1px, $C-NEUTRAL-100-A10 2px, transparent 2px, transparent 22px);
+  background-image: repeating-linear-gradient(to right, transparent 0, transparent 1px, $C-NEUTRAL-100-A10 1px, $C-NEUTRAL-100-A10 2px, transparent 2px, transparent $SPACE-22);
 }
 
 .diff-file-tree-row[style*="--depth: 0"] .diff-file-tree-guide {
@@ -5218,8 +5218,8 @@ body.kato-resizing #left-pane-resizer::before {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: $SPACE-22;
+  height: $SPACE-22;
   border: 1px solid transparent;
   border-radius: $RADIUS-4;
   background: transparent;
@@ -5364,8 +5364,8 @@ body.kato-resizing #left-pane-resizer::before {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: $SPACE-22;
+  height: $SPACE-22;
   border-radius: $RADIUS-CIRCLE;
   background: $C-AMBER-89;
   color: $C-RED-42;
@@ -6880,7 +6880,7 @@ body.kato-resizing #left-pane-resizer::before {
   appearance: none;
   -webkit-appearance: none;
   width: 38px;
-  height: 22px;
+  height: $SPACE-22;
   border-radius: $RADIUS-PILL;
   background: $C-NEUTRAL-16;
   border: 1px solid $C-NEUTRAL-19;

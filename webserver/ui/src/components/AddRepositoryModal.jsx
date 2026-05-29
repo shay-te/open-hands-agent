@@ -1,20 +1,14 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { addTaskRepository, fetchInventoryRepositories } from '../api.js';
 import { toast } from '../stores/toastStore.js';
 import { apiErrorMessage } from '../utils/apiError.js';
-import ModalShell from './ModalShell.jsx';
-import ModalFooterActions from './ModalFooterActions.jsx';
+import { usePickerData } from '../hooks/usePickerData.js';
+import SearchPickerModal from './SearchPickerModal.jsx';
 
-// "+ Add repository" picker for the Files tab. Lists every repo in
-// kato's inventory, filters out ones already on the task, lets the
-// operator pick one, and on confirm runs the platform-side tag write
-// + workspace clone in one server call.
-//
-// ``alreadyAttachedIds`` is the lower-cased set of repo ids the
-// current task already has — typically the entries in the file
-// tree's repo list. We filter UI-side so the picker is responsive
-// even on slow ticket-platform connections; the server still
-// validates against the inventory before tagging.
+// "+ Add repository" picker for the Files tab. Lists every repo in kato's
+// inventory, filters out ones already on the task (client-side), and on
+// confirm runs the platform-side tag write + workspace clone in one call.
+// Config over the shared <SearchPickerModal>.
 export default function AddRepositoryModal({
   taskId,
   alreadyAttachedIds = new Set(),
@@ -22,34 +16,11 @@ export default function AddRepositoryModal({
   onAdded,
 }) {
   const [query, setQuery] = useState('');
-  const [repositories, setRepositories] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [selectedId, setSelectedId] = useState('');
-  const [adding, setAdding] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError('');
-    fetchInventoryRepositories()
-      .then((result) => {
-        if (cancelled) { return; }
-        if (!result.ok) {
-          setError(apiErrorMessage(result, 'failed to load repositories'));
-          setRepositories([]);
-          return;
-        }
-        const list = Array.isArray(result.body?.repositories)
-          ? result.body.repositories
-          : [];
-        setRepositories(list);
-      })
-      .finally(() => {
-        if (!cancelled) { setLoading(false); }
-      });
-    return () => { cancelled = true; };
-  }, []);
+  const { data: repositories, loading, error } = usePickerData(async () => {
+    const result = await fetchInventoryRepositories();
+    if (!result.ok) { throw new Error(apiErrorMessage(result, 'failed to load repositories')); }
+    return Array.isArray(result.body?.repositories) ? result.body.repositories : [];
+  }, [], []);
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -66,11 +37,8 @@ export default function AddRepositoryModal({
     });
   }, [repositories, query, alreadyAttachedIds]);
 
-  async function onConfirm() {
-    if (!selectedId || adding) { return; }
-    setAdding(true);
-    const result = await addTaskRepository(taskId, selectedId);
-    setAdding(false);
+  async function onConfirm(repo) {
+    const result = await addTaskRepository(taskId, repo.id);
     if (!result.ok) {
       toast.show({
         kind: 'error',
@@ -110,79 +78,47 @@ export default function AddRepositoryModal({
   }
 
   return (
-    <ModalShell
+    <SearchPickerModal
       ariaLabel="Add repository to task"
       title={<>Add repository to {taskId}</>}
       onClose={onClose}
-    >
-        <p className="adopt-session-modal-help">
+      helpText={(
+        <>
           Pick a repository from kato's inventory. Kato will tag the
           task with <code>kato:repo:&lt;id&gt;</code> and clone the
           repo into this task's workspace. Repositories already
           attached to the task are filtered out.
-        </p>
-        <input
-          type="text"
-          className="adopt-session-search"
-          placeholder="Search by id, owner, or slug…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          autoFocus
-        />
-        <div className="adopt-session-list">
-          {loading && (
-            <div className="adopt-session-empty">Loading repositories…</div>
+        </>
+      )}
+      searchPlaceholder="Search by id, owner, or slug…"
+      query={query}
+      onQueryChange={setQuery}
+      items={filtered}
+      loading={loading}
+      error={error}
+      loadingText="Loading repositories…"
+      emptyText={repositories.length === 0
+        ? 'No repositories configured in kato.'
+        : 'Every repository in the inventory is already attached to this task.'}
+      getItemId={(repo) => repo.id}
+      confirmLabel="Add to task"
+      busyLabel="Adding…"
+      onConfirm={onConfirm}
+      renderRow={(repo) => (
+        <>
+          <div className="adopt-session-row-top">
+            <span className="adopt-session-cwd">{repo.id}</span>
+            <span className="adopt-session-meta">
+              {repo.owner && repo.repo_slug
+                ? `${repo.owner}/${repo.repo_slug}`
+                : (repo.owner || repo.repo_slug || '')}
+            </span>
+          </div>
+          {repo.local_path && (
+            <div className="adopt-session-preview">{repo.local_path}</div>
           )}
-          {!loading && error && (
-            <div className="adopt-session-empty adopt-session-error">
-              {error}
-            </div>
-          )}
-          {!loading && !error && filtered.length === 0 && (
-            <div className="adopt-session-empty">
-              {repositories.length === 0
-                ? 'No repositories configured in kato.'
-                : 'Every repository in the inventory is already attached '
-                  + 'to this task.'}
-            </div>
-          )}
-          {!loading && !error && filtered.map((repo) => {
-            const isSelected = repo.id === selectedId;
-            return (
-              <button
-                type="button"
-                key={repo.id}
-                className={[
-                  'adopt-session-row',
-                  isSelected ? 'is-selected' : '',
-                ].filter(Boolean).join(' ')}
-                onClick={() => setSelectedId(repo.id)}
-              >
-                <div className="adopt-session-row-top">
-                  <span className="adopt-session-cwd">{repo.id}</span>
-                  <span className="adopt-session-meta">
-                    {repo.owner && repo.repo_slug
-                      ? `${repo.owner}/${repo.repo_slug}`
-                      : (repo.owner || repo.repo_slug || '')}
-                  </span>
-                </div>
-                {repo.local_path && (
-                  <div className="adopt-session-preview">
-                    {repo.local_path}
-                  </div>
-                )}
-              </button>
-            );
-          })}
-        </div>
-        <ModalFooterActions
-          onCancel={onClose}
-          onConfirm={onConfirm}
-          busy={adding}
-          canConfirm={Boolean(selectedId)}
-          confirmLabel="Add to task"
-          busyLabel="Adding…"
-        />
-    </ModalShell>
+        </>
+      )}
+    />
   );
 }

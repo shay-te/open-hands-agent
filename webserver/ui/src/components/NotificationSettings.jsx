@@ -1,16 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { NOTIFICATION_KIND } from '../constants/notificationKind.js';
 import Icon from './Icon.jsx';
+import NotificationPrefsBody from './NotificationPrefsBody.jsx';
 
-const KIND_LABELS = {
-  [NOTIFICATION_KIND.STARTED]: 'Task started',
-  [NOTIFICATION_KIND.STATUS_CHANGE]: 'Task status changed',
-  [NOTIFICATION_KIND.COMPLETED]: 'Task finished',
-  [NOTIFICATION_KIND.ATTENTION]: 'Approval needed (chat / push)',
-  [NOTIFICATION_KIND.ERROR]: 'Task failed / errored',
-  [NOTIFICATION_KIND.REPLY]: 'Claude replied',
-};
-
+// Header gear-button popover for notification prefs. This component owns
+// only the popover chrome — the gear toggle, open state, and
+// outside-click-to-close; the controls themselves live in the shared
+// <NotificationPrefsBody variant="popover">.
 export default function NotificationSettings({
   enabled,
   supported,
@@ -33,70 +28,30 @@ export default function NotificationSettings({
     return () => document.removeEventListener('mousedown', onClickOutside);
   }, [open]);
 
-  const masterLabel = enabled ? 'on' : 'off';
-  const masterDisabled = !supported || permission === 'denied';
-  const permissionHint = permission === 'denied' && (
-    <div className="notification-settings-hint">
-      Notifications are blocked at the browser level. Enable them
-      in your browser site settings, then come back here.
-    </div>
-  );
-  function makeKindHandler(kind) {
-    return function onKindChange(event) {
-      onSetKindEnabled(kind, event.target.checked);
-    };
-  }
-  const kindRows = Object.values(NOTIFICATION_KIND).map((kind) => {
-    const label = KIND_LABELS[kind] || kind;
-    const checked = kindPrefs[kind] !== false;
-    return (
-      <label key={kind} className="notification-settings-row">
-        <input
-          type="checkbox"
-          checked={checked}
-          onChange={makeKindHandler(kind)}
-          disabled={!enabled}
-        />
-        <span>{label}</span>
-      </label>
-    );
-  });
-  const popover = open && (
-    <div className="notification-settings-popover">
-      <div className="notification-settings-row notification-settings-master">
-        <span>Browser notifications</span>
-        <button
-          type="button"
-          data-tooltip={enabled
-            ? 'Turn off all browser notifications for kato.'
-            : 'Turn on browser notifications so kato can ping you when a task needs you.'}
-          onClick={onToggle}
-          disabled={masterDisabled}
-        >
-          {masterLabel}
-        </button>
-      </div>
-      {permissionHint}
-      <div className="notification-settings-divider" />
-      {kindRows}
-    </div>
-  );
-
-  function togglePopover() {
-    setOpen((v) => { return !v; });
-  }
   return (
     <div className="notification-settings" ref={popoverRef}>
       <button
         type="button"
         data-tooltip="Notification settings — choose which task events should ping you."
         aria-label="Notification settings"
-        onClick={togglePopover}
+        onClick={() => setOpen((v) => !v)}
         disabled={!supported}
       >
         <Icon name="gear" />
       </button>
-      {popover}
+      {open && (
+        <div className="notification-settings-popover">
+          <NotificationPrefsBody
+            variant="popover"
+            enabled={enabled}
+            supported={supported}
+            permission={permission}
+            kindPrefs={kindPrefs}
+            onSetKindEnabled={onSetKindEnabled}
+            onToggle={onToggle}
+          />
+        </div>
+      )}
     </div>
   );
 }
