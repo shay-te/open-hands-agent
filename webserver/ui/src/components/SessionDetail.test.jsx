@@ -57,6 +57,9 @@ vi.mock('../api.js', () => ({
   postChatMessage: vi.fn().mockResolvedValue({ ok: true, body: {} }),
   postSession: vi.fn().mockResolvedValue({ ok: true }),
   setSessionModel: vi.fn().mockResolvedValue({}),
+  fetchEffortLevels: vi.fn().mockResolvedValue({ levels: [], default: '' }),
+  fetchSessionEffort: vi.fn().mockResolvedValue({ effort: '' }),
+  setSessionEffort: vi.fn().mockResolvedValue({}),
 }));
 vi.mock('../hooks/useSessionStream.js', async (importActual) => {
   const actual = await importActual();

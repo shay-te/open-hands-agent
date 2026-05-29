@@ -328,6 +328,57 @@ describe('MessageForm — model selector', () => {
 });
 
 
+describe('MessageForm — effort selector', () => {
+
+  test('renders an effort selector when effortLevels is non-empty', () => {
+    renderForm({
+      taskId: 'T1',
+      effortLevels: ['low', 'medium', 'high', 'xhigh', 'max'],
+      selectedEffort: 'high',
+    });
+    const select = screen.getByRole('combobox', { name: /select reasoning effort/i });
+    expect(select).toBeInTheDocument();
+    expect(select).toHaveValue('high');
+  });
+
+  test('does NOT render an effort selector when effortLevels is empty', () => {
+    renderForm({ taskId: 'T1', effortLevels: [] });
+    expect(screen.queryByRole('combobox', { name: /select reasoning effort/i }))
+      .not.toBeInTheDocument();
+  });
+
+  test('changing the effort fires onEffortChange', () => {
+    const onEffortChange = vi.fn();
+    renderForm({
+      taskId: 'T1',
+      effortLevels: ['low', 'high', 'max'],
+      selectedEffort: 'low',
+      onEffortChange,
+    });
+    fireEvent.change(
+      screen.getByRole('combobox', { name: /select reasoning effort/i }),
+      { target: { value: 'max' } },
+    );
+    expect(onEffortChange).toHaveBeenCalledWith('max');
+  });
+
+  test('Auto option clears the effort (empty value)', () => {
+    const onEffortChange = vi.fn();
+    renderForm({
+      taskId: 'T1',
+      effortLevels: ['low', 'high'],
+      selectedEffort: 'high',
+      onEffortChange,
+    });
+    fireEvent.change(
+      screen.getByRole('combobox', { name: /select reasoning effort/i }),
+      { target: { value: '' } },
+    );
+    expect(onEffortChange).toHaveBeenCalledWith('');
+  });
+});
+
+
 describe('MessageForm — composer-height CSS variable (--composer-h)', () => {
   // Operator-reported bug: typing a multi-paragraph message grew
   // the composer past the chat's fixed 120px bottom padding so the

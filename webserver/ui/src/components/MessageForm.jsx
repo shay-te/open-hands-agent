@@ -48,6 +48,9 @@ const MessageForm = forwardRef(function MessageForm({
   availableModels = [],
   selectedModel = '',
   onModelChange,
+  effortLevels = [],
+  selectedEffort = '',
+  onEffortChange,
 }, ref) {
   // Lazy initializer reads the persisted draft once on mount.
   // SessionDetail keys this component on the active task, so this
@@ -336,19 +339,32 @@ const MessageForm = forwardRef(function MessageForm({
         </div>
         <div className="composer-toolbar-right">
           {availableModels.length > 0 && (
-            <select
+            <ComposerSelect
               id="model-selector"
-              className="tooltip-above"
-              data-tooltip="Model used for the next session spawn. Takes effect when Claude is re-spawned."
+              tooltip="Model used for the next session spawn. Takes effect when Claude is re-spawned."
+              ariaLabel="Select model"
               value={selectedModel}
-              onChange={(e) => onModelChange && onModelChange(e.target.value)}
-              aria-label="Select model"
+              onChange={onModelChange}
             >
               <option value="">Default</option>
               {availableModels.map((m) => (
                 <option key={m.id} value={m.id}>{m.label}</option>
               ))}
-            </select>
+            </ComposerSelect>
+          )}
+          {effortLevels.length > 0 && (
+            <ComposerSelect
+              id="effort-selector"
+              tooltip="Reasoning effort for this chat. Higher = more thinking. 'Auto' uses the configured default. A change applies on the next message (the session re-spawns to take effect)."
+              ariaLabel="Select reasoning effort"
+              value={selectedEffort}
+              onChange={onEffortChange}
+            >
+              <option value="">Effort: Auto</option>
+              {effortLevels.map((level) => (
+                <option key={level} value={level}>{`Effort: ${level}`}</option>
+              ))}
+            </ComposerSelect>
           )}
           <button
             type="submit"
@@ -367,6 +383,27 @@ const MessageForm = forwardRef(function MessageForm({
 
 
 export default MessageForm;
+
+
+// Shared composer dropdown. The model picker and the effort picker
+// are the same control with different options, so they render through
+// one component — identical markup, identical ``.composer-select``
+// styling (see app.scss). Keep the per-instance ``id`` for tests and
+// value targeting; everything visual lives on the shared class.
+function ComposerSelect({ id, value, onChange, tooltip, ariaLabel, children }) {
+  return (
+    <select
+      id={id}
+      className="composer-select tooltip-above"
+      data-tooltip={tooltip}
+      value={value}
+      onChange={(e) => onChange && onChange(e.target.value)}
+      aria-label={ariaLabel}
+    >
+      {children}
+    </select>
+  );
+}
 
 
 function _previewUrl(part) {

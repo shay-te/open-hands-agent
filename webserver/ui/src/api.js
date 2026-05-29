@@ -572,6 +572,34 @@ export async function setSessionModel(taskId, modelId) {
   }
 }
 
+export function fetchEffortLevels() {
+  // { levels: [...], default: '' } — levels discovered from the agent CLI.
+  return fetchJson('/api/effort-levels');
+}
+
+export function fetchSessionEffort(taskId) {
+  if (!taskId) { return Promise.resolve({ effort: '' }); }
+  return fetchJson(`/api/sessions/${encodeURIComponent(taskId)}/effort`);
+}
+
+export async function setSessionEffort(taskId, effort) {
+  if (!taskId) { return { ok: false, error: 'no task id' }; }
+  try {
+    const response = await fetch(
+      `/api/sessions/${encodeURIComponent(taskId)}/effort`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ effort: effort || '' }),
+      },
+    );
+    const body = await response.json().catch(() => ({}));
+    return { ok: response.ok, status: response.status, body };
+  } catch (err) {
+    return { ok: false, error: String(err) };
+  }
+}
+
 export async function triggerScan() {
   try {
     const response = await fetch('/api/scan/trigger', { method: 'POST' });

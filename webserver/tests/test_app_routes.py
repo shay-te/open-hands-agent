@@ -1310,5 +1310,45 @@ class SyncRepositoriesEndpointTests(unittest.TestCase):
         self.assertEqual(response.get_json()['added'], ['client', 'backend'])
 
 
+class EffortRoutesTests(unittest.TestCase):
+    """Per-task chat effort: discovered levels + get/set/clear override."""
+
+    def _client(self):
+        return create_app(session_manager=_FakeManager()).test_client()
+
+    def test_effort_levels_endpoint_lists_levels(self):
+        response = self._client().get('/api/effort-levels')
+        self.assertEqual(response.status_code, 200)
+        body = response.get_json()
+        self.assertIsInstance(body['levels'], list)
+        # Present in both the live CLI and the static fallback.
+        self.assertIn('high', body['levels'])
+        self.assertIn('max', body['levels'])
+        self.assertIn('default', body)
+
+    def test_get_set_and_clear_session_effort(self):
+        client = self._client()
+        self.assertEqual(
+            client.get('/api/sessions/T-1/effort').get_json()['effort'], '',
+        )
+        set_resp = client.post('/api/sessions/T-1/effort', json={'effort': 'high'})
+        self.assertEqual(set_resp.status_code, 200)
+        self.assertEqual(set_resp.get_json()['effort'], 'high')
+        self.assertEqual(
+            client.get('/api/sessions/T-1/effort').get_json()['effort'], 'high',
+        )
+        client.post('/api/sessions/T-1/effort', json={'effort': ''})
+        self.assertEqual(
+            client.get('/api/sessions/T-1/effort').get_json()['effort'], '',
+        )
+
+    def test_set_rejects_unknown_effort(self):
+        response = self._client().post(
+            '/api/sessions/T-1/effort', json={'effort': 'turbo'},
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('turbo', response.get_json()['error'])
+
+
 if __name__ == '__main__':
     unittest.main()

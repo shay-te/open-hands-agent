@@ -380,6 +380,16 @@ class StreamingClaudeSession(object):
             return self._user_messages_sent
 
     @property
+    def effort(self) -> str:
+        """The ``--effort`` level this subprocess was spawned with ('' = none).
+
+        Read by callers (the chat send route) to decide whether a
+        requested effort change needs a respawn — the CLI bakes
+        ``--effort`` at spawn time, so it can't change mid-session.
+        """
+        return self._effort
+
+    @property
     def last_user_message_sent_epoch(self) -> float:
         """Wall-clock of the most recent ``send_user_message``.
 

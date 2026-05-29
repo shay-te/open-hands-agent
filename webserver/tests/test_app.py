@@ -8,6 +8,7 @@ from kato_webserver.app import (
     _advance_task_comments_after_result,
     _complete_in_progress_task_comments,
     _drain_queued_task_comment,
+    _effort_change_needs_respawn,
     _event_stream_generator,
     _follow_live_session,
     _replay_session_backlog,
@@ -1063,6 +1064,57 @@ class ScanTriggerEndpointTests(unittest.TestCase):
         app = create_app(session_manager=_FakeManager())
         response = app.test_client().post('/api/scan/trigger')
         self.assertEqual(response.status_code, 503)
+
+
+class EffortRespawnDecisionTests(unittest.TestCase):
+    """`_effort_change_needs_respawn`: only an idle, image-less session
+    whose effort differs from an explicit override should respawn."""
+
+    def _app(self, override=''):
+        return SimpleNamespace(
+            config={'TASK_EFFORT_OVERRIDES': ({'T1': override} if override else {})},
+        )
+
+    def _mgr(self, session):
+        manager = MagicMock()
+        manager.get_session.return_value = session
+        return manager
+
+    def _session(self, **kw):
+        base = dict(is_alive=True, is_working=False, effort='low')
+        base.update(kw)
+        return SimpleNamespace(**base)
+
+    def test_images_never_respawn(self):
+        self.assertFalse(_effort_change_needs_respawn(
+            self._app('high'), self._mgr(self._session()), 'T1', [{'data': 'x'}],
+        ))
+
+    def test_no_override_never_respawn(self):
+        self.assertFalse(_effort_change_needs_respawn(
+            self._app(''), self._mgr(self._session()), 'T1', [],
+        ))
+
+    def test_no_live_session_no_respawn(self):
+        dead = SimpleNamespace(is_alive=False, is_working=False, effort='')
+        self.assertFalse(_effort_change_needs_respawn(
+            self._app('high'), self._mgr(dead), 'T1', [],
+        ))
+
+    def test_busy_session_not_interrupted(self):
+        self.assertFalse(_effort_change_needs_respawn(
+            self._app('high'), self._mgr(self._session(is_working=True)), 'T1', [],
+        ))
+
+    def test_same_effort_no_respawn(self):
+        self.assertFalse(_effort_change_needs_respawn(
+            self._app('high'), self._mgr(self._session(effort='high')), 'T1', [],
+        ))
+
+    def test_idle_different_effort_respawns(self):
+        self.assertTrue(_effort_change_needs_respawn(
+            self._app('high'), self._mgr(self._session(effort='low')), 'T1', [],
+        ))
 
 
 if __name__ == '__main__':

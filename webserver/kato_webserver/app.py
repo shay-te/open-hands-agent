@@ -628,6 +628,10 @@ def create_app(
     app.config['SCAN_IN_PROGRESS_EVENT'] = scan_in_progress_event
     app.config['HOOK_RUNNER'] = hook_runner
     app.config['TASK_MODEL_OVERRIDES'] = {}
+    # Per-task chat effort override (Claude ``--effort`` level), set from
+    # the composer's effort selector. Empty/absent => the configured
+    # default. Applied on (re)spawn of the chat session.
+    app.config['TASK_EFFORT_OVERRIDES'] = {}
 
     # Cache-bust the unhashed static bundles. ``static/build/app.js``
     # and ``static/css/app.css`` keep fixed names across rebuilds, so
@@ -700,6 +704,42 @@ def _register_http_routes(app: Flask) -> None:
         else:
             overrides.pop(task_id, None)
         return jsonify({'model': model})
+
+    @app.get('/api/effort-levels')
+    def list_effort_levels():
+        # Discovered from the live CLI's --help (not hardcoded), so the
+        # set tracks the installed agent version. '' = "Auto" (configured
+        # default). ``default`` is the configured effort the UI shows as
+        # the Auto resolution.
+        return jsonify({
+            'levels': _discover_chat_effort_levels(app),
+            'default': _configured_chat_effort(app),
+        })
+
+    @app.get('/api/sessions/<task_id>/effort')
+    def get_session_effort(task_id: str):
+        overrides = app.config.get('TASK_EFFORT_OVERRIDES') or {}
+        return jsonify({'effort': overrides.get(task_id, '')})
+
+    @app.post('/api/sessions/<task_id>/effort')
+    def set_session_effort(task_id: str):
+        body = request.get_json(silent=True) or {}
+        effort = text_from_mapping(body, 'effort').lower()
+        overrides = app.config.get('TASK_EFFORT_OVERRIDES')
+        if overrides is None:
+            return jsonify({'error': 'not available'}), 503
+        # '' clears the override (back to Auto). Any explicit level must be
+        # one the CLI actually advertises, so a typo can't reach the spawn.
+        if effort and effort not in _discover_chat_effort_levels(app):
+            return jsonify({
+                'error': f'unknown effort {effort!r}; '
+                f'expected one of {_discover_chat_effort_levels(app)} or empty',
+            }), 400
+        if effort:
+            overrides[task_id] = effort
+        else:
+            overrides.pop(task_id, None)
+        return jsonify({'effort': effort})
 
     @app.post('/api/scan/trigger')
     def trigger_scan():
@@ -2207,6 +2247,34 @@ def _register_session_events_route(app: Flask) -> None:
         )
 
 
+def _chat_runner_defaults(app: Flask):
+    """Return the planning runner's ``_defaults`` (binary, effort, …) or None."""
+    runner = app.config.get('PLANNING_SESSION_RUNNER')
+    return getattr(runner, '_defaults', None) if runner is not None else None
+
+
+def _configured_chat_effort(app: Flask) -> str:
+    defaults = _chat_runner_defaults(app)
+    return str(getattr(defaults, 'effort', '') or '') if defaults is not None else ''
+
+
+def _discover_chat_effort_levels(app: Flask) -> list:
+    """Effort levels the chat CLI advertises (discovered, with fallback)."""
+    defaults = _chat_runner_defaults(app)
+    binary = str(getattr(defaults, 'binary', '') or 'claude') if defaults else 'claude'
+    try:
+        from claude_core_lib.claude_core_lib.helpers.effort_levels import (
+            discover_effort_levels,
+        )
+        return discover_effort_levels(binary)
+    except Exception:
+        app.logger.exception('effort-level discovery failed; using fallback')
+        from claude_core_lib.claude_core_lib.helpers.effort_levels import (
+            FALLBACK_EFFORT_LEVELS,
+        )
+        return list(FALLBACK_EFFORT_LEVELS)
+
+
 def _register_post_message_route(app: Flask) -> None:
     @app.post('/api/sessions/<task_id>/messages')
     def post_message(task_id: str):
@@ -2218,6 +2286,20 @@ def _register_post_message_route(app: Flask) -> None:
         if not text and not images:
             return jsonify({'error': 'text or images is required'}), 400
         manager = app.config['SESSION_MANAGER']
+        # The CLI bakes ``--effort`` at spawn, so a changed effort only
+        # takes hold on a fresh subprocess. If the operator switched to a
+        # new explicit level and the live session is idle, respawn it (via
+        # ``--resume``, conversation preserved) at the new effort instead
+        # of sending into the old one.
+        if _effort_change_needs_respawn(app, manager, task_id, images):
+            try:
+                manager.terminate_session(task_id, remove_record=False)
+            except Exception:
+                app.logger.exception(
+                    'failed to terminate session for effort respawn (task %s)',
+                    task_id,
+                )
+            return _spawn_or_reject_chat_session(app, task_id, text)
         delivered = _deliver_to_live_session(manager, task_id, text, images)
         if delivered is not None:
             return delivered
@@ -2349,6 +2431,28 @@ def _run_pre_tool_use_hook(app: Flask, task_id: str, payload: dict):
     return False, ''
 
 
+def _effort_change_needs_respawn(app: Flask, manager, task_id: str, images) -> bool:
+    """True when a live, idle session must respawn to apply a new effort.
+
+    Only fires for an explicit override that differs from the running
+    session's effort, with no live turn in flight and no images (the
+    respawn path can't carry images, so those deliver at the current
+    effort and the change applies on the next plain message).
+    """
+    if images:
+        return False
+    overrides = app.config.get('TASK_EFFORT_OVERRIDES') or {}
+    requested = str(overrides.get(task_id, '') or '')
+    if not requested:
+        return False  # Auto / no override — never force a respawn
+    session = manager.get_session(task_id) if manager is not None else None
+    if session is None or not getattr(session, 'is_alive', False):
+        return False  # no live session — the spawn path applies the effort
+    if bool(getattr(session, 'is_working', False)):
+        return False  # don't interrupt a turn
+    return str(getattr(session, 'effort', '') or '') != requested
+
+
 def _deliver_to_live_session(
     manager, task_id: str, text: str, images=None,
 ):
@@ -2401,6 +2505,8 @@ def _spawn_or_reject_chat_session(app: Flask, task_id: str, text: str):
     additional_dirs = _chat_additional_dirs(workspace_manager, task_id, cwd)
     overrides = app.config.get('TASK_MODEL_OVERRIDES') or {}
     model_override = overrides.get(task_id, '')
+    effort_overrides = app.config.get('TASK_EFFORT_OVERRIDES') or {}
+    effort_override = effort_overrides.get(task_id, '')
     try:
         runner.resume_session_for_chat(
             task_id=task_id,
@@ -2409,6 +2515,7 @@ def _spawn_or_reject_chat_session(app: Flask, task_id: str, text: str):
             task_summary=summary,
             additional_dirs=additional_dirs,
             model=model_override,
+            effort=effort_override,
         )
     except Exception as exc:
         return jsonify({'error': str(exc)}), 500

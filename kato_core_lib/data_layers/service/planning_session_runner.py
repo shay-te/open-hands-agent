@@ -176,6 +176,7 @@ class PlanningSessionRunner(object):
         task_summary: str = '',
         additional_dirs: list[str] | None = None,
         model: str = '',
+        effort: str = '',
     ):
         """Spawn a fresh Claude subprocess for ``task_id`` and queue ``message``.
 
@@ -239,7 +240,7 @@ class PlanningSessionRunner(object):
             allowed_tools=self._defaults.allowed_tools,
             disallowed_tools=self._defaults.disallowed_tools,
             max_turns=self._defaults.max_turns,
-            effort=self._defaults.effort,
+            effort=normalized_text(effort) or self._defaults.effort,
             expected_branch='',
             architecture_doc_path=self._defaults.architecture_doc_path,
             lessons_path=self._defaults.lessons_path,

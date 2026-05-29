@@ -206,7 +206,7 @@ header button.header-status.is-clickable:hover {
 
 header button.header-status.is-clickable.is-active {
   background: $C-CYAN-52-A18;
-  border-color: $C-CYAN-52-A45;
+  border-color: $C-CYAN-52-A40;
   color: $C-CYAN-90;
 }
 
@@ -695,7 +695,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .tabs-pane-top .tab .tab-pin-btn:hover {
-  background: $C-CYAN-52-A65;
+  background: $C-CYAN-52-A55;
   color: $C-NEUTRAL-96;
 }
 
@@ -849,7 +849,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 
 /* Add-task gets a soft blue accent — primary entry point to kato. */
 #tabs-add-task.tabs-action {
-  background: $C-CYAN-52-A85;
+  background: $C-CYAN-52-A95;
   border-color: $C-CYAN-52-A55;
   color: $C-CYAN-97;
   box-shadow: $SHADOW-2;
@@ -1297,6 +1297,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .chat-sticky-prompt-toggle {
+  position: relative;
   display: flex;
   align-items: flex-start;
   gap: $SPACE-10;
@@ -1330,12 +1331,16 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   overflow: hidden;
 }
 
-.chat-sticky-prompt-text-wrap.is-collapsed::after {
+/* Fade spans the FULL prompt box (under the "You asked" label too),
+ * not just the text column — so it anchors to the full-width toggle,
+ * sitting ``$SPACE-9`` up to align with the clipped text bottom (the
+ * toggle's bottom padding). The z-index:2 expand button stays above. */
+.chat-sticky-prompt.is-collapsible:not(.is-expanded) .chat-sticky-prompt-toggle::after {
   content: "";
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 0;
+  bottom: $SPACE-9;
   height: 2.5em;
   pointer-events: none;
   background: linear-gradient(to bottom, $C-NEUTRAL-05-A00 0%, $C-NEUTRAL-05-A86 66%, $C-NEUTRAL-12 100%);
@@ -1981,7 +1986,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
    * visible instead of slipping behind it. Falls back to a single-
    * row sentinel (94px capsule + 18px bottom offset = 112px) when
    * the variable hasn't been set yet (first paint, no ResizeObserver). */
-  padding-bottom: calc(var(--composer-h, 94px) + 28px);
+  padding-bottom: calc(var(--composer-h, 94px) + #{$SPACE-28});
 }
 
 /* ───── chat search: bubble match / no-match states ──────────────
@@ -2014,7 +2019,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
  * to count. */
 #event-log.is-searching .bubble--match-current .bubble-body {
   box-shadow: $SHADOW-15;
-  background: $C-CYAN-52-A06;
+  background: $C-CYAN-52-A18;
 }
 
 /* ───── chat-search toggle + capsule (top of chat) ───────────────
@@ -2543,7 +2548,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 /* Compact, pill-shaped model picker living inside the capsule. */
-#message-form #model-selector {
+#message-form .composer-select {
   flex-shrink: 0;
   background: $C-NEUTRAL-100-A06;
   color: $C-NEUTRAL-96;
@@ -2559,7 +2564,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   -webkit-appearance: none;
 }
 
-#message-form #model-selector:hover {
+#message-form .composer-select:hover {
   background: $C-NEUTRAL-100-A10;
 }
 
@@ -3063,7 +3068,7 @@ code {
  * that reuses the same CommentBubble component as ChangesTab. */
 /* Monaco hover decorations (rendered by addDecorations in JS). */
 .monaco-editor .kato-line-hover {
-  background: $C-CYAN-52-A06;
+  background: $C-CYAN-52-A18;
 }
 
 .monaco-editor .kato-add-comment-glyph {
@@ -3315,7 +3320,7 @@ code {
 }
 
 #right-pane-resizer:hover::before {
-  background: $C-CYAN-52-A45;
+  background: $C-CYAN-52-A40;
 }
 
 body.kato-resizing #right-pane-resizer::before {
@@ -3355,7 +3360,7 @@ body.kato-resizing {
 }
 
 #left-pane-resizer:hover::before {
-  background: $C-CYAN-52-A45;
+  background: $C-CYAN-52-A40;
 }
 
 body.kato-resizing #left-pane-resizer::before {
@@ -3545,7 +3550,7 @@ body.kato-resizing #left-pane-resizer::before {
 
 .files-tab-filter-input:focus {
   background: $C-NEUTRAL-100-A06;
-  border-color: $C-CYAN-52-A65;
+  border-color: $C-CYAN-52-A55;
   /* Soft iOS focus ring — a halo, not a hard 2px outline. */
   box-shadow: $SHADOW-22;
 }
@@ -3655,8 +3660,8 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .files-tab-text-btn.active {
-  background: $C-CYAN-52-A22;
-  border-color: $C-CYAN-52-A45;
+  background: $C-CYAN-52-A18;
+  border-color: $C-CYAN-52-A40;
   color: $C-CYAN-67;
 }
 
@@ -4601,7 +4606,7 @@ body.kato-resizing #left-pane-resizer::before {
   gap: $SPACE-8;
   min-height: 26px;
   width: 100%;
-  padding: $SPACE-3 $SPACE-8 $SPACE-3 calc(4px + var(--depth) * 22px);
+  padding: $SPACE-3 $SPACE-8 $SPACE-3 calc(#{$SPACE-4} + var(--depth) * 22px);
   border: 0;
   border-radius: $RADIUS-4;
   background: transparent;
@@ -6017,7 +6022,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .notification-settings-row input[type=checkbox]:focus-visible {
-  outline: 2px solid $C-CYAN-52-A50;
+  outline: 2px solid $C-CYAN-52-A55;
   outline-offset: 2px;
 }
 
@@ -6416,7 +6421,7 @@ body.kato-resizing #left-pane-resizer::before {
 
 .settings-drawer-tab.is-active {
   background: $C-CYAN-52-A18;
-  border-color: $C-CYAN-52-A45;
+  border-color: $C-CYAN-52-A40;
   color: $C-CYAN-90;
 }
 

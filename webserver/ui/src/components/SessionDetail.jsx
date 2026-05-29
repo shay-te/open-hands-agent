@@ -14,7 +14,7 @@ import { ENTRY_SOURCE } from '../constants/entrySource.js';
 import { AGENT_SESSION_ID } from '../constants/sessionFields.js';
 import { useSessionStream, SESSION_LIFECYCLE } from '../hooks/useSessionStream.js';
 import { useToolMemory } from '../hooks/useToolMemory.js';
-import { fetchModels, fetchSessionModel, postChatMessage, postSession, setSessionModel } from '../api.js';
+import { fetchEffortLevels, fetchModels, fetchSessionEffort, fetchSessionModel, postChatMessage, postSession, setSessionEffort, setSessionModel } from '../api.js';
 
 export default function SessionDetail({
   session,
@@ -102,6 +102,28 @@ export default function SessionDetail({
   const handleModelChange = useCallback(async (modelId) => {
     setSelectedModel(modelId);
     await setSessionModel(taskId, modelId);
+  }, [taskId]);
+
+  // Effort selector — levels discovered from the agent CLI (not hardcoded).
+  const [effortLevels, setEffortLevels] = useState([]);
+  const [selectedEffort, setSelectedEffort] = useState('');
+  const effortLevelsLoadedRef = useRef(false);
+  useEffect(() => {
+    if (effortLevelsLoadedRef.current) { return; }
+    effortLevelsLoadedRef.current = true;
+    fetchEffortLevels().then((result) => {
+      if (result && Array.isArray(result.levels)) { setEffortLevels(result.levels); }
+    }).catch(() => {});
+  }, []);
+  useEffect(() => {
+    if (!taskId) { setSelectedEffort(''); return; }
+    fetchSessionEffort(taskId).then((result) => {
+      setSelectedEffort((result && result.effort) || '');
+    }).catch(() => {});
+  }, [taskId]);
+  const handleEffortChange = useCallback(async (level) => {
+    setSelectedEffort(level);
+    await setSessionEffort(taskId, level);
   }, [taskId]);
   // Prefer the App-level toolMemory when passed (so the same recall
   // function powers both this modal AND the tab-attention filter);
@@ -456,6 +478,9 @@ export default function SessionDetail({
           availableModels={availableModels}
           selectedModel={selectedModel}
           onModelChange={handleModelChange}
+          effortLevels={effortLevels}
+          selectedEffort={selectedEffort}
+          onEffortChange={handleEffortChange}
         />
       </section>
       <PermissionDecisionContainer
