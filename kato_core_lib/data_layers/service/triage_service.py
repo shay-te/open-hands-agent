@@ -22,8 +22,6 @@ from __future__ import annotations
 import logging
 import re
 
-from typing import Callable
-
 from kato_core_lib.data_layers.data.fields import (
     TRIAGE_OUTCOME_TAGS,
     StatusFields,

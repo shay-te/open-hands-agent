@@ -160,6 +160,24 @@ class ReopenedThreadTests(unittest.TestCase):
         result = self._run(comments)
         self.assertEqual(result, [])
 
+    def test_followup_returned_even_when_thread_key_was_marked(self) -> None:
+        # Regression for the operator-reported bug: the OLD code marked
+        # the THREAD/resolution key ('comment:100') when it handled the
+        # original comment, which then silently swallowed every later
+        # reply in that thread — the operator answering kato's question
+        # never reached the agent. A thread-level mark must NOT block a
+        # new follow-up; only the follow-up's own id can.
+        self.service.state_registry.mark_review_comment_processed(
+            'client', '17', 'comment:100',
+        )
+        comments = [
+            _comment(comment_id='100', resolution_target_id='100', body='fix this'),
+            _kato_reply(comment_id='101', resolution_target_id='100'),
+            _comment(comment_id='102', resolution_target_id='100', body='still broken'),
+        ]
+        result = self._run(comments)
+        self.assertEqual([c.comment_id for c in result], ['102'])
+
     def test_repository_id_and_context_set_on_returned_comments(self) -> None:
         # The gate also annotates each returned comment with the
         # repository id + thread context so the downstream prompt

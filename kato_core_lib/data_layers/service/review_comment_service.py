@@ -28,13 +28,11 @@ from kato_core_lib.helpers.review_comment_utils import (
     ReviewFixContext,
     comment_context_entry,
     is_kato_review_comment_reply,
-    is_mention_comment,
     is_question_only_batch,
     review_comment_answer_body,
     review_comment_from_payload,
     review_comment_fixed_comment,
     review_comment_reply_body,
-    review_comment_processing_keys,
     review_comment_resolution_key,
     review_fix_context_from_mapping,
     review_fix_result,
@@ -1045,12 +1043,16 @@ class ReviewCommentService(Service):
         comment: ReviewComment,
         review_context: ReviewFixContext,
     ) -> None:
-        for processing_key in review_comment_processing_keys(comment):
-            self._state_registry.mark_review_comment_processed(
-                review_context.repository_id,
-                comment.pull_request_id,
-                processing_key,
-            )
+        # Mark ONLY this specific comment as processed — never the
+        # thread/resolution key. Marking the thread key swallowed every
+        # later reply in the same thread (the operator answering kato's
+        # question never reached the agent). The position-based gate in
+        # _unprocessed_review_comments already re-engages follow-ups.
+        self._state_registry.mark_review_comment_processed(
+            review_context.repository_id,
+            comment.pull_request_id,
+            normalized_text(comment.comment_id),
+        )
         self._comment_review_fix_completed(
             comment,
             review_context.repository_id,
@@ -1062,13 +1064,10 @@ class ReviewCommentService(Service):
         pull_request_id: str,
         comment: ReviewComment,
     ) -> bool:
-        return any(
-            self._state_registry.is_review_comment_processed(
-                repository_id,
-                pull_request_id,
-                processing_key,
-            )
-            for processing_key in review_comment_processing_keys(comment)
+        return self._state_registry.is_review_comment_processed(
+            repository_id,
+            pull_request_id,
+            normalized_text(comment.comment_id),
         )
 
     @staticmethod

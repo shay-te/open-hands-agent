@@ -1,5 +1,7 @@
+import { useRef } from 'react';
 import Icon from './Icon.jsx';
 import { withImageCountSuffix } from '../utils/pluralize.js';
+import { usePublishedHeight } from '../hooks/usePublishedHeight.js';
 
 // Floating list of queued chat messages, rendered above the
 // MessageForm composer. Each row shows the queued text (truncated)
@@ -20,11 +22,16 @@ export default function QueuedMessageList({
   onSteer,
   onRemove,
 }) {
-  if (!Array.isArray(items) || items.length === 0) {
+  const listRef = useRef(null);
+  const hasItems = Array.isArray(items) && items.length > 0;
+  // Reserve room for this floating list at the bottom of #event-log so
+  // it never covers the working indicator (the log's last entry).
+  usePublishedHeight('--queued-h', listRef, hasItems);
+  if (!hasItems) {
     return null;
   }
   return (
-    <ul className="queued-message-list" aria-label="Queued messages">
+    <ul ref={listRef} className="queued-message-list" aria-label="Queued messages">
       {items.map((item) => (
         <QueuedRow
           key={item.id}

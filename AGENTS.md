@@ -5,9 +5,21 @@ This repository uses Kato to implement YouTrack tasks and fix review comments.
 # Git
 do not do any git commit or push. let me inspect the changes
 
-## Hard rules. 
+## Hard rules
 
-- DO NOT WRITE NEW CODE IF IT:S ALRADY WRITTEN CHECN BEFORE WRITTING NEW CODE
+- **Do not write code that already exists — search before writing.** Before adding any helper, hook, component, util, constant, or service method, `rg` for an existing one and reuse it. Duplicated logic and orphaned (uncalled) code are both defects.
+
+### No redundancy — checks to run before you finish
+
+- **Frontend duplication:** `cd webserver/ui && npm run dedup` (jscpd). Only the two annotated intentional clones are allowed; any new clone is a regression — dedupe it or annotate why it must stay. The gate fails (exit 1) above 0.3% duplication.
+- **Backend dead imports:** `python -m pyflakes kato_core_lib webserver/kato_webserver`. The only expected hits are the intentional package re-exports in `comment_core_lib/__init__.py`, `data_layers/data/fields.py`, and `workspace_manager.py` (pyflakes ignores their `# noqa`), plus a couple of known unused locals. Any **new** unused import in a service/helper is dead code — remove it.
+- **Orphan code:** a function, class, constant, or file with zero non-test callers is dead — delete it together with its dedicated test, unless it is an entry point (CLI subcommand, Flask route, `main`) or a documented intentional stub.
+- **No shim / barrel files:** after extracting shared code, repoint importers to the canonical path and delete the re-export. A package `__init__.py` exposing its own package's API is the only allowed re-export.
+
+### Reuse these before writing your own
+
+- **Frontend (`webserver/ui/src/`):** `hooks/` (data-load + save state machines — `useSettingsResource`, `useRestartingSave`, `useSessionOption`, `usePolling`, `useBusyAction`; plus `useAutoSizeTextarea`, `useEscapeKey`, `useDismissOnOutsidePointerOrEscape`), `utils/` (`apiErrorMessage`, `cx`, `storage`, `pluralize`/`countNoun`, `clipboard`, `basenameOf`, `settingsSource`), `stores/toastStore.js` — use `toast.errorFromResult(result, {...})` / `toastResult(...)` for API-result toasts instead of hand-rolling the `{ kind: 'error', message: apiErrorMessage(...) }` envelope — and `components/settings/` panel scaffolding (`SettingsPanelBody`, `SettingsActions`, `RestartBanner`).
+- **Backend:** `kato_core_lib/helpers/*_utils.py` — e.g. `kato_home_path` for any `~/.kato/<file>` path, `task_lookup_utils` (`find_task_by_id`, `task_id_matches`) for locating a task, `dotenv_utils` for `.env` parsing. Cross-`*_core_lib` duplication is the ONE intentional exception: the black-box libs must not import each other.
 
 ## Architecture
 
@@ -231,9 +243,10 @@ The exception is one-line callbacks passed inline (`items.map((x) => x.id)`); th
 
 ### Styling
 
-- Plain CSS lives in [`webserver/static/css/app.css`](webserver/static/css/app.css). Don't introduce SCSS, CSS-in-JS, or styled-components without an explicit ask — pick the existing convention.
+- **Styles are authored in SCSS, not plain CSS.** Edit [`webserver/ui/src/styles/constants.scss`](webserver/ui/src/styles/constants.scss) (design tokens) and `app.scss`, then run `npm run build:css` (in `webserver/ui`) to compile [`webserver/static/css/app.css`](webserver/static/css/app.css). **Never edit `app.css` directly — it is generated.** Don't introduce CSS-in-JS or styled-components.
+- **No magic numbers.** Every color, space, radius, and font size comes from a `constants.scss` token: `$C-*` (colors), `$SPACE-*`, `$RADIUS-*`, `$TEXT-*`. Never hardcode a hex or px value in `app.scss`; reuse the nearest existing token, and add a new one only when none fits.
+- **The color palette is deduplicated and stays that way:** at most 4 alpha variations per base color, and the base colors are kept perceptually distinct (≈ΔE ≥ 8). Before adding a color, find the nearest existing `$C-*` and reuse it; fold a near-duplicate into its neighbour rather than adding a token.
 - Keep class names short and component-scoped (`status-bar`, `tab-forget-btn`, `files-tab-repo-header`). Don't introduce BEM (`__` / `--` separators).
-- For colors and sizes that repeat across the file, define a CSS custom property (`--color-bg-elevated`, `--space-2`) instead of repeating the hex / px value. Don't hardcode the same color in five places.
 
 ### Tool preferences
 

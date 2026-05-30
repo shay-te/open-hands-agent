@@ -13,7 +13,9 @@ vi.mock('../api.js', () => ({
   fetchGitProviders: vi.fn(),
   updateGitProvider: vi.fn(),
 }));
-vi.mock('../stores/toastStore.js', () => ({ toast: { show: vi.fn() } }));
+vi.mock('../stores/toastStore.js', () => ({
+  toast: { show: vi.fn(), errorFromResult: vi.fn() },
+}));
 
 import TaskProviderSettingsPanel from './TaskProviderSettingsPanel.jsx';
 import GitProvidersSettingsPanel from './GitProvidersSettingsPanel.jsx';
@@ -85,10 +87,17 @@ describe('ProviderCredentialsPanel — Task provider (includeActive)', () => {
     const saveBtn = screen.getByRole('button', { name: /^Save$/i });
     expect(saveBtn).toBeDisabled();
 
-    fireEvent.change(screen.getByDisplayValue('https://yt.example'), {
-      target: { value: 'https://new.example' },
+    const baseUrlInput = screen.getByDisplayValue('https://yt.example');
+    // The panel re-seeds ``draft`` from the server values in a
+    // [selected, meta.providers] effect that can still be PENDING right
+    // after the load settles; under parallel load it may run *after*
+    // this edit and wipe it (isDirty flips back to false → Save stays
+    // disabled). Re-fire the change inside waitFor so the edit re-applies
+    // until the re-seed has settled and the dirty diff sticks.
+    await waitFor(() => {
+      fireEvent.change(baseUrlInput, { target: { value: 'https://new.example' } });
+      expect(saveBtn).not.toBeDisabled();
     });
-    expect(saveBtn).not.toBeDisabled();
 
     fireEvent.click(saveBtn);
     await waitFor(() => expect(updateTaskProvider).toHaveBeenCalledTimes(1));

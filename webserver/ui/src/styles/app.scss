@@ -2025,8 +2025,13 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
    * drafts that grow the capsule past one row keep the last bubble
    * visible instead of slipping behind it. Falls back to a single-
    * row sentinel (94px capsule + 18px bottom offset = 112px) when
-   * the variable hasn't been set yet (first paint, no ResizeObserver). */
-  padding-bottom: calc(var(--composer-h, $SPACE-94) + #{$SPACE-28});
+   * the variable hasn't been set yet (first paint, no ResizeObserver).
+   * ``--queued-h`` (published by QueuedMessageList) adds the height of
+   * the floating queued-message list stacked above the composer, so the
+   * working indicator clears it too — without it, steered/queued
+   * messages sat on top of the bottom of the chat and hid the
+   * "working…" indicator. */
+  padding-bottom: calc(var(--composer-h, $SPACE-94) + var(--queued-h, 0px) + #{$SPACE-28});
 }
 
 /* ───── chat search: bubble match / no-match states ──────────────

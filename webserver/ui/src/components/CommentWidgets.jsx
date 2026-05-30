@@ -6,6 +6,7 @@ import { commentSubmitLock } from '../stores/commentSubmitLock.js';
 import { readDraftByKey, writeDraftByKey } from '../utils/composerDraft.js';
 import { toast } from '../stores/toastStore.js';
 import { useAutoSizeTextarea } from '../hooks/useAutoSizeTextarea.js';
+import { useCommentCollapse } from '../hooks/useCommentCollapse.js';
 
 // Bubble + thread builder + form, shared between the file-level
 // comments panel and the per-line widget rendered through
@@ -114,13 +115,15 @@ export function CommentBubble({
   // reopen→expand) while still allowing a manual toggle in between.
   // When the parent thread owns the state (``collapsedProp`` set so
   // collapsing the root also hides the reply bubbles), defer to it.
-  const [localCollapsed, setLocalCollapsed] = useState(isRoot && isResolved);
-  useEffect(() => { setLocalCollapsed(isRoot && isResolved); }, [isRoot, isResolved]);
+  // When the parent thread owns the collapse, pass a null id so the
+  // local hook stays ephemeral (the thread persists the root by id);
+  // standalone / reply bubbles persist their own collapse by comment id.
   const parentControlled = typeof onToggleCollapsed === 'function';
+  const [localCollapsed, toggleLocalCollapsed] = useCommentCollapse(
+    parentControlled ? null : comment.id, isRoot && isResolved,
+  );
   const collapsed = parentControlled ? !!collapsedProp : localCollapsed;
-  const toggleCollapsed = parentControlled
-    ? onToggleCollapsed
-    : () => setLocalCollapsed((value) => !value);
+  const toggleCollapsed = parentControlled ? onToggleCollapsed : toggleLocalCollapsed;
 
   return (
     <div
@@ -252,8 +255,7 @@ export function CommentThread({
   // expanded underneath, which defeated the purpose of collapsing.
   // The root bubble gets ``collapsed``/``onToggleCollapsed`` props
   // and reports its reply count inline (``▸ 2 replies``).
-  const [collapsed, setCollapsed] = useState(isResolved);
-  useEffect(() => { setCollapsed(isResolved); }, [isResolved]);
+  const [collapsed, toggleCollapsed] = useCommentCollapse(thread.root.id, isResolved);
   return (
     <article
       className={[
@@ -266,7 +268,7 @@ export function CommentThread({
         comment={thread.root}
         isRoot
         collapsed={collapsed}
-        onToggleCollapsed={() => setCollapsed((v) => !v)}
+        onToggleCollapsed={toggleCollapsed}
         replyCount={(thread.replies || []).length}
         onResolve={() => onResolve(thread.root.id)}
         onReopen={() => onReopen(thread.root.id)}

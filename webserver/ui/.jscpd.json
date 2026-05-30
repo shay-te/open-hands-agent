@@ -1,0 +1,10 @@
+{
+  "//": "Duplicate-code gate for the kato planning UI. Run with `npm run dedup`.",
+  "//threshold": "Fails (exit 1) when duplication exceeds 0.3% of lines. The two intentional, annotated clones sit at ~0.1%; a new clone trips the gate.",
+  "ignore": ["**/*.test.*"],
+  "minTokens": 50,
+  "gitignore": true,
+  "threshold": 0.3,
+  "reporters": ["console"],
+  "format": ["javascript", "jsx", "scss"]
+}

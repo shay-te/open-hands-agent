@@ -13,7 +13,6 @@ from kato_core_lib.helpers.review_comment_utils import (
     review_fix_context_from_mapping,
     review_fix_result,
     review_comment_fixed_comment,
-    review_comment_processing_keys,
     review_comment_resolution_key,
 )
 from kato_core_lib.helpers.task_execution_utils import (
@@ -152,10 +151,6 @@ class AgentServiceUtilsTests(unittest.TestCase):
         self.assertEqual(
             review_comment_resolution_key(targeted_comment),
             ('thread', 'thread-17'),
-        )
-        self.assertEqual(
-            review_comment_processing_keys(targeted_comment),
-            {'99', 'thread:thread-17'},
         )
         self.assertTrue(is_kato_review_comment_reply(kato_reply))
         self.assertEqual(

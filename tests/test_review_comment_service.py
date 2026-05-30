@@ -356,7 +356,10 @@ class ReviewCommentServiceTests(unittest.TestCase):
         self.assertTrue(
             self.state_registry.is_review_comment_processed('client', '17', '99')
         )
-        self.assertTrue(
+        # The thread/resolution key is intentionally NOT marked — marking
+        # it swallowed the operator's follow-up replies in the same
+        # thread (the bug this fix addresses). Only the comment id marks.
+        self.assertFalse(
             self.state_registry.is_review_comment_processed('client', '17', 'comment:99')
         )
 
@@ -709,7 +712,11 @@ class ReviewCommentServiceTests(unittest.TestCase):
 
         self.assertEqual(comments, [])
 
-    def test_get_new_pull_request_comments_skips_processed_resolution_target(self) -> None:
+    def test_get_new_pull_request_comments_not_skipped_by_thread_level_mark(self) -> None:
+        # Regression for the operator-reported bug: a thread-level
+        # (resolution-target) mark must NOT skip a NEW comment in that
+        # thread — doing so swallowed the operator's follow-up replies.
+        # Only the comment's OWN id skips it.
         self.task_service.get_review_tasks.return_value = [
             build_task(task_id='PROJ-1', tags=['repo:client'])
         ]
@@ -732,11 +739,15 @@ class ReviewCommentServiceTests(unittest.TestCase):
         self.repository_service.list_pull_request_comments.return_value = [
             follow_up_comment,
         ]
+
+        # A thread-level mark does NOT swallow the comment...
         self.state_registry.mark_review_comment_processed('client', '17', 'thread:thread-1')
-
         comments = self.service.get_new_pull_request_comments()
+        self.assertEqual([c.comment_id for c in comments], ['100'])
 
-        self.assertEqual(comments, [])
+        # ...but marking the comment's OWN id does.
+        self.state_registry.mark_review_comment_processed('client', '17', '100')
+        self.assertEqual(self.service.get_new_pull_request_comments(), [])
 
     def test_get_new_pull_request_comments_adds_repository_id_before_remembering_api_discovered_pull_request(self) -> None:
         self.task_service.get_review_tasks.return_value = [

@@ -6,10 +6,11 @@ from kato_core_lib.data_layers.data.fields import (
 )
 from provider_client_base.provider_client_base.data.review_comment import ReviewComment
 from kato_core_lib.helpers.review_comment_utils import (
+    ReviewReplyTemplate,
+    is_kato_review_comment_reply,
     is_mention_comment,
     normalize_comment_context,
     review_comment_from_payload,
-    review_comment_processing_keys,
 )
 
 
@@ -144,29 +145,28 @@ class ReviewCommentUtilsTests(unittest.TestCase):
     def test_is_mention_comment_returns_false_for_none_body(self) -> None:
         self.assertFalse(is_mention_comment(ReviewComment('1', '1', 'reviewer', None)))
 
-    def test_review_comment_processing_keys_includes_resolution_target(self) -> None:
-        # Happy path: ``resolution_target_id`` resolves (via fallback
-        # to comment_id) and the composed ``type:id`` key is added.
-        comment = ReviewComment(
+    def test_is_kato_review_comment_reply_recognizes_answer_mode(self) -> None:
+        # Regression: an answer-mode reply opens with the bolded
+        # "No code was changed" disclaimer, NOT the "Kato addressed…"
+        # prefix. kato must still recognise it as its own reply —
+        # otherwise it re-answers its own answer and loses track of
+        # the operator's follow-up.
+        answer = ReviewComment(
             pull_request_id='17',
-            comment_id='42',
-            author='reviewer',
-            body='please rename',
+            comment_id='200',
+            author='kato',
+            body=(
+                f'{ReviewReplyTemplate.ANSWER_HEADER}\n\n'
+                'The null case is handled at line 88.'
+            ),
         )
-        keys = review_comment_processing_keys(comment)
-        self.assertIn('42', keys)
-        self.assertIn('comment:42', keys)
+        self.assertTrue(is_kato_review_comment_reply(answer))
 
-    def test_review_comment_processing_keys_omits_composed_key_when_id_blank(self) -> None:
-        # Line 163: ``if resolution_target_id:`` False — both the
-        # explicit resolution target and the comment_id fallback are
-        # empty, so we must not add a useless ``type:`` (no id) key.
-        # The trailing comprehension drops the empty primary id too,
-        # leaving an empty set.
-        comment = ReviewComment(
+    def test_is_kato_review_comment_reply_false_for_plain_reviewer_comment(self) -> None:
+        reviewer = ReviewComment(
             pull_request_id='17',
-            comment_id='',
+            comment_id='201',
             author='reviewer',
-            body='please rename',
+            body='No, that is wrong — use option A.',
         )
-        self.assertEqual(review_comment_processing_keys(comment), set())
+        self.assertFalse(is_kato_review_comment_reply(reviewer))

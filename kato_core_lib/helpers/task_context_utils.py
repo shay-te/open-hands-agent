@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from agent_core_lib.agent_core_lib.helpers.session_id_utils import fix_session_id
 from kato_core_lib.data_layers.data.task import Task
 from kato_core_lib.data_layers.data.fields import ImplementationFields
-from kato_core_lib.helpers.text_utils import normalized_text, text_from_attr, text_from_mapping
+from kato_core_lib.helpers.text_utils import normalized_text, text_from_attr
 
 
 @dataclass

@@ -21,8 +21,6 @@ last-seen state is only mutated from that thread.
 from __future__ import annotations
 
 import threading
-import time
-from typing import Callable
 
 from agent_core_lib.agent_core_lib.helpers.session_id_utils import (
     read_session_id_from,

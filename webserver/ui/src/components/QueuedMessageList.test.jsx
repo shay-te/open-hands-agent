@@ -170,3 +170,65 @@ describe('QueuedMessageList', () => {
       .toBeInTheDocument();
   });
 });
+
+
+describe('QueuedMessageList — reserves room for the working indicator (--queued-h)', () => {
+  // Operator-reported bug: steered/queued messages floated on top of the
+  // bottom of the chat and hid the "working…" indicator. The list now
+  // publishes its height as --queued-h on its parent so #event-log pads
+  // its bottom past the floating list (same mechanism as --composer-h).
+  // jsdom ships no ResizeObserver, so stub it.
+  function withResizeObserverStub(run) {
+    const original = globalThis.ResizeObserver;
+    class Stub {
+      constructor(cb) { this._cb = cb; }
+      observe() {}
+      disconnect() {}
+    }
+    globalThis.ResizeObserver = Stub;
+    try {
+      return run();
+    } finally {
+      if (original === undefined) { delete globalThis.ResizeObserver; }
+      else { globalThis.ResizeObserver = original; }
+    }
+  }
+
+  test('writes --queued-h on the parent while there are queued messages', () => {
+    withResizeObserverStub(() => {
+      const parent = document.createElement('div');
+      document.body.appendChild(parent);
+      try {
+        render(
+          <QueuedMessageList items={[_item()]} onSteer={vi.fn()} onRemove={vi.fn()} />,
+          { container: parent },
+        );
+        // jsdom returns 0 for offsetHeight, but the contract is that the
+        // variable is published so the CSS calc has a value to add.
+        expect(parent.style.getPropertyValue('--queued-h')).toMatch(/px$/);
+      } finally {
+        document.body.removeChild(parent);
+      }
+    });
+  });
+
+  test('clears --queued-h once the queue empties', () => {
+    withResizeObserverStub(() => {
+      const parent = document.createElement('div');
+      document.body.appendChild(parent);
+      try {
+        const { rerender } = render(
+          <QueuedMessageList items={[_item()]} onSteer={vi.fn()} onRemove={vi.fn()} />,
+          { container: parent },
+        );
+        expect(parent.style.getPropertyValue('--queued-h')).toMatch(/px$/);
+        rerender(
+          <QueuedMessageList items={[]} onSteer={vi.fn()} onRemove={vi.fn()} />,
+        );
+        expect(parent.style.getPropertyValue('--queued-h')).toBe('');
+      } finally {
+        document.body.removeChild(parent);
+      }
+    });
+  });
+});

@@ -14,6 +14,11 @@ kato test            # run the unittest suite
 
 94 pre-existing errors in `openhands_core_lib` — ignore. Zero failures expected.
 
+**Keep the code redundancy-free** (full rules in AGENTS.md → "No redundancy"). Before finishing work:
+- `cd webserver/ui && npm run dedup` — frontend duplicate-code gate (jscpd; fails above 0.3%; only the 2 intentional clones are allowed).
+- `python -m pyflakes kato_core_lib webserver/kato_webserver` — backend dead-import gate (expected hits are the package re-exports in `comment_core_lib/__init__.py`, `data_layers/data/fields.py`, `workspace_manager.py`, plus a couple known unused locals; any NEW finding is dead code to remove).
+- Reuse the shared hooks/utils/helpers under `webserver/ui/src/{hooks,utils,stores}` and `kato_core_lib/helpers/*_utils.py` instead of re-implementing; delete orphan (uncalled) code together with its test.
+
 **Never run `npm run build`** — the React bundle is pre-compiled. Running it takes 30+ seconds, requires Node.js to be installed, and is not needed for backend changes or Python tests. To rebuild the frontend (only when changing files under `webserver/ui/src/`):
 
 ```bash

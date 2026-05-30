@@ -92,7 +92,3 @@ def parse_dotenv_line(raw_line: str) -> tuple[str | None, str]:
     if len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
         value = value[1:-1]
     return key, value
-
-
-# Backwards-compatible alias for the historical private name.
-_parse_line = parse_dotenv_line

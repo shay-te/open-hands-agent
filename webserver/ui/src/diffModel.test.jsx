@@ -4,8 +4,8 @@
 
 import { describe, test, expect } from 'vitest';
 
+import { basenameOf } from './utils/basenameOf.js';
 import {
-  basenameOf,
   buildDiffFileTree,
   changedFileOpenTarget,
   countFileChangeStats,

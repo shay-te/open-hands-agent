@@ -18,6 +18,14 @@ from kato_core_lib.helpers.text_utils import normalized_text, text_from_mapping
 
 KATO_REVIEW_COMMENT_FIXED_PREFIX = 'Kato addressed review comment '
 KATO_REVIEW_COMMENT_REPLY_PREFIX = 'Kato addressed this review comment'
+# Answer-mode replies open with this bolded disclaimer instead of the
+# "Kato addressed…" prefix. Defined here so the ANSWER_HEADER below and
+# the is_kato_review_comment_reply dedupe rule share one source and
+# cannot drift — without it kato fails to recognise its own answer to a
+# question and re-processes it (and mistracks the operator's follow-up).
+KATO_REVIEW_COMMENT_ANSWER_PREFIX = (
+    '**No code was changed and nothing was pushed.**'
+)
 
 
 class ReviewReplyTemplate:
@@ -49,7 +57,7 @@ class ReviewReplyTemplate:
     # was pushed. Placed at the very top so it cannot be missed even
     # if the agent's answer text mistakenly claims otherwise.
     ANSWER_HEADER = (
-        '<sub>**No code was changed and nothing was pushed.** '
+        f'<sub>{KATO_REVIEW_COMMENT_ANSWER_PREFIX} '
         'Kato read this as a question and answered it below — no fix was applied. '
         'If you expected a code change, re-open the thread and re-phrase as an '
         'imperative (e.g. *"Fix this to handle the null case."*).</sub>'
@@ -156,14 +164,6 @@ def review_comment_resolution_key(comment: ReviewComment) -> tuple[str, str]:
     return resolution_target_type, resolution_target_id
 
 
-def review_comment_processing_keys(comment: ReviewComment) -> set[str]:
-    keys = {normalized_text(comment.comment_id)}
-    resolution_target_type, resolution_target_id = review_comment_resolution_key(comment)
-    if resolution_target_id:
-        keys.add(f'{resolution_target_type}:{resolution_target_id}')
-    return {key for key in keys if key}
-
-
 def is_kato_review_comment_reply(comment: ReviewComment) -> bool:
     """True when ``comment`` is one of kato's own auto-replies.
 
@@ -182,6 +182,7 @@ def is_kato_review_comment_reply(comment: ReviewComment) -> bool:
         (
             KATO_REVIEW_COMMENT_FIXED_PREFIX,
             KATO_REVIEW_COMMENT_REPLY_PREFIX,
+            KATO_REVIEW_COMMENT_ANSWER_PREFIX,
         )
     )
 

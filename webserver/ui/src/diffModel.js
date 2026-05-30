@@ -84,10 +84,6 @@ function normalizeDiff(entry) {
   };
 }
 
-// Re-exported (defined in ``utils/basenameOf.js``) so existing
-// importers + the diffModel test keep their ``diffModel.js`` import.
-export { basenameOf };
-
 export function diffFileKey(file) {
   const oldPath = file.oldPath || '';
   const newPath = file.newPath || '';
