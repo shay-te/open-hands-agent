@@ -233,15 +233,6 @@ export function deleteTaskComment(taskId, commentId) {
   );
 }
 
-export function syncTaskComments(taskId, repoId) {
-  if (!taskId || !repoId) { return { ok: false, error: 'no ids' }; }
-  return postEnvelope(
-    `/api/sessions/${encodeURIComponent(taskId)}/comments/sync`,
-    { repo: repoId },
-  );
-}
-
-
 // Every task assigned to the configured kato user — open, in
 // progress, in review, done. Drives the left-panel "+ Add task"
 // picker.

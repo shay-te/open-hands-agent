@@ -203,11 +203,3 @@ function _hasMatchingLocalUser(recentEntries, serverText, lookback) {
   }
   return false;
 }
-
-// Re-exports for tests and outside consumers that just want the constants.
-export const _internals = {
-  HEARTBEAT_MESSAGE_PREFIX,
-  HIDDEN_CHAT_EVENT_TYPES,
-  RATE_LIMIT_TEXT_PREFIX,
-  TASK_NOTIFICATION_PREFIX,
-};

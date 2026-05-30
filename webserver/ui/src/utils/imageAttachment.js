@@ -123,10 +123,3 @@ function readBlobAsBase64(blob) {
     reader.readAsDataURL(blob);
   });
 }
-
-
-export const __test_only__ = {
-  ALLOWED_MEDIA_TYPES,
-  MAX_IMAGE_BYTES,
-  MAX_IMAGES_PER_MESSAGE,
-};

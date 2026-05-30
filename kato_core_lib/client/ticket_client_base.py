@@ -115,16 +115,6 @@ class TicketClientBase(RetryingClientBase):
         setattr(task, TaskCommentFields.ALL_COMMENTS, comments)
 
     @classmethod
-    def _build_task_description_with_comments(
-        cls,
-        description: object,
-        comments: list[dict[str, str]],
-    ) -> str:
-        sections = [normalized_text(description) or 'No description provided.']
-        cls._append_comment_section(sections, comments)
-        return cls._join_task_description_sections(sections)
-
-    @classmethod
     def _append_comment_section(
         cls,
         sections: list[str],
@@ -424,13 +414,6 @@ class TicketClientBase(RetryingClientBase):
         return cls._active_agent_blocking_comment(
             comments,
             cls.AGENT_EXECUTION_BLOCKING_PREFIXES,
-        )
-
-    @classmethod
-    def active_retry_blocking_comment(cls, comments: list[dict[str, str]] | None) -> str:
-        return cls._active_agent_blocking_comment(
-            comments,
-            cls.AGENT_RETRY_BLOCKING_PREFIXES,
         )
 
     @classmethod

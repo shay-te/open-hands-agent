@@ -31,7 +31,6 @@ vi.mock('./api.js', () => ({
   fetchTaskComments: vi.fn().mockResolvedValue(
     { ok: true, body: { comments: [] } },
   ),
-  syncTaskComments: vi.fn(),
   syncTaskRepositories: vi.fn(),
 }));
 vi.mock('./stores/toastStore.js', () => ({

@@ -27,8 +27,9 @@ import {
   resolveTaskComment,
 } from '../api.js';
 import { toast } from '../stores/toastStore.js';
-import { diffDisplayPath, formatRepoRelativePath } from '../diffModel.js';
-import { copyTextToClipboard } from '../utils/clipboard.js';
+import { diffDisplayPath } from '../diffModel.js';
+import { copyRepoRelativePath } from '../utils/clipboard.js';
+import { useDismissOnOutsidePointerOrEscape } from '../hooks/useDismissOnOutsidePointerOrEscape.js';
 import { apiErrorMessage } from '../utils/apiError.js';
 import { commentDraftKey } from '../utils/composerDraft.js';
 import { buildChatFragmentFromSelection } from '../utils/diffSelectionPrompt.js';
@@ -49,6 +50,7 @@ import {
 } from './DiffExpansionHelpers.js';
 import { isLargeFile } from './diffFileSize.js';
 import DiffKindIcon from './DiffKindIcon.jsx';
+import { countNoun } from '../utils/pluralize.js';
 
 // Default ``initiallyExpanded`` resolver: per-file rule only (no
 // awareness of sibling files). The parent ``ChangesTab`` overrides
@@ -467,40 +469,11 @@ export default function DiffFileWithComments({
   }
 
   async function copyHeaderRelativePath() {
-    const repoPath = formatRepoRelativePath(repoId, path);
     closePathMenu();
-    if (!path) { return; }
-    try {
-      await copyTextToClipboard(repoPath);
-      toast.show({
-        kind: 'success',
-        title: 'Copied relative path',
-        message: repoPath,
-        durationMs: 2500,
-      });
-    } catch (err) {
-      toast.show({
-        kind: 'error',
-        title: 'Copy failed',
-        message: String(err?.message || err || 'clipboard unavailable'),
-        durationMs: 5000,
-      });
-    }
+    await copyRepoRelativePath(repoId, path);
   }
 
-  useEffect(() => {
-    if (!pathMenu) { return undefined; }
-    function onPointerDown() { closePathMenu(); }
-    function onKeyDown(event) {
-      if (event.key === 'Escape') { closePathMenu(); }
-    }
-    window.addEventListener('pointerdown', onPointerDown);
-    window.addEventListener('keydown', onKeyDown);
-    return () => {
-      window.removeEventListener('pointerdown', onPointerDown);
-      window.removeEventListener('keydown', onKeyDown);
-    };
-  }, [pathMenu]);
+  useDismissOnOutsidePointerOrEscape(pathMenu, closePathMenu);
 
   const fileThreads = useMemo(
     () => buildThreads(fileLevelComments),
@@ -636,7 +609,7 @@ export default function DiffFileWithComments({
 
   function renderGapDecoration(gap) {
     const loading = baseSource.status === 'loading';
-    const label = `${gap.count} hidden line${gap.count === 1 ? '' : 's'}`;
+    const label = countNoun(gap.count, 'hidden line');
     return (
       <Decoration
         key={gap.key}

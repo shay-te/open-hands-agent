@@ -29,7 +29,6 @@ from kato_webserver.app import (
     _record_cwd_or_none,
     _repo_relative_path,
     _repository_cwd,
-    _resolve_repo_cwd,
     _settings_env_path,
     _task_repository_ids,
     _workspace_status,
@@ -261,22 +260,6 @@ class ModuleLevelHelperTests(unittest.TestCase):
         # no agent_service.configured_destination_branch.
         with patch('kato_webserver.app.detect_default_branch', return_value=''):
             self.assertEqual(_changed_files_for_repo('', '/tmp', None), [])
-
-    def test_resolve_repo_cwd_with_repo_id_falls_through_to_session(self):
-        # When ``repo_id`` resolves but ``_repository_cwd`` returns None,
-        # the helper falls through to ``_record_cwd_or_none``.
-        manager = _FakeManager(records=[_FakeRecord(task_id='T-1', cwd='/no/such')])
-        workspace = _FakeWorkspaceManager()  # repository_path → /missing
-        # Both branches fall through to None
-        self.assertIsNone(_resolve_repo_cwd(manager, workspace, 'T-1', 'client'))
-
-    def test_resolve_repo_cwd_uses_repository_cwd_when_available(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            workspace = _FakeWorkspaceManager(
-                repo_paths={('T-1', 'client'): tmp},
-            )
-            result = _resolve_repo_cwd(None, workspace, 'T-1', 'client')
-        self.assertEqual(result, tmp)
 
 
 # ---------------------------------------------------------------------------

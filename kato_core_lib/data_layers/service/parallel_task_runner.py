@@ -89,10 +89,6 @@ class ParallelTaskRunner(object):
         with self._lock:
             return normalized in self._in_flight
 
-    def in_flight_task_ids(self) -> set[str]:
-        with self._lock:
-            return set(self._in_flight)
-
     def shutdown(self, *, wait: bool = True) -> None:
         """Stop accepting new submissions and (optionally) drain the pool."""
         self._executor.shutdown(wait=wait, cancel_futures=False)

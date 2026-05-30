@@ -55,6 +55,7 @@ from kato_core_lib.data_layers.data.repository_approval import (
     RepositoryApproval,
     now_epoch,
 )
+from kato_core_lib.helpers.kato_paths_utils import kato_home_path
 from kato_core_lib.helpers.logging_utils import configure_logger
 from kato_core_lib.helpers.text_utils import normalized_lower_text, normalized_text
 
@@ -64,10 +65,10 @@ OPERATOR_EMAIL_ENV_KEY = 'KATO_OPERATOR_EMAIL'
 
 
 def default_storage_path() -> Path:
-    override = os.environ.get(APPROVED_REPOSITORIES_PATH_ENV_KEY, '').strip()
-    if override:
-        return Path(override).expanduser()
-    return Path.home() / '.kato' / 'approved-repositories.json'
+    return kato_home_path(
+        'approved-repositories.json',
+        env_key=APPROVED_REPOSITORIES_PATH_ENV_KEY,
+    )
 
 
 @contextlib.contextmanager

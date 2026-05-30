@@ -564,16 +564,6 @@ class ReviewCommentService(Service):
         normalized = str(task_id or '').strip()
         return normalized or None
 
-    @staticmethod
-    def _review_pull_request_display_name(
-        comment: ReviewComment,
-        review_context: ReviewFixContext,
-    ) -> str:
-        return (
-            normalized_text(review_context.pull_request_title)
-            or f'pull request {comment.pull_request_id}'
-        )
-
     def _prepare_review_fix_branch(
         self,
         repository,
@@ -582,17 +572,6 @@ class ReviewCommentService(Service):
         self._repository_service.prepare_task_branches(
             [repository],
             {review_context.repository_id: review_context.branch_name},
-        )
-
-    def _run_review_comment_fix(
-        self,
-        comment: ReviewComment,
-        review_context: ReviewFixContext,
-        *,
-        repository=None,
-    ) -> dict[str, str | bool]:
-        return self._run_review_comments_batch_fix(
-            [comment], review_context, repository=repository,
         )
 
     def _run_review_comments_batch_fix(
@@ -864,17 +843,6 @@ class ReviewCommentService(Service):
         except Exception:
             return ''
         return normalized_text(getattr(repository, 'local_path', '') or '')
-
-    def _publish_review_comment_fix(
-        self,
-        comment: ReviewComment,
-        repository,
-        review_context: ReviewFixContext,
-        execution: dict[str, str | bool],
-    ) -> None:
-        self._publish_review_comments_batch_fix(
-            [comment], repository, review_context, execution,
-        )
 
     def _publish_review_comments_batch_fix(
         self,

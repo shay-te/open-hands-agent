@@ -353,49 +353,6 @@ class TaskIdForCommentTests(unittest.TestCase):
         self.assertIsNone(service.task_id_for_comment(_comment()))
 
 
-class ReviewPullRequestDisplayNameTests(unittest.TestCase):
-    def test_returns_title_when_set(self) -> None:
-        # Line 557 (the success arm).
-        context = ReviewFixContext(
-            repository_id='r', pull_request_title='Fix the bug',
-            branch_name='b', task_id='T1', task_summary='', agent_session_id='',
-        )
-        self.assertEqual(
-            ReviewCommentService._review_pull_request_display_name(
-                _comment(), context,
-            ),
-            'Fix the bug',
-        )
-
-    def test_returns_fallback_when_title_blank(self) -> None:
-        # Line 558-559.
-        context = ReviewFixContext(
-            repository_id='r', pull_request_title='',
-            branch_name='b', task_id='T1', task_summary='', agent_session_id='',
-        )
-        result = ReviewCommentService._review_pull_request_display_name(
-            _comment('c1', 'pr-1'), context,
-        )
-        self.assertIn('pull request pr-1', result)
-
-
-class RunReviewCommentFixTests(unittest.TestCase):
-    def test_delegates_to_batch_method(self) -> None:
-        # Line 579.
-        service = _make_service()
-        with patch.object(
-            service, '_run_review_comments_batch_fix',
-            return_value={'success': True},
-        ) as batch:
-            context = ReviewFixContext(
-                repository_id='r', pull_request_title='',
-                branch_name='b', task_id='T', task_summary='', agent_session_id='',
-            )
-            result = service._run_review_comment_fix(_comment(), context)
-        batch.assert_called_once()
-        self.assertEqual(result, {'success': True})
-
-
 class CallFixReviewCommentsBackendTypeErrorTests(unittest.TestCase):
     def test_falls_back_on_typeerror_for_legacy_backend(self) -> None:
         # Lines 693-700.
@@ -622,21 +579,6 @@ class ReviewRepositoryLocalPathTests(unittest.TestCase):
             service._review_repository_local_path(context),
             '/wks/repo-a',
         )
-
-
-class PublishReviewCommentFixDelegationTests(unittest.TestCase):
-    def test_single_publish_delegates_to_batch(self) -> None:
-        # Line 859.
-        service = _make_service()
-        with patch.object(service, '_publish_review_comments_batch_fix') as batch:
-            context = ReviewFixContext(
-                repository_id='r', pull_request_title='',
-                branch_name='b', task_id='T', task_summary='', agent_session_id='',
-            )
-            service._publish_review_comment_fix(
-                _comment(), SimpleNamespace(id='r'), context, {'success': True},
-            )
-        batch.assert_called_once()
 
 
 class PublishReviewCommentsBatchExceptionTests(unittest.TestCase):

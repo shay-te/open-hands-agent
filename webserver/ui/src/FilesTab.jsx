@@ -20,12 +20,11 @@ import {
   changedFileOpenTarget,
   countFileChangeStats,
   diffDisplayPath,
-  formatRepoRelativePath,
   isFileConflicted,
   parseRepoDiffs,
 } from './diffModel.js';
 import { toast } from './stores/toastStore.js';
-import { copyTextToClipboard } from './utils/clipboard.js';
+import { copyRepoRelativePath } from './utils/clipboard.js';
 import {
   activateTreeNode,
   attachIds,
@@ -34,6 +33,8 @@ import {
   normalizeTrees,
 } from './FilesTabHelpers.js';
 import { cssEscapeAttr } from './utils/dom.js';
+import { countNoun } from './utils/pluralize.js';
+import { useDismissOnOutsidePointerOrEscape } from './hooks/useDismissOnOutsidePointerOrEscape.js';
 
 
 // Same auto-poll cadence as ChangesTab. Keeps the file tree in sync
@@ -329,41 +330,13 @@ export default function FilesTab({
     setPathMenu(null);
   }
   async function copyPathMenuRelativePath() {
+    const repoId = pathMenu?.repoId;
     const path = String(pathMenu?.relativePath || '').trim();
-    const repoPath = formatRepoRelativePath(pathMenu?.repoId, path);
     closePathMenu();
-    if (!path) { return; }
-    try {
-      await copyTextToClipboard(repoPath);
-      toast.show({
-        kind: 'success',
-        title: 'Copied relative path',
-        message: repoPath,
-        durationMs: 2500,
-      });
-    } catch (err) {
-      toast.show({
-        kind: 'error',
-        title: 'Copy failed',
-        message: String(err?.message || err || 'clipboard unavailable'),
-        durationMs: 5000,
-      });
-    }
+    await copyRepoRelativePath(repoId, path);
   }
 
-  useEffect(() => {
-    if (!pathMenu) { return undefined; }
-    function onPointerDown() { closePathMenu(); }
-    function onKeyDown(event) {
-      if (event.key === 'Escape') { closePathMenu(); }
-    }
-    window.addEventListener('pointerdown', onPointerDown);
-    window.addEventListener('keydown', onKeyDown);
-    return () => {
-      window.removeEventListener('pointerdown', onPointerDown);
-      window.removeEventListener('keydown', onKeyDown);
-    };
-  }, [pathMenu]);
+  useDismissOnOutsidePointerOrEscape(pathMenu, closePathMenu);
 
   // Sync icon: re-resolve the task's repositories from YouTrack /
   // Jira / etc. tags + description, and clone any that aren't yet on
@@ -1310,7 +1283,7 @@ function CommentCountBadge({ count, status = '', onClick }) {
     status ? `is-${status}` : '',
     interactive ? 'is-clickable' : '',
   ].filter(Boolean).join(' ');
-  const threadLabel = `${count} comment thread${count === 1 ? '' : 's'} on this file`;
+  const threadLabel = `${countNoun(count, 'comment thread')} on this file`;
   function handleClick(event) {
     event.stopPropagation();
     onClick(event);
@@ -1326,7 +1299,7 @@ function CommentCountBadge({ count, status = '', onClick }) {
     <span
       className={className}
       title={interactive ? `${threadLabel} — click to jump to the comment` : threadLabel}
-      aria-label={interactive ? `Jump to ${count} comment${count === 1 ? '' : 's'}` : `${count} comment${count === 1 ? '' : 's'}`}
+      aria-label={interactive ? `Jump to ${countNoun(count, 'comment')}` : countNoun(count, 'comment')}
       role={interactive ? 'button' : undefined}
       tabIndex={interactive ? 0 : undefined}
       onClick={interactive ? handleClick : undefined}

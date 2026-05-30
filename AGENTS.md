@@ -5,6 +5,10 @@ This repository uses Kato to implement YouTrack tasks and fix review comments.
 # Git
 do not do any git commit or push. let me inspect the changes
 
+## Hard rules. 
+
+- DO NOT WRITE NEW CODE IF IT:S ALRADY WRITTEN CHECN BEFORE WRITTING NEW CODE
+
 ## Architecture
 
 - Keep orchestration logic in services.

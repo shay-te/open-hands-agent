@@ -90,16 +90,6 @@ class ParallelTaskRunnerTests(unittest.TestCase):
         f_a.result(timeout=2)
         f_b.result(timeout=2)
 
-    def test_in_flight_task_ids_snapshot(self) -> None:
-        runner = ParallelTaskRunner(max_workers=2)
-        self.addCleanup(runner.shutdown)
-        gate = threading.Event()
-        runner.submit('PROJ-1', gate.wait)
-        runner.submit('PROJ-2', gate.wait)
-        snapshot = runner.in_flight_task_ids()
-        self.assertEqual(snapshot, {'PROJ-1', 'PROJ-2'})
-        gate.set()
-
     def test_submit_rejects_empty_task_id(self) -> None:
         runner = ParallelTaskRunner(max_workers=1)
         self.addCleanup(runner.shutdown)

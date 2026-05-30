@@ -207,7 +207,7 @@ class TestAgentEndToEndIntegration(unittest.TestCase):
             'Kato completed task PROJ-1: Fix checkout flow in test-repo.',
             ticket_client.comments[1][TaskCommentFields.BODY],
         )
-        self.assertTrue(agent_service._state_registry.is_task_processed('PROJ-1'))
+        self.assertIn('PROJ-1', agent_service._state_registry.processed_task_map)
 
         new_comments = agent_service.get_new_pull_request_comments()
 

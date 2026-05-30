@@ -9,7 +9,6 @@ from kato_core_lib.data_layers.data.fields import TaskCommentFields
 from kato_core_lib.data_layers.data.task import Task
 from kato_core_lib.data_layers.service.repository_service import RepositoryService
 from kato_core_lib.data_layers.service.task_failure_handler import (
-    TASK_DEFINITION_TOO_THIN_COMMENT,
     repository_detection_comment,
 )
 from kato_core_lib.data_layers.service.task_service import TaskService
@@ -733,15 +732,6 @@ class TaskPreflightService(MissionStepLoggerMixin, Service):
             repository_detection_comment(error),
             after_step='added repository detection skip comment',
             failure_log_message='failed to add repository detection comment for task %s',
-        )
-
-    def _handle_task_definition_failure(self, task: Task) -> None:
-        self._log_task_step(task.id, 'recording task-definition skip comment')
-        self._add_task_comment(
-            task.id,
-            TASK_DEFINITION_TOO_THIN_COMMENT,
-            after_step='added task-definition skip comment',
-            failure_log_message='failed to add task definition comment for task %s',
         )
 
     def _attach_task_repository_context(

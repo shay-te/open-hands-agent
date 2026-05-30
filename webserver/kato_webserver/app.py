@@ -310,11 +310,6 @@ def _persist_settings(updates: dict) -> None:
     write_kato_settings(updates)
 
 
-# Only these keys may be written via ``POST /api/settings``. Adding
-# a new operator-editable setting means adding it here AND wiring
-# the GET / POST handlers — the allowlist is the contract.
-_SETTINGS_WRITABLE_KEYS = frozenset({'REPOSITORY_ROOT_PATH'})
-
 # ---------------------------------------------------------------------------
 # Provider settings split into two concepts the operator thinks about
 # separately:
@@ -450,37 +445,22 @@ def _filtered_provider_updates(
 def _read_env_file_values(path: Path) -> dict[str, str]:
     """Parse a ``.env``-style file into a dict.
 
-    Pragmatic parser — handles ``KEY=value`` lines, strips inline
-    surrounding quotes, ignores blank lines and ``#`` comments.
-    Returns ``{}`` when the file is missing. Doesn't try to be a
-    full POSIX shell parser because the operator's .env shouldn't
-    rely on shell substitution for fields the settings UI edits.
+    Delegates to kato's single-source-of-truth parser
+    (``parse_dotenv_text``) so the settings UI reads ``.env`` exactly
+    the way kato's boot path does — ``KEY=value`` lines, a stripped
+    leading ``export `` prefix, one matched pair of surrounding quotes
+    removed, comments/blanks/malformed lines dropped, last duplicate
+    key wins. Returns ``{}`` when the file is missing or unreadable.
     """
+    from kato_core_lib.helpers.dotenv_utils import parse_dotenv_text
+
     if not path.is_file():
         return {}
-    out: dict[str, str] = {}
     try:
         content = path.read_text(encoding='utf-8')
     except OSError:
         return {}
-    for line in content.splitlines():
-        stripped = line.strip()
-        if not stripped or stripped.startswith('#'):
-            continue
-        if '=' not in stripped:
-            continue
-        key, value = stripped.split('=', 1)
-        key = key.strip()
-        value = value.strip()
-        # Strip a single pair of surrounding quotes — the most
-        # common .env quoting style. Anything fancier (escape
-        # sequences, multi-line values) is out of scope for the
-        # settings UI.
-        if len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
-            value = value[1:-1]
-        if key:
-            out[key] = value
-    return out
+    return parse_dotenv_text(content)
 
 
 
@@ -648,26 +628,6 @@ def _no_base_error_message(repo_id: str) -> str:
         'no destination branch configured and could not detect one '
         'from the workspace clone — check your kato config.'
     )
-
-
-def _resolve_repo_cwd(
-    session_manager,
-    workspace_manager,
-    task_id: str,
-    repo_id: str,
-) -> str | None:
-    """Pick the cwd to inspect for the Files / Changes panes.
-
-    When ``repo_id`` is provided, point at that workspace clone so the
-    UI can switch between every repo a multi-repo task touches. Empty
-    ``repo_id`` falls back to the session record (legacy single-repo
-    flows and tabs that haven't yet picked one).
-    """
-    if repo_id:
-        cwd = _repository_cwd(workspace_manager, task_id, repo_id)
-        if cwd is not None:
-            return cwd
-    return _record_cwd_or_none(session_manager, task_id)
 
 
 # Branch-safety lock is gone in workspace mode: each task has its own
@@ -3102,11 +3062,6 @@ def _working_session_ids(session_manager) -> set[str]:
     return working
 
 
-def _pending_permission_session_ids(session_manager) -> set[str]:
-    """Task ids whose live session is paused on an unanswered approval."""
-    return set(_pending_permission_tool_by_task(session_manager).keys())
-
-
 def _pending_permission_tool_by_task(session_manager) -> dict[str, str]:
     """Per-task ``{task_id: pending_tool_name}`` for the tab-attention path.
 
@@ -3129,10 +3084,6 @@ def _pending_permission_tool_by_task(session_manager) -> dict[str, str]:
             # match it to a remembered decision.
             pending[record.task_id] = tool_name
     return pending
-
-
-def _session_has_pending_permission(session) -> bool:
-    return bool(_session_pending_permission_tool(session))
 
 
 def _session_pending_permission_tool(session) -> str:

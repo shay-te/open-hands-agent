@@ -45,10 +45,6 @@ def resolved_agent_backend(open_cfg: DictConfig) -> str:
     )
 
 
-def is_claude_backend(open_cfg: DictConfig) -> bool:
-    return resolved_agent_backend(open_cfg) == AGENT_BACKEND_CLAUDE
-
-
 def parse_issue_states(config: DictConfig) -> list[str]:
     if hasattr(config, 'issue_states'):
         issue_states = config.issue_states

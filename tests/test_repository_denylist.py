@@ -2,7 +2,7 @@
 
 Pins down two things:
 
-1. The pure-data parser ``denied_ids`` / ``is_denied`` correctly
+1. The pure-data parser ``denied_ids`` correctly
    normalises the ``KATO_REPOSITORY_DENYLIST`` env var (case-folded,
    whitespace-trimmed, deduplicated, comma-separated).
 2. ``RepositoryInventoryService`` filters denied entries out of the
@@ -30,7 +30,6 @@ from kato_core_lib.data_layers.service.repository_inventory_service import (
 from kato_core_lib.validation.repository_denylist import (
     REPOSITORY_DENYLIST_ENV_KEY,
     denied_ids,
-    is_denied,
 )
 
 
@@ -89,35 +88,6 @@ class DenylistParserTests(unittest.TestCase):
         self.assertEqual(
             denied_ids(env={REPOSITORY_DENYLIST_ENV_KEY: ',a,,b,'}),
             frozenset({'a', 'b'}),
-        )
-
-    def test_is_denied_returns_true_on_match(self) -> None:
-        self.assertTrue(
-            is_denied(
-                'secrets-vault',
-                env={REPOSITORY_DENYLIST_ENV_KEY: 'secrets-vault'},
-            ),
-        )
-
-    def test_is_denied_is_case_insensitive(self) -> None:
-        self.assertTrue(
-            is_denied(
-                'SECRETS-VAULT',
-                env={REPOSITORY_DENYLIST_ENV_KEY: 'secrets-vault'},
-            ),
-        )
-
-    def test_is_denied_returns_false_on_miss(self) -> None:
-        self.assertFalse(
-            is_denied(
-                'public-app',
-                env={REPOSITORY_DENYLIST_ENV_KEY: 'secrets-vault'},
-            ),
-        )
-
-    def test_is_denied_with_empty_id_is_false(self) -> None:
-        self.assertFalse(
-            is_denied('', env={REPOSITORY_DENYLIST_ENV_KEY: 'secrets-vault'}),
         )
 
     def test_default_env_uses_os_environ(self) -> None:

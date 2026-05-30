@@ -36,7 +36,7 @@ body {
   margin: 0;
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
   background: #0a0a0a;
-  color: #e5e5e5;
+  color: #f5f5f7;
   display: flex;
   flex-direction: column;
 }
@@ -55,7 +55,7 @@ header {
   align-items: center;
   gap: 12px;
   padding: 14px 24px;
-  border-bottom: 1px solid #1e1e1e;
+  border-bottom: 1px solid #2a2a2a;
   flex-shrink: 0;
 }
 
@@ -113,9 +113,9 @@ header button:not(.header-status) {
 }
 
 header button:not(.header-status):hover {
-  color: #e5e5e5;
-  border-color: #404040;
-  background: #1e1e1e;
+  color: #f5f5f7;
+  border-color: #2a2a2a;
+  background: #2a2a2a;
 }
 
 header button:not(.header-status):disabled {
@@ -135,7 +135,7 @@ header .header-status {
   border-radius: var(--radius-pill);
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  color: #d4d4d4;
+  color: #f5f5f7;
   font: 12px/1 ui-monospace, monospace;
   min-width: 0;
   margin-left: 4px;
@@ -179,7 +179,7 @@ header .header-status.is-warn .header-status-pulse {
 }
 
 header .header-status.is-stale .header-status-pulse {
-  background: #404040;
+  background: #2a2a2a;
   animation: none;
 }
 
@@ -201,7 +201,7 @@ header button.header-status.is-clickable {
 
 header button.header-status.is-clickable:hover {
   background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.06);
 }
 
 header button.header-status.is-clickable.is-active {
@@ -229,19 +229,19 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   align-items: center;
   gap: 10px;
   padding: 6px 24px;
-  border-bottom: 1px solid #1e1e1e;
+  border-bottom: 1px solid #2a2a2a;
   background: #0a0a0a;
   flex-shrink: 0;
   font-family: ui-monospace, monospace;
   font-size: 12px;
-  color: #d4d4d4;
+  color: #f5f5f7;
 }
 
 #status-bar-pulse {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #e5e5e5;
+  background: #f5f5f7;
   flex-shrink: 0;
   animation: kato-status-pulse 1.6s ease-in-out infinite;
 }
@@ -256,7 +256,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 #status-bar.is-stale #status-bar-pulse {
-  background: #404040;
+  background: #2a2a2a;
   animation: none;
 }
 
@@ -296,15 +296,15 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 #status-bar-toggle:hover {
-  color: #e5e5e5;
-  border-color: #e5e5e5;
+  color: #f5f5f7;
+  border-color: #f5f5f7;
 }
 
 #status-bar-history {
   max-height: 220px;
   overflow-y: auto;
   background: #0a0a0a;
-  border-bottom: 1px solid #1e1e1e;
+  border-bottom: 1px solid #2a2a2a;
   padding: 6px 24px;
   flex-shrink: 0;
   font-family: ui-monospace, monospace;
@@ -328,12 +328,12 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 #status-bar-history .ts {
-  color: #404040;
+  color: #2a2a2a;
   flex-shrink: 0;
 }
 
 #status-bar-history .lvl {
-  color: #404040;
+  color: #2a2a2a;
   min-width: 38px;
   flex-shrink: 0;
 }
@@ -481,7 +481,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
    * hops, and the wheel-to-horizontal handler covers the
    * scroll-wheel case. */
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.32) rgba(255, 255, 255, 0.06);
+  scrollbar-color: rgba(245, 245, 247, 0.42) rgba(255, 255, 255, 0.06);
   /* Vertical padding gives the active tab's drop-shadow + the
    * pinned-tab background ring room to render before
    * overflow-y:hidden clips them. Without ``padding-top`` the active
@@ -499,12 +499,12 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   border-radius: 4px;
 }
 .tabs-scroller::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.32);
+  background: rgba(245, 245, 247, 0.42);
   border-radius: 4px;
   border: 1px solid rgba(255, 255, 255, 0.06);
 }
 .tabs-scroller::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.32);
+  background: rgba(245, 245, 247, 0.42);
 }
 
 .tabs-scroller #tab-list {
@@ -548,8 +548,8 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .tabs-pane-top .tab.active {
-  background: rgba(255, 255, 255, 0.14);
-  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.06);
   color: #f5f5f7;
   box-shadow: 0 1px 8px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
@@ -627,7 +627,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 
 .tabs-pane-top .tab .tab-forget-btn:hover {
   background: rgba(220, 38, 38, 0.95);
-  color: #fff7ed;
+  color: #f5f5f7;
 }
 
 /* ───── tab-pin button ────────────────────────────────────────────
@@ -711,16 +711,16 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   /* Solid panel that mirrors the strip's gradient so scrolling
    * tabs are obscured behind the pinned cluster instead of
    * smearing through it. */
-  background: linear-gradient(180deg, rgba(36, 36, 40, 0.96) 0%, rgba(24, 24, 28, 0.96) 100%);
-  border-color: rgba(255, 255, 255, 0.14);
+  background: linear-gradient(180deg, rgba(13, 13, 15, 0.86) 0%, rgba(13, 13, 15, 0.86) 100%);
+  border-color: rgba(255, 255, 255, 0.06);
 }
 
 .tabs-pane-top .tab.is-pinned.active {
   /* Active + pinned = the same brighter background as a normal
    * active tab so the active-state signal isn't overwritten by the
    * pinned-panel base. */
-  background: linear-gradient(180deg, rgba(56, 56, 60, 0.98) 0%, rgba(36, 36, 40, 0.96) 100%);
-  border-color: rgba(255, 255, 255, 0.32);
+  background: linear-gradient(180deg, rgba(56, 56, 60, 0.98) 0%, rgba(13, 13, 15, 0.86) 100%);
+  border-color: rgba(245, 245, 247, 0.42);
 }
 
 .tabs-pane-top .tab.needs-attention {
@@ -829,7 +829,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .tabs-action:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .tabs-action:active:not(:disabled) {
@@ -846,12 +846,12 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 #tabs-add-task.tabs-action {
   background: rgba(10, 132, 255, 0.95);
   border-color: rgba(10, 132, 255, 0.55);
-  color: #f0f9ff;
+  color: #f5f5f7;
   box-shadow: 0 1px 6px rgba(10, 132, 255, 0.4);
 }
 
 #tabs-add-task.tabs-action:hover {
-  background: rgba(41, 151, 255, 0.95);
+  background: rgba(10, 132, 255, 0.95);
   box-shadow: 0 1px 10px rgba(10, 132, 255, 0.55);
 }
 
@@ -878,7 +878,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
  * tab strip uses ``.tabs-pane-top`` rules above; the rules below
  * apply only to the original aside-style sidebar. */
 #tabs-pane:not(.tabs-pane-top) {
-  border-right: 1px solid #1e1e1e;
+  border-right: 1px solid #2a2a2a;
   overflow-y: auto;
   padding: 0 0 12px;
   display: flex;
@@ -902,7 +902,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 #tabs-pane:not(.tabs-pane-top) .tab:hover {
-  background: #1e1e1e;
+  background: #2a2a2a;
 }
 
 #tabs-pane:not(.tabs-pane-top) .tab:focus {
@@ -910,8 +910,8 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 #tabs-pane:not(.tabs-pane-top) .tab.active {
-  background: #1e1e1e;
-  border-left-color: #e5e5e5;
+  background: #2a2a2a;
+  border-left-color: #f5f5f7;
 }
 
 #tabs-pane:not(.tabs-pane-top) .tab strong {
@@ -931,7 +931,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   align-self: center;
   background: transparent;
   border: none;
-  color: #404040;
+  color: #2a2a2a;
   font-size: 18px;
   line-height: 1;
   cursor: pointer;
@@ -947,7 +947,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 
 #tabs-pane:not(.tabs-pane-top) .tab-forget-btn:hover {
   background: #b91c1c;
-  color: #fff7ed;
+  color: #f5f5f7;
 }
 
 .status-dot {
@@ -958,7 +958,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   display: inline-block;
   margin-top: 4px;
   background: #2a2a2a;
-  border: 2px solid #1e1e1e;
+  border: 2px solid #2a2a2a;
 }
 
 .status-active {
@@ -968,12 +968,12 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   /* alive subprocess but the current turn has closed (Claude said
    * "Done") — dim the green so the sidebar visually distinguishes
    * "still chewing" from "waiting for input". */
-  background: #064e3b;
+  background: #0a4d2e;
   opacity: 0.55;
 }
 
 .status-idle {
-  background: #404040;
+  background: #2a2a2a;
 } /* slate: tab present, no subprocess */
 .status-review {
   background: #2563eb;
@@ -983,21 +983,21 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   border-color: #92400e;
 } /* orange: Claude working */
 .status-done {
-  background: #1e1e1e;
+  background: #2a2a2a;
   border-color: #2a2a2a;
 } /* dim */
 .status-terminated {
-  background: #6b7280;
+  background: #737373;
 } /* gray: stopped */
 .status-provisioning {
-  background: #e5e5e5;
+  background: #f5f5f7;
 } /* white: cloning */
 .status-errored {
   background: #b91c1c;
 } /* red:   half-broken workspace */
 .status-attention {
   background: #f97316;
-  border-color: #7c2d12;
+  border-color: #7f1d1d;
 } /* orange-red: needs approval */
 .status-dot.status-attention::after {
   content: "";
@@ -1101,7 +1101,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   min-width: 0;
   overflow: visible;
   padding: 10px 24px;
-  border-bottom: 1px solid #1e1e1e;
+  border-bottom: 1px solid #2a2a2a;
   position: relative;
   z-index: 20;
 }
@@ -1149,7 +1149,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
    action row rendered inert (the .session-action:disabled rule
    already greys the buttons). The bar never disappears. */
 #session-header.is-empty #session-task-summary.is-placeholder {
-  color: #8a8a8f;
+  color: #7d8590;
   font-weight: 600;
 }
 
@@ -1187,8 +1187,8 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .session-action:hover {
-  background: rgba(255, 255, 255, 0.14);
-  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.06);
 }
 
 .session-action:active {
@@ -1205,7 +1205,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 
 .session-action.is-primary {
   background: rgba(5, 150, 105, 0.85); /* emerald-600 */
-  border-color: rgba(16, 185, 129, 0.65);
+  border-color: rgba(16, 185, 129, 0.55);
   color: #ecfdf5;
   box-shadow: 0 1px 6px rgba(5, 150, 105, 0.35);
 }
@@ -1228,9 +1228,9 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .session-action.is-danger {
-  background: rgba(185, 28, 28, 0.85); /* red-700 */
+  background: rgba(220, 38, 38, 0.75); /* red-700 */
   border-color: rgba(220, 38, 38, 0.75);
-  color: #fee2e2;
+  color: #fecaca;
   box-shadow: 0 1px 6px rgba(185, 28, 28, 0.35);
 }
 
@@ -1286,7 +1286,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
    * negative top would yank the bar up over the previous turn's last
    * bubble. The flex gap on .chat-turn handles spacing instead. */
   margin: 0 -24px;
-  background: #161616;
+  background: #0a0a0a;
   border-bottom: 1px solid #2a2a2a;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
 }
@@ -1302,7 +1302,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   border: none;
   text-align: left;
   font: inherit;
-  color: #d4d4d4;
+  color: #f5f5f7;
 }
 
 .chat-sticky-prompt-label {
@@ -1311,7 +1311,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #6b7280;
+  color: #737373;
   padding-top: 2px;
 }
 
@@ -1338,14 +1338,14 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   bottom: 9px;
   height: 2.5em;
   pointer-events: none;
-  background: linear-gradient(to bottom, rgba(13, 13, 15, 0) 0%, rgba(13, 13, 15, 0.86) 66%, #1e1e1e 100%);
+  background: linear-gradient(to bottom, rgba(13, 13, 15, 0) 0%, rgba(13, 13, 15, 0.86) 66%, #2a2a2a 100%);
 }
 
 .chat-sticky-prompt-text {
   display: block;
   font-size: 12.5px;
   line-height: 1.5;
-  color: #e5e5e5;
+  color: #f5f5f7;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -1376,7 +1376,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   height: 8px;
   border-radius: 50%;
   margin-top: 8px;
-  background: #404040;
+  background: #2a2a2a;
   flex-shrink: 0;
 }
 
@@ -1396,7 +1396,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .bubble-content {
-  color: #e5e5e5;
+  color: #f5f5f7;
 }
 
 .bubble.user .bubble-dot {
@@ -1404,7 +1404,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .bubble.user .bubble-content {
-  color: #e5e5e5;
+  color: #f5f5f7;
 }
 
 .bubble.assistant .bubble-dot {
@@ -1412,14 +1412,14 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .bubble.tool .bubble-dot {
-  background: #e5e5e5;
+  background: #f5f5f7;
 }
 
 .bubble.tool .bubble-content {
   font-family: ui-monospace, monospace;
   font-size: 13px;
   background: #0a0a0a;
-  border: 1px solid #1e1e1e;
+  border: 1px solid #2a2a2a;
   border-radius: 4px;
   padding: 6px 10px;
 }
@@ -1510,7 +1510,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   border-radius: 3px;
   font-family: ui-monospace, monospace;
   font-size: 12px;
-  color: #d4d4d4;
+  color: #f5f5f7;
   white-space: pre-wrap;
   word-break: break-word;
   /* No scrollbars — overflow is hidden via the wrapper. Horizontal
@@ -1526,16 +1526,16 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   padding: 4px 12px;
   font-size: 11px;
   font-family: inherit;
-  color: #e5e5e5;
+  color: #f5f5f7;
   background: #1f2937;
-  border: 1px solid #374151;
+  border: 1px solid #1f2937;
   border-radius: 4px;
   cursor: pointer;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
 }
 
 .bubble-tool-details-expand:hover {
-  background: #374151;
+  background: #1f2937;
   border-color: #525252;
 }
 
@@ -1551,7 +1551,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .bubble-tool-details-line.removed {
-  background: #5d1818;
+  background: #7f1d1d;
   color: #fecaca;
 }
 
@@ -1644,12 +1644,12 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 .bubble.assistant .bubble-content blockquote {
   margin: 0 0 4px;
   padding: 4px 12px;
-  border-left: 3px solid #404040;
+  border-left: 3px solid #2a2a2a;
   color: #a3a3a3;
 }
 
 .bubble.assistant .bubble-content a {
-  color: #579dff;
+  color: #0a84ff;
   text-decoration: underline;
 }
 
@@ -1671,7 +1671,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .bubble.assistant .bubble-content th {
-  background: #1e1e1e;
+  background: #2a2a2a;
   font-weight: 600;
 }
 
@@ -1691,15 +1691,15 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
    * ``code`` chips per line). */
   padding: 0 5px;
   background: #0a0a0a;
-  border: 1px solid #1e1e1e;
+  border: 1px solid #2a2a2a;
   border-radius: 3px;
-  color: #f5cd47;
+  color: #fbbf24;
 }
 
 .bubble.assistant .bubble-content .md-code-block {
   margin: 6px 0 10px;
   background: #0a0a0a;
-  border: 1px solid #1e1e1e;
+  border: 1px solid #2a2a2a;
   border-radius: 5px;
   overflow: hidden;
 }
@@ -1710,7 +1710,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   justify-content: space-between;
   padding: 4px 8px 4px 12px;
   background: #0a0a0a;
-  border-bottom: 1px solid #1e1e1e;
+  border-bottom: 1px solid #2a2a2a;
 }
 
 .bubble.assistant .bubble-content .md-code-block-lang {
@@ -1738,7 +1738,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .bubble.assistant .bubble-content .md-code-block-copy:hover {
-  background: #1e1e1e;
+  background: #2a2a2a;
   border-color: #2a2a2a;
   color: #f5f5f7;
 }
@@ -1760,7 +1760,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   font-family: ui-monospace, monospace;
   font-size: 12.5px;
   line-height: 1.5;
-  color: #e5e5e5;
+  color: #f5f5f7;
   white-space: pre;
 }
 
@@ -1772,13 +1772,13 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   font-family: inherit;
   color: #a3a3a3;
   background: transparent;
-  border: 1px solid #404040;
+  border: 1px solid #2a2a2a;
   border-radius: 3px;
   cursor: pointer;
 }
 
 .bubble-tool-details-toggle:hover {
-  color: #e5e5e5;
+  color: #f5f5f7;
   border-color: #525252;
 }
 
@@ -1790,25 +1790,25 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   font-family: inherit;
   color: #a3a3a3;
   background: transparent;
-  border: 1px solid #404040;
+  border: 1px solid #2a2a2a;
   border-radius: 3px;
   cursor: pointer;
 }
 
 .event-log-show-older:hover {
-  color: #e5e5e5;
+  color: #f5f5f7;
   border-color: #525252;
 }
 
 .bubble-tool-details-overflow {
   margin: 4px 0 0;
   font-size: 11px;
-  color: #d97706;
+  color: #f97316;
   font-style: italic;
 }
 
 .bubble.system .bubble-dot {
-  background: #404040;
+  background: #2a2a2a;
 }
 
 .bubble.system .bubble-content {
@@ -1892,7 +1892,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .working-indicator.is-waiting-approval {
-  color: #fb923c;
+  color: #f97316;
   font-style: normal;
 }
 
@@ -1903,7 +1903,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #1c1207;
+  color: #0a0a0a;
   background: #f97316;
   font: 700 10px/1 ui-monospace, monospace;
   animation: kato-attention-pop 1.2s ease-in-out infinite;
@@ -2043,8 +2043,8 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .chat-search-toggle:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.14);
-  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.06);
 }
 
 .chat-search-toggle:active:not(:disabled) {
@@ -2079,7 +2079,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   gap: 8px;
   padding: 6px 8px 6px 14px;
   border-radius: 22px;
-  background: linear-gradient(180deg, rgba(28, 28, 30, 0.62) 0%, rgba(20, 20, 22, 0.55) 100%);
+  background: linear-gradient(180deg, rgba(28, 28, 30, 0.62) 0%, rgba(28, 28, 30, 0.62) 100%);
   -webkit-backdrop-filter: blur(28px) saturate(180%);
   backdrop-filter: blur(28px) saturate(180%);
   border: 1px solid rgba(255, 255, 255, 0.06);
@@ -2120,7 +2120,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .chat-search-count.is-empty {
-  background: rgba(220, 38, 38, 0.18);
+  background: rgba(239, 68, 68, 0.12);
   color: rgba(254, 226, 226, 0.85);
 }
 
@@ -2145,7 +2145,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 
 .chat-search-nav:hover:not(:disabled),
 .chat-search-close:hover {
-  background: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .chat-search-nav:active:not(:disabled),
@@ -2193,16 +2193,16 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   flex-direction: column;
   gap: 4px;
   border-radius: 18px;
-  background: linear-gradient(180deg, rgba(28, 28, 30, 0.62) 0%, rgba(20, 20, 22, 0.55) 100%);
+  background: linear-gradient(180deg, rgba(28, 28, 30, 0.62) 0%, rgba(28, 28, 30, 0.62) 100%);
   -webkit-backdrop-filter: blur(28px) saturate(180%);
   backdrop-filter: blur(28px) saturate(180%);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.06);
   z-index: 9;
   max-height: 240px;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.32) transparent;
+  scrollbar-color: rgba(245, 245, 247, 0.42) transparent;
 }
 
 .queued-message-row {
@@ -2294,7 +2294,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 
 .queued-message-remove:hover {
   background: rgba(220, 38, 38, 0.75);
-  color: #fff7ed;
+  color: #f5f5f7;
 }
 
 .queued-message-remove svg {
@@ -2317,7 +2317,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   /* Frosted glass — translucent dark base + backdrop blur + a
    * faint inner highlight makes it read as a physical pane
    * sitting over the chat. */
-  background: linear-gradient(180deg, rgba(28, 28, 30, 0.62) 0%, rgba(20, 20, 22, 0.55) 100%);
+  background: linear-gradient(180deg, rgba(28, 28, 30, 0.62) 0%, rgba(28, 28, 30, 0.62) 100%);
   -webkit-backdrop-filter: blur(28px) saturate(180%);
   backdrop-filter: blur(28px) saturate(180%);
   border: 1px solid rgba(255, 255, 255, 0.06);
@@ -2385,7 +2385,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   height: 18px;
   border-radius: 50%;
   border: none;
-  background: rgba(0, 0, 0, 0.55);
+  background: rgba(28, 28, 30, 0.62);
   color: #f5f5f7;
   font-size: 14px;
   line-height: 1;
@@ -2397,7 +2397,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .message-attachment-remove:hover {
-  background: rgba(185, 28, 28, 0.95);
+  background: rgba(220, 38, 38, 0.95);
 }
 
 /* The textarea — no visible chrome inside the glass capsule.
@@ -2420,7 +2420,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   /* Firefox: thin auto-coloured scrollbar that fades into the
    * frosted-glass background instead of the chunky default. */
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
+  scrollbar-color: rgba(255, 255, 255, 0.06) transparent;
   /* WebKit: matching slim vertical (width-sized) track + low-contrast
    * thumb that brightens on hover. Same look as Claude/VS Code —
    * visible only when the textarea actually overflows. */
@@ -2432,11 +2432,11 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   background: transparent;
 }
 #message-input::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
   border-radius: 3px;
 }
 #message-input::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.32);
+  background: rgba(245, 245, 247, 0.42);
 }
 
 #message-input::placeholder {
@@ -2469,8 +2469,8 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 #message-attach:hover {
-  background: rgba(255, 255, 255, 0.14);
-  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.06);
 }
 
 #message-attach:active {
@@ -2556,7 +2556,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 code {
-  background: #1e1e1e;
+  background: #2a2a2a;
   padding: 2px 6px;
   border-radius: 4px;
 }
@@ -2597,13 +2597,13 @@ code {
   display: flex;
   align-items: baseline;
   gap: 12px;
-  border-bottom: 1px solid #1e1e1e;
+  border-bottom: 1px solid #2a2a2a;
   padding-bottom: 10px;
 }
 
 #permission-tool-name {
   font: 600 18px ui-monospace, monospace;
-  color: #e5e5e5;
+  color: #f5f5f7;
 }
 
 #permission-fields {
@@ -2629,10 +2629,10 @@ code {
 
 .permission-field-value {
   background: #0a0a0a;
-  border: 1px solid #1e1e1e;
+  border: 1px solid #2a2a2a;
   border-radius: 4px;
   padding: 8px 10px;
-  color: #e5e5e5;
+  color: #f5f5f7;
   white-space: pre-wrap;
   word-break: break-word;
   max-height: 240px;
@@ -2670,18 +2670,18 @@ code {
   align-items: center;
   gap: 8px;
   font-size: 12px;
-  color: #d4d4d4;
+  color: #f5f5f7;
 }
 
 .modal-remember code {
   background: transparent;
-  color: #d4d4d4;
+  color: #f5f5f7;
   padding: 0;
 }
 
 .modal-card textarea {
   background: #0a0a0a;
-  color: #e5e5e5;
+  color: #f5f5f7;
   border: 1px solid #2a2a2a;
   border-radius: 4px;
   padding: 6px 8px;
@@ -2710,7 +2710,7 @@ code {
 
 .modal-actions .secondary {
   background: #2a2a2a;
-  color: #e5e5e5;
+  color: #f5f5f7;
 }
 
 .modal-actions .danger {
@@ -2723,23 +2723,23 @@ code {
 }
 
 .modal-actions .secondary:hover {
-  background: #404040;
+  background: #2a2a2a;
 }
 
 .modal-actions .danger:hover {
-  background: #dc2626;
+  background: #ef4444;
 }
 
 /* ───── forget-task hard-confirm dialog ───── */
 #forget-task-name {
   font: 600 16px ui-monospace, monospace;
-  color: #e5e5e5;
+  color: #f5f5f7;
 }
 
 .forget-task-lead {
   margin: 0;
   font-size: 13px;
-  color: #d4d4d4;
+  color: #f5f5f7;
   line-height: 1.5;
 }
 
@@ -2764,7 +2764,7 @@ code {
 }
 
 .forget-task-effects strong {
-  color: #e5e5e5;
+  color: #f5f5f7;
 }
 
 .forget-task-effects code {
@@ -2773,7 +2773,7 @@ code {
   border-radius: 3px;
   padding: 1px 4px;
   font-size: 11.5px;
-  color: #d4d4d4;
+  color: #f5f5f7;
 }
 
 .forget-task-warning {
@@ -2797,9 +2797,9 @@ code {
   flex-direction: column;
   min-height: 0;
   min-width: 0;
-  background: #1e1e1e;
-  border-left: 1px solid #1e1e1e;
-  border-right: 1px solid #1e1e1e;
+  background: #2a2a2a;
+  border-left: 1px solid #2a2a2a;
+  border-right: 1px solid #2a2a2a;
 }
 
 .editor-pane-header {
@@ -2855,7 +2855,7 @@ code {
   padding: 40px;
   text-align: center;
   color: rgba(245, 245, 247, 0.65);
-  background: #1e1e1e;
+  background: #2a2a2a;
 }
 
 .editor-pane-empty p {
@@ -2872,7 +2872,7 @@ code {
   padding: 20px;
   font-size: 12px;
   color: rgba(245, 245, 247, 0.65);
-  background: #1e1e1e;
+  background: #2a2a2a;
   height: 100%;
 }
 
@@ -2894,9 +2894,9 @@ code {
    * removes that entire class of failure. */
   position: relative;
   min-width: 0;
-  background: #1e1e1e;
-  border-left: 1px solid #1e1e1e;
-  border-right: 1px solid #1e1e1e;
+  background: #2a2a2a;
+  border-left: 1px solid #2a2a2a;
+  border-right: 1px solid #2a2a2a;
 }
 
 /* The scroll container — explicitly sized by ``inset: 0`` (no flex
@@ -2933,8 +2933,8 @@ code {
   margin: 0 0 6px;
   padding: 6px 4px;
   font: 600 12px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
-  color: #9ca3af;
-  background: #1e1e1e;
+  color: #a3a3a3;
+  background: #2a2a2a;
   border-bottom: 1px solid #2a2a2a;
 }
 
@@ -2980,7 +2980,7 @@ code {
   align-items: center;
   gap: 8px;
   padding: 6px;
-  background: #1e1e1e;
+  background: #2a2a2a;
 }
 
 .diff-pane .diff-file-header::before {
@@ -2989,7 +2989,7 @@ code {
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background: #161616;
+  background: #0a0a0a;
   border: 1px solid #2a2a2a;
   border-radius: 10px 10px 0 0;
 }
@@ -3090,7 +3090,7 @@ code {
   gap: 6px;
   padding: 8px 14px;
   border-bottom: 1px solid #2a2a2a;
-  background: rgba(20, 20, 22, 0.5);
+  background: rgba(0, 0, 0, 0.45);
 }
 
 .editor-pane-chip {
@@ -3099,9 +3099,9 @@ code {
   gap: 8px;
   padding: 4px 10px;
   border-radius: var(--radius-pill);
-  border: 1px solid #404040;
-  background: #1e1e1e;
-  color: #d4d4d4;
+  border: 1px solid #2a2a2a;
+  background: #2a2a2a;
+  color: #f5f5f7;
   font: 11px/1.2 ui-monospace, monospace;
   cursor: pointer;
   max-width: 320px;
@@ -3142,17 +3142,17 @@ code {
 }
 
 .editor-pane-chip.kato-in_progress .editor-pane-chip-status {
-  background: rgba(59, 130, 246, 0.2);
+  background: rgba(10, 132, 255, 0.18);
   color: #93c5fd;
 }
 
 .editor-pane-chip.kato-addressed .editor-pane-chip-status {
-  background: rgba(34, 197, 94, 0.2);
-  color: #86efac;
+  background: rgba(34, 197, 94, 0.1);
+  color: #79f2c0;
 }
 
 .editor-pane-chip.kato-failed .editor-pane-chip-status {
-  background: rgba(239, 68, 68, 0.22);
+  background: rgba(239, 68, 68, 0.12);
   color: #fca5a5;
 }
 
@@ -3162,12 +3162,12 @@ code {
 
 .editor-pane-chip.status-resolved .editor-pane-chip-status {
   background: rgba(34, 197, 94, 0.1);
-  color: #86efac;
+  color: #79f2c0;
 }
 
 .editor-pane-composer-wrap {
   border-top: 1px solid #2a2a2a;
-  background: rgba(10, 10, 12, 0.5);
+  background: rgba(0, 0, 0, 0.45);
 }
 
 .editor-pane-composer-head {
@@ -3184,10 +3184,10 @@ code {
 .editor-pane-zone-host {
   width: 100%;
   box-sizing: border-box;
-  background: #161616;
+  background: #0a0a0a;
   border-top: 1px solid #2a2a2a;
   border-bottom: 1px solid #2a2a2a;
-  border-left: 3px solid #3b82f6;
+  border-left: 3px solid #0a84ff;
 }
 
 .editor-pane-composer-inline {
@@ -3197,7 +3197,7 @@ code {
 
 .editor-pane-comments-panel {
   border-top: 1px solid #2a2a2a;
-  background: rgba(20, 20, 22, 0.5);
+  background: rgba(0, 0, 0, 0.45);
   max-height: 40%;
   overflow-y: auto;
   padding: 8px 14px;
@@ -3227,7 +3227,7 @@ code {
 .editor-pane-comment-jump {
   background: transparent;
   color: #93c5fd;
-  border: 1px solid rgba(59, 130, 246, 0.35);
+  border: 1px solid rgba(10, 132, 255, 0.4);
   border-radius: 4px;
   padding: 2px 8px;
   font: 11px/1.2 ui-monospace, monospace;
@@ -3236,12 +3236,12 @@ code {
 
 .editor-pane-comment-jump.is-file {
   color: #a3a3a3;
-  border-color: #404040;
+  border-color: #2a2a2a;
   cursor: default;
 }
 
 .editor-pane-comment-jump:hover {
-  background: rgba(59, 130, 246, 0.1);
+  background: rgba(10, 132, 255, 0.18);
 }
 
 /* Left-panel uniform background — the Files/Changes panel (rendered
@@ -3260,7 +3260,7 @@ code {
 
 /* right-side pane (Files + Changes), mounted by the React bundle */
 #right-pane {
-  border-left: 1px solid #1e1e1e;
+  border-left: 1px solid #2a2a2a;
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -3382,7 +3382,7 @@ body.kato-resizing #left-pane-resizer::before {
 
 .left-pane-empty-title {
   margin: 0 0 8px 0;
-  color: #e5e5e5;
+  color: #f5f5f7;
   font-size: 14px;
   font-weight: 600;
 }
@@ -3423,7 +3423,7 @@ body.kato-resizing #left-pane-resizer::before {
    * (``position: relative`` with no offsets is layout-neutral). */
   position: relative;
   z-index: 2;
-  background: linear-gradient(180deg, rgba(28, 28, 30, 0.55) 0%, rgba(20, 20, 22, 0.45) 100%);
+  background: linear-gradient(180deg, rgba(28, 28, 30, 0.62) 0%, rgba(0, 0, 0, 0.45) 100%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   backdrop-filter: blur(20px) saturate(180%);
 }
@@ -3454,8 +3454,8 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .right-pane-tabs button.active {
-  background: rgba(255, 255, 255, 0.14);
-  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.06);
   color: #f5f5f7;
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
@@ -3567,7 +3567,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .files-tab-filter-clear:hover {
-  background: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 /* ───── iOS round icon toolbar — files + changes ────────────────── */
@@ -3598,8 +3598,8 @@ body.kato-resizing #left-pane-resizer::before {
 
 .files-tab-icon-btn:hover,
 .changes-tab-icon-btn:hover {
-  background: rgba(255, 255, 255, 0.14);
-  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.06);
   color: #f5f5f7;
 }
 
@@ -3633,8 +3633,8 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .files-tab-text-btn:hover {
-  background: rgba(255, 255, 255, 0.14);
-  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.06);
   color: #f5f5f7;
 }
 
@@ -3645,7 +3645,7 @@ body.kato-resizing #left-pane-resizer::before {
 .files-tab-text-btn.active {
   background: rgba(10, 132, 255, 0.18);
   border-color: rgba(10, 132, 255, 0.4);
-  color: #579dff;
+  color: #0a84ff;
 }
 
 /* iOS-style accordion cards (files-repo, diff-repo, diff-file).
@@ -3664,7 +3664,7 @@ body.kato-resizing #left-pane-resizer::before {
   align-items: center;
   padding: 10px 12px;
   border-radius: 12px 12px 0 0;
-  background: #1e1e1e;
+  background: #2a2a2a;
   cursor: pointer;
   font-size: 12px;
   font-weight: 600;
@@ -3715,13 +3715,13 @@ body.kato-resizing #left-pane-resizer::before {
 
 .files-tab-repo-commits-btn:hover {
   background: #2a2a2a;
-  color: #e5e5e5;
-  border-color: #404040;
+  color: #f5f5f7;
+  border-color: #2a2a2a;
 }
 
 .files-tab-repo-commits-btn[aria-expanded=true] {
   background: #2a2a2a;
-  color: #e5e5e5;
+  color: #f5f5f7;
   border-color: #525252;
 }
 
@@ -3737,13 +3737,13 @@ body.kato-resizing #left-pane-resizer::before {
   list-style: none;
   margin: 0;
   padding: 4px 0;
-  background: #1e1e1e;
-  border: 1px solid #404040;
+  background: #2a2a2a;
+  border: 1px solid #2a2a2a;
   border-radius: 4px;
   max-height: 360px;
   overflow-y: auto;
   min-width: 280px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
 }
 
 .files-tab-commit-empty {
@@ -3767,7 +3767,7 @@ body.kato-resizing #left-pane-resizer::before {
   border: 0;
   padding: 6px 12px;
   cursor: pointer;
-  color: #d4d4d4;
+  color: #f5f5f7;
   font: 12px/1.3 inherit;
 }
 
@@ -3798,7 +3798,7 @@ body.kato-resizing #left-pane-resizer::before {
   border-top: 1px solid #2a2a2a;
   border-radius: 0 0 10px 10px;
   padding: 4px;
-  background: #161616;
+  background: #0a0a0a;
 }
 
 .diff-file-comments-empty {
@@ -3815,7 +3815,7 @@ body.kato-resizing #left-pane-resizer::before {
   border: 1px solid #2a2a2a;
   border-radius: 4px;
   margin-bottom: 4px;
-  background: #161616;
+  background: #0a0a0a;
 }
 
 .diff-file-comment-thread.is-resolved {
@@ -3825,7 +3825,7 @@ body.kato-resizing #left-pane-resizer::before {
 .diff-file-comment-resolved-banner {
   padding: 6px 10px;
   background: #1e3a8a;
-  color: #dbeafe;
+  color: #cce0ff;
   font: 11px/1.4 inherit;
 }
 
@@ -3845,8 +3845,8 @@ body.kato-resizing #left-pane-resizer::before {
 
 .diff-file-comment.is-reply {
   margin-left: 28px;
-  border-left: 2px solid #2f6feb;
-  background: #161616;
+  border-left: 2px solid #0c66e4;
+  background: #0a0a0a;
 }
 
 .diff-file-comment-head {
@@ -3878,13 +3878,13 @@ body.kato-resizing #left-pane-resizer::before {
 
 .diff-file-comment-author {
   font-weight: 600;
-  color: #e5e5e5;
+  color: #f5f5f7;
 }
 
 .diff-file-comment-source {
   padding: 1px 6px;
   border-radius: var(--radius-pill);
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   font-size: 9px;
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -3941,7 +3941,7 @@ body.kato-resizing #left-pane-resizer::before {
 .diff-file-comment-reply-count {
   font-size: 11px;
   color: #a3a3a3;
-  background: #1e1e1e;
+  background: #2a2a2a;
   border: 1px solid #2a2a2a;
   border-radius: 999px;
   padding: 1px 8px;
@@ -3968,8 +3968,8 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .diff-file-comment-collapse:hover {
-  background: rgba(255, 255, 255, 0.14);
-  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.06);
   color: #f5f5f7;
 }
 
@@ -3982,7 +3982,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .diff-file-comment-body {
-  color: #d4d4d4;
+  color: #f5f5f7;
   font-size: 13px;
   line-height: 1.5;
   word-break: break-word;
@@ -4026,7 +4026,7 @@ body.kato-resizing #left-pane-resizer::before {
 .diff-file-comment-body .cmt-md-quote {
   margin: 0 0 8px;
   padding: 2px 0 2px 10px;
-  border-left: 3px solid #404040;
+  border-left: 3px solid #2a2a2a;
   color: #a3a3a3;
 }
 
@@ -4052,7 +4052,7 @@ body.kato-resizing #left-pane-resizer::before {
 .diff-file-comment-body .cmt-md-h {
   margin: 10px 0 4px;
   font-weight: 600;
-  color: #e5e5e5;
+  color: #f5f5f7;
   line-height: 1.3;
 }
 
@@ -4071,7 +4071,7 @@ body.kato-resizing #left-pane-resizer::before {
 .diff-file-comment-body .cmt-md-h5,
 .diff-file-comment-body .cmt-md-h6 {
   font-size: 12px;
-  color: #d4d4d4;
+  color: #f5f5f7;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -4120,7 +4120,7 @@ body.kato-resizing #left-pane-resizer::before {
   border: 1px solid #2a2a2a;
   border-bottom: 0;
   border-radius: 4px 4px 0 0;
-  background: #161616;
+  background: #0a0a0a;
 }
 
 .diff-file-comments-toolbar-btn {
@@ -4136,8 +4136,8 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .diff-file-comments-toolbar-btn:hover:not(:disabled) {
-  background: #1e1e1e;
-  color: #e5e5e5;
+  background: #2a2a2a;
+  color: #f5f5f7;
 }
 
 .diff-file-comments-toolbar-btn:disabled {
@@ -4153,7 +4153,7 @@ body.kato-resizing #left-pane-resizer::before {
   border: 1px solid #2a2a2a;
   border-radius: 4px;
   padding: 8px;
-  background: #161616;
+  background: #0a0a0a;
 }
 
 .diff-file-comments-reply-hint {
@@ -4184,10 +4184,10 @@ body.kato-resizing #left-pane-resizer::before {
    * operator could not see what they had typed. */
   max-height: 360px;
   overflow-y: auto;
-  background: #161616;
-  border: 1px solid #404040;
+  background: #0a0a0a;
+  border: 1px solid #2a2a2a;
   border-radius: 3px;
-  color: #e5e5e5;
+  color: #f5f5f7;
   padding: 8px;
   font: 12px/1.5 ui-monospace, monospace;
   resize: vertical;
@@ -4209,7 +4209,7 @@ body.kato-resizing #left-pane-resizer::before {
  * (border-radius:999px, 12px, soft transitions). */
 .diff-file-comments-submit {
   background: #1d4ed8;
-  color: #f0f9ff;
+  color: #f5f5f7;
   border: 1px solid #2563eb;
   border-radius: 999px;
   padding: 6px 16px;
@@ -4249,7 +4249,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .diff-line-comments-host .diff-file-comment-thread + .diff-file-comment-thread {
-  border-top: 1px solid #1e1e1e;
+  border-top: 1px solid #2a2a2a;
 }
 
 /* Hovering a diff line shows ONE blue "+" to add a comment — the
@@ -4350,7 +4350,7 @@ body.kato-resizing #left-pane-resizer::before {
 
 .diff-file-comments-cancel:hover {
   background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.06);
   color: #f5f5f7;
 }
 
@@ -4386,8 +4386,8 @@ body.kato-resizing #left-pane-resizer::before {
 .diff-repo-sync-comments:hover:not(:disabled),
 .diff-file-collapse-toggle:hover:not(:disabled),
 .diff-file-add-file-comment:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.14);
-  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.06);
   color: #f5f5f7;
 }
 
@@ -4504,7 +4504,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .diff-line-stat.is-delete {
-  color: #ff9b91;
+  color: #fca5a5;
   background: rgba(127, 29, 29, 0.46);
 }
 
@@ -4521,7 +4521,7 @@ body.kato-resizing #left-pane-resizer::before {
   flex-shrink: 0;
   padding: 1px 7px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   background: rgba(255, 255, 255, 0.06);
   color: #c8c8cd;
   font: 600 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -4603,16 +4603,16 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .diff-file-tree-row.is-file:hover {
-  background: #1f1f21;
+  background: #2a2a2a;
 }
 
 .diff-file-tree-row.selected {
-  background: #183252;
-  color: #579dff;
+  background: #1f2937;
+  color: #0a84ff;
 }
 
 .diff-file-tree-row.is-file.selected:hover {
-  background: #183252;
+  background: #1f2937;
 }
 
 .diff-file-tree-row.conflicted .diff-file-tree-label {
@@ -4681,17 +4681,17 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .files-changed-tree-row.kind-delete .files-changed-tree-label {
-  color: #ff9b91;
+  color: #fca5a5;
 }
 
 .files-changed-tree-row.kind-modify .files-changed-tree-label,
 .files-changed-tree-row.kind-rename .files-changed-tree-label,
 .files-changed-tree-row.kind-copy .files-changed-tree-label {
-  color: #f0b45e;
+  color: #f59e0b;
 }
 
 .files-changed-tree-row.selected .files-changed-tree-label {
-  color: #579dff;
+  color: #0a84ff;
 }
 
 .files-changed-tree-row .diff-line-stats {
@@ -4712,7 +4712,7 @@ body.kato-resizing #left-pane-resizer::before {
   border: none;
   border-radius: 6px;
   background: transparent;
-  color: #d4d4d4;
+  color: #f5f5f7;
   font: 12px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace;
   text-align: left;
   cursor: pointer;
@@ -4739,7 +4739,7 @@ body.kato-resizing #left-pane-resizer::before {
   font-weight: 700;
   font-size: 11px;
   border-radius: 3px;
-  color: #d4d4d4;
+  color: #f5f5f7;
   background: rgba(255, 255, 255, 0.06);
 }
 
@@ -4749,7 +4749,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .diff-file-row-kind.kind-delete {
-  color: #ff8b86;
+  color: #f87171;
   background: rgba(127, 29, 29, 0.46);
 }
 
@@ -4811,7 +4811,7 @@ body.kato-resizing #left-pane-resizer::before {
   padding: 5px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
-  background: #1e1e1e;
+  background: #2a2a2a;
   box-shadow: 0 18px 45px rgba(0, 0, 0, 0.45);
 }
 
@@ -4824,7 +4824,7 @@ body.kato-resizing #left-pane-resizer::before {
   border: 0;
   border-radius: 6px;
   background: transparent;
-  color: #e5e5e5;
+  color: #f5f5f7;
   font: 600 12px/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   text-align: left;
   cursor: pointer;
@@ -4846,7 +4846,7 @@ body.kato-resizing #left-pane-resizer::before {
 
 .diff-file-context-menu-item:disabled:hover {
   background: transparent;
-  color: #e5e5e5;
+  color: #f5f5f7;
 }
 
 .files-tab-message,
@@ -4883,7 +4883,7 @@ body.kato-resizing #left-pane-resizer::before {
 
 .tree-row.selected {
   background: rgba(34, 95, 171, 0.38);
-  color: #579dff;
+  color: #0a84ff;
 }
 
 .tree-row-level-guides {
@@ -4930,11 +4930,11 @@ body.kato-resizing #left-pane-resizer::before {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: #b8b8bd;
+  color: #a3a3a3;
 }
 
 .tree-row.selected .tree-row-name {
-  color: #579dff;
+  color: #0a84ff;
 }
 
 /* Changes tab */
@@ -5002,7 +5002,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .tree-row.changed .tree-row-name {
-  color: #b8b8bd;
+  color: #a3a3a3;
 }
 
 .tree-row.changed-ancestor .tree-row-name {
@@ -5026,7 +5026,7 @@ body.kato-resizing #left-pane-resizer::before {
   border: none;
   border-radius: 50%;
   background: transparent;
-  color: #6b7280;
+  color: #737373;
   cursor: pointer;
   font-size: 10px;
   opacity: 0;
@@ -5039,13 +5039,13 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .tree-row-diff-btn:hover {
-  background: rgba(74, 222, 128, 0.16);
-  color: #4ade80;
+  background: rgba(34, 197, 94, 0.1);
+  color: #34d399;
 }
 
 .tree-row-diff-btn:focus-visible {
   opacity: 1;
-  outline: 2px solid rgba(74, 222, 128, 0.6);
+  outline: 2px solid rgba(74, 222, 128, 0.55);
   outline-offset: 1px;
 }
 
@@ -5056,7 +5056,7 @@ body.kato-resizing #left-pane-resizer::before {
    * same ``isChanged``), so a fixed gap is all that's needed. */
   margin-left: 6px;
   margin-right: 6px;
-  color: #4ade80;
+  color: #34d399;
   font-size: 11px;
   font-weight: 700;
   flex-shrink: 0;
@@ -5079,7 +5079,7 @@ body.kato-resizing #left-pane-resizer::before {
   align-items: center;
   min-width: 0;
   overflow: hidden;
-  color: #e5e5e5;
+  color: #f5f5f7;
 }
 
 .diff-file-path-button {
@@ -5114,7 +5114,7 @@ body.kato-resizing #left-pane-resizer::before {
 
 .diff-file-path-button:hover .diff-file-path-segment,
 .diff-file-path-button:focus-visible .diff-file-path-segment {
-  color: #8ab4ff;
+  color: #93c5fd;
 }
 
 .diff-file-header .diff-file-path-button:focus,
@@ -5148,7 +5148,7 @@ body.kato-resizing #left-pane-resizer::before {
  * gutters and edited spans carry the stronger add/delete color. */
 .diff-file {
   --diff-background-color: #0a0a0a;
-  --diff-text-color: #e5e5e5;
+  --diff-text-color: #f5f5f7;
   --diff-font-family: ui-monospace, monospace;
   /* Gutter == code for changed lines: a brighter gutter shade made
    * the columns read as vertical stripes / a grid. Same colour on
@@ -5157,7 +5157,7 @@ body.kato-resizing #left-pane-resizer::before {
   --diff-gutter-delete-background-color: #2d1f22;
   --diff-code-insert-background-color: #1d2b27;
   --diff-code-delete-background-color: #2d1f22;
-  --diff-code-insert-edit-background-color: #0f5f42;
+  --diff-code-insert-edit-background-color: #0a4d2e;
   --diff-code-delete-edit-background-color: #7f1d1d;
   --diff-gutter-selected-background-color: #2a2a2a;
   --diff-code-selected-background-color: #2a2a2a;
@@ -5176,7 +5176,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .diff-file .diff-context-expander {
-  background: #2f3033;
+  background: #2a2a2a;
 }
 
 .diff-file .diff-context-expander-cell {
@@ -5190,9 +5190,9 @@ body.kato-resizing #left-pane-resizer::before {
   min-height: 26px;
   padding: 0 10px;
   color: #a3a3a3;
-  background: #2f3033;
-  border-top: 1px solid #404040;
-  border-bottom: 1px solid #404040;
+  background: #2a2a2a;
+  border-top: 1px solid #2a2a2a;
+  border-bottom: 1px solid #2a2a2a;
   font-family: ui-monospace, monospace;
   font-size: 12px;
 }
@@ -5206,15 +5206,15 @@ body.kato-resizing #left-pane-resizer::before {
   border: 1px solid transparent;
   border-radius: 4px;
   background: transparent;
-  color: #b6bac3;
+  color: #a3a3a3;
   cursor: pointer;
   font: inherit;
 }
 
 .diff-context-expander-btn:hover:not(:disabled) {
-  color: #e5e5e5;
+  color: #f5f5f7;
   background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.06);
 }
 
 .diff-context-expander-btn:disabled {
@@ -5223,7 +5223,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .diff-context-expander-label {
-  color: #b6bac3;
+  color: #a3a3a3;
 }
 
 /* Syntax highlighting for tokens produced by ``tokenizeHunks``
@@ -5235,39 +5235,39 @@ body.kato-resizing #left-pane-resizer::before {
 .diff-file .token.comment,
 .diff-file .token.prolog,
 .diff-file .token.cdata {
-  color: #6b7280;
+  color: #737373;
   font-style: italic;
 }
 
 .diff-file .token.keyword {
-  color: #ff9b91;
+  color: #fca5a5;
 }
 
 .diff-file .token.boolean,
 .diff-file .token.constant,
 .diff-file .token.atrule {
-  color: #ff9b91;
+  color: #fca5a5;
 }
 
 .diff-file .token.tag {
-  color: #579dff;
+  color: #0a84ff;
 }
 
 .diff-file .token.string {
-  color: #f5cd47;
+  color: #fbbf24;
 }
 
 .diff-file .token.attr-value {
-  color: #f5cd47;
+  color: #fbbf24;
 }
 
 .diff-file .token.template-string {
-  color: #f5cd47;
+  color: #fbbf24;
 }
 
 .diff-file .token.number,
 .diff-file .token.unit {
-  color: #f5cd47;
+  color: #fbbf24;
 }
 
 .diff-file .token.function,
@@ -5288,7 +5288,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .diff-file .token.selector {
-  color: #579dff;
+  color: #0a84ff;
 }
 
 .diff-file .token.variable {
@@ -5297,7 +5297,7 @@ body.kato-resizing #left-pane-resizer::before {
 
 .diff-file .token.operator,
 .diff-file .token.punctuation {
-  color: #cbd5e1;
+  color: #cce0ff;
 }
 
 .diff-file .token.regex {
@@ -5314,7 +5314,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .diff-file .token.inserted {
-  color: #86efac;
+  color: #79f2c0;
 }
 
 .diff-file .token.italic {
@@ -5334,7 +5334,7 @@ body.kato-resizing #left-pane-resizer::before {
   gap: 10px;
   padding: 8px 16px;
   background: #b91c1c;
-  color: #fff7ed;
+  color: #f5f5f7;
   font-size: 13px;
   line-height: 1.4;
   border-bottom: 1px solid #7f1d1d;
@@ -5380,7 +5380,7 @@ body.kato-resizing #left-pane-resizer::before {
   justify-content: space-between;
   gap: 10px;
   padding: 12px 16px;
-  border-bottom: 1px solid #1e1e1e;
+  border-bottom: 1px solid #2a2a2a;
   flex-shrink: 0;
 }
 
@@ -5415,7 +5415,7 @@ body.kato-resizing #left-pane-resizer::before {
 
 .orchestrator-feed-close:hover {
   background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.06);
   color: #f5f5f7;
 }
 
@@ -5439,8 +5439,8 @@ body.kato-resizing #left-pane-resizer::before {
   grid-template-columns: 70px 40px 1fr;
   gap: 8px;
   padding: 4px 12px;
-  border-bottom: 1px solid #161616;
-  color: #d4d4d4;
+  border-bottom: 1px solid #0a0a0a;
+  color: #f5f5f7;
 }
 
 .orchestrator-feed-row .ts {
@@ -5459,7 +5459,7 @@ body.kato-resizing #left-pane-resizer::before {
 
 .orchestrator-feed-row .lvl-info {
   color: #93c5fd;
-  background: rgba(59, 130, 246, 0.1);
+  background: rgba(10, 132, 255, 0.18);
 }
 
 .orchestrator-feed-row .lvl-warn,
@@ -5470,7 +5470,7 @@ body.kato-resizing #left-pane-resizer::before {
 
 .orchestrator-feed-row .lvl-error {
   color: #f87171;
-  background: rgba(239, 68, 68, 0.22);
+  background: rgba(239, 68, 68, 0.12);
 }
 
 .orchestrator-feed-row .lvl-debug {
@@ -5479,7 +5479,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .orchestrator-feed-row .msg {
-  color: #e5e5e5;
+  color: #f5f5f7;
   word-break: break-word;
 }
 
@@ -5502,7 +5502,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .orchestrator-feed-row .tok-path {
-  color: #86efac;
+  color: #79f2c0;
 }
 
 .orchestrator-feed-row .tok-addr {
@@ -5522,7 +5522,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .orchestrator-feed-row .tok-num {
-  color: #f5cd47;
+  color: #fbbf24;
 }
 
 .orchestrator-feed-row .tok-code {
@@ -5535,7 +5535,7 @@ body.kato-resizing #left-pane-resizer::before {
 
 .orchestrator-feed-footer {
   padding: 8px 12px;
-  border-top: 1px solid #1e1e1e;
+  border-top: 1px solid #2a2a2a;
   color: #525252;
   font-size: 12px;
   font-family: ui-monospace, monospace;
@@ -5562,20 +5562,20 @@ body.kato-resizing #left-pane-resizer::before {
 .claude-status-working {
   color: #fde68a;
   border-color: #b45309;
-  background: #1c1207;
+  background: #0a0a0a;
 }
 
 .claude-status-approval {
   color: #fed7aa;
   border-color: #f97316;
-  background: #1c1207;
+  background: #0a0a0a;
 }
 
 .claude-status-idle,
 .claude-status-streaming {
-  color: #86efac;
-  border-color: #0f5f42;
-  background: #06140a;
+  color: #79f2c0;
+  border-color: #0a4d2e;
+  background: #1d2b27;
 }
 
 .claude-status-connecting,
@@ -5650,7 +5650,7 @@ body.kato-resizing #left-pane-resizer::before {
   align-items: flex-start;
   background: #1f2937;
   color: #f5f5f7;
-  border: 1px solid #374151;
+  border: 1px solid #1f2937;
   border-left-width: 4px;
   border-radius: 6px;
   padding: 10px 14px;
@@ -5668,7 +5668,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .toast-success {
-  border-left-color: #10b981;
+  border-left-color: #34d399;
 }
 
 .toast-error {
@@ -5680,7 +5680,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .toast-info {
-  border-left-color: #3b82f6;
+  border-left-color: #0a84ff;
 }
 
 .toast-glyph {
@@ -5702,7 +5702,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .toast-info .toast-glyph {
-  color: #579dff;
+  color: #0a84ff;
 }
 
 .toast-body {
@@ -5725,13 +5725,13 @@ body.kato-resizing #left-pane-resizer::before {
   font-size: 13px;
   white-space: pre-wrap;
   word-break: break-word;
-  color: #e5e5e5;
+  color: #f5f5f7;
 }
 
 .toast-close {
   background: transparent;
   border: 0;
-  color: #9ca3af;
+  color: #a3a3a3;
   cursor: pointer;
   font-size: 18px;
   line-height: 1;
@@ -5782,7 +5782,7 @@ body.kato-resizing #left-pane-resizer::before {
   white-space: normal;
   max-width: 320px;
   width: max-content;
-  border: 1px solid #374151;
+  border: 1px solid #1f2937;
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
   z-index: 1000;
   pointer-events: none;
@@ -5924,9 +5924,9 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .notification-settings > button:hover {
-  color: #e5e5e5;
-  border-color: #404040;
-  background: #1e1e1e;
+  color: #f5f5f7;
+  border-color: #2a2a2a;
+  background: #2a2a2a;
 }
 
 .notification-settings > button:disabled {
@@ -5939,7 +5939,7 @@ body.kato-resizing #left-pane-resizer::before {
   top: calc(100% + 6px);
   right: 0;
   background: #0a0a0a;
-  border: 1px solid #1e1e1e;
+  border: 1px solid #2a2a2a;
   border-radius: 6px;
   padding: 10px 12px;
   min-width: 240px;
@@ -5948,7 +5948,7 @@ body.kato-resizing #left-pane-resizer::before {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
 }
 
 .notification-settings-row {
@@ -5956,7 +5956,7 @@ body.kato-resizing #left-pane-resizer::before {
   align-items: center;
   gap: 12px;
   padding: 6px 4px;
-  color: #d4d4d4;
+  color: #f5f5f7;
   cursor: pointer;
   user-select: none;
 }
@@ -5974,7 +5974,7 @@ body.kato-resizing #left-pane-resizer::before {
   height: 20px;
   border-radius: 999px;
   background: #2a2a2a;
-  border: 1px solid #404040;
+  border: 1px solid #2a2a2a;
   position: relative;
   cursor: pointer;
   transition: background 0.18s ease-out, border-color 0.18s ease-out;
@@ -6020,7 +6020,7 @@ body.kato-resizing #left-pane-resizer::before {
 
 .notification-settings-master {
   font-weight: 600;
-  color: #e5e5e5;
+  color: #f5f5f7;
   justify-content: space-between;
   padding: 10px 4px;
 }
@@ -6050,7 +6050,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .notification-settings-divider {
-  border-top: 1px solid #1e1e1e;
+  border-top: 1px solid #2a2a2a;
   margin: 4px 0;
 }
 
@@ -6075,7 +6075,7 @@ body.kato-resizing #left-pane-resizer::before {
 .adopt-session-modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.55);
+  background: rgba(28, 28, 30, 0.62);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -6083,14 +6083,14 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .adopt-session-modal {
-  background: #1e1e1e;
+  background: #2a2a2a;
   border: 1px solid #2a2a2a;
   border-radius: 6px;
   width: min(720px, 90vw);
   max-height: 80vh;
   display: flex;
   flex-direction: column;
-  color: #e5e5e5;
+  color: #f5f5f7;
   font-size: 13px;
 }
 
@@ -6106,7 +6106,7 @@ body.kato-resizing #left-pane-resizer::before {
   margin: 0;
   font-size: 14px;
   font-weight: 500;
-  color: #e5e5e5;
+  color: #f5f5f7;
 }
 
 .adopt-session-close {
@@ -6120,7 +6120,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .adopt-session-close:hover {
-  color: #e5e5e5;
+  color: #f5f5f7;
 }
 
 .adopt-session-modal-help {
@@ -6143,13 +6143,13 @@ body.kato-resizing #left-pane-resizer::before {
   background: #0a0a0a;
   border: 1px solid #2a2a2a;
   border-radius: 4px;
-  color: #e5e5e5;
+  color: #f5f5f7;
   font: inherit;
 }
 
 .adopt-session-search:focus {
   outline: none;
-  border-color: #404040;
+  border-color: #2a2a2a;
 }
 
 .adopt-session-list {
@@ -6187,12 +6187,12 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .adopt-session-row:hover {
-  background: #1e1e1e;
-  border-color: #404040;
+  background: #2a2a2a;
+  border-color: #2a2a2a;
 }
 
 .adopt-session-row.is-selected {
-  background: #1e1e1e;
+  background: #2a2a2a;
   border-color: #fbbf24;
 }
 
@@ -6204,7 +6204,7 @@ body.kato-resizing #left-pane-resizer::before {
 
 .adopt-session-cwd {
   font-family: monospace;
-  color: #d4d4d4;
+  color: #f5f5f7;
   font-size: 12px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -6257,12 +6257,12 @@ body.kato-resizing #left-pane-resizer::before {
 .adopt-session-badge.in-use {
   background: #3b1d0b;
   color: #fbbf24;
-  border: 1px solid #7c2d12;
+  border: 1px solid #7f1d1d;
 }
 
 .adopt-session-badge.adopted {
   background: #052e16;
-  color: #4ade80;
+  color: #34d399;
   border: 1px solid #0a4d2e;
 }
 
@@ -6277,8 +6277,8 @@ body.kato-resizing #left-pane-resizer::before {
 .adopt-session-cancel,
 .adopt-session-confirm {
   background: #2a2a2a;
-  color: #e5e5e5;
-  border: 1px solid #404040;
+  color: #f5f5f7;
+  border: 1px solid #2a2a2a;
   border-radius: 4px;
   padding: 4px 12px;
   cursor: pointer;
@@ -6327,9 +6327,9 @@ body.kato-resizing #left-pane-resizer::before {
   right: 0;
   bottom: 0;
   width: min(720px, 100vw);
-  background: #161616;
+  background: #0a0a0a;
   border-left: 1px solid #2a2a2a;
-  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.55);
+  box-shadow: -8px 0 32px rgba(28, 28, 30, 0.62);
   z-index: 1000;
   display: flex;
   flex-direction: column;
@@ -6372,9 +6372,9 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .settings-drawer-close:hover {
-  color: #e5e5e5;
+  color: #f5f5f7;
   border-color: #525252;
-  background: #1e1e1e;
+  background: #2a2a2a;
 }
 
 .settings-drawer-tabs {
@@ -6398,7 +6398,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .settings-drawer-tab:hover {
-  color: #e5e5e5;
+  color: #f5f5f7;
   background: rgba(255, 255, 255, 0.06);
 }
 
@@ -6448,7 +6448,7 @@ body.kato-resizing #left-pane-resizer::before {
 
 .settings-drawer-field-label {
   font-size: 12px;
-  color: #d4d4d4;
+  color: #f5f5f7;
 }
 
 .settings-drawer-field-hint {
@@ -6504,7 +6504,7 @@ body.kato-resizing #left-pane-resizer::before {
 
 .settings-drawer-kv-value {
   font: 12px/1.4 ui-monospace, monospace;
-  color: #e5e5e5;
+  color: #f5f5f7;
   word-break: break-all;
 }
 
@@ -6517,7 +6517,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .settings-drawer-kv-value.source-env_file {
-  color: #86efac;
+  color: #79f2c0;
 }
 
 .settings-drawer-kv-value.source-unset {
@@ -6559,12 +6559,12 @@ body.kato-resizing #left-pane-resizer::before {
 
 .settings-drawer-action-secondary {
   background: transparent;
-  border-color: #404040;
+  border-color: #2a2a2a;
   color: #a3a3a3;
 }
 
 .settings-drawer-action-secondary:hover:not(:disabled) {
-  color: #e5e5e5;
+  color: #f5f5f7;
   border-color: #525252;
 }
 
@@ -6672,7 +6672,7 @@ body.kato-resizing #left-pane-resizer::before {
   height: 20px;
   border-radius: 999px;
   background: #2a2a2a;
-  border: 1px solid #404040;
+  border: 1px solid #2a2a2a;
   position: relative;
   cursor: pointer;
   transition: background 0.18s ease-out, border-color 0.18s ease-out;
@@ -6714,11 +6714,11 @@ body.kato-resizing #left-pane-resizer::before {
 
 .settings-drawer-source.source-inventory {
   color: #93c5fd;
-  background: rgba(59, 130, 246, 0.1);
+  background: rgba(10, 132, 255, 0.18);
 }
 
 .settings-drawer-source.source-checkout {
-  color: #86efac;
+  color: #79f2c0;
   background: rgba(34, 197, 94, 0.1);
 }
 
@@ -6739,11 +6739,11 @@ body.kato-resizing #left-pane-resizer::before {
 
 .settings-drawer-source.source-kato_settings {
   color: #93c5fd;
-  background: rgba(59, 130, 246, 0.1);
+  background: rgba(10, 132, 255, 0.18);
 }
 
 .settings-drawer-source.source-env_file {
-  color: #86efac;
+  color: #79f2c0;
   background: rgba(34, 197, 94, 0.1);
 }
 
@@ -6788,7 +6788,7 @@ body.kato-resizing #left-pane-resizer::before {
   height: 16px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   color: rgba(245, 245, 247, 0.65);
   font-size: 10px;
   font-style: normal;
@@ -6798,7 +6798,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .settings-drawer-field-info:hover {
-  background: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
   color: #f5f5f7;
 }
 
@@ -6818,7 +6818,7 @@ body.kato-resizing #left-pane-resizer::before {
   max-width: 280px;
   width: max-content;
   text-align: left;
-  border: 1px solid #374151;
+  border: 1px solid #1f2937;
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
   z-index: 9999;
   pointer-events: none;
@@ -6839,7 +6839,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .settings-drawer-field-name {
-  color: #e5e5e5;
+  color: #f5f5f7;
   font-size: 12px;
   font-weight: 600;
 }
@@ -6866,7 +6866,7 @@ body.kato-resizing #left-pane-resizer::before {
   height: 22px;
   border-radius: 999px;
   background: #2a2a2a;
-  border: 1px solid #2f3033;
+  border: 1px solid #2a2a2a;
   position: relative;
   cursor: pointer;
   flex-shrink: 0;
@@ -6901,12 +6901,12 @@ body.kato-resizing #left-pane-resizer::before {
   border: 1px solid rgba(239, 68, 68, 0.35);
   border-radius: 6px;
   padding: 10px 12px;
-  background: rgba(239, 68, 68, 0.04);
+  background: rgba(239, 68, 68, 0.12);
 }
 
 .settings-drawer-field.is-danger .settings-drawer-toggle:checked {
-  background: #dc2626;
-  border-color: #dc2626;
+  background: #ef4444;
+  border-color: #ef4444;
 }
 
 .settings-drawer-field-warning {
@@ -6931,12 +6931,12 @@ body.kato-resizing #left-pane-resizer::before {
   z-index: 1200;
   width: max-content;
   max-width: 380px;
-  background: #16181d;
-  border: 1px solid #2b2f37;
+  background: #0a0a0a;
+  border: 1px solid #1f2937;
   border-radius: 10px;
   padding: 12px 14px;
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.06) inset;
-  color: #e5e5e5;
+  box-shadow: 0 8px 28px rgba(28, 28, 30, 0.62), 0 0 0 1px rgba(255, 255, 255, 0.06) inset;
+  color: #f5f5f7;
   font-size: 12px;
   line-height: 1.5;
   pointer-events: none;
@@ -6970,7 +6970,7 @@ body.kato-resizing #left-pane-resizer::before {
   height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
-  background: #6b7280;
+  background: #737373;
 }
 
 .tab-tooltip-dot.status-active {
@@ -6986,11 +6986,11 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .tab-tooltip-dot.status-provisioning {
-  background: #579dff;
+  background: #0a84ff;
 }
 
 .tab-tooltip-dot.status-review {
-  background: #579dff;
+  background: #0a84ff;
 }
 
 .tab-tooltip-dot.status-done {
@@ -7017,7 +7017,7 @@ body.kato-resizing #left-pane-resizer::before {
   border-radius: var(--radius-pill);
   white-space: nowrap;
   background: rgba(255, 255, 255, 0.06);
-  color: #9ca3af;
+  color: #a3a3a3;
 }
 
 .tab-tooltip-badge.is-work {
@@ -7032,17 +7032,17 @@ body.kato-resizing #left-pane-resizer::before {
 
 .tab-tooltip-badge.is-sleep {
   background: rgba(148, 163, 184, 0.16);
-  color: #cbd5e1;
+  color: #cce0ff;
 }
 
 .tab-tooltip-badge.is-wait {
   background: rgba(245, 158, 11, 0.1);
-  color: #f5cd47;
+  color: #fbbf24;
 }
 
 .tab-tooltip-summary {
   margin: 0 0 8px 0;
-  color: #cbd5e1;
+  color: #cce0ff;
   /* Wrap, but cap at ~3 lines so a verbose ticket title doesn't
    * make a giant card. */
   display: -webkit-box;
@@ -7054,7 +7054,7 @@ body.kato-resizing #left-pane-resizer::before {
 .tab-tooltip-rows {
   margin: 0;
   padding-top: 8px;
-  border-top: 1px solid #2b2f37;
+  border-top: 1px solid #1f2937;
   display: grid;
   grid-template-columns: max-content 1fr;
   column-gap: 12px;
@@ -7066,7 +7066,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .tab-tooltip-row dt {
-  color: #6b7280;
+  color: #737373;
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -7075,12 +7075,12 @@ body.kato-resizing #left-pane-resizer::before {
 
 .tab-tooltip-row dd {
   margin: 0;
-  color: #e5e5e5;
+  color: #f5f5f7;
   word-break: break-word;
 }
 
 .tab-tooltip-row dd.tone-warn {
-  color: #f5cd47;
+  color: #fbbf24;
 }
 
 .tab-tooltip-row dd.tone-error {

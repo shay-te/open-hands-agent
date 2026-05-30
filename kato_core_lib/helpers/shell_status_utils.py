@@ -50,22 +50,6 @@ def _sleep_with_inline_spinner(
     clear_inline_status(output_stream, status_text=clear_text)
 
 
-def sleep_with_scan_spinner(
-    total_seconds: float,
-    *,
-    status_text: str = 'Scanning for new tasks and comments',
-    sleep_fn=time.sleep,
-    stream=None,
-) -> None:
-    _sleep_with_inline_spinner(
-        total_seconds,
-        render_frame=lambda frame, remaining, index: f'{status_text} {frame}',
-        clear_text=status_text,
-        sleep_fn=sleep_fn,
-        stream=stream,
-    )
-
-
 def sleep_with_countdown_spinner(
     total_seconds: float,
     *,
@@ -177,25 +161,6 @@ class InlineStatusSpinner(object):
     def _current_status_text(self) -> str:
         with self._status_lock:
             return self._status_text
-
-
-def run_with_inline_status_spinner(
-    operation,
-    *,
-    status_text: str,
-    stream=None,
-    persist_final_line: bool = True,
-):
-    spinner = InlineStatusSpinner(
-        status_text,
-        stream=stream,
-        persist_final_line=persist_final_line,
-    )
-    spinner.start()
-    try:
-        return operation()
-    finally:
-        spinner.stop()
 
 
 def clear_active_inline_status() -> None:

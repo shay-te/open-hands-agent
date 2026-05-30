@@ -14,6 +14,7 @@
 // shows in its own UI). No path elision, no command truncation.
 
 import { stringifyShort } from './dom.js';
+import { countNoun } from './pluralize.js';
 
 
 const FORMATTERS = {
@@ -110,7 +111,7 @@ const FORMATTERS = {
       return `${marker} ${content}`;
     });
     return {
-      summary: `TodoWrite · ${todos.length} item${todos.length === 1 ? '' : 's'}`,
+      summary: `TodoWrite · ${countNoun(todos.length, 'item')}`,
       details: lines.join('\n'),
     };
   },

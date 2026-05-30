@@ -44,7 +44,7 @@ test('Shared sticky section header utility owns sticky mechanics', () => {
 test('DiffPane file headers keep their visual styling on the shared sticky header', () => {
   const body = ruleBody('.diff-pane .diff-file-header');
   assertDeclaration(body, '--sticky-header-z', '3');
-  assertDeclaration(body, 'background', '#1e1e1e');
+  assertDeclaration(body, 'background', '#2a2a2a');
 });
 
 test('DiffPane uses compact side spacing around file cards and headers', () => {
@@ -80,7 +80,7 @@ test('Badge, chip, and pill classes share the global pill radius', () => {
 
 test('DiffPane file headers draw a rounded face above scrolling diff rows', () => {
   const body = ruleBody('.diff-pane .diff-file-header::before');
-  assertDeclaration(body, 'background', '#161616');
+  assertDeclaration(body, 'background', '#0a0a0a');
   assertDeclaration(body, 'border', '1px solid #2a2a2a');
   assertDeclaration(body, 'border-radius', '10px 10px 0 0');
 });
@@ -154,9 +154,9 @@ test('Changed-file tree hover and selected states use opaque backgrounds', () =>
   const selectedBody = ruleBody('.diff-file-tree-row.selected');
   const selectedHoverBody = ruleBody('.diff-file-tree-row.is-file.selected:hover');
 
-  assertDeclaration(hoverBody, 'background', '#1f1f21');
-  assertDeclaration(selectedBody, 'background', '#183252');
-  assertDeclaration(selectedHoverBody, 'background', '#183252');
+  assertDeclaration(hoverBody, 'background', '#2a2a2a');
+  assertDeclaration(selectedBody, 'background', '#1f2937');
+  assertDeclaration(selectedHoverBody, 'background', '#1f2937');
 });
 
 test('Diff syntax colors JSX and stylesheet tokens like Bitbucket', () => {
@@ -166,17 +166,17 @@ test('Diff syntax colors JSX and stylesheet tokens like Bitbucket', () => {
   const propertyBody = ruleBody('.diff-file .token.property');
   const propertyAccessBody = ruleBody('.diff-file .token.property-access');
   const variableBody = ruleBody('.diff-file .token.variable');
-  const stringBody = ruleBodyContaining('.diff-file .token.string', '#f5cd47');
-  const keywordBody = ruleBodyContaining('.diff-file .token.keyword', '#ff9b91');
+  const stringBody = ruleBodyContaining('.diff-file .token.string', '#fbbf24');
+  const keywordBody = ruleBodyContaining('.diff-file .token.keyword', '#fca5a5');
 
-  assertDeclaration(tagBody, 'color', '#579dff');
+  assertDeclaration(tagBody, 'color', '#0a84ff');
   assertDeclaration(attrNameBody, 'color', '#79f2c0');
-  assertDeclaration(selectorBody, 'color', '#579dff');
+  assertDeclaration(selectorBody, 'color', '#0a84ff');
   assertDeclaration(propertyBody, 'color', '#79f2c0');
   assertDeclaration(propertyAccessBody, 'color', '#79f2c0');
   assertDeclaration(variableBody, 'color', '#cce0ff');
-  assertDeclaration(stringBody, 'color', '#f5cd47');
-  assertDeclaration(keywordBody, 'color', '#ff9b91');
+  assertDeclaration(stringBody, 'color', '#fbbf24');
+  assertDeclaration(keywordBody, 'color', '#fca5a5');
 });
 
 test('Bitbucket comment card: avatar, collapse chevron, dot actions', () => {
@@ -214,7 +214,7 @@ test('Diff context expander has Bitbucket-style controls', () => {
   const rowBody = ruleBody('.diff-context-expander-inner');
   const buttonBody = ruleBody('.diff-context-expander-btn');
 
-  assertDeclaration(rowBody, 'background', '#2f3033');
+  assertDeclaration(rowBody, 'background', '#2a2a2a');
   assertDeclaration(rowBody, 'font-family', 'ui-monospace, monospace');
   assertDeclaration(buttonBody, 'width', '22px');
   assertDeclaration(buttonBody, 'border-radius', '4px');

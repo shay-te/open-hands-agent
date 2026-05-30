@@ -296,17 +296,6 @@ class LocalCommentStore(object):
                 self._persist(kept)
             return removed
 
-    def queue_size(self) -> int:
-        """Number of comments currently in QUEUED state.
-
-        Drives the "kato has N pending comments" indicator in the
-        UI. Cheap — single pass over the JSON.
-        """
-        return sum(
-            1 for record in self.list()
-            if record.kato_status == KatoCommentStatus.QUEUED.value
-        )
-
     def next_queued(self) -> CommentRecord | None:
         """Oldest QUEUED comment (FIFO). Empty when the queue is drained.
 

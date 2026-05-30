@@ -22,5 +22,3 @@ export function useEscapeKey(handler, enabled = true) {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [handler, enabled]);
 }
-
-export default useEscapeKey;

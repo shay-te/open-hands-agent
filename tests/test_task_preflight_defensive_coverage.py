@@ -99,13 +99,6 @@ class TaskPreflightDefensiveTests(unittest.TestCase):
         )
         service._task_service.add_comment.assert_called_once()
 
-    def test_handle_task_definition_failure_adds_comment(self) -> None:
-        # Lines 735-736: log + add_task_comment with TOO_THIN comment.
-        service, _ = _make_service()
-        service.logger = MagicMock()
-        service._handle_task_definition_failure(self.task)
-        service._task_service.add_comment.assert_called_once()
-
     def test_add_task_comment_swallows_exception_and_returns_false(self) -> None:
         # Lines 767-774: ``except Exception: log + return False``.
         service, _ = _make_service()

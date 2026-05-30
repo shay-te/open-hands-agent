@@ -570,46 +570,6 @@ class ShellStatusUtilsTests(unittest.TestCase):
     """Lines 21, 59-85, 95, 99-100, 147-149, 162, 164, 167-176 —
     every branch of the inline-status spinners (TTY + non-TTY)."""
 
-    def test_sleep_with_scan_spinner_short_circuits_on_zero(self) -> None:
-        # Line 21: ``if total_seconds <= 0: return`` — zero-duration
-        # sleep is a no-op (avoids a busy loop).
-        from kato_core_lib.helpers.shell_status_utils import (
-            sleep_with_scan_spinner,
-        )
-        sleeper = MagicMock()
-        sleep_with_scan_spinner(0, sleep_fn=sleeper)
-        sleeper.assert_not_called()
-
-    def test_sleep_with_scan_spinner_falls_back_when_not_tty(self) -> None:
-        # Plain sleep_fn call when output is not a TTY — no spinner
-        # output muddies the log file.
-        from kato_core_lib.helpers.shell_status_utils import (
-            sleep_with_scan_spinner,
-        )
-        sleeper = MagicMock()
-        non_tty = io.StringIO()
-        sleep_with_scan_spinner(1.0, sleep_fn=sleeper, stream=non_tty)
-        sleeper.assert_called_once_with(1.0)
-        self.assertEqual(non_tty.getvalue(), '')
-
-    def test_sleep_with_scan_spinner_renders_on_tty(self) -> None:
-        # Lines 28-40: spinner frames + clear at end. Drive a 0.5s
-        # sleep on a fake TTY and verify the stream got CR-prefixed
-        # frames.
-        from kato_core_lib.helpers.shell_status_utils import (
-            sleep_with_scan_spinner,
-        )
-        tty = _TtyStream()
-        # Use a fake sleep so the test is fast.
-        sleep_with_scan_spinner(
-            0.5,
-            sleep_fn=lambda _s: None,
-            stream=tty,
-        )
-        out = tty.getvalue()
-        self.assertIn('\r', out)
-        self.assertIn('Scanning for new tasks and comments', out)
-
     def test_sleep_with_countdown_spinner_short_circuits(self) -> None:
         # Line 59: ``if total_seconds <= 0: return``.
         from kato_core_lib.helpers.shell_status_utils import (

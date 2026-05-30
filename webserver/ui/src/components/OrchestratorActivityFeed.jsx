@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import Icon from './Icon.jsx';
+import { scrollToBottom } from '../utils/scrollUtils.js';
 
 const LEVEL_CLASS = {
   ERROR: 'error',
@@ -30,8 +31,7 @@ export default function OrchestratorActivityFeed({ history, onClose }) {
   const containerRef = useRef(null);
 
   useEffect(() => {
-    const node = containerRef.current;
-    if (node) { node.scrollTop = node.scrollHeight; }
+    scrollToBottom(containerRef.current);
   }, [history?.length]);
 
   const isEmpty = !history || history.length === 0;

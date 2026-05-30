@@ -161,7 +161,6 @@ class LocalCommentStoreTests(unittest.TestCase):
         self.store.update_kato_status(
             second.id, kato_status=KatoCommentStatus.QUEUED.value,
         )
-        self.assertEqual(self.store.queue_size(), 2)
         next_up = self.store.next_queued()
         self.assertEqual(next_up.id, first.id)
 

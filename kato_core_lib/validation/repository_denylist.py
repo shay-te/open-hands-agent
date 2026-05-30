@@ -48,10 +48,3 @@ def denied_ids(env: dict | None = None) -> frozenset[str]:
         if normalized:
             parsed.add(normalized)
     return frozenset(parsed)
-
-
-def is_denied(repository_id: str, env: dict | None = None) -> bool:
-    """True when ``repository_id`` matches an entry in the denylist."""
-    if not repository_id:
-        return False
-    return repository_id.strip().lower() in denied_ids(env)

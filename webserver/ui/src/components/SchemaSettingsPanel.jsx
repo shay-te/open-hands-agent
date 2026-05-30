@@ -4,6 +4,7 @@ import { fetchAllSettings, updateAllSettings } from '../api.js';
 import { useRestartingSave } from '../hooks/useRestartingSave.js';
 import { useSettingsResource } from '../hooks/useSettingsResource.js';
 import { sourceLabel } from '../utils/settingsSource.js';
+import { countNoun } from '../utils/pluralize.js';
 import PanelMessage from './settings/PanelMessage.jsx';
 import SettingsPanelHead from './settings/SettingsPanelHead.jsx';
 import SettingsActions from './settings/SettingsActions.jsx';
@@ -130,7 +131,7 @@ export default function SchemaSettingsPanel({ sectionId }) {
         saving={saving}
         canSave={dirtyKeys.length > 0}
         primaryLabel={dirtyKeys.length
-          ? `Save ${dirtyKeys.length} change${dirtyKeys.length === 1 ? '' : 's'}`
+          ? `Save ${countNoun(dirtyKeys.length, 'change')}`
           : 'Save'}
       />
 

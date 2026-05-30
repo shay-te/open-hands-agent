@@ -13,7 +13,6 @@ vi.mock('./api.js', () => ({
   fetchFileContent: vi.fn(),
   fetchRepoCommits: vi.fn().mockResolvedValue({ ok: true, body: [] }),
   fetchTaskComments: vi.fn().mockResolvedValue({ ok: true, body: { comments: [] } }),
-  syncTaskComments: vi.fn(),
   syncTaskRepositories: vi.fn(),
 }));
 vi.mock('./stores/toastStore.js', () => ({

@@ -23,6 +23,9 @@ from kato_core_lib.data_layers.service.repository_inventory_service import (
 from kato_core_lib.data_layers.service.repository_publication_service import (
     RepositoryPublicationService,
 )
+from kato_core_lib.data_layers.service.workspace_manager import (
+    _KATO_METADATA_FILENAME,
+)
 
 
 def _is_per_task_workspace_clone(repository) -> bool:
@@ -38,7 +41,7 @@ def _is_per_task_workspace_clone(repository) -> bool:
     if not local_path:
         return False
     try:
-        return (Path(local_path).parent / '.kato-meta.json').is_file()
+        return (Path(local_path).parent / _KATO_METADATA_FILENAME).is_file()
     except OSError:
         return False
 
@@ -128,36 +131,6 @@ class RepositoryService(GitClientMixin, RepositoryInventoryService):
                     f'missing task branch name for repository {repository.id}'
                 )
             self._prepare_task_branch(repository, branch_name)
-        return repositories
-
-    def validate_task_branches_are_publishable(
-        self,
-        repositories: list[object],
-        repository_branches: dict[str, str],
-    ) -> list[object]:
-        from kato_core_lib.validation.branch_publishability import (
-            TaskBranchPublishabilityValidator,
-        )
-
-        TaskBranchPublishabilityValidator(self).validate(
-            repositories,
-            repository_branches,
-        )
-        return repositories
-
-    def validate_task_branches_are_pushable(
-        self,
-        repositories: list[object],
-        repository_branches: dict[str, str],
-    ) -> list[object]:
-        from kato_core_lib.validation.branch_push import (
-            TaskBranchPushValidator,
-        )
-
-        TaskBranchPushValidator(self).validate(
-            repositories,
-            repository_branches,
-        )
         return repositories
 
     def get_repository(self, repository_id: str):

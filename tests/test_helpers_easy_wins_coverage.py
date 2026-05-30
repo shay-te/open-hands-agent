@@ -243,27 +243,6 @@ class RunBestEffortDefaultFallbackTests(unittest.TestCase):
         )
 
 
-# --------------------------------------------------------------------------
-# kato_config_utils — unsupported backend value
-# --------------------------------------------------------------------------
-
-
-class IsClaudeBackendTests(unittest.TestCase):
-    """Line 30 in kato_config_utils — ``is_claude_backend`` is the
-    convenience predicate used by dispatcher code to pick the agent
-    backend. Locks both branches."""
-
-    def test_returns_true_when_backend_is_claude(self) -> None:
-        from kato_core_lib.helpers.kato_config_utils import is_claude_backend
-        cfg = SimpleNamespace(agent_backend='claude')
-        self.assertTrue(is_claude_backend(cfg))
-
-    def test_returns_false_when_backend_is_openhands(self) -> None:
-        from kato_core_lib.helpers.kato_config_utils import is_claude_backend
-        cfg = SimpleNamespace(agent_backend='openhands')
-        self.assertFalse(is_claude_backend(cfg))
-
-
 class ResolvedAgentBackendInvalidTests(unittest.TestCase):
     """Line 30 (raise ValueError for unknown backend). Locks the
     refusal so a typo in ``KATO_AGENT_BACKEND`` isn't silently

@@ -24,15 +24,15 @@ class AgentStateRegistryTests(unittest.TestCase):
 
         self.registry.mark_task_processed('PROJ-1', pull_requests)
 
-        self.assertTrue(self.registry.is_task_processed('PROJ-1'))
-        self.assertEqual(self.registry.processed_task_pull_requests('PROJ-1'), pull_requests)
+        self.assertIn('PROJ-1', self.registry.processed_task_map)
+        self.assertEqual(
+            self.registry.processed_task_map['PROJ-1'][PullRequestFields.PULL_REQUESTS],
+            pull_requests,
+        )
         self.assertEqual(
             self.registry.processed_task_map['PROJ-1'][StatusFields.STATUS],
             StatusFields.READY_FOR_REVIEW,
         )
-
-    def test_processed_task_pull_requests_returns_empty_list_for_unknown_task(self) -> None:
-        self.assertEqual(self.registry.processed_task_pull_requests('missing'), [])
 
     def test_remember_pull_request_context_and_pull_request_context_round_trip(self) -> None:
         pull_request = {
@@ -160,39 +160,6 @@ class AgentStateRegistryTests(unittest.TestCase):
                 }
             ],
         )
-
-    def test_tracked_pull_request_contexts_deduplicates_identical_entries(self) -> None:
-        self.registry.pull_request_context_map['17'] = [
-            {
-                PullRequestFields.REPOSITORY_ID: 'client',
-                'branch_name': 'feature/proj-1/client',
-            },
-            {
-                PullRequestFields.REPOSITORY_ID: 'client',
-                'branch_name': 'feature/proj-1/client',
-            },
-        ]
-
-        self.assertEqual(
-            self.registry.tracked_pull_request_contexts(),
-            [
-                {
-                    PullRequestFields.ID: '17',
-                    PullRequestFields.REPOSITORY_ID: 'client',
-                    'branch_name': 'feature/proj-1/client',
-                }
-            ],
-        )
-
-    def test_processed_task_pull_requests_returns_empty_when_stored_value_is_not_a_list(self) -> None:
-        # Branch 78->80: stored pull_requests is not a list → fall through to ``return []``.
-        # Bypass mark_task_processed (which always writes a list) by poking the map directly.
-        self.registry.processed_task_map['PROJ-1'] = {
-            StatusFields.STATUS: StatusFields.READY_FOR_REVIEW,
-            PullRequestFields.PULL_REQUESTS: 'not-a-list',
-        }
-
-        self.assertEqual(self.registry.processed_task_pull_requests('PROJ-1'), [])
 
     def test_tracked_task_ids_skips_blank_task_id_in_pull_request_task_map(self) -> None:
         # Branch 135->134: ``if task_id:`` falsy branch in the

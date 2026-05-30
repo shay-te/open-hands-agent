@@ -5,7 +5,7 @@ import EventLog from './EventLog.jsx';
 import MessageForm from './MessageForm.jsx';
 import PermissionDecisionContainer from './PermissionDecisionContainer.jsx';
 import QueuedMessageList from './QueuedMessageList.jsx';
-import RightPaneResizer from './RightPaneResizer.jsx';
+import PaneResizer from './PaneResizer.jsx';
 import SessionHeader, { SessionHeaderPlaceholder } from './SessionHeader.jsx';
 import WorkingIndicator from './WorkingIndicator.jsx';
 import { BUBBLE_KIND } from '../constants/bubbleKind.js';
@@ -179,7 +179,7 @@ export default function SessionDetail({
   // ``left: -3px``, which only paints correctly when its parent
   // (this <main>) is itself ``position: relative`` (set in CSS).
   const resizer = typeof onResizePointerDown === 'function'
-    ? <RightPaneResizer onPointerDown={onResizePointerDown} />
+    ? <PaneResizer id="right-pane-resizer" onPointerDown={onResizePointerDown} />
     : null;
 
   if (!session) {

@@ -539,8 +539,9 @@ class TaskFixFlowTests(unittest.TestCase):
         )
 
         # Step 16: task marked processed in registry
-        self.assertTrue(
-            agent_service._state_registry.is_task_processed(task.id),
+        self.assertIn(
+            task.id,
+            agent_service._state_registry.processed_task_map,
             'task must be marked processed after successful publish',
         )
 

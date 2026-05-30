@@ -3,6 +3,8 @@ import { adoptAgentSession, fetchClaudeSessions } from '../api.js';
 import { AGENT_SESSION_ID } from '../constants/sessionFields.js';
 import { toast } from '../stores/toastStore.js';
 import { apiErrorMessage } from '../utils/apiError.js';
+import { copyTextToClipboard } from '../utils/clipboard.js';
+import { countNoun } from '../utils/pluralize.js';
 import { formatRelativeTime } from '../utils/relativeTime.js';
 import { usePickerData } from '../hooks/usePickerData.js';
 import SearchPickerModal from './SearchPickerModal.jsx';
@@ -92,7 +94,7 @@ export default function AdoptSessionModal({ taskId, onClose, onAdopted }) {
               <span className="adopt-session-meta">
                 {formatRelativeTime(nowSeconds - session.last_modified_epoch)}
                 {' · '}
-                {session.turn_count} turn{session.turn_count === 1 ? '' : 's'}
+                {countNoun(session.turn_count, 'turn')}
               </span>
             </div>
             <div className="adopt-session-preview">
@@ -105,9 +107,7 @@ export default function AdoptSessionModal({ taskId, onClose, onAdopted }) {
               title={`Full session id: ${sessionId}\nMatches Claude Code /status output. Click to copy.`}
               onClick={(e) => {
                 e.stopPropagation();
-                if (navigator.clipboard) {
-                  navigator.clipboard.writeText(sessionId);
-                }
+                copyTextToClipboard(sessionId).catch(() => {});
               }}
             >
               id: {sessionId}

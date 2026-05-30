@@ -29,6 +29,8 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
+from kato_core_lib.helpers.kato_paths_utils import kato_home_path
+
 
 @dataclass(frozen=True)
 class DiscoveredRepository(object):
@@ -201,10 +203,7 @@ def _merge_sources(
 
 
 def _resolve_workspaces_root() -> Path:
-    configured = os.environ.get('KATO_WORKSPACES_ROOT', '').strip()
-    if configured:
-        return Path(configured).expanduser()
-    return Path.home() / '.kato' / 'workspaces'
+    return kato_home_path('workspaces', env_key='KATO_WORKSPACES_ROOT')
 
 
 def _resolve_repository_root() -> Path | None:
