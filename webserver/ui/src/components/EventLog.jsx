@@ -8,6 +8,7 @@ import { BUBBLE_KIND } from '../constants/bubbleKind.js';
 import { CLAUDE_EVENT, CLAUDE_SYSTEM_SUBTYPE } from '../constants/claudeEvent.js';
 import { ENTRY_SOURCE } from '../constants/entrySource.js';
 import { formatToolUse, toolUseFilePath } from '../utils/formatToolUse.js';
+import { parseCommentRunPrompt } from '../utils/commentRunPrompt.js';
 import { MessageFilter } from '../utils/MessageFilter.js';
 import { isPinnedToBottom, scrollToBottom } from '../utils/scrollUtils.js';
 import { cx } from '../utils/cx.js';
@@ -330,7 +331,7 @@ function serverBubblesFor(raw, index, isHistory = false, onOpenFile, liveAgentSe
       // X", so kato's prompts must show up in the chat just like
       // typed messages do. Duplicate echoes of typed messages are
       // suppressed upstream by ``MessageFilter.dedupeUserEchoes``.
-      return userBubbles(raw, index);
+      return userBubbles(raw, index, onOpenFile);
     case CLAUDE_EVENT.STREAM_EVENT:
       return [];
     case CLAUDE_EVENT.RESULT:
@@ -423,7 +424,7 @@ function assistantBubbles(raw, index, onOpenFile) {
   ];
 }
 
-function userBubbles(raw, index) {
+function userBubbles(raw, index, onOpenFile) {
   const message = raw.message || {};
   const rawContent = message.content;
   const content = Array.isArray(rawContent) ? rawContent : [];
@@ -440,7 +441,7 @@ function userBubbles(raw, index) {
   const text = textPieces.join('\n');
   const display = withImageCountSuffix(text, imageCount);
   return [
-    <StickyPrompt key={keyOf(raw, index, 'user')} text={display} />,
+    <StickyPrompt key={keyOf(raw, index, 'user')} text={display} onOpenFile={onOpenFile} />,
   ];
 }
 
@@ -478,9 +479,13 @@ function ExpandToggle({ expanded, onToggle, extraClass = '', ariaExpanded = fals
 // One operator prompt, rendered as a sticky section header. Long
 // prompts collapse to three lines with the same expand button style
 // used by tool-output snippets.
-function StickyPrompt({ text }) {
+function StickyPrompt({ text, onOpenFile }) {
   const [expanded, toggle] = useExpandable();
   const promptText = String(text || '');
+  // A comment-run prompt (kato addressing an operator diff comment) gets
+  // a jump-to-comment icon top-right: clicking opens that file's diff and
+  // scrolls to the comment thread.
+  const commentRef = parseCommentRunPrompt(promptText);
   const lineCount = promptText.split('\n').length;
   const isCollapsible = lineCount > 3 || promptText.length > 180;
   const promptClass = cx(
@@ -500,9 +505,26 @@ function StickyPrompt({ text }) {
       ariaExpanded
     />
   ) : null;
+  const jumpToComment = commentRef && typeof onOpenFile === 'function' ? (
+    <button
+      type="button"
+      className="chat-sticky-prompt-comment-jump tooltip-below"
+      data-tooltip="Jump to this comment in the diff"
+      aria-label="Jump to this comment in the diff"
+      onClick={() => onOpenFile({
+        absolutePath: commentRef.file,
+        relativePath: commentRef.file,
+        view: 'diff',
+        focusComment: true,
+      })}
+    >
+      <Icon name="comment" />
+    </button>
+  ) : null;
 
   return (
     <StickyHeader className={promptClass}>
+      {jumpToComment}
       <div className="chat-sticky-prompt-toggle">
         <span className="chat-sticky-prompt-label">You asked</span>
         <span className={textWrapClass}>

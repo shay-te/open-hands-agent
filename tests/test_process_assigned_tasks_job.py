@@ -179,40 +179,6 @@ class ProcessAssignedTasksJobTests(unittest.TestCase):
             ('comment-2',),
         )
 
-    def test_collect_processing_results_drains_queued_local_comments(self) -> None:
-        # The scan cycle must drain operator-queued local diff
-        # comments server-side (browser-independent) — otherwise a
-        # comment queued while Claude was busy sits QUEUED forever if
-        # no browser SSE is watching when the turn ends.
-        service = Mock()
-        service.get_assigned_tasks.return_value = []
-        service.get_new_pull_request_comments.return_value = []
-        service.process_assigned_task = Mock()
-        service.drain_all_queued_task_comments.return_value = [
-            {'task_id': 'UNA-9', 'ok': True, 'started': True,
-             'comment_id': 'c1'},
-        ]
-
-        results = collect_processing_results(service)
-
-        service.drain_all_queued_task_comments.assert_called_once_with()
-        self.assertIn(
-            {'task_id': 'UNA-9', 'ok': True, 'started': True,
-             'comment_id': 'c1'},
-            results,
-        )
-
-    def test_collect_processing_results_survives_drain_failure(self) -> None:
-        # A drain explosion must never abort the scan cycle.
-        service = Mock()
-        service.get_assigned_tasks.return_value = []
-        service.get_new_pull_request_comments.return_value = []
-        service.process_assigned_task = Mock()
-        service.drain_all_queued_task_comments.side_effect = RuntimeError('boom')
-
-        # No raise; assigned/review results still returned (empty here).
-        self.assertEqual(collect_processing_results(service), [])
-
     def test_run_loops_over_new_pull_request_comments_after_tasks(self) -> None:
         self.openhands_core_lib.service = Mock()
         self.openhands_core_lib.service.get_assigned_tasks.return_value = ['task-1']

@@ -25,58 +25,7 @@ def collect_processing_results(service) -> list[dict]:
     """
     results = _dispatch_assigned_tasks(service)
     results.extend(_dispatch_review_comments(service))
-    results.extend(_advance_finished_local_comment_runs(service))
-    results.extend(_drain_queued_local_comments(service))
     return results
-
-
-def _best_effort_drain(service, method_name: str, failure_log_message: str) -> list[dict]:
-    """Best-effort call of ``service.<method_name>()`` returning a result list.
-
-    Returns ``[]`` when the method is missing/non-callable or raises (logging
-    ``failure_log_message``). Only a real list/tuple counts — a Mock service
-    (tests) returns a Mock, so anything non-list is treated as "nothing
-    drained" rather than blowing up the scan cycle on ``list(Mock())``.
-    """
-    operation = getattr(service, method_name, None)
-    if not callable(operation):
-        return []
-    try:
-        result = operation()
-    except Exception:
-        configure_logger(__name__).exception(failure_log_message)
-        return []
-    return list(result) if isinstance(result, (list, tuple)) else []
-
-
-def _advance_finished_local_comment_runs(service) -> list[dict]:
-    """Scan-loop fallback: complete/requeue IN_PROGRESS comments whose session ended.
-
-    Without this, a comment stays "⟳ kato working" if no SSE subscriber
-    was watching when the turn's RESULT event fired.
-    """
-    return _best_effort_drain(
-        service,
-        'advance_finished_comment_runs',
-        'advance_finished_comment_runs failed; retrying next scan tick',
-    )
-
-
-def _drain_queued_local_comments(service) -> list[dict]:
-    """Server-side drain of operator-queued local diff comments.
-
-    Browser-independent: without this, a comment queued while Claude
-    was busy only got dispatched if a browser SSE happened to be
-    watching that task when the turn ended — otherwise it sat
-    ``QUEUED`` indefinitely. Running it on every scan tick guarantees
-    pickup on the next idle transition. Best-effort: a failure here
-    must never abort the scan cycle.
-    """
-    return _best_effort_drain(
-        service,
-        'drain_all_queued_task_comments',
-        'queued local-comment drain pass failed; retrying next scan tick',
-    )
 
 
 def _dispatch_assigned_tasks(service) -> list[dict]:

@@ -1120,6 +1120,21 @@ class AgentService(MissionStepLoggerMixin, Service):
                 'comment_id': comment.id,
                 'kato_status': new_status,
             })
+        # Chain straight to the next queued comment the instant this turn
+        # finishes, instead of stranding it on the slow scan-loop fallback
+        # — the operator's "the next comment takes ages, and the last one
+        # never runs" report. The turn we just completed left the session
+        # idle, so starting the next one is safe; it is a no-op when the
+        # queue is empty. Runs after success OR failure so a failed
+        # comment never blocks the rest of the queue.
+        if completed:
+            try:
+                self.drain_next_queued_task_comment(task_id)
+            except Exception:
+                self.logger.exception(
+                    'failed to chain to next queued comment for task %s',
+                    task_id,
+                )
         return completed
 
     def _add_comment_agent_reply(self, store, comment, result_text: str) -> None:

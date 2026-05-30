@@ -326,6 +326,31 @@ class CompleteInProgressTaskCommentsTests(unittest.TestCase):
               'kato_status': KatoCommentStatus.ADDRESSED.value}],
         )
 
+    def test_completing_a_comment_chains_to_the_next_queued(self) -> None:
+        # Regression (operator bug): finishing one comment must dispatch
+        # the next queued one IMMEDIATELY — not strand it on the slow
+        # scan-loop fallback ("the next comment takes ages, and the last
+        # one never runs"). complete_in_progress_task_comments is the
+        # single point both the SSE-result and scan paths funnel through.
+        ids, _store = self._seed('T1', ['in_progress', 'queued'])
+        with patch.object(
+            self.service, 'drain_next_queued_task_comment',
+        ) as drain:
+            out = self.service.complete_in_progress_task_comments(
+                'T1', success=True, result_text='done',
+            )
+        self.assertEqual([o['comment_id'] for o in out], [ids[0]])
+        drain.assert_called_once_with('T1')
+
+    def test_no_chain_when_nothing_completed(self) -> None:
+        # No completion (nothing in progress) → no spurious drain.
+        self._seed('T1', ['queued'])
+        with patch.object(
+            self.service, 'drain_next_queued_task_comment',
+        ) as drain:
+            self.service.complete_in_progress_task_comments('T1', success=True)
+        drain.assert_not_called()
+
     def _attach_session(self, **session_attrs):
         session = SimpleNamespace(**session_attrs)
         mgr = MagicMock()

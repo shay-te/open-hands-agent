@@ -53,6 +53,12 @@ export default function DiffPane({
   const { appendToInput } = useChatComposer();
   const bodyRef = useRef(null);
   const fileRefs = useRef(new Map());
+  // Last open-request id we auto-scrolled for. Guards the scroll-to-file
+  // effect so it fires only on a fresh open request — never on a
+  // background diff refresh (same id), which would yank the operator
+  // away from the code they are reading. Starts at -1 (a value
+  // openRequestId never takes) so the FIRST open still scrolls.
+  const lastScrolledRequestRef = useRef(-1);
 
   useEffect(() => {
     if (!taskId) {
@@ -151,8 +157,16 @@ export default function DiffPane({
   // scrolls to it" behaviour. Runs after the diff is rendered.
   useEffect(() => {
     if (state.status !== 'ready' || !relativePath) { return; }
+    // Only scroll for a NEW open request (the operator clicked a file in
+    // the list). A background diff refresh re-runs this effect with the
+    // SAME openRequestId — scrolling then would move the page out from
+    // under the operator mid-read. Mark the request handled only once we
+    // actually scroll, so a click that lands before the diff renders
+    // still scrolls when it becomes ready.
+    if (openRequestId === lastScrolledRequestRef.current) { return; }
     const node = resolveFileNode(repoId, relativePath);
     if (node && typeof node.scrollIntoView === 'function') {
+      lastScrolledRequestRef.current = openRequestId;
       node.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   }, [state.status, repoId, relativePath, openRequestId, totalFiles, resolveFileNode]);

@@ -21,13 +21,11 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from kato_core_lib.jobs.process_assigned_tasks import (
-    _advance_finished_local_comment_runs,
     _completed_future,
     _dispatch_assigned_tasks,
     _dispatch_review_comments,
     _drain_finished_futures,
     _drain_finished_review_batches,
-    _drain_queued_local_comments,
     _process_review_comment_batch_best_effort,
     _runner_has_real_concurrency,
 )
@@ -407,28 +405,6 @@ class FormatProcessingResultsTests(unittest.TestCase):
                 {'status': 'done', 'pull_request_id': '1', 'summary': title},
             ])
             self.assertIn('done', result)
-
-
-class AdvanceFinishedCommentRunsBranches(unittest.TestCase):
-    """Defensive branches in scan-loop helpers."""
-
-    def test_advance_returns_empty_when_service_lacks_method(self) -> None:
-        self.assertEqual(_advance_finished_local_comment_runs(SimpleNamespace()), [])
-
-    def test_advance_returns_empty_when_method_raises(self) -> None:
-        svc = SimpleNamespace(
-            advance_finished_comment_runs=MagicMock(side_effect=RuntimeError('x')),
-        )
-        self.assertEqual(_advance_finished_local_comment_runs(svc), [])
-
-    def test_advance_returns_list_when_method_returns_tuple(self) -> None:
-        svc = SimpleNamespace(
-            advance_finished_comment_runs=MagicMock(return_value=('a', 'b')),
-        )
-        self.assertEqual(_advance_finished_local_comment_runs(svc), ['a', 'b'])
-
-    def test_drain_returns_empty_when_service_lacks_method(self) -> None:
-        self.assertEqual(_drain_queued_local_comments(SimpleNamespace()), [])
 
 
 if __name__ == '__main__':

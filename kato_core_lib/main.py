@@ -186,6 +186,7 @@ def main(cfg: DictConfig) -> int:
     _start_planning_webserver_if_enabled(app)
     _start_pending_comment_work_after_ui(app)
     _start_resume_prompt_watcher(app)
+    _start_comment_run_watcher(app)
     _register_shutdown_hook(app)
     startup_delay_seconds, scan_interval_seconds = _task_scan_settings(cfg)
     _warm_up_repository_inventory(app)
@@ -686,14 +687,14 @@ def _open_browser_when_ready(url: str, logger) -> None:
 def _register_shutdown_hook(app) -> None:
     def _shutdown(signum, frame):
         app.logger.info('shutting down kato agent (signal %s)', signum)
-        watcher = getattr(app, 'resume_prompt_watcher', None)
-        if watcher is not None:
+        for attr in ('resume_prompt_watcher', 'comment_run_watcher'):
+            watcher = getattr(app, attr, None)
+            if watcher is None:
+                continue
             try:
                 watcher.stop()
             except Exception:
-                app.logger.exception(
-                    'error stopping resume_prompt watcher',
-                )
+                app.logger.exception('error stopping %s', attr)
         try:
             app.service.shutdown()
         except Exception:
@@ -901,6 +902,36 @@ def _start_resume_prompt_watcher(app) -> None:
         return
     # Stash on the app so the shutdown hook can stop it cleanly.
     app.resume_prompt_watcher = watcher
+
+
+def _start_comment_run_watcher(app) -> None:
+    """Always-on, browser-independent drain of local comment runs.
+
+    The ticket-scan loop's comment drain is gated by
+    ``scan_interval_seconds`` (~180s, and disabled at 0) and the live
+    SSE path only fires when a browser tab is watching that task — so a
+    queued comment whose prior turn ended with no tab open was stranded.
+    This watcher ticks the service's EXISTING advance/drain primitives
+    every couple of seconds regardless, so the next comment starts
+    promptly and the last one never hangs. Best-effort: a failure to
+    start logs but never blocks boot — the scan-loop drain stays a
+    backstop.
+    """
+    service = getattr(app, 'service', None)
+    if service is None:
+        return
+    try:
+        from kato_core_lib.data_layers.service.comment_run_watcher import (
+            build_and_start_comment_run_watcher,
+        )
+        app.comment_run_watcher = build_and_start_comment_run_watcher(
+            service=service,
+        )
+    except Exception:
+        app.logger.exception(
+            'failed to start comment-run watcher; queued comments will '
+            'still drain via the scan loop / live SSE, just less promptly',
+        )
 
 
 def _task_scan_settings(cfg: DictConfig) -> tuple[float, float]:

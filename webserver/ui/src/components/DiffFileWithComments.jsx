@@ -198,11 +198,21 @@ export default function DiffFileWithComments({
   // surface). Old-side and truly-orphaned threads are handled by the
   // comments panel / reveal logic, not here.
   const autoExpandedForCommentsRef = useRef(false);
+  // Once the operator manually toggles collapse/expand, the comment
+  // auto-expand below must stop fighting them — a file they collapsed
+  // STAYS collapsed while they read, even if it carries an open comment
+  // and the diff refreshes underneath them.
+  const userToggledExpandRef = useRef(false);
   useEffect(() => {
     autoExpandedForCommentsRef.current = false;
+    userToggledExpandRef.current = false;
   }, [path, repoId, taskId]);
   useEffect(() => {
-    if (autoExpandedForCommentsRef.current || expanded) { return; }
+    if (
+      userToggledExpandRef.current
+      || autoExpandedForCommentsRef.current
+      || expanded
+    ) { return; }
     let hasOpenInline = false;
     for (const lineComments of commentsByLine.values()) {
       if (lineComments.some((c) => c.status !== 'resolved')) {
@@ -215,6 +225,13 @@ export default function DiffFileWithComments({
       setExpanded(true);
     }
   }, [commentsByLine, expanded]);
+
+  // Operator-driven collapse/expand. Records the interaction so the
+  // comment auto-expand effect above never re-opens what they closed.
+  function setExpandedByUser(value) {
+    userToggledExpandRef.current = true;
+    setExpanded(value);
+  }
 
   async function onSubmit(line, body, parentId = '') {
     const trimmed = String(body || '').trim();
@@ -491,7 +508,7 @@ export default function DiffFileWithComments({
     <button
       type="button"
       className="diff-file-collapse-toggle is-icon tooltip-below"
-      onClick={() => setExpanded(false)}
+      onClick={() => setExpandedByUser(false)}
       data-tooltip="Collapse diff"
       aria-label="Collapse diff"
     >
@@ -501,7 +518,7 @@ export default function DiffFileWithComments({
     <button
       type="button"
       className="diff-file-collapse-toggle is-icon tooltip-below"
-      onClick={() => setExpanded(true)}
+      onClick={() => setExpandedByUser(true)}
       data-tooltip="Expand diff"
       aria-label="Expand diff"
     >

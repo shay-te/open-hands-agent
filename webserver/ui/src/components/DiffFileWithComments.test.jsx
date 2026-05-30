@@ -167,6 +167,23 @@ describe('DiffFileWithComments — collapse / expand integration', () => {
     expect(screen.getByRole('button', { name: /expand diff/i })).toBeInTheDocument();
   });
 
+  test('an initiallyExpanded file with an open comment stays collapsed after a manual collapse', () => {
+    // Regression (operator bug): DiffPane renders files initiallyExpanded.
+    // Collapsing one that carries an open comment used to bounce straight
+    // back open — the comment auto-expand re-fired for files that STARTED
+    // expanded (its ref-guard was only set for files that started
+    // collapsed), changing the UI while the operator read. A manual
+    // collapse must stick.
+    const { container } = renderDiff({
+      file: _file(20),
+      initiallyExpanded: true,
+      comments: [{ id: 'c1', line: 3, status: 'open', file_path: 'src/file.py' }],
+    });
+    expect(screen.getByRole('button', { name: /collapse diff/i })).toBeInTheDocument();
+    fireEvent.click(container.querySelector('.diff-file-collapse-toggle'));
+    expect(screen.getByRole('button', { name: /expand diff/i })).toBeInTheDocument();
+  });
+
   test('clicking the toggle collapses an expanded diff', () => {
     const { container } = renderDiff({ file: _file(20), initiallyExpanded: true });
 

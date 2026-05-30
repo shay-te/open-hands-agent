@@ -168,6 +168,39 @@ describe('DiffPane — renders ALL files, scrolls to the target', () => {
     });
   });
 
+  test('does NOT re-scroll on a background diff refresh', async () => {
+    // Regression (operator bug): a background diff refresh re-fired the
+    // scroll-to-file effect and yanked the operator away mid-read. The
+    // scroll must fire once per OPEN request, never on a refresh — even
+    // one that changes the file count (which re-runs the effect).
+    fetchDiff.mockResolvedValue({ diffs: [] });
+    parseRepoDiffs.mockReturnValue(_repoDiffs());
+    const open = _open({ relativePath: 'api/auth.py', repoId: 'backend' });
+    const { container, rerender } = render(
+      <DiffPane openFile={open} workspaceVersion={1} />,
+    );
+    const target = await waitFor(() => {
+      const t = container.querySelector('[data-diff-key="backend::api/auth.py"]');
+      expect(t.scrollIntoView).toHaveBeenCalledTimes(1);
+      return t;
+    });
+
+    // Refresh with a CHANGED file count so the scroll effect re-runs…
+    parseRepoDiffs.mockReturnValue([
+      ..._repoDiffs(),
+      {
+        repo_id: 'extra',
+        cwd: '/w/extra',
+        conflictedFiles: new Set(),
+        files: [{ type: 'add', newPath: 'x.js', oldPath: '/dev/null', hunks: [] }],
+      },
+    ]);
+    rerender(<DiffPane openFile={open} workspaceVersion={2} />);
+    await waitFor(() => expect(fetchDiff).toHaveBeenCalledTimes(2));
+    // …the SAME open request must NOT scroll again.
+    expect(target.scrollIntoView).toHaveBeenCalledTimes(1);
+  });
+
   test('focusComment scrolls to the file\'s first comment thread', async () => {
     fetchDiff.mockResolvedValue({ diffs: [] });
     parseRepoDiffs.mockReturnValue(_repoDiffs());
