@@ -40,10 +40,9 @@ export default function AddRepositoryModal({
   async function onConfirm(repo) {
     const result = await addTaskRepository(taskId, repo.id);
     if (!result.ok) {
-      toast.show({
-        kind: 'error',
+      toast.errorFromResult(result, {
         title: 'Could not add repository',
-        message: apiErrorMessage(result, 'add failed'),
+        fallback: 'add failed',
         durationMs: 12000,
       });
       return;

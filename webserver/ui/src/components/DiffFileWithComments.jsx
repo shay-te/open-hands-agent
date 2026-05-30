@@ -30,7 +30,6 @@ import { toast } from '../stores/toastStore.js';
 import { diffDisplayPath } from '../diffModel.js';
 import { copyRepoRelativePath } from '../utils/clipboard.js';
 import { useDismissOnOutsidePointerOrEscape } from '../hooks/useDismissOnOutsidePointerOrEscape.js';
-import { apiErrorMessage } from '../utils/apiError.js';
 import { commentDraftKey } from '../utils/composerDraft.js';
 import { buildChatFragmentFromSelection } from '../utils/diffSelectionPrompt.js';
 import { tokenizeHunks } from '../utils/diffSyntax.js';
@@ -228,10 +227,9 @@ export default function DiffFileWithComments({
       parent_id: parentId,
     });
     if (!result.ok) {
-      toast.show({
-        kind: 'error',
+      toast.errorFromResult(result, {
         title: 'Could not add comment',
-        message: apiErrorMessage(result, 'add failed'),
+        fallback: 'add failed',
         durationMs: 8000,
       });
       return false;
@@ -259,10 +257,7 @@ export default function DiffFileWithComments({
   async function onResolve(commentId) {
     const result = await resolveTaskComment(taskId, commentId);
     if (!result.ok) {
-      toast.show({
-        kind: 'error', title: 'Resolve failed',
-        message: apiErrorMessage(result),
-      });
+      toast.errorFromResult(result, { title: 'Resolve failed', durationMs: 5000 });
       return;
     }
     const remoteSync = result.body?.remote_sync;
@@ -295,10 +290,7 @@ export default function DiffFileWithComments({
   async function onReopen(commentId) {
     const result = await reopenTaskComment(taskId, commentId);
     if (!result.ok) {
-      toast.show({
-        kind: 'error', title: 'Reopen failed',
-        message: apiErrorMessage(result),
-      });
+      toast.errorFromResult(result, { title: 'Reopen failed', durationMs: 5000 });
       return;
     }
     const triggered = result.body?.triggered_immediately;
@@ -320,10 +312,7 @@ export default function DiffFileWithComments({
     }
     const result = await deleteTaskComment(taskId, commentId);
     if (!result.ok) {
-      toast.show({
-        kind: 'error', title: 'Delete failed',
-        message: apiErrorMessage(result),
-      });
+      toast.errorFromResult(result, { title: 'Delete failed', durationMs: 5000 });
       return;
     }
     notifyMutated();
@@ -332,9 +321,8 @@ export default function DiffFileWithComments({
   async function onMarkAddressed(commentId, addressedSha = '') {
     const result = await markTaskCommentAddressed(taskId, commentId, addressedSha);
     if (!result.ok) {
-      toast.show({
-        kind: 'error', title: 'Mark addressed failed',
-        message: apiErrorMessage(result),
+      toast.errorFromResult(result, {
+        title: 'Mark addressed failed', durationMs: 5000,
       });
       return;
     }

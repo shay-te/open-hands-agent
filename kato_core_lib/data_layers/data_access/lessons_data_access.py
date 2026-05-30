@@ -55,14 +55,6 @@ class LessonsDataAccess(object):
     def state_dir(self) -> Path:
         return self._state_dir
 
-    @property
-    def global_path(self) -> Path:
-        return self._global_path
-
-    @property
-    def per_task_dir(self) -> Path:
-        return self._per_task_dir
-
     # ----- global lessons file -----
 
     def read_global(self) -> str:

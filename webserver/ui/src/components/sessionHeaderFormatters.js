@@ -12,6 +12,8 @@
 // Pure functions only, no React. Component code stays a render-only
 // JSX file (see AGENTS.md "no logic inside JSX").
 
+import { apiErrorMessage } from '../utils/apiError.js';
+
 // Render the "✓ pushed N repo(s) / • push skipped / ✗ push failed"
 // line that both the ``Done`` and ``Update source`` toasts emit
 // for the push step. The shape of ``pushed`` is the same payload
@@ -50,13 +52,13 @@ export function formatFailedLines(failed) {
 // every formatter so they share one place to surface
 // transport-level errors.
 export function formatRequestFailure(result, fallbackTitle) {
-  const body = (result && result.body) || {};
+  // Canonical precedence (body.error → result.error → fallback) via the
+  // shared apiErrorMessage util, so a request failure surfaces the same
+  // error text as every other toast in the app (DUP-11: aligned).
   return {
     title: fallbackTitle,
     kind: 'error',
-    message: (result && result.error)
-      || body.error
-      || 'unknown error',
+    message: apiErrorMessage(result, 'unknown error'),
   };
 }
 

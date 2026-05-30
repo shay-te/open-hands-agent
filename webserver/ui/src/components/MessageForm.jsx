@@ -1,6 +1,5 @@
 import {
   forwardRef,
-  useCallback,
   useEffect,
   useImperativeHandle,
   useLayoutEffect,
@@ -12,6 +11,7 @@ import {
   IMAGE_REJECT_REASON,
 } from '../utils/imageAttachment.js';
 import { toast } from '../stores/toastStore.js';
+import { useAutoSizeTextarea } from '../hooks/useAutoSizeTextarea.js';
 import { appendComposerFragment } from '../utils/chatComposerHelpers.js';
 import { readDraft, writeDraft } from '../utils/composerDraft.js';
 
@@ -69,19 +69,13 @@ const MessageForm = forwardRef(function MessageForm({
   const formRef = useRef(null);
   const pendingCaretRef = useRef(null);
 
-  const autoResize = useCallback(() => {
-    const el = textareaRef.current;
-    if (!el) { return; }
-    if (!String(el.value || '').trim()) {
-      el.style.height = SINGLE_LINE_TEXTAREA_HEIGHT;
-      return;
-    }
-    el.style.height = 'auto';
-    el.style.height = `${el.scrollHeight}px`;
-  }, []);
-
-  // Resize on every value change (typing, draft hydration, fragment paste).
-  useEffect(() => { autoResize(); }, [value, autoResize]);
+  // Auto-grow the textarea on every value change (typing, draft
+  // hydration, fragment paste). The hook resets to a single-line
+  // height when the draft is empty and returns the resize fn so the
+  // caret-restoration effect below can call it imperatively.
+  const autoResize = useAutoSizeTextarea(textareaRef, value, {
+    emptyHeight: SINGLE_LINE_TEXTAREA_HEIGHT,
+  });
 
   // Publish the composer's CURRENT rendered height to the parent
   // (#session-detail) as a CSS variable so #event-log can pad its

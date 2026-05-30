@@ -13,6 +13,7 @@
 // (api error handlers, hooks) can fire toasts too.
 
 import { createPubSub } from './pubsub.js';
+import { apiErrorMessage } from '../utils/apiError.js';
 
 let _toasts = [];
 let _nextId = 1;
@@ -60,6 +61,39 @@ export const toast = {
   warning: (message, opts = {}) => toastStore.push({ ...opts, kind: 'warning', message }),
   error:   (message, opts = {}) => toastStore.push({ ...opts, kind: 'error',   message }),
   show:    (opts) => toastStore.push(opts),
+  // Surface a failed ``{ ok, body, error }`` API result as an error
+  // toast. Collapses the "build the error envelope, run the message
+  // through apiErrorMessage" idiom that was copy-pasted across ~16
+  // call sites (modals, diff/editor comment handlers, settings
+  // panels, the session header). The ``message`` precedence is the
+  // canonical one (body.error → result.error → fallback) so every
+  // caller agrees on which text wins. ``durationMs`` defaults to
+  // 8000 but each site can override to keep its existing duration.
+  errorFromResult: (result, { title, fallback = '', durationMs = 8000 } = {}) =>
+    toastStore.push({
+      kind: 'error',
+      title,
+      message: apiErrorMessage(result, fallback),
+      durationMs,
+    }),
   dismiss: (id) => toastStore.dismiss(id),
   clear:   () => toastStore.clear(),
 };
+
+// Dispatch a pre-built ``{ kind, title, message }`` result object as a
+// toast, applying the error-vs-other duration rule the action handlers
+// (Pull / Finish / Update source / Sync) repeat verbatim: error → a
+// longer ``errorMs``, anything else → ``defaultMs``. The formatXResult
+// builders stay distinct per payload; only this trailing dispatch is
+// shared.
+export function toastResult(
+  { kind = 'info', title, message } = {},
+  { errorMs = 12000, defaultMs = 7000 } = {},
+) {
+  return toastStore.push({
+    kind,
+    title,
+    message,
+    durationMs: kind === 'error' ? errorMs : defaultMs,
+  });
+}

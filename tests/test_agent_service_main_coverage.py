@@ -265,13 +265,6 @@ class NoAutoDeletePolicyTests(unittest.TestCase):
         service._delete_workspace_silent('T1')
         workspace.delete.assert_not_called()
 
-    def test_terminate_session_silent_is_a_noop(self) -> None:
-        # Same for the session-record auto-removal helper.
-        session = MagicMock()
-        service = AgentService(**_kwargs(session_manager=session))
-        service._terminate_session_silent('T1')
-        session.terminate_session.assert_not_called()
-
     def test_shutdown_kills_subprocesses_without_removing_records(self) -> None:
         # Triggered by SIGINT/SIGTERM: kato must terminate live
         # subprocesses (so file handles release) but the on-disk
@@ -658,23 +651,6 @@ class ColdActiveWorkspaceCleanupTests(unittest.TestCase):
         svc._session_manager.get_session.side_effect = RuntimeError('boom')
         result = svc._stale_planning_task_ids(set())
         self.assertIn('UNA-1201', result)
-
-
-class TerminateSessionSilentTests(unittest.TestCase):
-    # ``_terminate_session_silent`` is now a deprecated no-op (operator
-    # policy: NEVER auto-delete a session record). The previous tests
-    # exercised the old terminate-and-remove behaviour; with the noop
-    # we only assert that no session method is invoked on any path.
-
-    def test_does_not_touch_session_manager_even_when_present(self) -> None:
-        session = MagicMock()
-        service = AgentService(**_kwargs(session_manager=session))
-        service.logger = MagicMock()
-        service._terminate_session_silent('T1')
-        # Whole point of the no-op: nothing happens to the live
-        # session. The tab + record stay so the UI can grey them out.
-        session.terminate_session.assert_not_called()
-        service.logger.exception.assert_not_called()
 
 
 class DeleteWorkspaceSilentTests(unittest.TestCase):

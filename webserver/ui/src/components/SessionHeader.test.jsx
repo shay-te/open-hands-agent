@@ -22,9 +22,32 @@ vi.mock('../hooks/usePushApproval.js', () => ({
 vi.mock('../hooks/useTaskPublish.js', () => ({
   useTaskPublish: vi.fn(),
 }));
-vi.mock('../stores/toastStore.js', () => ({
-  toast: { show: vi.fn() },
-}));
+vi.mock('../stores/toastStore.js', () => {
+  const show = vi.fn();
+  return {
+    toast: {
+      show,
+      errorFromResult: (result, { title, fallback = '', durationMs = 8000 } = {}) =>
+        show({
+          kind: 'error',
+          title,
+          message: String(
+            (result && result.body && result.body.error)
+            || (result && result.error) || fallback,
+          ),
+          durationMs,
+        }),
+    },
+    // Mirror the real toastResult dispatch so the Pull / Finish /
+    // Update-source toasts still land on the mocked show().
+    toastResult: (
+      { kind = 'info', title, message } = {},
+      { errorMs = 12000, defaultMs = 7000 } = {},
+    ) => show({
+      kind, title, message, durationMs: kind === 'error' ? errorMs : defaultMs,
+    }),
+  };
+});
 
 import { postSession, triggerScan } from '../api.js';
 import { usePushApproval } from '../hooks/usePushApproval.js';

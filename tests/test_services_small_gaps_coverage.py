@@ -34,7 +34,7 @@ class LessonsDataAccessTimestampParseTests(unittest.TestCase):
             da = LessonsDataAccess(Path(td))
             # Numerically-looking but invalid timestamp (passes the
             # regex on line 41 but ValueError from fromisoformat).
-            da.global_path.write_text(
+            da._global_path.write_text(
                 '<!-- last_compacted: 9999-99-99T99:99:99 -->\nbody\n',
                 encoding='utf-8',
             )

@@ -12,13 +12,12 @@ import { TAB_STATUS } from '../constants/tabStatus.js';
 import { useBusyAction } from '../hooks/useBusyAction.js';
 import { usePushApproval } from '../hooks/usePushApproval.js';
 import { useTaskPublish } from '../hooks/useTaskPublish.js';
-import { apiErrorMessage } from '../utils/apiError.js';
 import { cx } from '../utils/cx.js';
 import { deriveTabStatus, resolveTabStatus, statusDotClass, tabStatusTitle } from '../utils/tabStatus.js';
 import { SESSION_LIFECYCLE } from '../hooks/useSessionStream.js';
-import { toast } from '../stores/toastStore.js';
+import { toast, toastResult } from '../stores/toastStore.js';
 import AdoptSessionModal from './AdoptSessionModal.jsx';
-import Icon from './Icon.jsx';
+import Icon, { BusyIcon } from './Icon.jsx';
 import {
   formatFinishResult,
   formatPullResult,
@@ -56,10 +55,8 @@ export default function SessionHeader({
         message: 'Kato is checking for new tasks, status changes, and review comments.',
       });
     } else {
-      toast.show({
-        kind: 'error',
-        title: 'Scan failed',
-        message: apiErrorMessage(result, 'unknown error'),
+      toast.errorFromResult(result, {
+        title: 'Scan failed', fallback: 'unknown error', durationMs: 5000,
       });
     }
   });
@@ -89,11 +86,8 @@ export default function SessionHeader({
         }
         const body = result.body || {};
         if (!result.ok && !body.has_conflicts && !body.merged) {
-          toast.show({
-            kind: 'error',
-            title: 'Merge failed',
-            message: apiErrorMessage(result, 'merge failed'),
-            durationMs: 12000,
+          toast.errorFromResult(result, {
+            title: 'Merge failed', fallback: 'merge failed', durationMs: 12000,
           });
           return;
         }
@@ -163,7 +157,6 @@ export default function SessionHeader({
         if (typeof taskPublish.refresh === 'function') {
           taskPublish.refresh();
         }
-        const { title, message } = formatUpdateSourceResult(result);
         const body = (result && result.body) || {};
         const failed = (body.failed_repositories || []).length;
         const updated = (body.updated_repositories || []).length;
@@ -180,12 +173,13 @@ export default function SessionHeader({
         } else {
           kind = 'success';
         }
-        toast.show({
-          kind,
-          title,
-          message,
-          durationMs: kind === 'error' ? 12000 : 8000,
-        });
+        // Non-error duration stays 8000 (longer than the shared 7000
+        // default) — update-source toasts are denser, operators need
+        // the extra read time.
+        toastResult(
+          { ...formatUpdateSourceResult(result), kind },
+          { defaultMs: 8000 },
+        );
       },
     },
   );
@@ -202,19 +196,13 @@ export default function SessionHeader({
         // Toast classification: full success → green, partial → amber,
         // request-level failure → red. Multi-line message is fine — the
         // toast component renders <pre> and wraps long lines.
-        const { title, message } = formatFinishResult(result, session.task_id);
         const body = (result && result.body) || {};
         const kind = !result.ok
           ? 'error'
           : body.finished
             ? 'success'
             : 'warning';
-        toast.show({
-          kind,
-          title,
-          message,
-          durationMs: kind === 'error' ? 12000 : 7000,
-        });
+        toastResult({ ...formatFinishResult(result, session.task_id), kind });
       },
     },
   );
@@ -253,13 +241,7 @@ export default function SessionHeader({
     if (typeof taskPublish.refresh === 'function') {
       taskPublish.refresh();
     }
-    const { title, message, kind } = formatPullResult(result);
-    toast.show({
-      kind,
-      title,
-      message,
-      durationMs: kind === 'error' ? 12000 : 7000,
-    });
+    toastResult(formatPullResult(result));
   }
 
   // Open the task's pull request(s) on the provider in new browser
@@ -291,7 +273,7 @@ export default function SessionHeader({
       disabled={pushApproval.busy}
       aria-label={pushLabel}
     >
-      <Icon name={pushApproval.busy ? 'spinner' : 'check'} spin={pushApproval.busy} />
+      <BusyIcon busy={pushApproval.busy} idle="check" />
     </button>
   );
 
@@ -371,7 +353,7 @@ export default function SessionHeader({
       disabled={resuming || typeof onResume !== 'function'}
       aria-label={resumeLabel}
     >
-      <Icon name={resuming ? 'spinner' : 'play'} spin={resuming} />
+      <BusyIcon busy={resuming} idle="play" />
     </button>
   ) : (
     <button
@@ -392,7 +374,7 @@ export default function SessionHeader({
       disabled={stopping}
       aria-label={stopLabel}
     >
-      <Icon name={stopping ? 'spinner' : 'stop'} spin={stopping} />
+      <BusyIcon busy={stopping} idle="stop" />
     </button>
   );
   const adoptModal = adoptModalOpen ? (
@@ -440,7 +422,7 @@ export default function SessionHeader({
             disabled={pushDisabled}
             aria-label={pushButtonLabel}
           >
-            <Icon name={taskPublish.pushBusy ? 'spinner' : 'arrow-up'} spin={taskPublish.pushBusy} />
+            <BusyIcon busy={taskPublish.pushBusy} idle="arrow-up" />
           </button>
           <button
             id="session-merge-default"
@@ -451,7 +433,7 @@ export default function SessionHeader({
             disabled={mergingDefault || !taskPublish.hasWorkspace}
             aria-label={mergingDefault ? 'Merging…' : 'Merge default branch'}
           >
-            <Icon name={mergingDefault ? 'spinner' : 'merge'} spin={mergingDefault} />
+            <BusyIcon busy={mergingDefault} idle="merge" />
           </button>
           <button
             id="session-pull"
@@ -462,7 +444,7 @@ export default function SessionHeader({
             disabled={pullDisabled}
             aria-label={pullButtonLabel}
           >
-            <Icon name={taskPublish.pullBusy ? 'spinner' : 'arrow-down'} spin={taskPublish.pullBusy} />
+            <BusyIcon busy={taskPublish.pullBusy} idle="arrow-down" />
           </button>
           <button
             id="session-pull-request"
@@ -473,7 +455,7 @@ export default function SessionHeader({
             disabled={prDisabled}
             aria-label={prButtonLabel}
           >
-            <Icon name={taskPublish.prBusy ? 'spinner' : 'pull-request'} spin={taskPublish.prBusy} />
+            <BusyIcon busy={taskPublish.prBusy} idle="pull-request" />
           </button>
           <button
             id="session-open-pull-request"
@@ -495,7 +477,7 @@ export default function SessionHeader({
             disabled={updateSourceDisabled}
             aria-label={updateSourceLabel}
           >
-            <Icon name={updatingSource ? 'spinner' : 'refresh'} spin={updatingSource} />
+            <BusyIcon busy={updatingSource} idle="refresh" />
           </button>
           <button
             id="session-finish"
@@ -506,7 +488,7 @@ export default function SessionHeader({
             disabled={finishing}
             aria-label={finishLabel}
           >
-            <Icon name={finishing ? 'spinner' : 'check'} spin={finishing} />
+            <BusyIcon busy={finishing} idle="check" />
           </button>
           <button
             id="session-sync"
@@ -517,7 +499,7 @@ export default function SessionHeader({
             disabled={syncing}
             aria-label={syncing ? 'Syncing…' : 'Sync now'}
           >
-            <Icon name={syncing ? 'spinner' : 'history'} spin={syncing} />
+            <BusyIcon busy={syncing} idle="history" />
           </button>
           <button
             id="session-adopt-claude"

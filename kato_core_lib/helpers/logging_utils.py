@@ -3,8 +3,6 @@ from __future__ import annotations
 import logging
 import os
 
-from kato_core_lib.helpers.shell_status_utils import clear_active_inline_status
-
 
 _LOGGING_CONFIGURED = False
 _ROOT_HANDLER_NAME = 'kato_root'
@@ -12,12 +10,6 @@ _WORKFLOW_HANDLER_NAME = 'kato_workflow'
 _WORKFLOW_LOGGER_PREFIX = 'kato.workflow'
 _DEFAULT_LOG_LEVEL = logging.WARNING
 _DEFAULT_WORKFLOW_LOG_LEVEL = logging.INFO
-
-
-class _InlineStatusAwareStreamHandler(logging.StreamHandler):
-    def emit(self, record: logging.LogRecord) -> None:
-        clear_active_inline_status()
-        super().emit(record)
 
 
 def _configured_log_level(env_key: str, default_name: str, fallback_level: int) -> int:
@@ -53,7 +45,7 @@ def _ensure_root_logging() -> None:
     root_logger.setLevel(logging.NOTSET)
     handler = _named_handler(root_logger, _ROOT_HANDLER_NAME)
     if handler is None:
-        handler = _InlineStatusAwareStreamHandler()
+        handler = logging.StreamHandler()
         handler.set_name(_ROOT_HANDLER_NAME)
         root_logger.addHandler(handler)
     handler.setLevel(_dependency_log_level())
@@ -66,7 +58,7 @@ def _ensure_workflow_logging() -> None:
     workflow_logger.propagate = False
     handler = _named_handler(workflow_logger, _WORKFLOW_HANDLER_NAME)
     if handler is None:
-        handler = _InlineStatusAwareStreamHandler()
+        handler = logging.StreamHandler()
         handler.set_name(_WORKFLOW_HANDLER_NAME)
         workflow_logger.addHandler(handler)
     handler.setLevel(_workflow_log_level())

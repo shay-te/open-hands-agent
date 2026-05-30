@@ -5,6 +5,7 @@ import { renderCommentMarkdown } from '../utils/commentMarkdown.jsx';
 import { commentSubmitLock } from '../stores/commentSubmitLock.js';
 import { readDraftByKey, writeDraftByKey } from '../utils/composerDraft.js';
 import { toast } from '../stores/toastStore.js';
+import { useAutoSizeTextarea } from '../hooks/useAutoSizeTextarea.js';
 
 // Bubble + thread builder + form, shared between the file-level
 // comments panel and the per-line widget rendered through
@@ -381,16 +382,10 @@ export function CommentForm({
   // box stayed at its ``rows={3}`` initial height and a long paste
   // overflowed an unscrollable region. The CSS rule on
   // ``.diff-file-comments-textarea`` caps growth and turns on the
-  // scrollbar past the cap, so this hook only needs to set
-  // ``style.height`` to ``scrollHeight``.
-  useEffect(() => {
-    const el = textareaRef.current;
-    if (!el) { return; }
-    // Reset first so shrinking on backspace works (scrollHeight only
-    // grows otherwise).
-    el.style.height = 'auto';
-    el.style.height = `${el.scrollHeight}px`;
-  }, [draft]);
+  // scrollbar past the cap. No ``emptyHeight`` here — the plain
+  // ``auto`` → ``scrollHeight`` measure (the comment form has no
+  // single-line collapse target like the chat composer does).
+  useAutoSizeTextarea(textareaRef, draft);
 
   async function submit() {
     const trimmed = draft.trim();

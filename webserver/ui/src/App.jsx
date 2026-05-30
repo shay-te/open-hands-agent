@@ -152,14 +152,13 @@ export default function App() {
     // file locks, antivirus, etc.).
     const result = await forgetTaskWorkspace(taskId);
     if (!result.ok) {
-      const message = (
-        result.body?.error || result.error
-        || 'unknown error — see kato logs for details'
-      );
-      toast.show({
-        kind: 'error',
+      // Route the error text through the canonical apiErrorMessage
+      // precedence (body.error → result.error → fallback) instead of
+      // the previous hand-rolled chain, so this site agrees with every
+      // other error toast on which message wins.
+      toast.errorFromResult(result, {
         title: `Couldn't forget ${taskId}`,
-        message,
+        fallback: 'unknown error — see kato logs for details',
         durationMs: 12000,
       });
       // Refresh anyway so the operator sees the current state — a

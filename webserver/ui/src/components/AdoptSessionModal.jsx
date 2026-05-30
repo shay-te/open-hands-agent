@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react';
 import { adoptAgentSession, fetchClaudeSessions } from '../api.js';
 import { AGENT_SESSION_ID } from '../constants/sessionFields.js';
 import { toast } from '../stores/toastStore.js';
-import { apiErrorMessage } from '../utils/apiError.js';
 import { copyTextToClipboard } from '../utils/clipboard.js';
 import { countNoun } from '../utils/pluralize.js';
 import { formatRelativeTime } from '../utils/relativeTime.js';
@@ -31,10 +30,9 @@ export default function AdoptSessionModal({ taskId, onClose, onAdopted }) {
     const sessionId = session[AGENT_SESSION_ID];
     const result = await adoptAgentSession(taskId, sessionId);
     if (!result.ok) {
-      toast.show({
-        kind: 'error',
+      toast.errorFromResult(result, {
         title: 'Could not adopt session',
-        message: apiErrorMessage(result, 'adoption failed'),
+        fallback: 'adoption failed',
         durationMs: 10000,
       });
       return;

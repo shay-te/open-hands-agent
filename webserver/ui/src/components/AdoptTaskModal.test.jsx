@@ -21,9 +21,24 @@ vi.mock('../api.js', () => ({
   fetchAllAssignedTasks: vi.fn(),
 }));
 
-vi.mock('../stores/toastStore.js', () => ({
-  toast: { show: vi.fn() },
-}));
+vi.mock('../stores/toastStore.js', () => {
+  const show = vi.fn();
+  return {
+    toast: {
+      show,
+      errorFromResult: (result, { title, fallback = '', durationMs = 8000 } = {}) =>
+        show({
+          kind: 'error',
+          title,
+          message: String(
+            (result && result.body && result.body.error)
+            || (result && result.error) || fallback,
+          ),
+          durationMs,
+        }),
+    },
+  };
+});
 
 import AdoptTaskModal from './AdoptTaskModal.jsx';
 import { adoptTask, fetchAllAssignedTasks } from '../api.js';

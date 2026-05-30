@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import Icon from './Icon.jsx';
+import Icon, { BusyIcon } from './Icon.jsx';
 import Tab from './Tab.jsx';
 import {
   orderByPinned,
@@ -295,7 +295,7 @@ export default function TabList({
         onClick={onScanNow}
         disabled={scanPending || !onScanNow}
       >
-        <Icon name={scanPending ? 'spinner' : 'refresh'} spin={scanPending} />
+        <BusyIcon busy={scanPending} idle="refresh" />
       </button>
     </div>
   );

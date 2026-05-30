@@ -35,6 +35,7 @@ vi.mock('./api.js', () => ({
 }));
 vi.mock('./stores/toastStore.js', () => ({
   toast: { show: vi.fn() },
+  toastResult: vi.fn(),
 }));
 
 import FilesTab from './FilesTab.jsx';

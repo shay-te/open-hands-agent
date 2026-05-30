@@ -1,10 +1,18 @@
 import assert from 'node:assert/strict';
 import test, { beforeEach } from 'node:test';
 
-import { toast, toastStore } from './toastStore.js';
+import { toast, toastResult, toastStore } from './toastStore.js';
 
 // Module-scoped state means tests must clear between cases.
 beforeEach(() => { toastStore.clear(); });
+
+// Grab the most-recent toast snapshot (one subscribe fire).
+function _latest() {
+  let snap = [];
+  const unsub = toastStore.subscribe((t) => { snap = t; });
+  unsub();
+  return snap;
+}
 
 
 test('push returns an id and adds the toast to subscribers', () => {
@@ -141,4 +149,64 @@ test('durationMs > 0 schedules an auto-dismiss', async () => {
   toastStore.subscribe((t) => { snap = t; });
   // Auto-dismissed.
   assert.equal(snap.find((t) => t.id === id), undefined);
+});
+
+
+test('errorFromResult: builds an error toast with apiErrorMessage precedence', () => {
+  // body.error wins over result.error (canonical order).
+  toast.errorFromResult(
+    { body: { error: 'from body' }, error: 'from top' },
+    { title: 'Boom', durationMs: 0 },
+  );
+  const [t] = _latest();
+  assert.equal(t.kind, 'error');
+  assert.equal(t.title, 'Boom');
+  assert.equal(t.message, 'from body');
+});
+
+test('errorFromResult: falls back to result.error then the fallback', () => {
+  toast.errorFromResult({ error: 'transport' }, { title: 'T', durationMs: 0 });
+  assert.equal(_latest()[0].message, 'transport');
+
+  toastStore.clear();
+  toast.errorFromResult({}, { title: 'T', fallback: 'nothing came back', durationMs: 0 });
+  assert.equal(_latest()[0].message, 'nothing came back');
+});
+
+test('errorFromResult: empty fallback yields an empty-message error toast', () => {
+  toast.errorFromResult({}, { title: 'T', durationMs: 0 });
+  const [t] = _latest();
+  assert.equal(t.kind, 'error');
+  assert.equal(t.message, '');
+});
+
+
+test('toastResult: error kind carries through kind/title/message', () => {
+  toastResult(
+    { kind: 'error', title: 'E', message: 'oops' },
+    { errorMs: 50, defaultMs: 1 },
+  );
+  const [t] = _latest();
+  assert.equal(t.kind, 'error');
+  assert.equal(t.title, 'E');
+  assert.equal(t.message, 'oops');
+});
+
+test('toastResult: kind defaults to info when omitted', () => {
+  toastResult({ title: 'I', message: 'hi' }, { defaultMs: 0 });
+  const [t] = _latest();
+  assert.equal(t.kind, 'info');
+  assert.equal(t.title, 'I');
+  assert.equal(t.message, 'hi');
+});
+
+test('toastResult: error auto-dismisses on errorMs, non-error on defaultMs', async () => {
+  // error → errorMs window, non-error → defaultMs window. Both short
+  // here so the test stays fast; both should be gone afterward.
+  const errId = toastResult({ kind: 'error', message: 'e' }, { errorMs: 10, defaultMs: 9999 });
+  const okId = toastResult({ kind: 'success', message: 'o' }, { errorMs: 9999, defaultMs: 10 });
+  await new Promise((r) => setTimeout(r, 30));
+  const ids = _latest().map((t) => t.id);
+  assert.ok(!ids.includes(errId), 'error toast auto-dismissed on errorMs');
+  assert.ok(!ids.includes(okId), 'non-error toast auto-dismissed on defaultMs');
 });

@@ -1,6 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
 import { toast } from '../stores/toastStore.js';
-import { apiErrorMessage } from '../utils/apiError.js';
 
 // The save() state machine shared by the settings panels:
 //   setSaving(true) → await updateFn(...args) → on !ok toast an error and
@@ -32,10 +31,9 @@ export function useRestartingSave(updateFn, {
     try {
       const result = await updateRef.current(...args);
       if (!result.ok) {
-        toast.show({
-          kind: 'error',
+        toast.errorFromResult(result, {
           title: errorTitle,
-          message: apiErrorMessage(result, errorFallback),
+          fallback: errorFallback,
           durationMs: errorDurationMs,
         });
         return result;

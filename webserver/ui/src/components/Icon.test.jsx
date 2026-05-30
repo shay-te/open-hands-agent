@@ -5,7 +5,7 @@
 import { describe, test, expect } from 'vitest';
 import { render } from '@testing-library/react';
 
-import Icon from './Icon.jsx';
+import Icon, { BusyIcon } from './Icon.jsx';
 
 
 describe('Icon', () => {
@@ -61,5 +61,31 @@ describe('Icon', () => {
   test('missing name (undefined) renders null safely', () => {
     const { container } = render(<Icon />);
     expect(container.firstChild).toBeNull();
+  });
+});
+
+
+describe('BusyIcon', () => {
+
+  test('busy=true renders the spinning spinner glyph', () => {
+    const { container } = render(<BusyIcon busy idle="check" />);
+    const svg = container.querySelector('svg');
+    expect(svg.getAttribute('data-icon')).toBe('circle-notch'); // spinner
+    expect(svg.getAttribute('class')).toContain('fa-spin');
+  });
+
+  test('busy=false renders the idle glyph, not spinning', () => {
+    const { container } = render(<BusyIcon busy={false} idle="check" />);
+    const svg = container.querySelector('svg');
+    expect(svg.getAttribute('data-icon')).toBe('check');
+    expect(svg.getAttribute('class')).not.toContain('fa-spin');
+  });
+
+  test('forwards extra props (className) to the underlying Icon', () => {
+    const { container } = render(
+      <BusyIcon busy={false} idle="arrow-up" className="my-cls" />,
+    );
+    expect(container.querySelector('svg').getAttribute('class'))
+      .toContain('my-cls');
   });
 });

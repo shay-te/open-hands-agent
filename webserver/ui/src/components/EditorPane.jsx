@@ -142,10 +142,9 @@ export default function EditorPane({ openFile, onCommentSpawned }) {
       parent_id: parentId,
     });
     if (!result.ok) {
-      toast.show({
-        kind: 'error',
+      toast.errorFromResult(result, {
         title: 'Could not add comment',
-        message: apiErrorMessage(result, 'add failed'),
+        fallback: 'add failed',
         durationMs: 8000,
       });
       return false;
@@ -171,9 +170,8 @@ export default function EditorPane({ openFile, onCommentSpawned }) {
   async function onResolve(comment) {
     const result = await resolveTaskComment(taskId, comment.id);
     if (!result.ok) {
-      toast.show({
-        kind: 'error', title: 'Resolve failed',
-        message: apiErrorMessage(result, 'resolve failed'),
+      toast.errorFromResult(result, {
+        title: 'Resolve failed', fallback: 'resolve failed', durationMs: 5000,
       });
       return;
     }
@@ -182,9 +180,8 @@ export default function EditorPane({ openFile, onCommentSpawned }) {
   async function onReopen(comment) {
     const result = await reopenTaskComment(taskId, comment.id);
     if (!result.ok) {
-      toast.show({
-        kind: 'error', title: 'Reopen failed',
-        message: apiErrorMessage(result, 'reopen failed'),
+      toast.errorFromResult(result, {
+        title: 'Reopen failed', fallback: 'reopen failed', durationMs: 5000,
       });
       return;
     }
@@ -203,9 +200,8 @@ export default function EditorPane({ openFile, onCommentSpawned }) {
   async function onDelete(comment) {
     const result = await deleteTaskComment(taskId, comment.id);
     if (!result.ok) {
-      toast.show({
-        kind: 'error', title: 'Delete failed',
-        message: apiErrorMessage(result, 'delete failed'),
+      toast.errorFromResult(result, {
+        title: 'Delete failed', fallback: 'delete failed', durationMs: 5000,
       });
       return;
     }
@@ -214,9 +210,10 @@ export default function EditorPane({ openFile, onCommentSpawned }) {
   async function onMarkAddressed(comment) {
     const result = await markTaskCommentAddressed(taskId, comment.id, '');
     if (!result.ok) {
-      toast.show({
-        kind: 'error', title: 'Mark addressed failed',
-        message: apiErrorMessage(result, 'mark addressed failed'),
+      toast.errorFromResult(result, {
+        title: 'Mark addressed failed',
+        fallback: 'mark addressed failed',
+        durationMs: 5000,
       });
       return;
     }

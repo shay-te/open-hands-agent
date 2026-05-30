@@ -25,7 +25,10 @@ from kato_core_lib.helpers.mission_logging_utils import MissionStepLoggerMixin
 from kato_core_lib.data_layers.data.task import Task
 from kato_core_lib.data_layers.service.implementation_service import ImplementationService
 from kato_core_lib.helpers.task_context_utils import PreparedTaskContext, session_suffix
-from kato_core_lib.helpers.task_lookup_utils import find_task_by_id
+from kato_core_lib.helpers.task_lookup_utils import (
+    find_task_by_id,
+    task_id_matches,
+)
 from kato_core_lib.data_layers.service.notification_service import NotificationService
 from kato_core_lib.data_layers.service.repository_service import (
     RepositoryHasNoChangesError,
@@ -545,19 +548,6 @@ class AgentService(MissionStepLoggerMixin, Service):
         if status == WORKSPACE_STATUS_REVIEW:
             return 'protected'
         return 'stale'
-
-    def _terminate_session_silent(self, _task_id: str) -> None:
-        """Deprecated: kept as a no-op for backwards compatibility.
-
-        Operator policy is NEVER auto-delete. The previous behaviour
-        called ``terminate_session(remove_record=True)`` which both
-        killed the live subprocess AND wiped the on-disk session
-        record (so the tab vanished from the planning UI). That
-        violates the policy — the tab must stay (greyed-out via the
-        workspace ``done`` status). Operator wipes via the explicit
-        DELETE workspace endpoint.
-        """
-        # Intentionally a no-op — see ``_mark_workspace_done_silent``.
 
     def _mark_workspace_done_silent(self, task_id: str) -> None:
         """Flag a workspace as ``done`` without touching disk.
@@ -2817,7 +2807,7 @@ class AgentService(MissionStepLoggerMixin, Service):
             return None
         for queue in queues:
             for task in queue or []:
-                if str(getattr(task, 'id', '') or '').strip() == task_id:
+                if task_id_matches(task, task_id):
                     return task
         return None
 

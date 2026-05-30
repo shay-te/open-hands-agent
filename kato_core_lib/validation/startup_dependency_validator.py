@@ -5,9 +5,6 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from kato_core_lib.helpers.shell_status_utils import (
-    clear_active_inline_status,
-)
 from kato_core_lib.validation.base import ValidationBase
 from kato_core_lib.helpers.retry_utils import is_retryable_exception
 
@@ -79,7 +76,6 @@ class StartupDependencyValidator(ValidationBase):
         if not all_errors:
             return
 
-        clear_active_inline_status()
         summaries = [s for s, _ in all_errors]
         details = [d for _, d in all_errors]
         raise RuntimeError(

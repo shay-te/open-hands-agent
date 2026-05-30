@@ -67,7 +67,7 @@ class RetryTests(unittest.TestCase):
 
         with patch('kato_core_lib.helpers.retry_utils.random.uniform', return_value=1.5), patch(
             'kato_core_lib.helpers.retry_utils.time.sleep'
-        ), patch('kato_core_lib.helpers.retry_utils.clear_active_inline_status') as mock_clear_status, patch(
+        ), patch(
             'kato_core_lib.helpers.retry_utils.logger.warning'
         ) as mock_warning:
             result = run_with_retry(
@@ -77,7 +77,6 @@ class RetryTests(unittest.TestCase):
             )
 
         self.assertEqual(result, 'ok')
-        mock_clear_status.assert_called_once_with()
         mock_warning.assert_called_once_with(
             '%s connection failed; retrying in %.1fs (attempt %s/%s).\n'
             '%s (%s %s).',
@@ -103,7 +102,7 @@ class RetryTests(unittest.TestCase):
 
         with patch('kato_core_lib.helpers.retry_utils.random.uniform', return_value=1.5), patch(
             'kato_core_lib.helpers.retry_utils.time.sleep'
-        ), patch('kato_core_lib.helpers.retry_utils.clear_active_inline_status') as mock_clear_status, patch(
+        ), patch(
             'kato_core_lib.helpers.retry_utils.logger.warning'
         ) as mock_warning:
             result = run_with_retry(
@@ -113,7 +112,6 @@ class RetryTests(unittest.TestCase):
             )
 
         self.assertEqual(result, 'ok')
-        mock_clear_status.assert_called_once_with()
         mock_warning.assert_called_once_with(
             '%s connection failed; retrying in %.1fs (attempt %s/%s).\n'
             '%s (%s %s).',
@@ -208,7 +206,7 @@ class RetryTests(unittest.TestCase):
 
         with patch('kato_core_lib.helpers.retry_utils.random.uniform', return_value=1.75), patch(
             'kato_core_lib.helpers.retry_utils.time.sleep'
-        ), patch('kato_core_lib.helpers.retry_utils.clear_active_inline_status') as mock_clear_status, patch(
+        ), patch(
             'kato_core_lib.helpers.retry_utils.logger.warning'
         ) as mock_warning:
             result = run_with_retry(
@@ -218,7 +216,6 @@ class RetryTests(unittest.TestCase):
             )
 
         self.assertEqual(result, 'ok')
-        mock_clear_status.assert_called_once_with()
         mock_warning.assert_called_once_with(
             '%s request returned status %s; retrying in %.1fs (attempt %s/%s).\n'
             'Received retryable response from %s %s.',

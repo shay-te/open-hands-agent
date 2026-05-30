@@ -13,6 +13,7 @@ import { CLAUDE_EVENT, CLAUDE_SYSTEM_SUBTYPE } from '../constants/claudeEvent.js
 import { ENTRY_SOURCE } from '../constants/entrySource.js';
 import { AGENT_SESSION_ID } from '../constants/sessionFields.js';
 import { useSessionStream, SESSION_LIFECYCLE } from '../hooks/useSessionStream.js';
+import { useSessionOption } from '../hooks/useSessionOption.js';
 import { useToolMemory } from '../hooks/useToolMemory.js';
 import { fetchEffortLevels, fetchModels, fetchSessionEffort, fetchSessionModel, postChatMessage, postSession, setSessionEffort, setSessionModel } from '../api.js';
 
@@ -83,48 +84,30 @@ export default function SessionDetail({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [taskId]);
 
-  const [availableModels, setAvailableModels] = useState([]);
-  const [selectedModel, setSelectedModel] = useState('');
-  const modelsLoadedRef = useRef(false);
-  useEffect(() => {
-    if (modelsLoadedRef.current) { return; }
-    modelsLoadedRef.current = true;
-    fetchModels().then((result) => {
-      if (result && result.models) { setAvailableModels(result.models); }
-    }).catch(() => {});
-  }, []);
-  useEffect(() => {
-    if (!taskId) { setSelectedModel(''); return; }
-    fetchSessionModel(taskId).then((result) => {
-      setSelectedModel((result && result.model) || '');
-    }).catch(() => {});
-  }, [taskId]);
-  const handleModelChange = useCallback(async (modelId) => {
-    setSelectedModel(modelId);
-    await setSessionModel(taskId, modelId);
-  }, [taskId]);
-
-  // Effort selector — levels discovered from the agent CLI (not hardcoded).
-  const [effortLevels, setEffortLevels] = useState([]);
-  const [selectedEffort, setSelectedEffort] = useState('');
-  const effortLevelsLoadedRef = useRef(false);
-  useEffect(() => {
-    if (effortLevelsLoadedRef.current) { return; }
-    effortLevelsLoadedRef.current = true;
-    fetchEffortLevels().then((result) => {
-      if (result && Array.isArray(result.levels)) { setEffortLevels(result.levels); }
-    }).catch(() => {});
-  }, []);
-  useEffect(() => {
-    if (!taskId) { setSelectedEffort(''); return; }
-    fetchSessionEffort(taskId).then((result) => {
-      setSelectedEffort((result && result.effort) || '');
-    }).catch(() => {});
-  }, [taskId]);
-  const handleEffortChange = useCallback(async (level) => {
-    setSelectedEffort(level);
-    await setSessionEffort(taskId, level);
-  }, [taskId]);
+  // Model + effort selectors share one fetch-list / fetch-current /
+  // on-change state block (see useSessionOption). The model catalogue
+  // and the effort levels are both discovered from the agent CLI (not
+  // hardcoded); they differ only in the API fns and result keys.
+  const [availableModels, selectedModel, handleModelChange] = useSessionOption(
+    taskId,
+    {
+      fetchOptions: fetchModels,
+      optionsKey: 'models',
+      fetchCurrent: fetchSessionModel,
+      currentKey: 'model',
+      setCurrent: setSessionModel,
+    },
+  );
+  const [effortLevels, selectedEffort, handleEffortChange] = useSessionOption(
+    taskId,
+    {
+      fetchOptions: fetchEffortLevels,
+      optionsKey: 'levels',
+      fetchCurrent: fetchSessionEffort,
+      currentKey: 'effort',
+      setCurrent: setSessionEffort,
+    },
+  );
   // Prefer the App-level toolMemory when passed (so the same recall
   // function powers both this modal AND the tab-attention filter);
   // fall back to a local instance for tests / standalone usage.

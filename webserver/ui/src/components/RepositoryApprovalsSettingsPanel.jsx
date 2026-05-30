@@ -4,7 +4,6 @@ import {
   updateRepositoryApprovals,
 } from '../api.js';
 import { toast } from '../stores/toastStore.js';
-import { apiErrorMessage } from '../utils/apiError.js';
 import { useSettingsResource } from '../hooks/useSettingsResource.js';
 import SettingsPanelBody from './settings/SettingsPanelBody.jsx';
 import SettingsPanelHead from './settings/SettingsPanelHead.jsx';
@@ -95,11 +94,8 @@ export default function RepositoryApprovalsSettingsPanel() {
     try {
       const result = await updateRepositoryApprovals({ approve, revoke });
       if (!result.ok) {
-        toast.show({
-          kind: 'error',
-          title: 'Save failed',
-          message: apiErrorMessage(result, 'save failed'),
-          durationMs: 8000,
+        toast.errorFromResult(result, {
+          title: 'Save failed', fallback: 'save failed', durationMs: 8000,
         });
         return;
       }

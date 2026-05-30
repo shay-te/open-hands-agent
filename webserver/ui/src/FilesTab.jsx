@@ -23,7 +23,7 @@ import {
   isFileConflicted,
   parseRepoDiffs,
 } from './diffModel.js';
-import { toast } from './stores/toastStore.js';
+import { toastResult } from './stores/toastStore.js';
 import { copyRepoRelativePath } from './utils/clipboard.js';
 import {
   activateTreeNode,
@@ -34,6 +34,7 @@ import {
 } from './FilesTabHelpers.js';
 import { cssEscapeAttr } from './utils/dom.js';
 import { countNoun } from './utils/pluralize.js';
+import { apiErrorMessage } from './utils/apiError.js';
 import { useDismissOnOutsidePointerOrEscape } from './hooks/useDismissOnOutsidePointerOrEscape.js';
 
 
@@ -349,13 +350,7 @@ export default function FilesTab({
     setSyncing(true);
     const result = await syncTaskRepositories(taskId);
     setSyncing(false);
-    const { title, message, kind } = formatSyncResult(result);
-    toast.show({
-      kind,
-      title,
-      message,
-      durationMs: kind === 'error' ? 12000 : 7000,
-    });
+    toastResult(formatSyncResult(result));
     // Bump the local sync-tick so the file tree refetches and any
     // newly-cloned repos render. Even on a no-op sync the refetch
     // is harmless and keeps the tree in sync with disk.
@@ -583,10 +578,12 @@ export default function FilesTab({
 export function formatSyncResult(result) {
   const body = (result && result.body) || {};
   if (!result || !result.ok) {
+    // Canonical precedence (body.error → result.error → fallback) via
+    // apiErrorMessage, matching every other error toast (DUP-11: aligned).
     return {
       kind: 'error',
       title: 'Sync repositories failed',
-      message: (result && result.error) || body.error || 'unknown error',
+      message: apiErrorMessage(result, 'unknown error'),
     };
   }
   const added = body.added_repositories || [];

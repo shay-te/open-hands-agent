@@ -1,88 +1,11 @@
-import types
 import unittest
-from unittest.mock import Mock, patch
 
 from kato_core_lib.helpers.shell_status_utils import (
-    clear_active_inline_status,
     sleep_with_warmup_countdown,
 )
 
 
 class ShellStatusUtilsTests(unittest.TestCase):
-    def test_clear_active_inline_status_uses_active_spinner_stream(self) -> None:
-        class _Stream:
-            def __init__(self) -> None:
-                self.chunks: list[str] = []
-
-            def isatty(self) -> bool:
-                return True
-
-            def write(self, chunk: str) -> None:
-                self.chunks.append(chunk)
-
-            def flush(self) -> None:
-                return None
-
-        stream = _Stream()
-        spinner = None
-
-        from kato_core_lib.helpers import shell_status_utils
-
-        try:
-            spinner = shell_status_utils.InlineStatusSpinner(
-                'Validating connection (3/3): openhands',
-                stream=stream,
-            )
-            shell_status_utils._ACTIVE_INLINE_STATUS_SPINNER = spinner
-            clear_active_inline_status()
-        finally:
-            shell_status_utils._ACTIVE_INLINE_STATUS_SPINNER = None
-
-        self.assertEqual(
-            stream.chunks,
-            [
-                '\r'
-                + (' ' * (len('Validating connection (3/3): openhands') + 2))
-                + '\r'
-            ],
-        )
-
-    def test_inline_status_spinner_persists_final_line_without_spinner(self) -> None:
-        class _Stream:
-            def __init__(self) -> None:
-                self.chunks: list[str] = []
-
-            def isatty(self) -> bool:
-                return True
-
-            def write(self, chunk: str) -> None:
-                self.chunks.append(chunk)
-
-            def flush(self) -> None:
-                return None
-
-        stream = _Stream()
-        spinner = None
-
-        from kato_core_lib.helpers import shell_status_utils
-
-        try:
-            spinner = shell_status_utils.InlineStatusSpinner(
-                'Validating connection (3/3): openhands',
-                stream=stream,
-                persist_final_line=True,
-            )
-            spinner._thread = Mock()
-            spinner._current_status_text = Mock(return_value='Validating connection (3/3): openhands')
-            spinner.stop()
-        finally:
-            shell_status_utils._ACTIVE_INLINE_STATUS_SPINNER = None
-
-        self.assertEqual(
-            stream.chunks,
-            ['\rValidating connection (3/3): openhands\n'],
-        )
-
     def test_sleep_with_warmup_countdown_updates_inline_status_for_tty_stream(self) -> None:
         sleep_calls: list[float] = []
 

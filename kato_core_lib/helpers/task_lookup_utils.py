@@ -3,6 +3,16 @@ from __future__ import annotations
 from typing import Callable, Iterable, Optional
 
 
+def task_id_matches(task: object, task_id: str) -> bool:
+    """Return True when ``task``'s ``id`` equals ``task_id``.
+
+    Normalizes the task's ``id`` attribute with ``str(...).strip()`` (a
+    missing/``None`` id becomes ``''``) before comparing, so callers
+    don't have to re-spell that expression at every queue-walk site.
+    """
+    return str(getattr(task, 'id', '') or '').strip() == task_id
+
+
 def find_task_by_id(
     task_service: object,
     task_id: str,
@@ -31,6 +41,6 @@ def find_task_by_id(
                 on_error(queue_name)
             continue
         for task in tasks:
-            if str(getattr(task, 'id', '') or '').strip() == task_id:
+            if task_id_matches(task, task_id):
                 return task
     return None

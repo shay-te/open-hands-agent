@@ -661,72 +661,6 @@ class ShellStatusUtilsTests(unittest.TestCase):
         self.assertIn('Waiting', out)
         self.assertIn('Kato', out)
 
-    def test_inline_status_spinner_persists_final_line(self) -> None:
-        # Lines 157-160: persist_final_line=True writes the final
-        # status line + newline so it stays visible after stop().
-        from kato_core_lib.helpers.shell_status_utils import (
-            InlineStatusSpinner,
-        )
-        tty = _TtyStream()
-        spinner = InlineStatusSpinner(
-            'Working',
-            stream=tty,
-            persist_final_line=True,
-            frame_interval_seconds=0.01,
-        )
-        spinner.start()
-        # Give the spin thread a moment to write at least one frame.
-        time.sleep(0.05)
-        spinner.stop()
-        out = tty.getvalue()
-        # Final persisted line ends with newline.
-        self.assertIn('Working', out)
-        self.assertIn('\n', out)
-
-    def test_inline_status_spinner_non_tty_start_is_noop(self) -> None:
-        # Lines 145-146: when output isn't a TTY, ``start`` is a
-        # no-op — no thread spawned, no spinner.
-        from kato_core_lib.helpers.shell_status_utils import (
-            InlineStatusSpinner,
-        )
-        non_tty = io.StringIO()
-        spinner = InlineStatusSpinner('Working', stream=non_tty)
-        spinner.start()
-        # _thread remains None.
-        self.assertIsNone(spinner._thread)
-        # stop() must also be a safe no-op in this state.
-        spinner.stop()
-        self.assertEqual(non_tty.getvalue(), '')
-
-    def test_inline_status_spinner_clear_path(self) -> None:
-        # Lines 161-164: persist_final_line=False → clear the spinner
-        # line on stop (the more common path used by retry-with-spinner).
-        from kato_core_lib.helpers.shell_status_utils import (
-            InlineStatusSpinner,
-        )
-        tty = _TtyStream()
-        spinner = InlineStatusSpinner(
-            'Waiting',
-            stream=tty,
-            persist_final_line=False,
-            frame_interval_seconds=0.01,
-        )
-        spinner.start()
-        time.sleep(0.05)
-        spinner.stop()
-        out = tty.getvalue()
-        # The clear-write is a CR + spaces + CR — no trailing newline.
-        self.assertIn('\r', out)
-
-    def test_clear_active_inline_status_noop_when_no_spinner(self) -> None:
-        # Line 204: ``if spinner is None: return`` — calling the
-        # clear function with no active spinner is a no-op.
-        from kato_core_lib.helpers.shell_status_utils import (
-            clear_active_inline_status,
-        )
-        # Module global is None at fresh import; should not raise.
-        clear_active_inline_status()
-
 
 # --------------------------------------------------------------------------
 # lessons_data_access — read/write fail-safes + path validation
@@ -747,22 +681,16 @@ class LessonsDataAccessDefensiveTests(unittest.TestCase):
         )
         self.da = LessonsDataAccess(self.state_dir)
 
-    def test_properties_expose_internal_paths(self) -> None:
-        # Lines 56, 60, 64: the three @property accessors.
-        self.assertEqual(self.da.state_dir, self.state_dir)
-        self.assertEqual(self.da.global_path, self.state_dir / 'lessons.md')
-        self.assertEqual(self.da.per_task_dir, self.state_dir / 'lessons')
-
     def test_read_global_swallows_oserror_and_logs(self) -> None:
         # Lines 74-76: OSError on read_text → log + return ''.
-        self.da.global_path.write_text('content', encoding='utf-8')
+        self.da._global_path.write_text('content', encoding='utf-8')
         with patch.object(Path, 'read_text', side_effect=OSError('locked')):
             self.assertEqual(self.da.read_global(), '')
 
     def test_last_compacted_returns_none_for_malformed_timestamp(self) -> None:
         # Lines 118-119: fromisoformat raises on a bad timestamp →
         # return None (treat as "never compacted") rather than crash.
-        self.da.global_path.write_text(
+        self.da._global_path.write_text(
             '<!-- last_compacted: not-an-iso-date -->\nbody\n',
             encoding='utf-8',
         )
@@ -770,7 +698,7 @@ class LessonsDataAccessDefensiveTests(unittest.TestCase):
 
     def test_read_per_task_swallows_oserror(self) -> None:
         # Lines 130-134: OSError on read_text → log + return None.
-        per_task = self.da.per_task_dir / 'PROJ-1.md'
+        per_task = self.da._per_task_dir / 'PROJ-1.md'
         per_task.parent.mkdir(parents=True, exist_ok=True)
         per_task.write_text('content', encoding='utf-8')
         with patch.object(Path, 'read_text', side_effect=OSError('locked')):
@@ -778,7 +706,7 @@ class LessonsDataAccessDefensiveTests(unittest.TestCase):
 
     def test_delete_per_task_swallows_unlink_oserror(self) -> None:
         # Lines 160-161: unlink raises → log + continue. No crash.
-        per_task = self.da.per_task_dir / 'PROJ-2.md'
+        per_task = self.da._per_task_dir / 'PROJ-2.md'
         per_task.parent.mkdir(parents=True, exist_ok=True)
         per_task.write_text('content', encoding='utf-8')
         with patch.object(Path, 'unlink', side_effect=OSError('denied')):

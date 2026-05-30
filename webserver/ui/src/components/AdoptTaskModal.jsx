@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import { adoptTask, fetchAllAssignedTasks } from '../api.js';
 import { toast } from '../stores/toastStore.js';
-import { apiErrorMessage } from '../utils/apiError.js';
 import { usePickerData } from '../hooks/usePickerData.js';
 import SearchPickerModal from './SearchPickerModal.jsx';
 
@@ -36,10 +35,9 @@ export default function AdoptTaskModal({
   async function onConfirm(task) {
     const result = await adoptTask(task.id);
     if (!result.ok) {
-      toast.show({
-        kind: 'error',
+      toast.errorFromResult(result, {
         title: 'Could not adopt task',
-        message: apiErrorMessage(result, 'adopt failed'),
+        fallback: 'adopt failed',
         durationMs: 12000,
       });
       return;

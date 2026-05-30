@@ -99,3 +99,12 @@ export default function Icon({ name, className = '', spin = false }) {
     <FontAwesomeIcon icon={def} className={className} spin={spin} />
   );
 }
+
+// Busy-state icon swap: show a spinning ``spinner`` while ``busy``,
+// otherwise the ``idle`` action glyph. Collapses the repeated
+// ``<Icon name={busy ? 'spinner' : X} spin={busy} />`` idiom (used by
+// every action button in SessionHeader + the Scan-now button in
+// TabList) so the busy flag is named once instead of twice per call.
+export function BusyIcon({ busy, idle, ...rest }) {
+  return <Icon name={busy ? 'spinner' : idle} spin={busy} {...rest} />;
+}
