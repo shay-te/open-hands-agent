@@ -77,7 +77,7 @@ class AgentClientFactory(object):
         self._testing = testing
         self._docker_mode_on = docker_mode_on
         self._read_only_tools_on = read_only_tools_on
-        # Product-specific refusal guidance the spawner (kato) wants
+        # Product-specific refusal guidance the host application wants
         # appended to the generic workspace scope block. Passed only to
         # the Claude client; '' for any consumer that doesn't set it, so
         # codex/openhands defaults are unchanged.

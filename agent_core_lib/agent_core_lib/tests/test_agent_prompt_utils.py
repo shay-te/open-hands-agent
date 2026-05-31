@@ -5,14 +5,66 @@ why the case looks deliberately narrow.
 """
 from __future__ import annotations
 
+import os
 import unittest
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from agent_core_lib.agent_core_lib.helpers.agent_prompt_utils import (
+    IGNORED_REPOSITORY_FOLDERS_ENV,
+    _LEGACY_IGNORED_REPOSITORY_FOLDERS_ENV,
+    forbidden_repository_guardrails_text,
+    ignored_repository_folder_names,
     repository_scope_text,
     workspace_inventory_block,
     workspace_scope_block,
 )
+
+
+class IgnoredFoldersEnvNameTests(unittest.TestCase):
+    """The ignored-folders env read prefers the generic name, falls back
+    to the legacy ``KATO_*`` name (compatibility only), and the rendered
+    guardrails/scope text uses generic wording by default."""
+
+    def _isolated_env(self):
+        # patch.dict snapshots + restores os.environ; inside we drop both
+        # keys so the host's real environment can't pollute the case.
+        ctx = patch.dict(os.environ, {}, clear=False)
+        ctx.start()
+        os.environ.pop(IGNORED_REPOSITORY_FOLDERS_ENV, None)
+        os.environ.pop(_LEGACY_IGNORED_REPOSITORY_FOLDERS_ENV, None)
+        self.addCleanup(ctx.stop)
+
+    def test_generic_env_var_is_read(self) -> None:
+        self._isolated_env()
+        os.environ[IGNORED_REPOSITORY_FOLDERS_ENV] = 'a, b'
+        self.assertEqual(ignored_repository_folder_names(), ['a', 'b'])
+
+    def test_legacy_kato_env_var_still_works_as_fallback(self) -> None:
+        self._isolated_env()
+        os.environ[_LEGACY_IGNORED_REPOSITORY_FOLDERS_ENV] = 'c, d'
+        self.assertEqual(ignored_repository_folder_names(), ['c', 'd'])
+
+    def test_generic_env_var_wins_when_both_set(self) -> None:
+        self._isolated_env()
+        os.environ[IGNORED_REPOSITORY_FOLDERS_ENV] = 'generic-wins'
+        os.environ[_LEGACY_IGNORED_REPOSITORY_FOLDERS_ENV] = 'legacy-loses'
+        self.assertEqual(ignored_repository_folder_names(), ['generic-wins'])
+
+    def test_canonical_constant_is_the_generic_name(self) -> None:
+        self.assertEqual(IGNORED_REPOSITORY_FOLDERS_ENV, 'AGENT_IGNORED_REPOSITORY_FOLDERS')
+        self.assertEqual(_LEGACY_IGNORED_REPOSITORY_FOLDERS_ENV, 'KATO_IGNORED_REPOSITORY_FOLDERS')
+
+    def test_rendered_text_uses_generic_wording_by_default(self) -> None:
+        guardrails = forbidden_repository_guardrails_text('secret-client, legacy-api')
+        self.assertIn('AGENT_IGNORED_REPOSITORY_FOLDERS', guardrails)
+        self.assertNotIn('KATO_IGNORED_REPOSITORY_FOLDERS', guardrails)
+
+        block = workspace_scope_block(['/wks/PROJ/repo-a'])
+        self.assertIn('AGENT_WORKSPACES_ROOT', block)
+        self.assertIn('AGENT_REPOSITORY_ROOT_PATH', block)
+        self.assertNotIn('KATO_WORKSPACES_ROOT', block)
+        self.assertNotIn('KATO_REPOSITORY_ROOT_PATH', block)
 
 
 class WorkspaceInventoryBlockBranchTests(unittest.TestCase):

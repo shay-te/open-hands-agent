@@ -556,7 +556,7 @@ class BuildCodexTests(unittest.TestCase):
 
     def test_missing_optional_cfg_fields_use_safe_defaults(self) -> None:
         # Operator config block exists but has none of the optional
-        # knobs set — kato should fall back to documented defaults
+        # knobs set — the factory should fall back to documented defaults
         # rather than crash with AttributeError.
         factory = AgentClientFactory(max_retries=1)
         cfg = types.SimpleNamespace(
@@ -600,7 +600,7 @@ class BuildOpenHandsTests(unittest.TestCase):
             result = factory._build_openhands(cfg)
         return result, MockClient
 
-    def test_instantiates_kato_client_with_correct_positional_args(self) -> None:
+    def test_instantiates_openhands_client_with_correct_positional_args(self) -> None:
         factory = AgentClientFactory(max_retries=4)
         cfg = _make_open_cfg_for_openhands(api_key='my-api-key')
         llm = {'model': 'gpt-4o', 'api_key': 'llm-k'}

@@ -36,7 +36,10 @@ from provider_client_base.provider_client_base.data.review_comment import Review
 
 # Kato-specific tokens that must NEVER appear in the product-agnostic
 # agent_core_lib block by default.
-_KATO_TOKENS = ('kato:repo:', 'YouTrack', 'Files tab', 'Sync repositories', 'WHEN YOU MUST REFUSE')
+_KATO_TOKENS = (
+    'kato:repo:', 'YouTrack', 'Files tab', 'Sync repositories', 'WHEN YOU MUST REFUSE',
+    'KATO_WORKSPACES_ROOT', 'KATO_IGNORED_REPOSITORY_FOLDERS', 'KATO_REPOSITORY_ROOT_PATH',
+)
 
 
 class WorkspaceScopeBlockGenericTests(unittest.TestCase):
@@ -60,13 +63,13 @@ class WorkspaceScopeBlockGenericTests(unittest.TestCase):
 
     def test_explicitly_forbids_operator_source_clones(self) -> None:
         block = workspace_scope_block(['/x/workspace/client'])
-        self.assertIn('REPOSITORY_ROOT_PATH', block)
+        self.assertIn('AGENT_REPOSITORY_ROOT_PATH', block)
         self.assertIn('Do NOT', block)
 
     def test_explicitly_forbids_other_tasks_workspaces(self) -> None:
         block = workspace_scope_block(['/x/workspace/client'])
         self.assertIn('other tasks', block.lower())
-        self.assertIn('KATO_WORKSPACES_ROOT', block)
+        self.assertIn('AGENT_WORKSPACES_ROOT', block)
 
     def test_explicitly_lists_mutating_tools(self) -> None:
         block = workspace_scope_block(['/x/workspace/client'])

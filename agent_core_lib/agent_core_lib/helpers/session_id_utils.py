@@ -1,19 +1,19 @@
 """Canonical helpers for agent session-id normalization.
 
-Owned by ``agent_core_lib`` because every agent backend kato can spawn
+Owned by ``agent_core_lib`` because every agent backend a host can spawn
 (Claude, Codex, OpenHands, OpenRouter, ...) keeps a per-task session
 id and needs identical handling: strip whitespace, accept ``None``,
 treat blanks as the empty-string sentinel, compare by canonical form.
 
-Per the closed-black-box-lib rule in CLAUDE.md, this module has no
-upstream imports from any other core-lib — it lives at the bottom so
+This module has no upstream imports from any other core-lib — it lives
+at the bottom so
 ``claude_core_lib``, ``codex_core_lib``, ``workspace_core_lib``, the
 webserver, and anywhere else can import it without creating a cycle.
 
 The bug class this module exists to prevent: each call site used to
 spell out ``str(record.agent_session_id or '').strip()`` by hand,
 with subtle variants (some forgot ``.strip()``, some forgot the
-``or ''`` guard, some forgot ``str(...)``). The result was kato
+``or ''`` guard, some forgot ``str(...)``). The result was a host
 passing ``--resume '   '`` to the agent CLI and getting a
 "No conversation found" error, or comparing dirty-vs-clean copies
 of the same id and deciding they were different. Every read goes
@@ -28,7 +28,7 @@ from collections.abc import Mapping
 
 
 # Canonical key name for the agent's session id across every code
-# surface kato exposes (JSON payloads on disk, API request/response
+# surface the host exposes (JSON payloads on disk, API request/response
 # bodies, hook event payloads, log labels). Use this constant instead
 # of an inline field-name literal so a future rename can land here
 # and a typo can't silently drift one consumer away from the others.

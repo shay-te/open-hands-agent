@@ -8,11 +8,30 @@ from agent_core_lib.agent_core_lib.helpers.text_utils import (
     text_from_attr,
     text_from_mapping,
 )
-IGNORED_REPOSITORY_FOLDERS_ENV = 'KATO_IGNORED_REPOSITORY_FOLDERS'
+# Env var naming the repository folders the agent must NOT touch. The
+# canonical name is generic; the legacy ``KATO_*`` name is read ONLY as a
+# backward-compatibility fallback for hosts that set the old variable.
+IGNORED_REPOSITORY_FOLDERS_ENV = 'AGENT_IGNORED_REPOSITORY_FOLDERS'
+_LEGACY_IGNORED_REPOSITORY_FOLDERS_ENV = 'KATO_IGNORED_REPOSITORY_FOLDERS'
+
+# Env names referenced as GUIDANCE TEXT ONLY in the workspace scope block.
+# agent_core_lib never reads these — the host resolves the real paths and
+# passes them in; the text just names them so the agent grasps the boundary.
+WORKSPACES_ROOT_ENV = 'AGENT_WORKSPACES_ROOT'
+REPOSITORY_ROOT_ENV = 'AGENT_REPOSITORY_ROOT_PATH'
 
 
 def ignored_repository_folder_names(raw_value: object = None) -> list[str]:
-    value = os.environ.get(IGNORED_REPOSITORY_FOLDERS_ENV, '') if raw_value is None else raw_value
+    if raw_value is None:
+        # Prefer the generic env; fall back to the legacy KATO_* name so a
+        # host that hasn't migrated keeps working (compatibility only).
+        value = (
+            os.environ.get(IGNORED_REPOSITORY_FOLDERS_ENV)
+            or os.environ.get(_LEGACY_IGNORED_REPOSITORY_FOLDERS_ENV)
+            or ''
+        )
+    else:
+        value = raw_value
     if isinstance(value, str):
         candidates = value.split(',')
     else:
@@ -150,7 +169,7 @@ def workspace_scope_block(allowed_paths, extra_refusal_guidance: str = '') -> st
     """Render the unmissable strict workspace-boundary block.
 
     Generic and product-agnostic: it names ONLY the allowed paths and the
-    operator-config env vars (``KATO_WORKSPACES_ROOT`` / ``REPOSITORY_ROOT_PATH``),
+    operator-config env vars (``AGENT_WORKSPACES_ROOT`` / ``AGENT_REPOSITORY_ROOT_PATH``),
     never any product workflow (ticket tags, a UI, a sync action). A
     consumer that knows how to widen scope in its own product can pass
     that actionable refusal guidance as ``extra_refusal_guidance``; it is
@@ -181,9 +200,9 @@ def workspace_scope_block(allowed_paths, extra_refusal_guidance: str = '') -> st
         'Bash, Edit, Write, MultiEdit, NotebookEdit, Read, Grep, Glob '
         'must all stay inside.\n'
         '- Do NOT touch other tasks\' workspaces under '
-        '``KATO_WORKSPACES_ROOT`` (set by the operator).\n'
+        '``AGENT_WORKSPACES_ROOT`` (set by the operator).\n'
         '- Do NOT touch the operator\'s shared source clones at '
-        '``REPOSITORY_ROOT_PATH`` — even if a path under it appears '
+        '``AGENT_REPOSITORY_ROOT_PATH`` — even if a path under it appears '
         'in the task description, treat it as reference text only.\n'
         '- Do NOT ``cd`` out, do not follow symlinks out, do not '
         'write to ``/tmp`` or ``$HOME`` without an explicit need '

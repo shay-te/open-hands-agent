@@ -820,8 +820,9 @@ class WorkspaceScopeBlockTests(unittest.TestCase):
 
     def test_generic_not_kato_specific(self) -> None:
         result = workspace_scope_block(['/workspace/x'])
-        # Should mention KATO_WORKSPACES_ROOT without hardcoding ~/.kato/workspaces/
-        self.assertIn('KATO_WORKSPACES_ROOT', result)
+        # Generic env wording, no product-specific names or paths.
+        self.assertIn('AGENT_WORKSPACES_ROOT', result)
+        self.assertNotIn('KATO_WORKSPACES_ROOT', result)
         self.assertNotIn('~/.kato/workspaces/', result)
 
 

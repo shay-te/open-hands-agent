@@ -4,8 +4,8 @@ Pure functions that distill a session's recent events into a
 paste-into-another-AI markdown snapshot. No I/O, no thread/lock work,
 no orchestrator/product concepts — a caller that knows WHERE to write
 the file (and on what cadence) supplies the data and persists the
-result. In kato that caller is ``ResumePromptWatcher`` +
-``write_resume_prompt`` (which stay in ``kato_core_lib``).
+result. The host application owns that caller — where it writes the
+file and on what cadence (e.g. a watcher polling live sessions).
 
 Render contract: the output is pure markdown, paste-it-into-an-AI
 ready. Structure:

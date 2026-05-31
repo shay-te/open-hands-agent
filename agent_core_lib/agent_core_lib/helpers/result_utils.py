@@ -29,7 +29,7 @@ def openhands_success_flag(
 def openhands_session_id(payload: Mapping[object, object] | None) -> str:
     # ``payload`` may be either OpenHands' raw API response (wire
     # format — keys ``session_id`` / ``conversation_id``) or a payload
-    # that has already been enriched with kato's internal
+    # that has already been enriched with the host's internal
     # ``AGENT_SESSION_ID`` key. Check all three so the helper works
     # at both layers.
     for key in ('session_id', 'conversation_id', ImplementationFields.AGENT_SESSION_ID):

@@ -1,8 +1,9 @@
 """Tests for the generic resume-prompt renderer + session adapter.
 
 The renderer + ``build_inputs_from_session`` adapter are pure and
-provider-agnostic; tested here in isolation. The Kato-specific atomic
-writer is tested in ``tests/test_resume_prompt_writer.py``.
+provider-agnostic; tested here in isolation. The host-specific atomic
+writer (where/when the snapshot is persisted) is tested in the host's
+own suite.
 """
 from __future__ import annotations
 

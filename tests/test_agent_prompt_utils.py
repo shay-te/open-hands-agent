@@ -31,7 +31,7 @@ class AgentPromptUtilsTests(unittest.TestCase):
     def test_forbidden_repository_guardrails_names_out_of_bounds_tools(self) -> None:
         text = forbidden_repository_guardrails_text('secret-client, legacy-api')
 
-        self.assertIn('KATO_IGNORED_REPOSITORY_FOLDERS', text)
+        self.assertIn('AGENT_IGNORED_REPOSITORY_FOLDERS', text)
         self.assertIn('- secret-client', text)
         self.assertIn('- legacy-api', text)
         self.assertIn('Do not access them with Read, Glob, Grep, Bash', text)
