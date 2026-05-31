@@ -148,7 +148,12 @@ def prepend_chat_workspace_context(
     inventory = workspace_inventory_block(cwd, additional_dirs)
     forbidden = forbidden_repository_guardrails_text(raw_ignored_value)
     parts = [block for block in (continuity, inventory, forbidden) if block]
-    if not parts:
+    # ``continuity`` is an unconditional non-empty string, so ``parts`` is
+    # never empty; this guard is defensive only and is intentionally
+    # unreachable (kept so the function stays robust if continuity ever
+    # becomes conditional). Excluded from coverage rather than tested with
+    # a contrived monkeypatch of an internal that cannot happen in practice.
+    if not parts:  # pragma: no cover
         return prompt
     return '\n\n'.join([*parts, prompt])
 
