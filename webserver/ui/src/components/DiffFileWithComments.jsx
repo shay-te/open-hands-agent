@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import Icon from './Icon.jsx';
 import {
   Decoration,
@@ -86,7 +86,13 @@ function renderPathSegments(path) {
 // on the line gutter open an inline new-comment form widget at
 // that line. File-level comments (``line < 0``) live in the
 // bottom panel below the diff.
-export default function DiffFileWithComments({
+// Memoized: DiffPane stacks one of these per changed file, so a comments
+// poll / workspace-version bump that re-renders the parent must NOT
+// re-run every file box. All inputs arrive as props (no context), and
+// DiffPane keeps ``file`` (parseDiffCached) + ``comments`` (unchanged-
+// payload guard) referentially stable, so the default shallow compare
+// lets unaffected files bail.
+function DiffFileWithComments({
   file, conflicted = false, repoId = '', repoCwd = '', taskId = '',
   initiallyExpanded,
   forceExpandToken = 0,
@@ -798,3 +804,5 @@ export default function DiffFileWithComments({
     </section>
   );
 }
+
+export default memo(DiffFileWithComments);

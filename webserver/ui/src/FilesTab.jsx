@@ -122,6 +122,20 @@ export default function FilesTab({
   // record the offset on every scroll and re-apply it in a layout
   // effect (below) after each data-driven render, before paint.
   const scrollTopRef = useRef(0);
+  // Last focus-request id this effect acted on. The focus effect below
+  // depends on data-refresh values (state.trees / diffMeta) so it
+  // re-fires on every 5s poll + 1.2s workspace bump; without this guard
+  // it cleared the search and re-expanded the repo every few seconds
+  // (the operator's "the tree changes/scrolls by itself" report). Only
+  // act when the operator actually clicks a new file (a new requestId).
+  const handledFilesFocusRef = useRef(0);
+  // Signature of the last file-tree/diff/comments payload committed.
+  // The fetch effect re-runs every 5s (poll) + ~1.2s (workspaceVersion
+  // bump) and used to rebuild + replace the whole tree state each time —
+  // re-cloning every node (attachIds), re-sorting the changed tree
+  // (buildDiffFileTree) and re-rendering every row — even when nothing
+  // on disk changed. Skip the rebuild + setState when the bytes match.
+  const fetchSigRef = useRef('');
   const [size, setSize] = useState({ width: 320, height: 480 });
 
   // Cmd/Ctrl+P from the parent flips the right pane to Files (already
@@ -147,6 +161,11 @@ export default function FilesTab({
 
   useEffect(() => {
     if (!focusFileTarget || state.status !== 'ready') { return; }
+    // Skip re-fires from background refreshes (same request already
+    // handled) — only a fresh operator click bumps requestId. The
+    // data-refresh deps stay so a click that lands before the tree is
+    // ready still applies once the file appears.
+    if (focusFileTarget.requestId === handledFilesFocusRef.current) { return; }
     const targetPath = String(focusFileTarget.relativePath || '').trim();
     if (!targetPath) { return; }
     for (const repoTree of state.trees) {
@@ -156,6 +175,7 @@ export default function FilesTab({
         continue;
       }
       if (!diffMeta.has(targetPath)) { continue; }
+      handledFilesFocusRef.current = focusFileTarget.requestId;
       setQuery('');
       setShowAllFiles(false);
       setCollapsed((prev) => {
@@ -186,26 +206,37 @@ export default function FilesTab({
             commentMetaByRepo: new Map(), error: '',
           }
     ));
-    const diffMetaPromise = fetchDiff(taskId)
-      .then((payload) => {
-        return buildFilesDiffMeta(parseRepoDiffs(payload));
-      })
-      .catch((err) => {
-        // Decoration only: keep the file browser usable if diff parsing fails.
+    // Fetch the RAW payloads in parallel; the diff/comments fetches
+    // degrade to null (decoration only — the tree still renders) while a
+    // file-tree failure propagates to the error state below.
+    Promise.all([
+      fetchFileTree(taskId),
+      fetchDiff(taskId).catch((err) => {
         console.warn('Failed to load file-tree diff metadata', err);
-        return new Map();
-      });
-    const commentMetaPromise = fetchTaskComments(taskId)
-      .then((result) => buildFilesCommentMeta(result?.body?.comments || []))
-      .catch(() => new Map());
-    Promise.all([fetchFileTree(taskId), diffMetaPromise, commentMetaPromise])
-      .then(([payload, diffMetaByRepo, commentMetaByRepo]) => {
+        return null;
+      }),
+      fetchTaskComments(taskId).catch(() => null),
+    ])
+      .then(([payload, diffPayload, commentResult]) => {
         if (cancelled) { return; }
+        const commentsRaw = Array.isArray(commentResult?.body?.comments)
+          ? commentResult.body.comments : [];
+        // Unchanged bytes → keep the existing state object (and every
+        // per-repo Map/Set identity) so the tree's useMemos and child
+        // rows bail instead of re-cloning + re-rendering on an idle poll.
+        const sig = JSON.stringify([payload, diffPayload, commentsRaw]);
+        if (sig === fetchSigRef.current) { return; }
+        fetchSigRef.current = sig;
+        let diffMetaByRepo = new Map();
+        if (diffPayload) {
+          try { diffMetaByRepo = buildFilesDiffMeta(parseRepoDiffs(diffPayload)); }
+          catch (err) { console.warn('Failed to parse file-tree diff metadata', err); }
+        }
         setState({
           status: 'ready',
           trees: normalizeTrees(payload),
           diffMetaByRepo,
-          commentMetaByRepo,
+          commentMetaByRepo: buildFilesCommentMeta(commentsRaw),
           error: '',
         });
       })
@@ -252,6 +283,9 @@ export default function FilesTab({
   // previous one was left.
   useEffect(() => {
     scrollTopRef.current = 0;
+    // Drop the payload signature so the new task always rebuilds, even in
+    // the unlikely event its first payload byte-matches the old task's.
+    fetchSigRef.current = '';
     setState({
       status: 'loading',
       trees: [],
@@ -641,6 +675,12 @@ function RepoTree({
   showAllFiles = false, taskId = '', focusFileTarget = null,
 }) {
   const repoRef = useRef(null);
+  // Last focus-request id we scrolled/expanded for. The focus effect
+  // below lists changedTree.nodes + repoTree in its deps (both get new
+  // identities on every poll), so it re-fires constantly; this guard
+  // makes it act once per operator click instead of smooth-scrolling
+  // the tree and re-opening folders every few seconds.
+  const handledChangedFocusRef = useRef(0);
   const treeData = useMemo(() => {
     return attachIds(repoTree.tree, repoTree.cwd);
   }, [repoTree.tree, repoTree.cwd]);
@@ -677,10 +717,16 @@ function RepoTree({
 
   useEffect(() => {
     if (!focusTargetMatchesRepo(focusFileTarget, repoTree, 1)) { return undefined; }
+    // Act only on a fresh focus request. changedTree.nodes / repoTree in
+    // the deps re-fire this on every background refresh; without this
+    // the tree scrolled itself + re-opened folders every poll.
+    const requestId = focusFileTarget?.requestId || 0;
+    if (requestId === handledChangedFocusRef.current) { return undefined; }
     const targetPath = String(focusFileTarget?.relativePath || '').trim();
     if (!targetPath) { return undefined; }
     const focusInfo = findChangedFileFocusInfo(changedTree.nodes, targetPath);
     if (!focusInfo) { return undefined; }
+    handledChangedFocusRef.current = requestId;
     setSelectedChangedKey(changedFileSelectionKey(focusInfo.file));
     setClosedChangedFolders((prev) => {
       let changed = false;

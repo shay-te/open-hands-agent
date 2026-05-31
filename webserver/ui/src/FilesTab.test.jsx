@@ -487,6 +487,42 @@ describe('FilesTab — render shell', () => {
     window.HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
   });
 
+  test('does NOT re-scroll the tree on a background refresh (same focus request)', async () => {
+    // Regression: the focus effect listed data-refresh values in its
+    // deps, so the 5s poll / 1.2s workspace bump re-fired it and the tree
+    // smooth-scrolled itself every few seconds. It must act once per
+    // operator click (requestId), not on every refresh.
+    const originalScrollIntoView = window.HTMLElement.prototype.scrollIntoView;
+    window.HTMLElement.prototype.scrollIntoView = vi.fn();
+    fetchFileTree.mockResolvedValue(FILE_TREE_PAYLOAD);
+    fetchDiff.mockResolvedValue(DIFF_PAYLOAD);
+    // App keeps the same focus object between clicks — only requestId
+    // changes on a NEW click, never on a poll.
+    const focus = { repoId: 'client', relativePath: 'src/Changed.js', requestId: 1 };
+    const { rerender } = render(
+      <FilesTab taskId="T1" onOpenFile={vi.fn()} focusFileTarget={focus} workspaceVersion={1} />,
+    );
+    const label = await screen.findByText('Changed.js');
+    await waitFor(() => {
+      expect(label.closest('button').scrollIntoView).toHaveBeenCalledTimes(1);
+    });
+    window.HTMLElement.prototype.scrollIntoView.mockClear();
+
+    // Bump workspaceVersion → refetch → brand-new tree/diff identities
+    // (exactly what the poll does). Same requestId ⇒ no second scroll.
+    // Relative call count — the shared mock isn't cleared between tests.
+    const fetchesBefore = fetchFileTree.mock.calls.length;
+    rerender(
+      <FilesTab taskId="T1" onOpenFile={vi.fn()} focusFileTarget={focus} workspaceVersion={2} />,
+    );
+    await waitFor(() => {
+      expect(fetchFileTree.mock.calls.length).toBeGreaterThan(fetchesBefore);
+    });
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    expect(window.HTMLElement.prototype.scrollIntoView).not.toHaveBeenCalled();
+    window.HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
+  });
+
   test('marks conflicted files in the changed tree and full tree', async () => {
     const fileTreePayload = {
       trees: [{

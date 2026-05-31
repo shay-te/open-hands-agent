@@ -96,6 +96,31 @@ const _open = (over = {}) => ({
   ...over,
 });
 
+// A repo whose files exercise BOTH auto-collapse rules (real
+// decideAutoExpand runs — only diffModel is mocked). ``n`` diff lines =
+// a hunk with n changes. Budget is 2000 cumulative, large-file is >500.
+function _budgetRepoDiffs() {
+  const lines = (n) => ({ hunks: [{ changes: new Array(n).fill({ type: 'normal' }) }] });
+  const f = (name, n) => ({ type: 'modify', newPath: name, oldPath: name, ...lines(n) });
+  return [{
+    repo_id: 'client',
+    cwd: '/w/client',
+    conflictedFiles: new Set(),
+    files: [
+      f('a.js', 500),   // cum 500  -> expand
+      f('b.js', 500),   // cum 1000 -> expand
+      f('big.js', 900), // > 500    -> collapse (large), budget untouched
+      f('c.js', 500),   // cum 1500 -> expand
+      f('d.js', 500),   // cum 2000 -> expand
+      f('e.js', 500),   // cum 2500 -> collapse (over budget)
+    ],
+  }];
+}
+
+const _byPath = (nodes) => Object.fromEntries(
+  nodes.map((n) => [n.getAttribute('data-path'), n]),
+);
+
 
 describe('diffAnchorKey', () => {
   test('joins repo + path; tolerates a missing repo', () => {
@@ -145,13 +170,44 @@ describe('DiffPane — renders ALL files, scrolls to the target', () => {
     });
   });
 
-  test('opens every diff file by default', async () => {
+  test('opens every (small) diff file by default', async () => {
     fetchDiff.mockResolvedValue({ diffs: [] });
     parseRepoDiffs.mockReturnValue(_repoDiffs());
     render(<DiffPane openFile={_open()} />);
     const files = await screen.findAllByTestId('diff-file');
     expect(files.map((node) => node.getAttribute('data-initially-expanded')))
       .toEqual(['true', 'true', 'true']);
+  });
+
+  test('auto-collapses large files and files past the cumulative line budget', async () => {
+    // The fix: stop force-expanding every file. Large (>500-line) files
+    // and everything past the 2000-line running budget start collapsed,
+    // so a big PR no longer mounts + tokenizes the whole changeset on open.
+    fetchDiff.mockResolvedValue({ diffs: [] });
+    parseRepoDiffs.mockReturnValue(_budgetRepoDiffs());
+    // Target a file that is NOT in the changeset so nothing is force-expanded.
+    render(<DiffPane openFile={_open({ relativePath: '(none)', repoId: 'client' })} />);
+    const byPath = _byPath(await screen.findAllByTestId('diff-file'));
+    const expanded = (name) => byPath[name].getAttribute('data-initially-expanded');
+    expect(expanded('a.js')).toBe('true');    // cum 500
+    expect(expanded('b.js')).toBe('true');    // cum 1000
+    expect(expanded('big.js')).toBe('false'); // > 500 lines -> collapsed
+    expect(expanded('c.js')).toBe('true');    // cum 1500
+    expect(expanded('d.js')).toBe('true');    // cum 2000
+    expect(expanded('e.js')).toBe('false');   // over budget -> collapsed
+  });
+
+  test('the clicked target file stays expanded even when the budget would collapse it', async () => {
+    fetchDiff.mockResolvedValue({ diffs: [] });
+    parseRepoDiffs.mockReturnValue(_budgetRepoDiffs());
+    // e.js is over budget (would collapse) but it is the file the operator opened.
+    render(<DiffPane openFile={_open({ relativePath: 'e.js', repoId: 'client', openRequestId: 7 })} />);
+    const byPath = _byPath(await screen.findAllByTestId('diff-file'));
+    expect(byPath['e.js'].getAttribute('data-initially-expanded')).toBe('true');
+    expect(byPath['e.js'].getAttribute('data-force-expand-token')).toBe('7');
+    // A different over-limit file the operator did NOT open stays collapsed.
+    expect(byPath['big.js'].getAttribute('data-initially-expanded')).toBe('false');
+    expect(byPath['big.js'].getAttribute('data-force-expand-token')).toBe('0');
   });
 
   test('scrolls the targeted file section into view', async () => {
