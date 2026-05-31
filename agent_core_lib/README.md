@@ -1,10 +1,11 @@
 # agent-core-lib
 
-Factory wrapper that picks the configured agent backend (Claude /
-OpenHands / future Codex) and exposes it through the shared
-[`AgentProvider`](../agent_provider_contracts/) interface. Same
-shape as [`task_core_lib`](../task_core_lib/) and
-[`repository_core_lib`](../repository_core_lib/).
+Shared agent-behavior layer plus the factory wrapper that picks the
+configured agent backend (Claude / Codex / OpenHands) and exposes it
+through the shared [`AgentProvider`](../agent_provider_contracts/)
+interface. Same shape as [`task_core_lib`](../task_core_lib/) and
+[`repository_core_lib`](../repository_core_lib/), but focused on what
+an agent should see before a backend sends work to a model.
 
 ## What lives here
 
@@ -12,8 +13,17 @@ shape as [`task_core_lib`](../task_core_lib/) and
 agent_core_lib/agent_core_lib/
 ├── agent_core_lib.py                ← AgentCoreLib composition root
 ├── platform.py                       ← AgentPlatform enum
-└── client/
-    └── agent_client_factory.py       ← AgentClientFactory + resolve_platform()
+├── client/
+│   └── agent_client_factory.py       ← AgentClientFactory + resolve_platform()
+└── helpers/
+    ├── agent_prompt_utils.py         ← prompt scope, safety, review context
+    ├── agents_instruction_utils.py   ← AGENTS.md discovery/rendering
+    ├── architecture_doc_utils.py     ← architecture doc loading
+    ├── lessons_doc_utils.py          ← lessons doc loading
+    ├── resume_prompt_utils.py        ← generic resume prompt snapshots
+    ├── credential_scan.py            ← output-side credential/phishing scan
+    ├── result_utils.py               ← normalized agent result payloads
+    └── session_id_utils.py           ← generic agent session id helpers
 ```
 
 ## Public surface
@@ -34,16 +44,71 @@ agent = AgentCoreLib(
 agent.implement_task(task, prepared_task=ctx)
 ```
 
-## What this lib owns vs what it doesn't
+## Responsibilities
 
-- **Owns**: backend selection (`KATO_AGENT_BACKEND` → `AgentPlatform`),
-  alias resolution (`claude-code` / `claude_cli` / etc.), per-backend
-  construction (passes runtime knobs through to each impl).
-- **Does NOT own**: the actual agent runtime. Each impl
-  ([`claude_core_lib`](../claude_core_lib/),
-  [`openhands_core_lib`](../openhands_core_lib/)) brings its own
-  subprocess / HTTP plumbing. This factory is a thin wrapper —
-  same shape as `TaskClientFactory` for ticket platforms.
+- **Prompt Preparation**: Build the reusable prompt scaffolding an
+  agent needs before a backend sends work to a model.
+
+- **Safety Guardrails**: Add generic safety text for untrusted task
+  descriptions, comments, logs, attachments, and quoted content.
+
+- **Workspace Scope**: Render strict "only read or edit these paths"
+  boundaries for per-task workspaces and repository clones.
+
+- **Repository Scope**: Explain which repositories and branches are in
+  scope without teaching product-specific task workflow.
+
+- **Caller Guidance Hook**: Accept optional caller-provided guidance,
+  such as product-specific refusal instructions, while keeping this
+  lib product-agnostic.
+
+- **AGENTS.md Instructions**: Discover and render checked-in
+  `AGENTS.md` files so backend agents follow repository-local rules.
+
+- **Architecture Docs**: Load architecture documentation that callers
+  can append to an agent's system prompt.
+
+- **Lessons Memory**: Load compacted lessons text that callers can
+  include in future agent prompts.
+
+- **Review Context**: Add review-comment context such as file path,
+  line number, commit id, nearby code, and prior thread text.
+
+- **Conversation Continuity**: Add guidance that helps agents trust
+  existing conversation history instead of repeating expensive reads or
+  git inspection.
+
+- **Result Normalization**: Normalize backend result payloads into the
+  shared agent-result shape expected by orchestration code.
+
+- **Session IDs**: Normalize and preserve generic agent session ids
+  across backend boundaries.
+
+- **Resume Snapshots**: Render generic markdown snapshots that let
+  another agent continue from recent conversation state.
+
+- **Output Safety Scan**: Detect credential-looking or phishing-looking
+  text in model output and log redacted audit warnings.
+
+- **Backend Factory**: Resolve the configured backend name, construct
+  the selected `AgentProvider`, and pass runtime knobs through to that
+  backend.
+
+## Non-Responsibilities
+
+- **Model Providers**: Does not call Bedrock, OpenRouter, OpenAI,
+  Anthropic, or other model APIs directly. Provider transport belongs
+  in provider/LLM-specific libraries.
+
+- **Product Workflow**: Does not know about Kato tasks, ticket states,
+  review publishing, PR creation, or UI workflows.
+
+- **Issue Platforms**: Does not contain YouTrack, Jira, GitHub,
+  GitLab, or Bitbucket workflow behavior.
+
+- **Backend Runtime**: Does not own Claude/Codex subprocess logic or
+  OpenHands HTTP/container plumbing. Each backend core-lib owns its
+  runtime details.
 
 ## Why a factory pattern at all
 

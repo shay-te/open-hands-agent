@@ -230,12 +230,14 @@ class MultiBackendGuidanceParityTests(unittest.TestCase):
         from openhands_core_lib.openhands_core_lib.openhands_client import OpenHandsClient
         return OpenHandsClient('http://localhost', 'unused-key', **overrides)
 
+    # Codex/OpenHands lead with their own filesystem-scope preamble, so the
+    # boundary block is PRESENT (assertIn) rather than first (Claude's contract).
     def test_codex_includes_kato_guidance_when_wired(self) -> None:
         client = self._codex(workspace_refusal_guidance=KATO_WORKSPACE_REFUSAL_GUIDANCE)
         prompt = client._build_implementation_prompt(
             self._task(), self._prepared_task(['/x/workspaces/PROJ-1/client']),
         )
-        self.assertTrue(prompt.startswith('WORKSPACE SCOPE'))
+        self.assertIn('WORKSPACE SCOPE', prompt)
         self.assertIn('WHEN YOU MUST REFUSE', prompt)
         self.assertIn('kato:repo:', prompt)
 
@@ -243,7 +245,7 @@ class MultiBackendGuidanceParityTests(unittest.TestCase):
         prompt = self._codex()._build_implementation_prompt(
             self._task(), self._prepared_task(['/x/workspaces/PROJ-1/client']),
         )
-        self.assertTrue(prompt.startswith('WORKSPACE SCOPE'))
+        self.assertIn('WORKSPACE SCOPE', prompt)
         self.assertNotIn('WHEN YOU MUST REFUSE', prompt)
         self.assertNotIn('kato:repo:', prompt)
 
@@ -252,7 +254,7 @@ class MultiBackendGuidanceParityTests(unittest.TestCase):
         prompt = client._build_implementation_prompt(
             self._task(), self._prepared_task(['/x/workspaces/PROJ-1/client']),
         )
-        self.assertTrue(prompt.startswith('WORKSPACE SCOPE'))
+        self.assertIn('WORKSPACE SCOPE', prompt)
         self.assertIn('WHEN YOU MUST REFUSE', prompt)
         self.assertIn('kato:repo:', prompt)
 
@@ -260,7 +262,7 @@ class MultiBackendGuidanceParityTests(unittest.TestCase):
         prompt = self._openhands()._build_implementation_prompt(
             self._task(), self._prepared_task(['/x/workspaces/PROJ-1/client']),
         )
-        self.assertTrue(prompt.startswith('WORKSPACE SCOPE'))
+        self.assertIn('WORKSPACE SCOPE', prompt)
         self.assertNotIn('WHEN YOU MUST REFUSE', prompt)
         self.assertNotIn('kato:repo:', prompt)
 

@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import types
 import unittest
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 from agent_provider_contracts.agent_provider_contracts.agent_provider import AgentProvider
 

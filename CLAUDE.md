@@ -31,13 +31,21 @@ npm run build
 
 ## Core-Lib Architecture
 
-Monorepo of **closed black-box libs**. Each lib is self-contained — no peer-to-peer imports. `kato_core_lib` is the top-level orchestrator; everything else is independent.
+Monorepo of mostly **closed black-box libs**. `kato_core_lib` is the top-level orchestrator. The ONE shared base is **`agent_core_lib`** — the reusable agent-behavior layer (prompt helpers, session/text utils, architecture/lessons readers, the resume-prompt renderer, the generic `workspace_scope_block`). The agent transports (`claude_core_lib`, `codex_core_lib`, `openhands_core_lib`) **may depend on `agent_core_lib`**; everything else stays independent.
 
 ```
-kato_core_lib                  ← orchestrator (may import any lib below)
+kato_core_lib                  ← orchestrator (imports any lib below; wires PRODUCT-specific
+│                                 text — e.g. helpers/workspace_refusal_guidance.py — into
+│                                 agent clients via constructor params)
+├── agent_core_lib             ← SHARED AGENT-BEHAVIOR BASE. Imported by claude/codex/openhands
+│                                 + kato + webserver. Generic + product-agnostic: NO kato /
+│                                 YouTrack / Jira / Files-tab / UI text. Accepts product text
+│                                 only via caller params (e.g. extra_refusal_guidance).
+├── claude_core_lib            ← Claude CLI transport          (may import agent_core_lib)
+├── codex_core_lib             ← Codex CLI transport           (may import agent_core_lib)
+├── openhands_core_lib         ← OpenHands transport           (may import agent_core_lib)
 ├── git_core_lib               ← GitClientMixin, git subprocess engine, repo discovery utils
 ├── repository_core_lib        ← provider utils (URL parsing, token messages)
-├── claude_core_lib            ← Claude CLI client, one-shot utils, streaming sessions
 ├── task_core_lib              ← task data types and platform config
 ├── bitbucket_core_lib
 ├── github_core_lib
@@ -45,12 +53,10 @@ kato_core_lib                  ← orchestrator (may import any lib below)
 ├── youtrack_core_lib          ← YouTrack API client (fully black-box, see standard below)
 ├── jira_core_lib
 ├── workspace_core_lib         ← workspace folder management
-├── provider_client_base       ← ReviewComment and shared provider types
-├── agent_core_lib
-└── openhands_core_lib
+└── provider_client_base       ← ReviewComment and shared provider types
 ```
 
-**Rule:** code that only uses types/utils from one lib belongs IN that lib. Glue between libs belongs in `kato_core_lib`.
+**Rule:** reusable agent/LLM-behavior code belongs in `agent_core_lib`; the agent transports import it. Provider/transport specifics stay in their own lib. Anything product-specific (ticket workflow, repo publishing, Kato UI, and the *text* of product-specific prompt guidance) stays in `kato_core_lib` and is injected into agent clients as a parameter — `agent_core_lib` must never contain kato-specific workflow/product text. Glue between the non-agent black-box libs still belongs in `kato_core_lib`.
 
 ### Core-Lib Quality Standard
 
@@ -58,8 +64,8 @@ Every core-lib must meet all of these (use `youtrack_core_lib` as the reference 
 
 1. **100% test coverage** — every service function, every permutation of inputs
 2. **Flow tests A-Z** — end-to-end flow tests inside the lib's own `tests/` folder (`test_flow.py`)
-3. **No other core-lib imports** — zero peer dependencies. Only stdlib + third-party packages
-4. **No kato references** — no `kato_core_lib` imports, no kato-specific field names. If something kato-specific is needed, pass it as a constructor parameter or config value
+3. **Minimal peer imports** — only stdlib + third-party packages, with ONE allowed exception: any lib may import the shared **`agent_core_lib`** base (the agent transports do; provider/git/ticket libs still don't). `agent_core_lib` itself imports no other core-lib (it may lazily import a transport only inside its client *factory*). No lib imports another *transport/provider* lib peer-to-peer.
+4. **No kato references** — no `kato_core_lib` imports, no kato-specific field names, and (for `agent_core_lib`) no kato/YouTrack/Jira/Files-tab/UI text. If something kato-specific is needed, pass it as a constructor parameter or config value (e.g. `workspace_refusal_guidance`)
 5. **Tests live inside the lib** — at `<lib>/<lib>/tests/`, not in the top-level `tests/` folder
 6. **Check for leaked tests** — after building a lib, grep `kato_core_lib/` and `tests/` for any tests that belong inside the lib instead
 
