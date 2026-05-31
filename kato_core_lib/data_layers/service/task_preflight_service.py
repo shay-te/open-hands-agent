@@ -25,7 +25,7 @@ from kato_core_lib.helpers.task_context_utils import (
     repository_ids_text,
     task_has_actionable_definition,
 )
-from kato_core_lib.helpers.agents_instruction_utils import repository_agents_instructions_text
+from agent_core_lib.agent_core_lib.helpers.agents_instruction_utils import repository_agents_instructions_text
 from kato_core_lib.helpers.task_execution_utils import skip_task_result
 from kato_core_lib.validation.branch_push import TaskBranchPushValidator
 from kato_core_lib.validation.model_access import TaskModelAccessValidator

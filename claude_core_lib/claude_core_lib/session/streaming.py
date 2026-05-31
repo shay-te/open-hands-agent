@@ -38,7 +38,7 @@ from claude_core_lib.claude_core_lib.session.wire_protocol import (
     CLAUDE_SYSTEM_SUBTYPE_INIT,
     PERMISSION_REQUEST_EVENT_TYPES,
 )
-from claude_core_lib.claude_core_lib.helpers.credential_scan import (
+from agent_core_lib.agent_core_lib.helpers.credential_scan import (
     scan_text_for_credentials_and_phishing,
 )
 from claude_core_lib.claude_core_lib.helpers.spawn_utils import (

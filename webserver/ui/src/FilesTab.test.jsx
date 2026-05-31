@@ -487,15 +487,17 @@ describe('FilesTab — render shell', () => {
     window.HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
   });
 
-  test('does NOT re-scroll the tree on a background refresh (same focus request)', async () => {
+  test('does NOT re-scroll the tree on a background refresh that CHANGES data (same focus request)', async () => {
     // Regression: the focus effect listed data-refresh values in its
     // deps, so the 5s poll / 1.2s workspace bump re-fired it and the tree
     // smooth-scrolled itself every few seconds. It must act once per
-    // operator click (requestId), not on every refresh.
+    // operator click (requestId), not on every refresh — even one that
+    // brings real changes and forces a full re-render.
     const originalScrollIntoView = window.HTMLElement.prototype.scrollIntoView;
     window.HTMLElement.prototype.scrollIntoView = vi.fn();
     fetchFileTree.mockResolvedValue(FILE_TREE_PAYLOAD);
     fetchDiff.mockResolvedValue(DIFF_PAYLOAD);
+    fetchTaskComments.mockResolvedValue({ ok: true, body: { comments: [] } });
     // App keeps the same focus object between clicks — only requestId
     // changes on a NEW click, never on a poll.
     const focus = { repoId: 'client', relativePath: 'src/Changed.js', requestId: 1 };
@@ -508,9 +510,13 @@ describe('FilesTab — render shell', () => {
     });
     window.HTMLElement.prototype.scrollIntoView.mockClear();
 
-    // Bump workspaceVersion → refetch → brand-new tree/diff identities
-    // (exactly what the poll does). Same requestId ⇒ no second scroll.
-    // Relative call count — the shared mock isn't cleared between tests.
+    // Poll brings a REAL change (a new comment) → the payload signature
+    // differs, so the tree fully re-renders (the requestId guard, not the
+    // signature guard, is what must keep it from re-scrolling).
+    fetchTaskComments.mockResolvedValue({
+      ok: true,
+      body: { comments: [{ id: 'c1', file_path: 'src/Changed.js', line: 1, kato_status: 'queued' }] },
+    });
     const fetchesBefore = fetchFileTree.mock.calls.length;
     rerender(
       <FilesTab taskId="T1" onOpenFile={vi.fn()} focusFileTarget={focus} workspaceVersion={2} />,

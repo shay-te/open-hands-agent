@@ -3,7 +3,7 @@ import types
 import unittest
 from pathlib import Path
 
-from kato_core_lib.helpers.agents_instruction_utils import repository_agents_instructions_text
+from agent_core_lib.agent_core_lib.helpers.agents_instruction_utils import repository_agents_instructions_text
 
 
 class AgentsInstructionUtilsTests(unittest.TestCase):
@@ -25,7 +25,7 @@ class AgentsInstructionUtilsTests(unittest.TestCase):
         self.assertIn('src/AGENTS.md:\nsrc rules', result)
         self.assertNotIn('ignored', result)
         self.assertIn('deeper files are more specific', result)
-        self.assertIn('Kato safety, allowed-repository, forbidden-repository', result)
+        self.assertIn('Orchestration layer safety, allowed-repository, forbidden-repository', result)
 
     def test_returns_empty_text_when_repository_has_no_agents_files(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

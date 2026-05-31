@@ -405,6 +405,7 @@ class BuildClaudeTests(unittest.TestCase):
             model_smoke_test_enabled=False,
             architecture_doc_path='/arch.md',
             lessons_path='/lessons.md',
+            workspace_refusal_guidance='',
         )
         self.assertIs(result, mock_client)
 
@@ -522,6 +523,7 @@ class BuildCodexTests(unittest.TestCase):
             model_smoke_test_enabled=False,
             architecture_doc_path='/arch.md',
             lessons_path='/lessons.md',
+            workspace_refusal_guidance='',
         )
         self.assertIs(result, mock_client)
 
@@ -683,17 +685,20 @@ class AgentCoreLibTests(unittest.TestCase):
 
         original_init = AgentClientFactory.__init__
 
-        def spy_init(self_f, *, max_retries, testing=False, docker_mode_on=False, read_only_tools_on=False):
+        def spy_init(self_f, *, max_retries, testing=False, docker_mode_on=False,
+                     read_only_tools_on=False, workspace_refusal_guidance=''):
             captured['max_retries'] = max_retries
             captured['testing'] = testing
             captured['docker_mode_on'] = docker_mode_on
             captured['read_only_tools_on'] = read_only_tools_on
+            captured['workspace_refusal_guidance'] = workspace_refusal_guidance
             original_init(
                 self_f,
                 max_retries=max_retries,
                 testing=testing,
                 docker_mode_on=docker_mode_on,
                 read_only_tools_on=read_only_tools_on,
+                workspace_refusal_guidance=workspace_refusal_guidance,
             )
 
         with patch.object(AgentClientFactory, '__init__', spy_init), \

@@ -71,11 +71,17 @@ class AgentClientFactory(object):
         testing: bool = False,
         docker_mode_on: bool = False,
         read_only_tools_on: bool = False,
+        workspace_refusal_guidance: str = '',
     ) -> None:
         self._max_retries = max_retries
         self._testing = testing
         self._docker_mode_on = docker_mode_on
         self._read_only_tools_on = read_only_tools_on
+        # Product-specific refusal guidance the spawner (kato) wants
+        # appended to the generic workspace scope block. Passed only to
+        # the Claude client; '' for any consumer that doesn't set it, so
+        # codex/openhands defaults are unchanged.
+        self._workspace_refusal_guidance = workspace_refusal_guidance or ''
 
     def build(self, platform: AgentPlatform, cfg: Any) -> AgentProvider:
         if platform == AgentPlatform.CLAUDE:
@@ -137,6 +143,10 @@ class AgentClientFactory(object):
             lessons_path=str(
                 getattr(cli_cfg, 'lessons_path', '') or ''
             ),
+            # Product-specific refusal guidance the spawner threads in;
+            # every CLI agent (Claude, Codex) receives it identically so
+            # the boundary block is consistent across backends.
+            workspace_refusal_guidance=self._workspace_refusal_guidance,
         )
 
     def _build_openhands(self, open_cfg: Any) -> AgentProvider:
@@ -167,4 +177,5 @@ class AgentClientFactory(object):
                 not self._testing
                 and bool(getattr(openhands_cfg, 'model_smoke_test_enabled', True))
             ),
+            workspace_refusal_guidance=self._workspace_refusal_guidance,
         )

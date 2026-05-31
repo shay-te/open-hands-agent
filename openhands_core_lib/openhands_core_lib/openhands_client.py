@@ -78,6 +78,7 @@ class OpenHandsClient(RetryingClientBase):
         model_smoke_test_enabled: bool = False,
         *,
         openrouter_validator: Callable[[str, str, str, int], None] | None = None,
+        workspace_refusal_guidance: str = '',
     ) -> None:
         super().__init__(base_url, api_key, timeout=300, max_retries=max_retries)
         self._session_api_key = api_key
@@ -87,6 +88,9 @@ class OpenHandsClient(RetryingClientBase):
         self._model_smoke_test_enabled = bool(model_smoke_test_enabled)
         self._model_access_smoke_test_ran = False
         self._openrouter_validator = openrouter_validator
+        # Product-specific refusal guidance appended to the generic
+        # workspace scope block; supplied by the spawner ('' otherwise).
+        self._workspace_refusal_guidance = workspace_refusal_guidance or ''
 
     def validate_connection(self) -> None:
         response = self._get_with_retry(f'{self._APP_CONVERSATIONS_PATH}/count')
@@ -172,10 +176,12 @@ class OpenHandsClient(RetryingClientBase):
         if len(comments) == 1:
             prompt = self._build_review_prompt(
                 comments[0], branch_name, workspace_path=workspace_path, mode=mode,
+                workspace_refusal_guidance=self._workspace_refusal_guidance,
             )
         else:
             prompt = self._build_review_comments_batch_prompt(
                 comments, branch_name, workspace_path=workspace_path, mode=mode,
+                workspace_refusal_guidance=self._workspace_refusal_guidance,
             )
         result = self._run_prompt_result(
             prompt=prompt,
@@ -216,6 +222,7 @@ class OpenHandsClient(RetryingClientBase):
         branch_name: str,
         workspace_path: str = '',
         mode: str = 'fix',
+        workspace_refusal_guidance: str = '',
     ) -> str:
         first = comments[0]
         repository_context = agent_prompt_utils.review_repository_context(first)
@@ -225,6 +232,7 @@ class OpenHandsClient(RetryingClientBase):
         review_context = cls._review_comment_context_text(first)
         scope_block = agent_prompt_utils.workspace_scope_block(
             [workspace_path] if workspace_path else [],
+            extra_refusal_guidance=workspace_refusal_guidance,
         )
         scope_prefix = f'{scope_block}\n' if scope_block else ''
         from openhands_core_lib.openhands_core_lib.helpers.agents_instruction_utils import (
@@ -295,6 +303,7 @@ class OpenHandsClient(RetryingClientBase):
     ) -> str:
         scope_block = agent_prompt_utils.workspace_scope_block(
             self._repository_local_paths(prepared_task),
+            extra_refusal_guidance=self._workspace_refusal_guidance,
         )
         repository_scope = self._repository_scope_text(task, prepared_task)
         agents_instructions = agent_prompt_utils.agents_instructions_text(prepared_task)
@@ -398,6 +407,7 @@ class OpenHandsClient(RetryingClientBase):
         branch_name: str,
         workspace_path: str = '',
         mode: str = 'fix',
+        workspace_refusal_guidance: str = '',
     ) -> str:
         repository_context = agent_prompt_utils.review_repository_context(comment)
         review_context = cls._review_comment_context_text(comment)
@@ -411,6 +421,7 @@ class OpenHandsClient(RetryingClientBase):
         snippet_block = f'{snippet_text}\n' if snippet_text else ''
         scope_block = agent_prompt_utils.workspace_scope_block(
             [workspace_path] if workspace_path else [],
+            extra_refusal_guidance=workspace_refusal_guidance,
         )
         scope_prefix = f'{scope_block}\n' if scope_block else ''
         from openhands_core_lib.openhands_core_lib.helpers.agents_instruction_utils import (

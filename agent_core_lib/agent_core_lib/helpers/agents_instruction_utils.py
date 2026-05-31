@@ -25,6 +25,17 @@ def agents_instructions_for_path(
     *,
     repository_id: str = '',
 ) -> str:
+    """Same surface as ``repository_agents_instructions_text`` but takes a path.
+
+    Used by the review-fix prompt builders, which know the agent's
+    per-task workspace clone directory but don't have a ``Repository``
+    object on hand. Walks the path for ``AGENTS.md`` files and renders the
+    same wrapper so the review-fix agent sees the same checked-in
+    conventions the implementation agent did.
+
+    Returns ``''`` when the path is empty, missing, or has no ``AGENTS.md``
+    anywhere — caller's prompt builder skips the block silently.
+    """
     workspace = normalized_text(workspace_path)
     if not workspace:
         return ''

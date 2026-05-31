@@ -9,7 +9,6 @@ pinned. Kept hermetic — no network, no disk-state mutation outside
 from __future__ import annotations
 
 import json
-import logging
 import os
 import tempfile
 import unittest
@@ -360,31 +359,6 @@ class OpenhandsResultBuilderDefensiveTests(unittest.TestCase):
 
 
 # --------------------------------------------------------------------------
-# lessons_doc_utils — read OSError + body truncation
-# --------------------------------------------------------------------------
-
-
-class LessonsDocLoaderTests(unittest.TestCase):
-    """Lines 82-87: lessons file read OSError → warn + return ''.
-    Missing lessons must not block a spawn (lessons are optional)."""
-
-    def test_oserror_returns_empty_and_warns(self) -> None:
-        from kato_core_lib.helpers import lessons_doc_utils
-        # Reset the module-level cache so this test isn't shadowed.
-        lessons_doc_utils._reset_cache()
-        logger = MagicMock()
-        with tempfile.TemporaryDirectory() as td:
-            target = Path(td) / 'lessons.md'
-            target.write_text('rule 1\nrule 2')
-            with patch.object(Path, 'read_text', side_effect=OSError('locked')):
-                result = lessons_doc_utils.read_lessons_file(
-                    str(target), logger=logger,
-                )
-        self.assertEqual(result, '')
-        logger.warning.assert_called_once()
-
-
-# --------------------------------------------------------------------------
 # logging_utils — workflow_logger_name suffix sanitization
 # --------------------------------------------------------------------------
 
@@ -528,7 +502,7 @@ class AgentsInstructionUtilsTests(unittest.TestCase):
         # Line 75: ``if not local_path: return ''`` — repository
         # objects without a local_path attribute (or with an empty
         # one) skip AGENTS.md aggregation cleanly.
-        from kato_core_lib.helpers.agents_instruction_utils import (
+        from agent_core_lib.agent_core_lib.helpers.agents_instruction_utils import (
             _repository_section,
         )
         repo = SimpleNamespace(id='repo', local_path='')

@@ -1,19 +1,21 @@
-"""Tests for the workspace-scope boundary block prepended to every agent prompt.
+"""Tests for the workspace-scope boundary block + Kato refusal-guidance injection.
 
-Pin down two surfaces:
+After the agent_core_lib consolidation the boundary block has two
+layers:
 
-1. ``workspace_scope_block(allowed_paths)`` renders the unmissable
-   "STRICT BOUNDARY" header listing the operator's per-task workspace
-   paths and explicitly forbidding access to the operator's source
-   repos at REPOSITORY_ROOT_PATH and other tasks' workspaces.
-2. The prompt builders for **every** agent path — implementation,
-   review-fix singular, review-fix batched, and the answer-mode
-   variants — prepend the block when workspace paths are available.
+1. ``agent_core_lib`` renders a GENERIC, product-agnostic strict
+   boundary (``workspace_scope_block``) — it names only the allowed
+   paths + the operator-config env vars, never any Kato workflow.
+2. Kato owns the actionable refusal guidance (``kato:repo`` tags,
+   YouTrack/Jira, the Files-tab sync) and injects it through the
+   ``workspace_refusal_guidance`` client param so the safer wording
+   reaches Kato production prompts WITHOUT agent_core_lib knowing about
+   Kato.
 
-The block being literally first in the prompt is the user-facing
-contract (the screenshot showed kato writing into source folders
-even though architecture.md asked it not to). Tests verify the
-prefix is at the very top.
+These tests pin: (1) the generic block has no Kato wording by default;
+(2) ``extra_refusal_guidance`` is appended when provided; (3) the
+Kato/Claude prompt path includes the Kato guidance when wired; (4) a
+client with no guidance is unchanged.
 """
 
 from __future__ import annotations
@@ -21,29 +23,30 @@ from __future__ import annotations
 import unittest
 from types import SimpleNamespace
 
+from agent_core_lib.agent_core_lib.helpers.agent_prompt_utils import workspace_scope_block
 from claude_core_lib.claude_core_lib.cli_client import ClaudeCliClient
-from kato_core_lib.data_layers.data.fields import (
-    PullRequestFields,
-    ReviewCommentFields,
+from kato_core_lib.data_layers.data.fields import PullRequestFields
+from kato_core_lib.data_layers.data.task import Task
+from kato_core_lib.helpers.task_context_utils import PreparedTaskContext
+from kato_core_lib.helpers.workspace_refusal_guidance import (
+    KATO_WORKSPACE_REFUSAL_GUIDANCE,
 )
 from provider_client_base.provider_client_base.data.review_comment import ReviewComment
-from kato_core_lib.data_layers.data.task import Task
-from kato_core_lib.helpers.agent_prompt_utils import workspace_scope_block
-from kato_core_lib.helpers.task_context_utils import PreparedTaskContext
 
 
-class WorkspaceScopeBlockTests(unittest.TestCase):
-    """The helper itself — content + edge cases."""
+# Kato-specific tokens that must NEVER appear in the product-agnostic
+# agent_core_lib block by default.
+_KATO_TOKENS = ('kato:repo:', 'YouTrack', 'Files tab', 'Sync repositories', 'WHEN YOU MUST REFUSE')
+
+
+class WorkspaceScopeBlockGenericTests(unittest.TestCase):
+    """The generic agent_core_lib block — content, edges, product-agnosticism."""
 
     def test_empty_path_list_returns_empty_string(self) -> None:
-        # No paths → no block. Caller's prompt builder sees ``''``
-        # and renders the rest of the prompt unchanged.
         self.assertEqual(workspace_scope_block([]), '')
         self.assertEqual(workspace_scope_block(None), '')
 
     def test_skips_blank_and_dot_entries(self) -> None:
-        # Empty / "." entries are silently dropped — they signal
-        # "no real path here" and would render as a useless bullet.
         self.assertEqual(workspace_scope_block(['', '.', None]), '')
 
     def test_renders_each_path_as_a_bullet(self) -> None:
@@ -63,116 +66,75 @@ class WorkspaceScopeBlockTests(unittest.TestCase):
     def test_explicitly_forbids_other_tasks_workspaces(self) -> None:
         block = workspace_scope_block(['/x/workspace/client'])
         self.assertIn('other tasks', block.lower())
-        self.assertIn('~/.kato/workspaces/', block)
+        self.assertIn('KATO_WORKSPACES_ROOT', block)
 
     def test_explicitly_lists_mutating_tools(self) -> None:
-        # Tool guardrail is concrete — names every kato-spawned tool
-        # the agent might reach for so there's no ambiguity.
         block = workspace_scope_block(['/x/workspace/client'])
         for tool in ('Bash', 'Edit', 'Write', 'MultiEdit', 'Read', 'Grep', 'Glob'):
             self.assertIn(tool, block, msg=f'expected {tool} in scope block')
 
     def test_normalises_trailing_separators(self) -> None:
-        # Trailing slashes shouldn't break path matching downstream.
         block = workspace_scope_block(['/x/workspace/client/'])
         self.assertIn('/x/workspace/client', block)
         self.assertNotIn('/x/workspace/client/\n', block)
 
-
-class RefusalTemplateTests(unittest.TestCase):
-    """The actionable refusal template embedded in the scope block.
-
-    Real production screenshot showed Claude refusing to write to a
-    repo with a bare "I can't" — the operator was left to guess
-    whether the tag was missing, the sync was stale, or the session
-    needed restarting. The template inside ``workspace_scope_block``
-    gives Claude a verbatim reply that always names the missing
-    path, lists what it WAS spawned with, and walks the operator
-    through tag-add → sync → restart.
-    """
-
-    def test_template_header_is_present(self) -> None:
+    # (1) Generic block has NO Kato-specific wording by default.
+    def test_default_block_has_no_kato_specific_wording(self) -> None:
         block = workspace_scope_block(['/x/workspaces/PROJ-1/client'])
-        self.assertIn('WHEN YOU MUST REFUSE', block)
+        for token in _KATO_TOKENS:
+            self.assertNotIn(token, block, msg=f'agent_core_lib block leaked {token!r}')
 
-    def test_template_warns_against_bare_refusal(self) -> None:
-        # Without this, Claude defaults to "I can't do that" which
-        # gives the operator nothing to act on.
+
+class ExtraRefusalGuidanceParamTests(unittest.TestCase):
+    """(2) ``extra_refusal_guidance`` is appended only when provided."""
+
+    def test_no_guidance_appended_by_default(self) -> None:
         block = workspace_scope_block(['/x/workspaces/PROJ-1/client'])
-        self.assertIn("Do not just say", block)
+        self.assertNotIn('SENTINEL-REFUSAL-GUIDANCE', block)
 
-    def test_template_includes_placeholder_for_requested_path(self) -> None:
-        block = workspace_scope_block(['/x/workspaces/PROJ-1/client'])
-        self.assertIn('<requested-path>', block)
+    def test_guidance_appended_after_the_generic_refusal(self) -> None:
+        sentinel = 'SENTINEL-REFUSAL-GUIDANCE: widen scope via X'
+        block = workspace_scope_block(
+            ['/x/workspaces/PROJ-1/client'],
+            extra_refusal_guidance=sentinel,
+        )
+        self.assertIn(sentinel, block)
+        # Appended AFTER the generic boundary/refusal text.
+        self.assertLess(block.index('STRICT BOUNDARY'), block.index(sentinel))
+        self.assertLess(block.index('reaching for it'), block.index(sentinel))
 
-    def test_template_lists_allowed_paths_inside_quoted_reply(self) -> None:
-        # The bullet list inside the template uses a 3-space indent
-        # so it renders correctly when Claude pastes the template as
-        # a code-style block. Both paths must appear.
-        block = workspace_scope_block([
-            '/x/workspaces/PROJ-1/client',
-            '/x/workspaces/PROJ-1/backend',
-        ])
-        self.assertIn('   - /x/workspaces/PROJ-1/client', block)
-        self.assertIn('   - /x/workspaces/PROJ-1/backend', block)
+    def test_blank_guidance_is_ignored(self) -> None:
+        base = workspace_scope_block(['/x/workspaces/PROJ-1/client'])
+        self.assertEqual(
+            base,
+            workspace_scope_block(['/x/workspaces/PROJ-1/client'], extra_refusal_guidance='   '),
+        )
 
-    def test_template_directs_operator_to_check_task_tags(self) -> None:
-        block = workspace_scope_block(['/x/workspaces/PROJ-1/client'])
-        self.assertIn('Check the task tags', block)
-        self.assertIn('kato:repo:', block)
-
-    def test_template_covers_tag_missing_branch(self) -> None:
-        # Operator's first failure mode: forgot the tag. Template
-        # must tell them to add it and click "Sync repositories".
-        block = workspace_scope_block(['/x/workspaces/PROJ-1/client'])
-        self.assertIn('Tag is missing', block)
-        self.assertIn('Sync repositories', block)
-
-    def test_template_covers_tag_already_present_branch(self) -> None:
-        # Second failure mode: tag is there but the live session
-        # was spawned before the tag was added. Template must tell
-        # them to close + reopen the chat tab.
-        block = workspace_scope_block(['/x/workspaces/PROJ-1/client'])
-        self.assertIn('Tag is already there', block)
-        self.assertIn('close + reopen', block)
-
-    def test_template_explains_why_restart_is_needed(self) -> None:
-        # The "why" — operator needs to know the spawn captured the
-        # OLD repo set, otherwise "just restart it" reads as flaky
-        # advice.
-        block = workspace_scope_block(['/x/workspaces/PROJ-1/client'])
-        self.assertIn('OLD set of repos', block)
-
-    def test_template_mentions_multi_repo_repetition(self) -> None:
-        block = workspace_scope_block(['/x/workspaces/PROJ-1/client'])
-        self.assertIn('multi-repo', block)
-
-    def test_template_promises_resolution_after_restart(self) -> None:
-        # Closes the loop: "once you do this, I can do the thing"
-        # — operator knows the steps are not theatrical.
-        block = workspace_scope_block(['/x/workspaces/PROJ-1/client'])
-        self.assertIn('Once my session restarts', block)
-
-    def test_template_indents_path_bullets_for_codeblock_paste(self) -> None:
-        # Allowed-path bullets are listed twice in the block: once
-        # as the boundary list (2-space indent) and once inside the
-        # reply template (3-space indent so it renders as a code
-        # block when Claude pastes it). Make sure BOTH renderings
-        # exist — regression guard against accidentally collapsing
-        # the two lists.
-        block = workspace_scope_block(['/x/workspaces/PROJ-1/client'])
-        self.assertIn('  - /x/workspaces/PROJ-1/client', block)  # boundary
-        self.assertIn('   - /x/workspaces/PROJ-1/client', block)  # template
-
-    def test_empty_paths_emits_no_template(self) -> None:
-        # No paths → no block at all → no template. The template
-        # only makes sense alongside the boundary list.
-        self.assertEqual(workspace_scope_block([]), '')
-        self.assertNotIn('WHEN YOU MUST REFUSE', workspace_scope_block([]))
+    def test_empty_paths_emit_nothing_even_with_guidance(self) -> None:
+        self.assertEqual(workspace_scope_block([], extra_refusal_guidance='x'), '')
 
 
-class ImplementationPromptScopeTests(unittest.TestCase):
-    """Implementation prompt prepends the scope block."""
+class KatoRefusalGuidanceContentTests(unittest.TestCase):
+    """The Kato-owned guidance text carries the full actionable template."""
+
+    def test_guidance_has_the_actionable_template(self) -> None:
+        g = KATO_WORKSPACE_REFUSAL_GUIDANCE
+        self.assertIn('WHEN YOU MUST REFUSE', g)
+        self.assertIn('Do not just say', g)
+        self.assertIn('<requested-path>', g)
+        self.assertIn('Check the task tags', g)
+        self.assertIn('kato:repo:', g)
+        self.assertIn('Tag is missing', g)
+        self.assertIn('Sync repositories', g)
+        self.assertIn('Tag is already there', g)
+        self.assertIn('close + reopen', g)
+        self.assertIn('OLD set of repos', g)
+        self.assertIn('multi-repo', g)
+        self.assertIn('Once my session restarts', g)
+
+
+class KatoPromptPathInjectionTests(unittest.TestCase):
+    """(3)/(4) The Kato/Claude prompt path includes the guidance ONLY when wired."""
 
     def _prepared_task(self, paths) -> PreparedTaskContext:
         return PreparedTaskContext(
@@ -185,77 +147,122 @@ class ImplementationPromptScopeTests(unittest.TestCase):
             agents_instructions='',
         )
 
-    def test_implementation_prompt_starts_with_scope_block(self) -> None:
-        client = ClaudeCliClient(binary='unused-builder-only')
-        task = Task(id='PROJ-1', summary='do', description='things')
-        prepared = self._prepared_task(['/x/workspaces/PROJ-1/client'])
-        prompt = client._build_implementation_prompt(task, prepared)
-        # First line is the boundary, ahead of "Implement task".
-        self.assertTrue(prompt.startswith('WORKSPACE SCOPE'))
-        # Boundary appears strictly before the task body.
-        self.assertLess(
-            prompt.index('STRICT BOUNDARY'),
-            prompt.index('Implement task'),
-        )
-
-    def test_implementation_prompt_lists_every_repo_path(self) -> None:
-        client = ClaudeCliClient(binary='unused-builder-only')
-        task = Task(id='PROJ-1', summary='do', description='things')
-        prepared = self._prepared_task([
-            '/x/workspaces/PROJ-1/client',
-            '/x/workspaces/PROJ-1/backend',
-        ])
-        prompt = client._build_implementation_prompt(task, prepared)
-        self.assertIn('/x/workspaces/PROJ-1/client', prompt)
-        self.assertIn('/x/workspaces/PROJ-1/backend', prompt)
-
-
-class ReviewPromptScopeTests(unittest.TestCase):
-    """Review-fix prompts (singular + batched, both modes) prepend the scope block."""
-
     def _comment(self, *, body: str = 'fix the typo') -> ReviewComment:
         c = ReviewComment(
-            pull_request_id='17', comment_id='100',
-            author='reviewer', body=body,
+            pull_request_id='17', comment_id='100', author='reviewer', body=body,
         )
         setattr(c, PullRequestFields.REPOSITORY_ID, 'client')
         return c
 
-    def test_singular_review_prompt_starts_with_scope_block(self) -> None:
+    # (3) Kato wires the guidance → the production prompt carries it.
+    def test_client_with_kato_guidance_includes_refusal_template(self) -> None:
+        client = ClaudeCliClient(
+            binary='unused-builder-only',
+            workspace_refusal_guidance=KATO_WORKSPACE_REFUSAL_GUIDANCE,
+        )
+        task = Task(id='PROJ-1', summary='do', description='things')
+        prepared = self._prepared_task(['/x/workspaces/PROJ-1/client'])
+        prompt = client._build_implementation_prompt(task, prepared)
+        self.assertTrue(prompt.startswith('WORKSPACE SCOPE'))
+        self.assertIn('WHEN YOU MUST REFUSE', prompt)
+        self.assertIn('kato:repo:', prompt)
+        self.assertIn('Sync repositories', prompt)
+
+    def test_review_prompt_with_kato_guidance_includes_refusal_template(self) -> None:
+        # The review builders are classmethods; the instance review flow
+        # threads ``self._workspace_refusal_guidance`` into them, so pass
+        # it explicitly here to exercise the same param.
         prompt = ClaudeCliClient._build_review_prompt(
             self._comment(),
             'feature/proj-1',
             workspace_path='/x/workspaces/PROJ-1/client',
+            workspace_refusal_guidance=KATO_WORKSPACE_REFUSAL_GUIDANCE,
         )
         self.assertTrue(prompt.startswith('WORKSPACE SCOPE'))
+        self.assertIn('WHEN YOU MUST REFUSE', prompt)
+
+    # (4) Default client (no guidance) is unchanged — generic block only.
+    def test_client_without_guidance_has_no_refusal_template(self) -> None:
+        client = ClaudeCliClient(binary='unused-builder-only')
+        task = Task(id='PROJ-1', summary='do', description='things')
+        prepared = self._prepared_task(['/x/workspaces/PROJ-1/client'])
+        prompt = client._build_implementation_prompt(task, prepared)
+        # Generic boundary still leads the prompt...
+        self.assertTrue(prompt.startswith('WORKSPACE SCOPE'))
+        self.assertLess(prompt.index('STRICT BOUNDARY'), prompt.index('Implement task'))
         self.assertIn('/x/workspaces/PROJ-1/client', prompt)
-
-    def test_singular_review_answer_mode_includes_scope_block(self) -> None:
-        prompt = ClaudeCliClient._build_review_prompt(
-            self._comment(body='how does this work?'),
-            'feature/proj-1',
-            workspace_path='/x/workspaces/PROJ-1/client',
-            mode='answer',
-        )
-        self.assertTrue(prompt.startswith('WORKSPACE SCOPE'))
-
-    def test_batched_review_prompt_starts_with_scope_block(self) -> None:
-        prompt = ClaudeCliClient._build_review_comments_batch_prompt(
-            [self._comment(), self._comment()],
-            'feature/proj-1',
-            workspace_path='/x/workspaces/PROJ-1/client',
-        )
-        self.assertTrue(prompt.startswith('WORKSPACE SCOPE'))
+        # ...but no Kato-specific refusal template leaks in.
+        self.assertNotIn('WHEN YOU MUST REFUSE', prompt)
+        self.assertNotIn('kato:repo:', prompt)
 
     def test_review_prompt_without_workspace_path_omits_scope_block(self) -> None:
-        # No path known — block silently absent so we don't render
-        # an empty boundary that confuses the model.
         prompt = ClaudeCliClient._build_review_prompt(
             self._comment(),
             'feature/proj-1',
             workspace_path='',
         )
         self.assertFalse(prompt.startswith('WORKSPACE SCOPE'))
+
+
+class MultiBackendGuidanceParityTests(unittest.TestCase):
+    """The same Kato guidance reaches Codex + OpenHands prompts the same way
+    it reaches Claude — and every backend stays Kato-free by default."""
+
+    def _prepared_task(self, paths) -> PreparedTaskContext:
+        return PreparedTaskContext(
+            branch_name='feature/proj-1',
+            repositories=[
+                SimpleNamespace(id=f'repo-{i}', local_path=path)
+                for i, path in enumerate(paths)
+            ],
+            repository_branches={f'repo-{i}': 'feature/proj-1' for i in range(len(paths))},
+            agents_instructions='',
+        )
+
+    def _task(self) -> Task:
+        return Task(id='PROJ-1', summary='do', description='things')
+
+    def _codex(self, **overrides):
+        from codex_core_lib.codex_core_lib.cli_client import CodexCliClient
+        return CodexCliClient(binary='unused-builder-only', **overrides)
+
+    def _openhands(self, **overrides):
+        from openhands_core_lib.openhands_core_lib.openhands_client import OpenHandsClient
+        return OpenHandsClient('http://localhost', 'unused-key', **overrides)
+
+    def test_codex_includes_kato_guidance_when_wired(self) -> None:
+        client = self._codex(workspace_refusal_guidance=KATO_WORKSPACE_REFUSAL_GUIDANCE)
+        prompt = client._build_implementation_prompt(
+            self._task(), self._prepared_task(['/x/workspaces/PROJ-1/client']),
+        )
+        self.assertTrue(prompt.startswith('WORKSPACE SCOPE'))
+        self.assertIn('WHEN YOU MUST REFUSE', prompt)
+        self.assertIn('kato:repo:', prompt)
+
+    def test_codex_default_prompt_stays_kato_free(self) -> None:
+        prompt = self._codex()._build_implementation_prompt(
+            self._task(), self._prepared_task(['/x/workspaces/PROJ-1/client']),
+        )
+        self.assertTrue(prompt.startswith('WORKSPACE SCOPE'))
+        self.assertNotIn('WHEN YOU MUST REFUSE', prompt)
+        self.assertNotIn('kato:repo:', prompt)
+
+    def test_openhands_includes_kato_guidance_when_wired(self) -> None:
+        client = self._openhands(workspace_refusal_guidance=KATO_WORKSPACE_REFUSAL_GUIDANCE)
+        prompt = client._build_implementation_prompt(
+            self._task(), self._prepared_task(['/x/workspaces/PROJ-1/client']),
+        )
+        self.assertTrue(prompt.startswith('WORKSPACE SCOPE'))
+        self.assertIn('WHEN YOU MUST REFUSE', prompt)
+        self.assertIn('kato:repo:', prompt)
+
+    def test_openhands_default_prompt_stays_kato_free(self) -> None:
+        prompt = self._openhands()._build_implementation_prompt(
+            self._task(), self._prepared_task(['/x/workspaces/PROJ-1/client']),
+        )
+        self.assertTrue(prompt.startswith('WORKSPACE SCOPE'))
+        self.assertNotIn('WHEN YOU MUST REFUSE', prompt)
+        self.assertNotIn('kato:repo:', prompt)
 
 
 if __name__ == '__main__':

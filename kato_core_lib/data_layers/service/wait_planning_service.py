@@ -26,7 +26,7 @@ from kato_core_lib.data_layers.data.task import Task
 from kato_core_lib.data_layers.service.workspace_provisioning_service import (
     provision_task_workspace_clones,
 )
-from kato_core_lib.helpers import agent_prompt_utils
+from agent_core_lib.agent_core_lib.helpers import agent_prompt_utils
 from kato_core_lib.helpers.logging_utils import configure_logger
 from kato_core_lib.helpers.task_execution_utils import skip_task_result
 from kato_core_lib.helpers.text_utils import text_from_attr

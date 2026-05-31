@@ -8,7 +8,7 @@ import time
 import hydra
 from omegaconf import DictConfig
 
-from kato_core_lib.helpers import agent_prompt_utils
+from agent_core_lib.agent_core_lib.helpers import agent_prompt_utils
 from kato_core_lib.helpers.logging_utils import configure_logger
 from kato_core_lib.helpers.shell_status_utils import (
     sleep_with_countdown_spinner,

@@ -26,11 +26,11 @@ from agent_core_lib.agent_core_lib.helpers.session_id_utils import (
     read_session_id_from,
 )
 from kato_core_lib.helpers.logging_utils import configure_logger
-from kato_core_lib.helpers.resume_prompt_writer import (
+from agent_core_lib.agent_core_lib.helpers.resume_prompt_utils import (
     build_inputs_from_session,
     render_resume_prompt,
-    write_resume_prompt,
 )
+from kato_core_lib.helpers.resume_prompt_writer import write_resume_prompt
 
 
 # How often to poll live sessions. 5s gives "feels live" UX for the

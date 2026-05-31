@@ -282,6 +282,55 @@ describe('DiffPane — renders ALL files, scrolls to the target', () => {
     });
   });
 
+  test('does NOT re-scroll to the thread when a later comments poll changes data (same open request)', async () => {
+    // Regression: the focusComment effect depends on commentsByRepo (the
+    // thread only exists once comments load), and a poll that picked up a
+    // new comment / status flip re-fired it and yanked the pane back to
+    // the thread mid-read. It must centre the thread once per open
+    // request, not on every comments refresh.
+    const originalScrollIntoView = window.HTMLElement.prototype.scrollIntoView;
+    window.HTMLElement.prototype.scrollIntoView = vi.fn();
+    fetchDiff.mockResolvedValue({ diffs: [] });
+    // Fresh array per call so a refetch changes state.repoDiffs identity
+    // and the comments effect actually re-runs (a real poll).
+    parseRepoDiffs.mockImplementation(() => _repoDiffs());
+    fetchTaskComments.mockImplementation((_taskId, rid) => Promise.resolve(
+      rid === 'backend'
+        ? { ok: true, body: { comments: [{ id: 'c1', file_path: 'api/auth.py' }] } }
+        : { ok: true, body: { comments: [] } },
+    ));
+    const open = _open({ relativePath: 'api/auth.py', repoId: 'backend', focusComment: true });
+    const { container, rerender } = render(<DiffPane openFile={open} workspaceVersion={1} />);
+    const fileNode = () => container.querySelector('[data-diff-key="backend::api/auth.py"]');
+    // data-comments lives on the inner (mocked) diff-file element.
+    const commentCount = () => fileNode()
+      ?.querySelector('[data-testid="diff-file"]')
+      ?.getAttribute('data-comments');
+    await waitFor(() => {
+      const thread = fileNode().querySelector('.diff-file-comment-thread');
+      expect(thread).toBeInTheDocument();
+      expect(thread.scrollIntoView).toHaveBeenCalled();
+    });
+    window.HTMLElement.prototype.scrollIntoView.mockClear();
+
+    // Poll brings a SECOND comment (count 1→2, observable) → commentsByRepo
+    // re-builds with a new identity and the focusComment effect re-fires;
+    // the requestId guard must keep the pane where the operator left it.
+    fetchTaskComments.mockImplementation((_taskId, rid) => Promise.resolve(
+      rid === 'backend'
+        ? { ok: true, body: { comments: [
+            { id: 'c1', file_path: 'api/auth.py' },
+            { id: 'c2', file_path: 'api/auth.py' },
+          ] } }
+        : { ok: true, body: { comments: [] } },
+    ));
+    rerender(<DiffPane openFile={open} workspaceVersion={2} />);
+    await waitFor(() => expect(commentCount()).toBe('2'));
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    expect(window.HTMLElement.prototype.scrollIntoView).not.toHaveBeenCalled();
+    window.HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
+  });
+
   test('passes the open request token only to the targeted diff file', async () => {
     fetchDiff.mockResolvedValue({ diffs: [] });
     parseRepoDiffs.mockReturnValue(_repoDiffs());

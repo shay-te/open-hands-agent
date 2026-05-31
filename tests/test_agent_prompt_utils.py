@@ -1,10 +1,9 @@
-import os
 import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
 
-from kato_core_lib.helpers.agent_prompt_utils import (
+from agent_core_lib.agent_core_lib.helpers.agent_prompt_utils import (
     agents_instructions_text,
     chat_continuity_ground_truth_block,
     forbidden_repository_guardrails_text,
@@ -295,7 +294,9 @@ class TaskConversationTitleTests(unittest.TestCase):
 
     def test_default_label_when_nothing(self) -> None:
         task = SimpleNamespace(id='', summary='')
-        self.assertEqual(task_conversation_title(task), 'Kato task')
+        # Canonical (agent_core_lib) title is product-agnostic: 'task',
+        # not 'Kato task'. Production already used this copy.
+        self.assertEqual(task_conversation_title(task), 'task')
 
     def test_appends_suffix(self) -> None:
         task = SimpleNamespace(id='PROJ-1', summary='')
@@ -457,7 +458,7 @@ class PrependChatWorkspaceContextEmptyPartsTest(unittest.TestCase):
         # functions to empty to drive this branch — locks the "drop
         # empty blocks silently" property.
         from unittest.mock import patch
-        from kato_core_lib.helpers import agent_prompt_utils as apu
+        from agent_core_lib.agent_core_lib.helpers import agent_prompt_utils as apu
         with patch.object(apu, 'chat_continuity_ground_truth_block',
                           return_value=''), \
              patch.object(apu, 'workspace_inventory_block',
@@ -478,7 +479,7 @@ class SecurityGuardrailsTextTests(unittest.TestCase):
         # block. Locks the named clauses so a future edit that
         # accidentally drops "credential stores" or "untrusted data"
         # is caught.
-        from kato_core_lib.helpers.agent_prompt_utils import (
+        from agent_core_lib.agent_core_lib.helpers.agent_prompt_utils import (
             security_guardrails_text,
         )
         text = security_guardrails_text()
@@ -500,7 +501,7 @@ class ReviewCommentCodeSnippetEdgeBranches(unittest.TestCase):
         # Line 448: ``line_int <= 0`` → ''. Defensive: a 0 or negative
         # line number is meaningless and the renderer would produce a
         # broken arrow. Drop it cleanly.
-        from kato_core_lib.helpers.agent_prompt_utils import (
+        from agent_core_lib.agent_core_lib.helpers.agent_prompt_utils import (
             review_comment_code_snippet,
         )
         comment = SimpleNamespace(file_path='x.py', line_number=0)
@@ -515,7 +516,7 @@ class ReviewCommentCodeSnippetEdgeBranches(unittest.TestCase):
         # render. Return '' rather than emit a snippet with no rows.
         target = self.workspace / 'tiny.py'
         target.write_text('one\ntwo\nthree\n')
-        from kato_core_lib.helpers.agent_prompt_utils import (
+        from agent_core_lib.agent_core_lib.helpers.agent_prompt_utils import (
             review_comment_code_snippet,
         )
         comment = SimpleNamespace(file_path='tiny.py', line_number=100)
@@ -539,7 +540,7 @@ class ReviewCommentsBatchTextSnippetBranches(unittest.TestCase):
         # in the workspace. We must NOT inject an empty snippet block
         # under the comment; the body should follow the localization
         # header directly.
-        from kato_core_lib.helpers.agent_prompt_utils import (
+        from agent_core_lib.agent_core_lib.helpers.agent_prompt_utils import (
             review_comments_batch_text,
         )
         comment = SimpleNamespace(

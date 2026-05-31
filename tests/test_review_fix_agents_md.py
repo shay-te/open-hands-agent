@@ -23,7 +23,7 @@ from pathlib import Path
 from claude_core_lib.claude_core_lib.cli_client import ClaudeCliClient
 from kato_core_lib.data_layers.data.fields import PullRequestFields
 from provider_client_base.provider_client_base.data.review_comment import ReviewComment
-from kato_core_lib.helpers.agents_instruction_utils import (
+from agent_core_lib.agent_core_lib.helpers.agents_instruction_utils import (
     agents_instructions_for_path,
 )
 

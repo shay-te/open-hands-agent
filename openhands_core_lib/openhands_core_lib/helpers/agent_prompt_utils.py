@@ -64,7 +64,7 @@ def security_guardrails_text() -> str:
     )
 
 
-def workspace_scope_block(allowed_paths) -> str:
+def workspace_scope_block(allowed_paths, extra_refusal_guidance: str = '') -> str:
     paths: list[str] = []
     for raw in allowed_paths or []:
         if not raw:
@@ -75,7 +75,7 @@ def workspace_scope_block(allowed_paths) -> str:
     if not paths:
         return ''
     bullet_lines = '\n'.join(f'  - {p}' for p in paths)
-    return (
+    block = (
         'WORKSPACE SCOPE — STRICT BOUNDARY (read this first):\n'
         'You may only read or modify files inside the workspace paths '
         'below. These are per-task clones; touching anything outside '
@@ -100,6 +100,13 @@ def workspace_scope_block(allowed_paths) -> str:
         'something outside scope, stop and report it instead of '
         'reaching for it.\n'
     )
+    # Optional caller-provided product-specific refusal guidance,
+    # appended after the generic boundary. Kept generic here; the text
+    # is supplied by the spawner (kato), never hardcoded in this lib.
+    extra = str(extra_refusal_guidance or '').strip()
+    if extra:
+        return f'{block}\n{extra}\n'
+    return block
 
 
 def repository_scope_text(task, prepared_task=None) -> str:

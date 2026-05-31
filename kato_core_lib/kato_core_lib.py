@@ -625,6 +625,9 @@ class KatoCoreLib(CoreLib):
         an ``AgentProvider`` it can call by interface — no more
         if-claude-else-openhands branches in this file.
         """
+        from kato_core_lib.helpers.workspace_refusal_guidance import (
+            KATO_WORKSPACE_REFUSAL_GUIDANCE,
+        )
         platform = resolve_platform(getattr(open_cfg, 'agent_backend', '') or '')
         return AgentCoreLib(
             platform,
@@ -633,4 +636,5 @@ class KatoCoreLib(CoreLib):
             testing=testing,
             docker_mode_on=docker_mode_on,
             read_only_tools_on=read_only_tools_on,
+            workspace_refusal_guidance=KATO_WORKSPACE_REFUSAL_GUIDANCE,
         ).agent

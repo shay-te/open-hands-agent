@@ -28,7 +28,7 @@ from github_core_lib.github_core_lib.client.github_client import GitHubClient
 from gitlab_core_lib.gitlab_core_lib.client.gitlab_client import GitLabClient
 from kato_core_lib.data_layers.data.fields import ReviewCommentFields
 from provider_client_base.provider_client_base.data.review_comment import ReviewComment
-from kato_core_lib.helpers.agent_prompt_utils import review_comment_location_text
+from agent_core_lib.agent_core_lib.helpers.agent_prompt_utils import review_comment_location_text
 from kato_core_lib.helpers.review_comment_utils import review_comment_from_payload
 
 

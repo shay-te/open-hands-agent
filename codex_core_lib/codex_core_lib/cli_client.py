@@ -114,6 +114,7 @@ class CodexCliClient(object):
         effort: str = '',
         architecture_doc_path: str = '',
         lessons_path: str = '',
+        workspace_refusal_guidance: str = '',
     ) -> None:
         self.max_retries = max(1, int(max_retries or 1))
         self._binary = normalized_text(binary) or self.DEFAULT_BINARY
@@ -141,6 +142,9 @@ class CodexCliClient(object):
         self._extra_args = list(extra_args or [])
         self._architecture_doc_path = normalized_text(architecture_doc_path)
         self._lessons_path = normalized_text(lessons_path)
+        # Product-specific refusal guidance appended to the generic
+        # workspace scope block; supplied by the spawner ('' otherwise).
+        self._workspace_refusal_guidance = workspace_refusal_guidance or ''
         self.logger = configure_logger(self.__class__.__name__)
         if self._bypass_permissions:
             self.logger.warning(
@@ -363,10 +367,12 @@ class CodexCliClient(object):
             single = comments[0]
             prompt = self._build_review_prompt(
                 single, branch_name, workspace_path=cwd, mode=mode,
+                workspace_refusal_guidance=self._workspace_refusal_guidance,
             )
         else:
             prompt = self._build_review_comments_batch_prompt(
                 comments, branch_name, workspace_path=cwd, mode=mode,
+                workspace_refusal_guidance=self._workspace_refusal_guidance,
             )
         result = self._run_prompt_result(
             prompt=prompt,
@@ -399,6 +405,7 @@ class CodexCliClient(object):
     ) -> str:
         scope_block = agent_prompt_utils.workspace_scope_block(
             _repository_local_paths(prepared_task),
+            extra_refusal_guidance=self._workspace_refusal_guidance,
         )
         repository_scope = agent_prompt_utils.repository_scope_text(task, prepared_task)
         agents_instructions = agent_prompt_utils.agents_instructions_text(prepared_task)
@@ -474,6 +481,7 @@ class CodexCliClient(object):
         branch_name: str,
         workspace_path: str = '',
         mode: str = 'fix',
+        workspace_refusal_guidance: str = '',
     ) -> str:
         first = comments[0]
         repository_context = agent_prompt_utils.review_repository_context(first)
@@ -508,6 +516,7 @@ class CodexCliClient(object):
         )
         scope_block = agent_prompt_utils.workspace_scope_block(
             [workspace_path] if workspace_path else [],
+            extra_refusal_guidance=workspace_refusal_guidance,
         )
         scope_prefix = f'{scope_block}\n' if scope_block else ''
         from agent_core_lib.agent_core_lib.helpers.agents_instruction_utils import (
@@ -569,6 +578,7 @@ class CodexCliClient(object):
         branch_name: str,
         workspace_path: str = '',
         mode: str = 'fix',
+        workspace_refusal_guidance: str = '',
     ) -> str:
         repository_context = agent_prompt_utils.review_repository_context(comment)
         review_context = agent_prompt_utils.review_comment_context_text(comment)
@@ -594,6 +604,7 @@ class CodexCliClient(object):
         snippet_block = f'{snippet_text}\n' if snippet_text else ''
         scope_block = agent_prompt_utils.workspace_scope_block(
             [workspace_path] if workspace_path else [],
+            extra_refusal_guidance=workspace_refusal_guidance,
         )
         scope_prefix = f'{scope_block}\n' if scope_block else ''
         from agent_core_lib.agent_core_lib.helpers.agents_instruction_utils import (

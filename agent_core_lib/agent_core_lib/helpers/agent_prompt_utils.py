@@ -146,7 +146,20 @@ def security_guardrails_text() -> str:
     )
 
 
-def workspace_scope_block(allowed_paths) -> str:
+def workspace_scope_block(allowed_paths, extra_refusal_guidance: str = '') -> str:
+    """Render the unmissable strict workspace-boundary block.
+
+    Generic and product-agnostic: it names ONLY the allowed paths and the
+    operator-config env vars (``KATO_WORKSPACES_ROOT`` / ``REPOSITORY_ROOT_PATH``),
+    never any product workflow (ticket tags, a UI, a sync action). A
+    consumer that knows how to widen scope in its own product can pass
+    that actionable refusal guidance as ``extra_refusal_guidance``; it is
+    appended verbatim after the generic refusal sentence. The default
+    ``''`` keeps the block unchanged for every other consumer.
+
+    Empty / non-list input returns ``''`` so callers without a resolved
+    path set don't emit a malformed boundary.
+    """
     paths: list[str] = []
     for raw in allowed_paths or []:
         if not raw:
@@ -157,7 +170,7 @@ def workspace_scope_block(allowed_paths) -> str:
     if not paths:
         return ''
     bullet_lines = '\n'.join(f'  - {p}' for p in paths)
-    return (
+    block = (
         'WORKSPACE SCOPE — STRICT BOUNDARY (read this first):\n'
         'You may only read or modify files inside the workspace paths '
         'below. These are per-task clones; touching anything outside '
@@ -182,6 +195,26 @@ def workspace_scope_block(allowed_paths) -> str:
         'something outside scope, stop and report it instead of '
         'reaching for it.\n'
     )
+    # A product-specific consumer (e.g. an orchestrator that knows how to
+    # widen scope in its own UI/ticketing) may append an actionable
+    # refusal template here. Kept out of agent_core_lib so the generic
+    # block stays product-agnostic.
+    extra = str(extra_refusal_guidance or '').strip()
+    if extra:
+        return f'{block}\n{extra}\n'
+    return block
+
+
+def prepend_forbidden_repository_guardrails(prompt: str, raw_value: object = None) -> str:
+    """Prefix ``prompt`` with the forbidden-repository execution protocol.
+
+    Returns the prompt unchanged when there's nothing to forbid, so the
+    common (no forbidden list) path stays clean.
+    """
+    guardrails = forbidden_repository_guardrails_text(raw_value)
+    if not guardrails:
+        return prompt
+    return f'{guardrails}\n\n{prompt}'
 
 
 def repository_scope_text(task, prepared_task=None) -> str:

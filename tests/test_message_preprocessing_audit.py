@@ -33,7 +33,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from claude_core_lib.claude_core_lib.cli_client import ClaudeCliClient
-from kato_core_lib.helpers.agent_prompt_utils import (
+from agent_core_lib.agent_core_lib.helpers.agent_prompt_utils import (
     prepend_chat_workspace_context,
     prepend_forbidden_repository_guardrails,
 )
