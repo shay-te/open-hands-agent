@@ -335,6 +335,13 @@ def review_comment_context_text(comment) -> str:
     return '\n\nReview comment context:\n' + '\n'.join(lines)
 
 
+# EXTRACTION FOLLOW-UP: these prefixes are the last product-branded
+# behavior in this library — they exist only to drop the bot's own prior
+# replies out of review-comment context. Not a secret and not a blocker
+# for open-sourcing, but architecturally they should become a
+# caller-provided ``self_reply_prefixes`` threaded through the clients
+# (same injection pattern as ``extra_refusal_guidance``), so the host
+# names its own bot rather than this base hardcoding "Kato".
 _SELF_REPLY_PREFIXES = (
     'Kato addressed review comment ',
     'Kato addressed this review comment',

@@ -1,136 +1,199 @@
 # agent-core-lib
 
-Shared agent-behavior layer plus the factory wrapper that picks the
-configured agent backend (Claude / Codex / OpenHands) and exposes it
-through the shared [`AgentProvider`](../agent_provider_contracts/)
-interface. Same shape as [`task_core_lib`](../task_core_lib/) and
-[`repository_core_lib`](../repository_core_lib/), but focused on what
-an agent should see before a backend sends work to a model.
+A reusable **agent-behavior** layer plus a small **agent-backend factory**
+for building coding/automation agents on top of CLI agent runtimes
+(Claude Code, Codex, OpenHands).
 
-## What lives here
+It owns the *generic* work that every agent backend needs **before** a
+prompt is sent to a model — prompt scaffolding, safety guardrails,
+workspace/scope boundaries, AGENTS.md and architecture/lessons
+injection, session-id normalization, and normalized result payloads —
+and a factory that hands you the configured backend behind one
+`AgentProvider` interface.
 
+It is **product-agnostic**: it knows about agent *backends* (Claude /
+Codex / OpenHands) because it builds providers, but it knows nothing
+about any particular product's workflow, ticketing system, UI, or
+environment naming. Anything product-specific is passed in by the host
+application.
+
+## What problem it solves
+
+Each agent backend re-implements the same "prep" work: build a prompt
+that tells the agent which files it may touch, inject the project's
+checked-in conventions, normalize the model's session id, scan output
+for leaked credentials, and shape the result into a common envelope.
+Done per-backend, this drifts and duplicates. `agent_core_lib`
+centralizes it so every backend behaves identically, and a single
+factory selects the backend from config.
+
+## Responsibilities
+
+- **Prompt preparation** — reusable scaffolding an agent sees before a
+  backend sends work to a model.
+- **Safety guardrails** — generic instructions for handling untrusted
+  task text, comments, logs, and attachments.
+- **Workspace & repository scope** — strict "only read/edit these
+  paths" boundaries, and which repos/branches are in scope, without
+  encoding any product's task workflow.
+- **Convention injection** — discover/render `AGENTS.md`, architecture
+  docs, and a learned-lessons file into the prompt.
+- **Review context** — file/line/commit localization and prior-thread
+  context for review-comment fix prompts.
+- **Conversation continuity** — guidance that helps an agent trust
+  existing history instead of repeating expensive reads.
+- **Session-id + result normalization** — one canonical session-id
+  representation and a normalized result envelope across backends.
+- **Output-side safety scan** — detective credential/phishing scan over
+  the agent's final response (logs redacted previews only).
+- **Resume snapshots** — render a generic markdown snapshot so another
+  agent can continue from recent conversation state.
+- **Backend factory** — pick the configured backend and expose it
+  through the shared `AgentProvider` interface.
+- **Caller guidance hook** — accept optional caller-provided guidance
+  (e.g. product-specific refusal text) while staying product-agnostic.
+
+## Non-responsibilities (explicitly NOT owned here)
+
+- **Provider / model transport.** How a backend actually spawns a
+  process, talks to a model API, streams tokens, applies permission
+  modes, or wraps a sandbox lives in that backend's own library
+  (`claude_core_lib`, `codex_core_lib`, `openhands_core_lib`) — not
+  here. This library calls no model API directly.
+- **Product workflow.** Ticketing, repo publishing, PR/review
+  orchestration, schedulers, and any product UI belong to the host
+  application.
+- **Product-specific prompt text.** Guidance tied to a product (e.g.
+  "to widen scope, do X in your tool") is **passed in** by the host
+  (see `extra_refusal_guidance` below); this library never hardcodes
+  it.
+
+## Installation
+
+```bash
+pip install agent-core-lib   # placeholder — package name TBD on publish
 ```
-agent_core_lib/agent_core_lib/
-├── agent_core_lib.py                ← AgentCoreLib composition root
-├── platform.py                       ← AgentPlatform enum
-├── client/
-│   └── agent_client_factory.py       ← AgentClientFactory + resolve_platform()
-└── helpers/
-    ├── agent_prompt_utils.py         ← prompt scope, safety, review context
-    ├── agents_instruction_utils.py   ← AGENTS.md discovery/rendering
-    ├── architecture_doc_utils.py     ← architecture doc loading
-    ├── lessons_doc_utils.py          ← lessons doc loading
-    ├── resume_prompt_utils.py        ← generic resume prompt snapshots
-    ├── credential_scan.py            ← output-side credential/phishing scan
-    ├── result_utils.py               ← normalized agent result payloads
-    └── session_id_utils.py           ← generic agent session id helpers
-```
 
-## Public surface
+Backend libraries are **optional** and imported lazily, so you only
+need the dependency for the backend you actually use.
+
+## Quick start
 
 ```python
 from agent_core_lib.agent_core_lib import AgentCoreLib, AgentPlatform
 from agent_core_lib.agent_core_lib.client.agent_client_factory import resolve_platform
 
-platform = resolve_platform(cfg.kato.agent_backend)  # 'claude' / 'openhands' / aliases
+# `config` is YOUR application's config object. The factory reads, by
+# attribute: `agent_backend` plus a per-backend block (`config.claude`,
+# `config.codex`, `config.openhands`) and `repository_root_path`.
+config = load_your_config()
+
+platform = resolve_platform(config.agent_backend)   # 'claude' / 'codex' / 'openhands' (+ aliases)
 agent = AgentCoreLib(
     platform,
-    cfg.kato,
+    config,
     max_retries=3,
-    docker_mode_on=True,
+    docker_mode_on=False,
     read_only_tools_on=False,
+    # Optional: product-specific refusal guidance appended to the generic
+    # workspace boundary. Supplied by YOU, never hardcoded in this library.
+    workspace_refusal_guidance='',
 ).agent
-# agent is typed as AgentProvider — call by interface, never branch on backend.
+
+# `agent` is typed as AgentProvider — call by interface, never branch on backend.
 agent.implement_task(task, prepared_task=ctx)
 ```
 
-## Responsibilities
+## Supported backends
 
-- **Prompt Preparation**: Build the reusable prompt scaffolding an
-  agent needs before a backend sends work to a model.
+| Platform | `AgentPlatform` | Runtime lives in |
+|---|---|---|
+| Claude Code | `AgentPlatform.CLAUDE` | `claude_core_lib` |
+| Codex | `AgentPlatform.CODEX` | `codex_core_lib` |
+| OpenHands | `AgentPlatform.OPENHANDS` | `openhands_core_lib` |
 
-- **Safety Guardrails**: Add generic safety text for untrusted task
-  descriptions, comments, logs, attachments, and quoted content.
+The factory imports a backend lazily, inside its build method — a
+Claude-only install never imports the Codex/OpenHands trees, and vice
+versa. Adding a backend means adding an `AgentPlatform` member, its
+config-key wiring, and a lazy build method.
 
-- **Workspace Scope**: Render strict "only read or edit these paths"
-  boundaries for per-task workspaces and repository clones.
+## Prompt-helper example
 
-- **Repository Scope**: Explain which repositories and branches are in
-  scope without teaching product-specific task workflow.
+The helpers are pure functions you can use without the factory:
 
-- **Caller Guidance Hook**: Accept optional caller-provided guidance,
-  such as product-specific refusal instructions, while keeping this
-  lib product-agnostic.
+```python
+from agent_core_lib.agent_core_lib.helpers.agent_prompt_utils import (
+    workspace_scope_block,
+    security_guardrails_text,
+)
 
-- **AGENTS.md Instructions**: Discover and render checked-in
-  `AGENTS.md` files so backend agents follow repository-local rules.
+# Generic, product-agnostic strict boundary. Names only the allowed paths
+# + generic env vars (AGENT_WORKSPACES_ROOT / AGENT_REPOSITORY_ROOT_PATH).
+block = workspace_scope_block(['/abs/path/to/task/workspace'])
 
-- **Architecture Docs**: Load architecture documentation that callers
-  can append to an agent's system prompt.
+# A host that knows how to widen scope in its own product can append its
+# own actionable refusal guidance — appended verbatim:
+block = workspace_scope_block(
+    ['/abs/path/to/task/workspace'],
+    extra_refusal_guidance='To widen scope: <your product-specific steps>',
+)
 
-- **Lessons Memory**: Load compacted lessons text that callers can
-  include in future agent prompts.
-
-- **Review Context**: Add review-comment context such as file path,
-  line number, commit id, nearby code, and prior thread text.
-
-- **Conversation Continuity**: Add guidance that helps agents trust
-  existing conversation history instead of repeating expensive reads or
-  git inspection.
-
-- **Result Normalization**: Normalize backend result payloads into the
-  shared agent-result shape expected by orchestration code.
-
-- **Session IDs**: Normalize and preserve generic agent session ids
-  across backend boundaries.
-
-- **Resume Snapshots**: Render generic markdown snapshots that let
-  another agent continue from recent conversation state.
-
-- **Output Safety Scan**: Detect credential-looking or phishing-looking
-  text in model output and log redacted audit warnings.
-
-- **Backend Factory**: Resolve the configured backend name, construct
-  the selected `AgentProvider`, and pass runtime knobs through to that
-  backend.
-
-## Non-Responsibilities
-
-- **Model Providers**: Does not call Bedrock, OpenRouter, OpenAI,
-  Anthropic, or other model APIs directly. Provider transport belongs
-  in provider/LLM-specific libraries.
-
-- **Product Workflow**: Does not know about Kato tasks, ticket states,
-  review publishing, PR creation, or UI workflows.
-
-- **Issue Platforms**: Does not contain YouTrack, Jira, GitHub,
-  GitLab, or Bitbucket workflow behavior.
-
-- **Backend Runtime**: Does not own Claude/Codex subprocess logic or
-  OpenHands HTTP/container plumbing. Each backend core-lib owns its
-  runtime details.
-
-## Why a factory pattern at all
-
-Kato used to have `if is_claude_backend(): build_claude_client(...) else: build_openhands_client(...)` branches scattered through its composition root. Each new backend added one more branch and one more `KatoClient | ClaudeCliClient` union type. The factory collapses that to one place; kato sees only `AgentProvider` past the boot wire-up.
-
-Adding a new backend (e.g., future `codex_core_lib`) means:
-1. Add `CODEX = 'codex'` to `AgentPlatform`.
-2. Wire its alias(es) in `_PLATFORM_ALIASES`.
-3. Add a `_build_codex` branch in `AgentClientFactory.build`.
-Kato itself doesn't change.
-
-## Tests
-
-```
-agent_core_lib/agent_core_lib/tests/
+guardrails = security_guardrails_text()   # generic untrusted-content rules
 ```
 
-Pin: alias resolution (every operator-typed string maps to the
-right enum), unknown-backend error message (must name the supported
-options so the operator knows what to fix), factory dispatch
-(routes the right enum to the right builder).
+## Backend-factory example
 
-Construction of the actual backend objects is tested where they
-live — `claude_core_lib` tests cover `ClaudeCliClient` construction,
-`openhands_core_lib` tests cover `KatoClient` construction.
+```python
+from agent_core_lib.agent_core_lib.client.agent_client_factory import (
+    AgentClientFactory,
+)
+from agent_core_lib.agent_core_lib.platform import AgentPlatform
+
+factory = AgentClientFactory(
+    max_retries=3,
+    docker_mode_on=False,
+    read_only_tools_on=False,
+    workspace_refusal_guidance='',   # host-supplied, optional
+)
+provider = factory.build(AgentPlatform.CLAUDE, config)
+result = provider.implement_task(task, prepared_task=ctx)
+```
+
+## Architecture boundaries
+
+- `agent_core_lib` is **generic agent behavior**. It must not contain
+  product/workflow/UI text or import a host application's package.
+- Product-specific text (e.g. refusal guidance) is **injected by the
+  host** as a parameter (`extra_refusal_guidance` /
+  `workspace_refusal_guidance`).
+- Backend **transport** (Claude/Codex/OpenHands process and API
+  details) stays in each backend library; `agent_core_lib` only selects
+  and composes them behind `AgentProvider`.
+- Backend imports are **lazy** (function-local in the factory) so the
+  base depends on no backend at import time.
+
+### Configuration
+
+Genericized env vars (read with sensible fallbacks where applicable):
+
+| Env var | Purpose |
+|---|---|
+| `AGENT_IGNORED_REPOSITORY_FOLDERS` | Comma-separated repo folder names the agent must not touch. |
+| `AGENT_WORKSPACES_ROOT` | Named in the scope block as the per-task workspaces root (informational text only). |
+| `AGENT_REPOSITORY_ROOT_PATH` | Named in the scope block as the shared source-clones root (informational text only). |
+
+For backward compatibility, `ignored_repository_folder_names()` falls
+back to a legacy `KATO_IGNORED_REPOSITORY_FOLDERS` value when the generic
+var is unset — compatibility only; prefer the generic name.
+
+## Development / testing
+
+```bash
+# Run this library's own test suite (no network, no DB — all fakes):
+python -m unittest discover -s agent_core_lib/agent_core_lib/tests -p "test_*.py"
+```
+
+Tests are self-contained (fake API keys / `localhost` URLs / fake model
+names) and live inside the library. The library imports no host
+application package; backend libraries are imported lazily only when a
+provider for that backend is built.
