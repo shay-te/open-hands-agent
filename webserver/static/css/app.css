@@ -580,7 +580,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 
 .tabs-pane-top .tab .tab-changes-indicator {
   display: inline-flex;
-  color: #fbbf24;
+  color: #f59e0b;
   font-size: 10px;
 }
 
@@ -724,8 +724,8 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .tabs-pane-top .tab.needs-attention {
-  background: rgba(249, 115, 22, 0.22);
-  border-color: rgba(249, 115, 22, 0.55);
+  background: rgba(245, 158, 11, 0.35);
+  border-color: rgba(245, 158, 11, 0.65);
   color: #f5f5f7;
 }
 
@@ -980,7 +980,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 } /* blue:  awaiting review */
 .status-working {
   background: #f59e0b;
-  border-color: #92400e;
+  border-color: #f59e0b;
 } /* orange: Claude working */
 .status-done {
   background: #2a2a2a;
@@ -996,7 +996,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   background: #b91c1c;
 } /* red:   half-broken workspace */
 .status-attention {
-  background: #f97316;
+  background: #f59e0b;
   border-color: #7f1d1d;
 } /* orange-red: needs approval */
 .status-dot.status-attention::after {
@@ -1004,7 +1004,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   position: absolute;
   inset: -6px;
   border-radius: 50%;
-  background: conic-gradient(#ef4444, #f97316, transparent 58%, transparent);
+  background: conic-gradient(#ef4444, #f59e0b, transparent 58%, transparent);
   animation: kato-status-spin 0.9s linear infinite;
   pointer-events: none;
   -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #0a0a0a 0);
@@ -1033,8 +1033,8 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   }
 }
 .tab.needs-attention {
-  border-left-color: #f97316;
-  background: rgba(249, 115, 22, 0.22);
+  border-left-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.35);
 }
 
 .tab.needs-attention .status-dot {
@@ -1043,10 +1043,10 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 
 @keyframes kato-attention-pulse {
   0%, 100% {
-    box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.72);
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.65);
   }
   50% {
-    box-shadow: 0 0 0 7px rgba(249, 115, 22, 0);
+    box-shadow: 0 0 0 7px transparent;
   }
 }
 .empty {
@@ -1216,14 +1216,14 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .session-action.is-warning {
-  background: rgba(217, 119, 6, 0.85); /* amber-600 */
+  background: rgba(245, 158, 11, 0.65); /* amber-600 */
   border-color: rgba(245, 158, 11, 0.65);
   color: #fef3c7;
-  box-shadow: 0 1px 6px rgba(217, 119, 6, 0.35);
+  box-shadow: 0 1px 6px rgba(245, 158, 11, 0.35);
 }
 
 .session-action.is-warning:hover {
-  background: rgba(245, 158, 11, 0.95);
+  background: #f59e0b;
   box-shadow: 0 1px 10px rgba(245, 158, 11, 0.65);
 }
 
@@ -1285,10 +1285,62 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
    * negative top margin: prompts are now nested one per turn, so a
    * negative top would yank the bar up over the previous turn's last
    * bubble. The flex gap on .chat-turn handles spacing instead. */
+  position: relative; /* anchor the comment-run jump icon (top-right) */
   margin: 0 -24px;
   background: #0a0a0a;
   border-bottom: 1px solid #2a2a2a;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+}
+
+/* Jump-to-comment icon on a comment-run prompt (kato addressing an
+ * operator diff comment). Pinned top-right of the bar; click opens the
+ * file's diff and scrolls to the thread. Its colour tracks that
+ * comment's live kato_status, reusing the .diff-file-comment-pill
+ * palette so the chat and the files badge agree at a glance. Sits in
+ * the toggle's right padding gutter, clear of the wrapped prompt text. */
+.chat-sticky-prompt-comment-jump {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  z-index: 3; /* above the collapse fade + expand button */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: #737373; /* neutral until the live status is known */
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 120ms ease, transform 90ms ease;
+}
+
+.chat-sticky-prompt-comment-jump:hover {
+  background: rgba(255, 255, 255, 0.06); /* keep the status tint, add a hover bg */
+}
+
+.chat-sticky-prompt-comment-jump:active {
+  transform: scale(0.92);
+}
+
+.chat-sticky-prompt-comment-jump.is-queued {
+  color: #c4b5fd;
+}
+
+.chat-sticky-prompt-comment-jump.is-in_progress {
+  color: #f59e0b;
+}
+
+.chat-sticky-prompt-comment-jump.is-addressed {
+  color: #79f2c0;
+}
+
+.chat-sticky-prompt-comment-jump.is-failed {
+  color: #fca5a5;
 }
 
 .chat-sticky-prompt-toggle {
@@ -1693,7 +1745,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   background: #0a0a0a;
   border: 1px solid #2a2a2a;
   border-radius: 3px;
-  color: #fbbf24;
+  color: #f59e0b;
 }
 
 .bubble.assistant .bubble-content .md-code-block {
@@ -1803,7 +1855,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 .bubble-tool-details-overflow {
   margin: 4px 0 0;
   font-size: 11px;
-  color: #f97316;
+  color: #f59e0b;
   font-style: italic;
 }
 
@@ -1863,12 +1915,12 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .working-indicator.is-stalled {
-  color: #fbbf24;
+  color: #f59e0b;
   font-style: normal;
 }
 
 .working-indicator.is-stalled .working-indicator-glyph {
-  color: #fbbf24;
+  color: #f59e0b;
   animation: none;
 }
 
@@ -1876,9 +1928,9 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   margin-left: 10px;
   padding: 3px 10px;
   border-radius: 999px;
-  border: 1px solid rgba(251, 191, 36, 0.55);
-  background: rgba(251, 191, 36, 0.16);
-  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.65);
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
   font: inherit;
   font-size: 11px;
   font-weight: 600;
@@ -1887,12 +1939,12 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .working-indicator-continue:hover {
-  background: rgba(251, 191, 36, 0.16);
+  background: rgba(245, 158, 11, 0.1);
   color: #fde68a;
 }
 
 .working-indicator.is-waiting-approval {
-  color: #f97316;
+  color: #f59e0b;
   font-style: normal;
 }
 
@@ -1904,7 +1956,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   align-items: center;
   justify-content: center;
   color: #0a0a0a;
-  background: #f97316;
+  background: #f59e0b;
   font: 700 10px/1 ui-monospace, monospace;
   animation: kato-attention-pop 1.2s ease-in-out infinite;
 }
@@ -1925,7 +1977,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
   inset: 0;
   width: 42px;
   border-radius: inherit;
-  background: linear-gradient(90deg, #f97316, #ef4444);
+  background: linear-gradient(90deg, #f59e0b, #ef4444);
   animation: kato-approval-progress 1.1s ease-in-out infinite;
 }
 
@@ -2331,7 +2383,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 #message-form.is-drop-target {
-  outline: 2px dashed rgba(251, 191, 36, 0.85);
+  outline: 2px dashed rgba(245, 158, 11, 0.65);
   outline-offset: -10px;
 }
 
@@ -2536,7 +2588,7 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .message-send.is-queued:hover {
-  background: #fbbf24;
+  background: #f59e0b;
 }
 
 /* Compact, pill-shaped model picker living inside the capsule. */
@@ -3143,7 +3195,7 @@ code {
 
 .editor-pane-chip.kato-queued .editor-pane-chip-status {
   background: rgba(245, 158, 11, 0.1);
-  color: #fbbf24;
+  color: #f59e0b;
 }
 
 .editor-pane-chip.kato-in_progress .editor-pane-chip-status {
@@ -3781,7 +3833,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .files-tab-commit-sha {
-  color: #fbbf24;
+  color: #f59e0b;
   font-family: ui-monospace, monospace;
 }
 
@@ -3921,7 +3973,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .diff-file-comment-pill.is-in_progress {
-  color: #fbbf24;
+  color: #f59e0b;
 }
 
 .diff-file-comment-pill.is-addressed {
@@ -4561,8 +4613,8 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .tree-row-comments.is-in_progress {
-  color: #fbbf24;
-  border-color: rgba(251, 191, 36, 0.4);
+  color: #f59e0b;
+  border-color: rgba(245, 158, 11, 0.35);
 }
 
 .tree-row-comments.is-addressed {
@@ -4621,7 +4673,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .diff-file-tree-row.conflicted .diff-file-tree-label {
-  color: #fbbf24;
+  color: #f59e0b;
 }
 
 .diff-file-tree-guide {
@@ -4760,13 +4812,13 @@ body.kato-resizing #left-pane-resizer::before {
 
 .diff-file-row-kind.kind-modify {
   color: #f59e0b;
-  background: rgba(180, 83, 9, 0.22);
+  background: rgba(245, 158, 11, 0.35);
 }
 
 .diff-file-row-kind.kind-rename,
 .diff-file-row-kind.kind-copy {
   color: #f59e0b;
-  background: rgba(180, 83, 9, 0.22);
+  background: rgba(245, 158, 11, 0.35);
 }
 
 .diff-file-row-path {
@@ -4778,7 +4830,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .diff-file-row.conflicted .diff-file-row-path {
-  color: #fbbf24;
+  color: #f59e0b;
 }
 
 .diff-file-row-conflict {
@@ -4789,8 +4841,8 @@ body.kato-resizing #left-pane-resizer::before {
   width: 18px;
   height: 18px;
   border-radius: 4px;
-  color: #fbbf24;
-  background: rgba(251, 191, 36, 0.16);
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.1);
   font-size: 11px;
 }
 
@@ -4977,8 +5029,8 @@ body.kato-resizing #left-pane-resizer::before {
   width: 19px;
   height: 19px;
   border-radius: 4px;
-  background: rgba(251, 191, 36, 0.16);
-  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
   font-size: 11px;
 }
 
@@ -4990,7 +5042,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .tree-row.conflicted .tree-row-name {
-  color: #fbbf24;
+  color: #f59e0b;
 }
 
 .tree-row-conflict {
@@ -5000,8 +5052,8 @@ body.kato-resizing #left-pane-resizer::before {
   width: 18px;
   height: 18px;
   border-radius: 4px;
-  background: rgba(251, 191, 36, 0.16);
-  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
   flex-shrink: 0;
   font-size: 11px;
 }
@@ -5259,20 +5311,20 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .diff-file .token.string {
-  color: #fbbf24;
+  color: #f59e0b;
 }
 
 .diff-file .token.attr-value {
-  color: #fbbf24;
+  color: #f59e0b;
 }
 
 .diff-file .token.template-string {
-  color: #fbbf24;
+  color: #f59e0b;
 }
 
 .diff-file .token.number,
 .diff-file .token.unit {
-  color: #fbbf24;
+  color: #f59e0b;
 }
 
 .diff-file .token.function,
@@ -5469,7 +5521,7 @@ body.kato-resizing #left-pane-resizer::before {
 
 .orchestrator-feed-row .lvl-warn,
 .orchestrator-feed-row .lvl-warning {
-  color: #fbbf24;
+  color: #f59e0b;
   background: rgba(245, 158, 11, 0.1);
 }
 
@@ -5520,14 +5572,14 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .orchestrator-feed-row .tok-progress {
-  color: #fbbf24;
+  color: #f59e0b;
   background: rgba(245, 158, 11, 0.1);
   border-radius: 3px;
   padding: 0 4px;
 }
 
 .orchestrator-feed-row .tok-num {
-  color: #fbbf24;
+  color: #f59e0b;
 }
 
 .orchestrator-feed-row .tok-code {
@@ -5566,13 +5618,13 @@ body.kato-resizing #left-pane-resizer::before {
 
 .claude-status-working {
   color: #fde68a;
-  border-color: #b45309;
+  border-color: #f59e0b;
   background: #0a0a0a;
 }
 
 .claude-status-approval {
-  color: #fed7aa;
-  border-color: #f97316;
+  color: #f59e0b;
+  border-color: #f59e0b;
   background: #0a0a0a;
 }
 
@@ -5703,7 +5755,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .toast-warning .toast-glyph {
-  color: #fbbf24;
+  color: #f59e0b;
 }
 
 .toast-info .toast-glyph {
@@ -6061,7 +6113,7 @@ body.kato-resizing #left-pane-resizer::before {
 
 .notification-settings-hint {
   font-size: 12px;
-  color: #fbbf24;
+  color: #f59e0b;
   line-height: 1.4;
 }
 
@@ -6069,7 +6121,7 @@ body.kato-resizing #left-pane-resizer::before {
   grid-column: 3;
   grid-row: 1/span 2;
   align-self: center;
-  color: #fbbf24;
+  color: #f59e0b;
   font-size: 14px;
   flex-shrink: 0;
   display: inline-flex;
@@ -6198,7 +6250,7 @@ body.kato-resizing #left-pane-resizer::before {
 
 .adopt-session-row.is-selected {
   background: #2a2a2a;
-  border-color: #fbbf24;
+  border-color: #f59e0b;
 }
 
 .adopt-session-row-top {
@@ -6261,7 +6313,7 @@ body.kato-resizing #left-pane-resizer::before {
 
 .adopt-session-badge.in-use {
   background: #3b1d0b;
-  color: #fbbf24;
+  color: #f59e0b;
   border: 1px solid #7f1d1d;
 }
 
@@ -6917,7 +6969,7 @@ body.kato-resizing #left-pane-resizer::before {
 .settings-drawer-field-warning {
   font-size: 11px;
   line-height: 1.5;
-  color: #fbbf24;
+  color: #f59e0b;
 }
 
 .settings-drawer-field-danger {
@@ -7042,7 +7094,7 @@ body.kato-resizing #left-pane-resizer::before {
 
 .tab-tooltip-badge.is-wait {
   background: rgba(245, 158, 11, 0.1);
-  color: #fbbf24;
+  color: #f59e0b;
 }
 
 .tab-tooltip-summary {
@@ -7085,7 +7137,7 @@ body.kato-resizing #left-pane-resizer::before {
 }
 
 .tab-tooltip-row dd.tone-warn {
-  color: #fbbf24;
+  color: #f59e0b;
 }
 
 .tab-tooltip-row dd.tone-error {

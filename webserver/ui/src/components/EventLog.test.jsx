@@ -4,7 +4,7 @@
 // ReferenceError at render time. Fixed in EventLog.jsx; the
 // "long tool-details rendering" test below pins the regression.
 
-import { describe, test, expect, vi } from 'vitest';
+import { describe, test, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 
 // Keep the real pin math (other tests don't touch scrolling) but spy
@@ -15,7 +15,17 @@ vi.mock('../utils/scrollUtils.js', async (importOriginal) => {
   return { ...actual, scrollToBottom: vi.fn() };
 });
 
+// The comment-run jump icon tints by live comment status, polled via
+// useCommentStatusMap → fetchTaskComments. Stub that one export; the
+// bulk of the suite (no comment-run prompts) never enables the poll, so
+// it stays inert there.
+vi.mock('../api.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return { ...actual, fetchTaskComments: vi.fn() };
+});
+
 import EventLog from './EventLog.jsx';
+import { fetchTaskComments } from '../api.js';
 import { scrollToBottom } from '../utils/scrollUtils.js';
 import { BUBBLE_KIND } from '../constants/bubbleKind.js';
 import { AGENT_SESSION_ID } from '../constants/sessionFields.js';
@@ -695,5 +705,149 @@ describe('EventLog — stay pinned to bottom on late content', () => {
     // Give the MutationObserver a chance to (not) fire.
     await new Promise((r) => setTimeout(r, 20));
     expect(scrollToBottom).not.toHaveBeenCalled();
+  });
+});
+
+
+const COMMENT_RUN_HEADER = 'Operator-added review comment from the kato diff tab.';
+
+function _commentRunEntry(file, line) {
+  const text = `${COMMENT_RUN_HEADER}\n\nFile: \`${file}\` (line ${line})\n\nComment: please fix`;
+  return _server({
+    type: CLAUDE_EVENT.USER,
+    uuid: `cr-${file}-${line}`,
+    message: { content: [{ type: 'text', text }] },
+  });
+}
+
+
+describe('EventLog — comment-run prompt jump icon', () => {
+  beforeEach(() => {
+    fetchTaskComments.mockReset();
+    fetchTaskComments.mockResolvedValue({ ok: true, body: { comments: [] } });
+  });
+
+  test('a comment-run prompt grows a jump icon; clicking it opens the diff at the comment', () => {
+    const onOpenFile = vi.fn();
+    const { container } = render(
+      <EventLog
+        taskId="T1"
+        entries={[_commentRunEntry('src/app/main.js', 42)]}
+        onOpenFile={onOpenFile}
+      />,
+    );
+    const btn = container.querySelector('.chat-sticky-prompt-comment-jump');
+    expect(btn).not.toBeNull();
+    fireEvent.click(btn);
+    expect(onOpenFile).toHaveBeenCalledWith({
+      absolutePath: 'src/app/main.js',
+      relativePath: 'src/app/main.js',
+      view: 'diff',
+      focusComment: true,
+    });
+  });
+
+  test('the icon is tinted by the live kato_status of the targeted comment', async () => {
+    fetchTaskComments.mockResolvedValue({
+      ok: true,
+      body: { comments: [
+        { file_path: 'src/app/main.js', line: 42, kato_status: 'in_progress' },
+      ] },
+    });
+    const { container } = render(
+      <EventLog
+        taskId="T1"
+        entries={[_commentRunEntry('src/app/main.js', 42)]}
+        onOpenFile={vi.fn()}
+      />,
+    );
+    const btn = container.querySelector('.chat-sticky-prompt-comment-jump');
+    await waitFor(() => expect(btn).toHaveClass('is-in_progress'));
+    expect(fetchTaskComments).toHaveBeenCalledWith('T1');
+  });
+
+  test('the tint is line-specific: only the prompt whose line matches the comment is tinted', async () => {
+    // Same file, status only at line 42. Two prompts — line 42 and line
+    // 99 — render side by side. A lookup that grabbed "any status" rather
+    // than commentStatusKey(file, line) would tint BOTH; this proves it
+    // keys on the line.
+    fetchTaskComments.mockResolvedValue({
+      ok: true,
+      body: { comments: [
+        { file_path: 'src/app/main.js', line: 42, kato_status: 'addressed' },
+      ] },
+    });
+    const { container } = render(
+      <EventLog
+        taskId="T1"
+        entries={[
+          _commentRunEntry('src/app/main.js', 42),
+          _commentRunEntry('src/app/main.js', 99),
+        ]}
+        onOpenFile={vi.fn()}
+      />,
+    );
+    const buttons = () => container.querySelectorAll('.chat-sticky-prompt-comment-jump');
+    expect(buttons().length).toBe(2);
+    await waitFor(() => expect(buttons()[0]).toHaveClass('is-addressed'));
+    // The line-99 prompt shares the file but not the line — it must stay
+    // neutral (no status tint of any kind).
+    const other = buttons()[1];
+    expect(other).not.toHaveClass('is-addressed');
+    expect(other.className).not.toMatch(/\bis-(queued|in_progress|addressed|failed)\b/);
+  });
+
+  test('a file-level comment-run (bare path, stored line -1) still tints + navigates', async () => {
+    fetchTaskComments.mockResolvedValue({
+      ok: true,
+      body: { comments: [
+        { file_path: 'src/app/main.js', line: -1, kato_status: 'failed' },
+      ] },
+    });
+    const onOpenFile = vi.fn();
+    const text = `${COMMENT_RUN_HEADER}\n\nFile: src/app/main.js\n\nComment: please fix`;
+    const { container } = render(
+      <EventLog
+        taskId="T1"
+        entries={[_server({
+          type: CLAUDE_EVENT.USER,
+          uuid: 'cr-filelevel',
+          message: { content: [{ type: 'text', text }] },
+        })]}
+        onOpenFile={onOpenFile}
+      />,
+    );
+    const btn = container.querySelector('.chat-sticky-prompt-comment-jump');
+    await waitFor(() => expect(btn).toHaveClass('is-failed'));
+    fireEvent.click(btn);
+    expect(onOpenFile).toHaveBeenCalledWith({
+      absolutePath: 'src/app/main.js',
+      relativePath: 'src/app/main.js',
+      view: 'diff',
+      focusComment: true,
+    });
+  });
+
+  test('an ordinary prompt has no jump icon and polls no statuses', () => {
+    const { container } = render(
+      <EventLog
+        taskId="T1"
+        entries={[_server({
+          type: CLAUDE_EVENT.USER,
+          uuid: 'u1',
+          message: { content: [{ type: 'text', text: 'just refactor this please' }] },
+        })]}
+        onOpenFile={vi.fn()}
+      />,
+    );
+    expect(container.querySelector('.chat-sticky-prompt-comment-jump')).toBeNull();
+    expect(fetchTaskComments).not.toHaveBeenCalled();
+  });
+
+  test('no jump icon when onOpenFile is not wired (nothing to navigate to)', () => {
+    const { container } = render(
+      <EventLog taskId="T1" entries={[_commentRunEntry('src/app/main.js', 42)]} />,
+    );
+    expect(container.querySelector('.chat-sticky-prompt-comment-jump')).toBeNull();
   });
 });

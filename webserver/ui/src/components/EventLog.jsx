@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import Bubble from './Bubble.jsx';
 import Icon from './Icon.jsx';
 import MarkdownContent from './MarkdownContent.jsx';
@@ -9,6 +9,8 @@ import { CLAUDE_EVENT, CLAUDE_SYSTEM_SUBTYPE } from '../constants/claudeEvent.js
 import { ENTRY_SOURCE } from '../constants/entrySource.js';
 import { formatToolUse, toolUseFilePath } from '../utils/formatToolUse.js';
 import { parseCommentRunPrompt } from '../utils/commentRunPrompt.js';
+import { commentStatusKey } from '../utils/commentStatus.js';
+import { useCommentStatusMap } from '../hooks/useCommentStatusMap.js';
 import { MessageFilter } from '../utils/MessageFilter.js';
 import { isPinnedToBottom, scrollToBottom } from '../utils/scrollUtils.js';
 import { cx } from '../utils/cx.js';
@@ -20,6 +22,12 @@ import {
   computeEventLogWindow,
   computeToolDetailsRender,
 } from './eventLogTruncation.js';
+
+// Live kato_status map (commentStatusKey -> status) for the comment
+// kato is addressing. Provided once by EventLog and read deep down by
+// StickyPrompt to tint its jump icon — context avoids threading the map
+// through bubblesFor → serverBubblesFor → userBubbles for one consumer.
+const CommentStatusContext = createContext(null);
 
 export default function EventLog({
   entries,
@@ -63,6 +71,14 @@ export default function EventLog({
     () => computeEventLogWindow(visibleEntries, showAll),
     [visibleEntries, showAll],
   );
+  // Only fetch live comment statuses when a comment-run prompt is
+  // actually on screen — an ordinary transcript polls nothing. Drives
+  // the tint on each comment-run prompt's jump icon (via context below).
+  const needsCommentStatuses = useMemo(
+    () => window.visible.some((entry) => entryCommentRunPrompt(entry)),
+    [window.visible],
+  );
+  const commentStatusMap = useCommentStatusMap(taskId, needsCommentStatuses);
   // Each operator prompt renders as a sticky section header (see
   // ``StickyPrompt`` / ``bubblesFor``). Native ``position: sticky``
   // stacking means: while you read a turn's replies its prompt is
@@ -220,20 +236,22 @@ export default function EventLog({
     </button>
   ) : null;
   return (
-    <div id="event-log" ref={containerRef}>
-      {bannerBubble}
-      {showOlderButton}
-      {turns.preamble.length > 0 && (
-        <div className="chat-turn chat-turn--preamble">{turns.preamble}</div>
-      )}
-      {turns.turns.map((turn) => (
-        <div className="chat-turn" key={turn[0].key}>{turn}</div>
-      ))}
-      {/* The working indicator lives INSIDE the scroll container as
-          the last entry, so it scrolls with the messages and trails
-          the newest one instead of floating over the chat. */}
-      {footer}
-    </div>
+    <CommentStatusContext.Provider value={commentStatusMap}>
+      <div id="event-log" ref={containerRef}>
+        {bannerBubble}
+        {showOlderButton}
+        {turns.preamble.length > 0 && (
+          <div className="chat-turn chat-turn--preamble">{turns.preamble}</div>
+        )}
+        {turns.turns.map((turn) => (
+          <div className="chat-turn" key={turn[0].key}>{turn}</div>
+        ))}
+        {/* The working indicator lives INSIDE the scroll container as
+            the last entry, so it scrolls with the messages and trails
+            the newest one instead of floating over the chat. */}
+        {footer}
+      </div>
+    </CommentStatusContext.Provider>
   );
 }
 
@@ -424,21 +442,38 @@ function assistantBubbles(raw, index, onOpenFile) {
   ];
 }
 
-function userBubbles(raw, index, onOpenFile) {
-  const message = raw.message || {};
+// The operator-visible text of a USER envelope — array content blocks
+// and/or a raw string, joined. Shared by the bubble renderer and the
+// comment-run detection so both read the prompt identically.
+function userMessageText(raw) {
+  const message = raw?.message || {};
   const rawContent = message.content;
-  const content = Array.isArray(rawContent) ? rawContent : [];
-  const textPieces = [];
+  const pieces = [];
   const arrayText = messageContentText(message);
-  if (arrayText) { textPieces.push(arrayText); }
-  if (typeof rawContent === 'string' && rawContent.trim()) {
-    textPieces.push(rawContent);
-  }
+  if (arrayText) { pieces.push(arrayText); }
+  if (typeof rawContent === 'string' && rawContent.trim()) { pieces.push(rawContent); }
+  return pieces.join('\n');
+}
+
+// A server USER entry whose text is a kato comment-run prompt → its
+// parsed ``{ file, line }``, else null. The chat uses this to decide
+// whether to fetch live comment statuses at all (an ordinary transcript
+// polls nothing); it's the same parse StickyPrompt runs for the icon.
+function entryCommentRunPrompt(entry) {
+  if (!entry || entry.source === ENTRY_SOURCE.LOCAL) { return null; }
+  const raw = entry.raw;
+  if (!raw || raw.type !== CLAUDE_EVENT.USER) { return null; }
+  return parseCommentRunPrompt(userMessageText(raw));
+}
+
+function userBubbles(raw, index, onOpenFile) {
+  const rawContent = (raw.message || {}).content;
+  const content = Array.isArray(rawContent) ? rawContent : [];
+  const text = userMessageText(raw);
   // Show image-bearing user envelopes too — surface the image count
   // inline so the operator can confirm their attachment landed.
   const imageCount = content.filter((b) => b && b.type === 'image').length;
-  if (textPieces.length === 0 && imageCount === 0) { return []; }
-  const text = textPieces.join('\n');
+  if (!text && imageCount === 0) { return []; }
   const display = withImageCountSuffix(text, imageCount);
   return [
     <StickyPrompt key={keyOf(raw, index, 'user')} text={display} onOpenFile={onOpenFile} />,
@@ -481,11 +516,17 @@ function ExpandToggle({ expanded, onToggle, extraClass = '', ariaExpanded = fals
 // used by tool-output snippets.
 function StickyPrompt({ text, onOpenFile }) {
   const [expanded, toggle] = useExpandable();
+  const commentStatusMap = useContext(CommentStatusContext);
   const promptText = String(text || '');
   // A comment-run prompt (kato addressing an operator diff comment) gets
   // a jump-to-comment icon top-right: clicking opens that file's diff and
-  // scrolls to the comment thread.
+  // scrolls to the comment thread, and the icon is tinted by that
+  // comment's live kato_status (queued / in_progress / addressed /
+  // failed) so the chat and the diff badge agree at a glance.
   const commentRef = parseCommentRunPrompt(promptText);
+  const commentStatus = commentRef && commentStatusMap
+    ? String(commentStatusMap.get(commentStatusKey(commentRef.file, commentRef.line)) || '')
+    : '';
   const lineCount = promptText.split('\n').length;
   const isCollapsible = lineCount > 3 || promptText.length > 180;
   const promptClass = cx(
@@ -505,12 +546,20 @@ function StickyPrompt({ text, onOpenFile }) {
       ariaExpanded
     />
   ) : null;
+  // Status word in the label so the meaning isn't carried by colour
+  // alone (a11y) — e.g. "Jump to this comment in the diff · working".
+  const statusSuffix = commentStatus ? ` · ${commentStatus.replace(/_/g, ' ')}` : '';
+  const jumpLabel = `Jump to this comment in the diff${statusSuffix}`;
   const jumpToComment = commentRef && typeof onOpenFile === 'function' ? (
     <button
       type="button"
-      className="chat-sticky-prompt-comment-jump tooltip-below"
-      data-tooltip="Jump to this comment in the diff"
-      aria-label="Jump to this comment in the diff"
+      className={cx(
+        'chat-sticky-prompt-comment-jump',
+        'tooltip-below',
+        commentStatus && `is-${commentStatus}`,
+      )}
+      data-tooltip={jumpLabel}
+      aria-label={jumpLabel}
       onClick={() => onOpenFile({
         absolutePath: commentRef.file,
         relativePath: commentRef.file,

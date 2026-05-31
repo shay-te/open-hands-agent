@@ -35,6 +35,7 @@ import {
 import { cssEscapeAttr } from './utils/dom.js';
 import { countNoun } from './utils/pluralize.js';
 import { apiErrorMessage } from './utils/apiError.js';
+import { moreUrgentCommentStatus } from './utils/commentStatus.js';
 import { useDismissOnOutsidePointerOrEscape } from './hooks/useDismissOnOutsidePointerOrEscape.js';
 
 
@@ -47,26 +48,12 @@ const EMPTY_DIFF_META = new Map();
 const EMPTY_COMMENT_META = new Map();
 const EMPTY_STATS = { added: 0, deleted: 0 };
 
-// Most-attention-needing kato_status first. The file-tree badge tints
-// to whichever status wins across a file's open threads, so a glance
-// tells the operator "this file has a FAILED comment" over a merely
-// addressed one. Statuses not in this list (idle / unknown) leave the
-// badge its neutral colour. Matches the .diff-file-comment-pill colours.
-const COMMENT_STATUS_PRECEDENCE = ['failed', 'queued', 'in_progress', 'addressed'];
-
-function moreUrgentCommentStatus(a, b) {
-  const rank = (status) => {
-    const index = COMMENT_STATUS_PRECEDENCE.indexOf(status);
-    return index === -1 ? COMMENT_STATUS_PRECEDENCE.length : index;
-  };
-  return rank(b) < rank(a) ? b : a;
-}
-
 // repoKey -> Map(repo-relative file path -> { count, status }). A
 // "thread" is a top-of-thread comment (``parent_id`` empty); replies
 // don't add to the count, matching the Bitbucket 💬 N convention.
 // ``status`` is the most-urgent kato_status across the file's open
-// threads (see COMMENT_STATUS_PRECEDENCE), used to tint the badge.
+// threads (see moreUrgentCommentStatus in utils/commentStatus.js), used
+// to tint the badge.
 export function buildFilesCommentMeta(comments) {
   const byRepo = new Map();
   for (const comment of comments || []) {
