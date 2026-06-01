@@ -319,10 +319,19 @@ def review_conversation_title(
     return f'Fix review comment {getattr(comment, "comment_id", "")}'
 
 
-def review_comment_context_text(comment) -> str:
+def review_comment_context_text(comment, self_reply_prefixes=()) -> str:
+    """Render prior comments on a review thread for the fix prompt.
+
+    ``self_reply_prefixes`` is a product-agnostic injection point: the host
+    passes the body prefixes its OWN bot uses for the replies it posts (e.g.
+    kato's "Kato addressed review comment …"), so those self-replies are dropped
+    from the context instead of being fed back to the agent. Empty (the default)
+    means no filtering — this base hardcodes no product's bot name.
+    """
     all_comments = getattr(comment, 'all_comments', [])
     if not isinstance(all_comments, list) or len(all_comments) <= 1:
         return ''
+    prefixes = tuple(prefix for prefix in (self_reply_prefixes or ()) if prefix)
     lines: list[str] = []
     for item in all_comments:
         if not isinstance(item, dict):
@@ -331,30 +340,13 @@ def review_comment_context_text(comment) -> str:
         body = text_from_mapping(item, 'body')
         if not body:
             continue
-        if _is_self_reply_body(body):
+        if prefixes and body.startswith(prefixes):
             continue
         label = author if author else 'reviewer'
         lines.append(f'- {label}: {body}')
     if not lines:
         return ''
     return '\n\nReview comment context:\n' + '\n'.join(lines)
-
-
-# EXTRACTION FOLLOW-UP: these prefixes are the last product-branded
-# behavior in this library — they exist only to drop the bot's own prior
-# replies out of review-comment context. Not a secret and not a blocker
-# for open-sourcing, but architecturally they should become a
-# caller-provided ``self_reply_prefixes`` threaded through the clients
-# (same injection pattern as ``extra_refusal_guidance``), so the host
-# names its own bot rather than this base hardcoding "Kato".
-_SELF_REPLY_PREFIXES = (
-    'Kato addressed review comment ',
-    'Kato addressed this review comment',
-)
-
-
-def _is_self_reply_body(body: str) -> bool:
-    return body.startswith(_SELF_REPLY_PREFIXES)
 
 
 def review_repository_context(comment) -> str:

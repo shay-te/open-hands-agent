@@ -268,7 +268,13 @@ class ReviewFixPromptFlowTests(unittest.TestCase):
         self.assertLess(batch.index('1.'), batch.index('2.'))
 
     def test_context_text_drops_self_reply_keeps_reviewer(self) -> None:
-        context = review_comment_context_text(self.file_comment)
+        context = review_comment_context_text(
+            self.file_comment,
+            self_reply_prefixes=(
+                'Kato addressed review comment ',
+                'Kato addressed this review comment',
+            ),
+        )
         self.assertIn('Review comment context:', context)
         # alice's reviewer comment is kept...
         self.assertIn('- alice: Please rename this', context)
@@ -291,7 +297,13 @@ class ReviewFixPromptFlowTests(unittest.TestCase):
             [self.file_comment, self.pr_comment],
             workspace_path=self.workspace,
         )
-        context = review_comment_context_text(self.file_comment)
+        context = review_comment_context_text(
+            self.file_comment,
+            self_reply_prefixes=(
+                'Kato addressed review comment ',
+                'Kato addressed this review comment',
+            ),
+        )
         prompt = '\n\n'.join([title, location, snippet, batch, context])
 
         # Title, the precise location, the marked snippet, the batch's

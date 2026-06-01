@@ -3,6 +3,10 @@ from __future__ import annotations
 import logging
 import os
 
+from agent_core_lib.agent_core_lib.helpers.logging_utils import (
+    set_workflow_root as _set_agent_workflow_root,
+)
+
 
 _LOGGING_CONFIGURED = False
 _ROOT_HANDLER_NAME = 'kato_root'
@@ -10,6 +14,15 @@ _WORKFLOW_HANDLER_NAME = 'kato_workflow'
 _WORKFLOW_LOGGER_PREFIX = 'kato.workflow'
 _DEFAULT_LOG_LEVEL = logging.WARNING
 _DEFAULT_WORKFLOW_LOG_LEVEL = logging.INFO
+
+# Re-root agent_core_lib's SHARED logger namespace under kato's, so the
+# transport (Claude/Codex/OpenHands) loggers — which use agent_core_lib's
+# configure_logger — parent under ``kato.workflow`` exactly as kato's own
+# services do. Without this, agent_core_lib's generic default (``agent.workflow``)
+# would orphan transport logs from the status broadcaster + KATO_WORKFLOW_LOG_LEVEL
+# control. Runs at first import of this ubiquitously-imported module, before any
+# transport logger is created.
+_set_agent_workflow_root(_WORKFLOW_LOGGER_PREFIX)
 
 
 def _configured_log_level(env_key: str, default_name: str, fallback_level: int) -> int:

@@ -89,6 +89,7 @@ class ClaudeCliClient(object):
         architecture_doc_path: str = '',
         lessons_path: str = '',
         workspace_refusal_guidance: str = '',
+        self_reply_prefixes: tuple = (),
     ) -> None:
         self.max_retries = max(1, int(max_retries or 1))
         self._binary = normalized_text(binary) or self.DEFAULT_BINARY
@@ -140,6 +141,9 @@ class ClaudeCliClient(object):
         # so agent_core_lib/claude_core_lib stay product-agnostic; '' for
         # any consumer that doesn't set it.
         self._workspace_refusal_guidance = workspace_refusal_guidance or ''
+        # Host bot's review-reply prefixes — drop the bot's own prior replies
+        # from review-comment context. Empty = no filtering (agnostic default).
+        self._self_reply_prefixes = tuple(self_reply_prefixes or ())
         self.logger = configure_logger(self.__class__.__name__)
         if self._bypass_permissions:
             self.logger.warning(
@@ -390,11 +394,13 @@ class ClaudeCliClient(object):
             prompt = self._build_review_prompt(
                 single, branch_name, workspace_path=cwd, mode=mode,
                 workspace_refusal_guidance=self._workspace_refusal_guidance,
+                self_reply_prefixes=self._self_reply_prefixes,
             )
         else:
             prompt = self._build_review_comments_batch_prompt(
                 comments, branch_name, workspace_path=cwd, mode=mode,
                 workspace_refusal_guidance=self._workspace_refusal_guidance,
+                self_reply_prefixes=self._self_reply_prefixes,
             )
         result = self._run_prompt_result(
             prompt=prompt,
@@ -502,6 +508,7 @@ class ClaudeCliClient(object):
         workspace_path: str = '',
         mode: str = 'fix',
         workspace_refusal_guidance: str = '',
+        self_reply_prefixes: tuple = (),
     ) -> str:
         """Render a batched prompt for 2+ comments on one PR.
 
@@ -545,7 +552,9 @@ class ClaudeCliClient(object):
         # Per-PR review context comes from any one comment — they
         # share the thread. Skip when empty so we don't emit blank
         # marker tags.
-        review_context = agent_prompt_utils.review_comment_context_text(first)
+        review_context = agent_prompt_utils.review_comment_context_text(
+            first, self_reply_prefixes,
+        )
         wrapped_review_context = (
             wrap_untrusted_workspace_content(
                 review_context,
@@ -621,9 +630,12 @@ class ClaudeCliClient(object):
         workspace_path: str = '',
         mode: str = 'fix',
         workspace_refusal_guidance: str = '',
+        self_reply_prefixes: tuple = (),
     ) -> str:
         repository_context = agent_prompt_utils.review_repository_context(comment)
-        review_context = agent_prompt_utils.review_comment_context_text(comment)
+        review_context = agent_prompt_utils.review_comment_context_text(
+            comment, self_reply_prefixes,
+        )
         location_text = agent_prompt_utils.review_comment_location_text(comment)
         # Inline the code snippet around the commented line when we
         # can read it from the workspace. Saves a Read tool call per

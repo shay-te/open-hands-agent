@@ -90,3 +90,29 @@ class LoggingUtilsTests(unittest.TestCase):
             if handler.get_name() == name:
                 return handler
         return None
+
+
+class AgentWorkflowRootResetTests(unittest.TestCase):
+    """agent_core_lib's shared logger root defaults to the generic
+    ``agent.workflow``; importing kato's logging_utils re-roots it under
+    ``kato.workflow`` so transport (Claude/Codex/OpenHands) loggers — which use
+    agent_core_lib's configure_logger — parent under kato's namespace. This
+    keeps them under kato's status-broadcast handler + KATO_WORKFLOW_LOG_LEVEL
+    control; guards the regression where they'd orphan to ``agent.workflow``
+    and the planning UI status bar would go silent for transport events.
+    """
+
+    def test_importing_kato_logging_utils_reroots_agent_core_lib(self) -> None:
+        from agent_core_lib.agent_core_lib.helpers.logging_utils import (
+            configure_logger as agent_configure_logger,
+            get_workflow_root,
+        )
+        # ``from kato_core_lib.helpers import logging_utils`` at module top runs
+        # set_workflow_root('kato.workflow') at import time.
+        self.assertEqual(get_workflow_root(), 'kato.workflow')
+        # A transport-style logger built via agent_core_lib now lands under
+        # kato's namespace (a child of the status-broadcast target).
+        self.assertEqual(
+            agent_configure_logger('ClaudeCliClient').name,
+            'kato.workflow.ClaudeCliClient',
+        )

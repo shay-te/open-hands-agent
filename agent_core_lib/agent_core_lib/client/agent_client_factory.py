@@ -72,6 +72,7 @@ class AgentClientFactory(object):
         docker_mode_on: bool = False,
         read_only_tools_on: bool = False,
         workspace_refusal_guidance: str = '',
+        self_reply_prefixes: tuple = (),
     ) -> None:
         self._max_retries = max_retries
         self._testing = testing
@@ -82,6 +83,11 @@ class AgentClientFactory(object):
         # the Claude client; '' for any consumer that doesn't set it, so
         # codex/openhands defaults are unchanged.
         self._workspace_refusal_guidance = workspace_refusal_guidance or ''
+        # Body prefixes the host's OWN bot uses for the review replies it
+        # posts — passed to the CLI clients so those self-replies are dropped
+        # from review-comment context. Empty for any consumer that doesn't set
+        # it (no filtering), so this base hardcodes no product's bot name.
+        self._self_reply_prefixes = tuple(self_reply_prefixes or ())
 
     def build(self, platform: AgentPlatform, cfg: Any) -> AgentProvider:
         if platform == AgentPlatform.CLAUDE:
@@ -147,6 +153,9 @@ class AgentClientFactory(object):
             # every CLI agent (Claude, Codex) receives it identically so
             # the boundary block is consistent across backends.
             workspace_refusal_guidance=self._workspace_refusal_guidance,
+            # Host bot's self-reply prefixes — same rationale: both CLI
+            # agents drop the host bot's own prior replies identically.
+            self_reply_prefixes=self._self_reply_prefixes,
         )
 
     def _build_openhands(self, open_cfg: Any) -> AgentProvider:

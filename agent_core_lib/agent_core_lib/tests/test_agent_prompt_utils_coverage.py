@@ -22,7 +22,6 @@ from types import SimpleNamespace
 
 from agent_core_lib.agent_core_lib.helpers.agent_prompt_utils import (
     IGNORED_REPOSITORY_FOLDERS_ENV,
-    _is_self_reply_body,
     agents_instructions_text,
     chat_continuity_ground_truth_block,
     forbidden_repository_guardrails_text,
@@ -379,8 +378,8 @@ class ReviewCommentContextTextTests(unittest.TestCase):
 
     def test_self_reply_and_invalid_items_are_dropped(self) -> None:
         # Lines 323-330: non-dict skipped, empty body skipped, self-reply
-        # body dropped. The self-reply prefix here is the function's
-        # documented INPUT filter, not a test coupling.
+        # body dropped. The self-reply filtering happens ONLY when the
+        # caller passes ``self_reply_prefixes`` — the base hardcodes none.
         comment = SimpleNamespace(
             all_comments=[
                 'not-a-dict',                                  # line 323-324 skip
@@ -389,28 +388,36 @@ class ReviewCommentContextTextTests(unittest.TestCase):
                 {'author': 'carol', 'body': 'keep me'},
             ],
         )
-        out = review_comment_context_text(comment)
+        out = review_comment_context_text(
+            comment,
+            self_reply_prefixes=(
+                'Kato addressed review comment ',
+                'Kato addressed this review comment',
+            ),
+        )
         self.assertIn('- carol: keep me', out)
         self.assertNotIn('Kato addressed', out)
         self.assertNotIn('bob', out)
 
     def test_everything_filtered_returns_empty(self) -> None:
         # Lines 333-334: list long enough but all entries filtered → ''.
+        # Both entries drop only because the caller supplies the prefixes.
         comment = SimpleNamespace(
             all_comments=[
                 {'author': 'bot', 'body': 'Kato addressed this review comment'},
                 {'author': 'bot2', 'body': ''},
             ],
         )
-        self.assertEqual(review_comment_context_text(comment), '')
-
-
-class IsSelfReplyBodyTests(unittest.TestCase):
-    def test_matches_known_prefixes(self) -> None:
-        # Line 352: both prefixes recognized; unrelated body is not.
-        self.assertTrue(_is_self_reply_body('Kato addressed review comment 7'))
-        self.assertTrue(_is_self_reply_body('Kato addressed this review comment now'))
-        self.assertFalse(_is_self_reply_body('A normal review comment'))
+        self.assertEqual(
+            review_comment_context_text(
+                comment,
+                self_reply_prefixes=(
+                    'Kato addressed review comment ',
+                    'Kato addressed this review comment',
+                ),
+            ),
+            '',
+        )
 
 
 class ReviewRepositoryContextTests(unittest.TestCase):

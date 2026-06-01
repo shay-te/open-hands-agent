@@ -736,7 +736,7 @@ class ClaudeCliClientCredentialOutputScanTests(unittest.TestCase):
         with patch(
             'claude_core_lib.claude_core_lib.cli_client.subprocess.run',
             return_value=completed,
-        ), self.assertLogs('kato.workflow.ClaudeCliClient', level='WARNING') as cm:
+        ), self.assertLogs('agent.workflow.ClaudeCliClient', level='WARNING') as cm:
             client.implement_task(build_task())
 
         joined = ' '.join(cm.output)
@@ -765,7 +765,7 @@ class ClaudeCliClientCredentialOutputScanTests(unittest.TestCase):
             # No warnings expected; assertNoLogs makes the absence
             # explicit so a future regression that always-warns is
             # caught.
-            with self.assertNoLogs('kato.workflow.ClaudeCliClient', level='WARNING'):
+            with self.assertNoLogs('agent.workflow.ClaudeCliClient', level='WARNING'):
                 client.implement_task(build_task())
 
     def test_warning_lists_each_distinct_pattern(self) -> None:
@@ -783,7 +783,7 @@ class ClaudeCliClientCredentialOutputScanTests(unittest.TestCase):
         with patch(
             'claude_core_lib.claude_core_lib.cli_client.subprocess.run',
             return_value=completed,
-        ), self.assertLogs('kato.workflow.ClaudeCliClient', level='WARNING') as cm:
+        ), self.assertLogs('agent.workflow.ClaudeCliClient', level='WARNING') as cm:
             client.implement_task(build_task())
 
         joined = ' '.join(cm.output)
@@ -813,7 +813,7 @@ class ClaudeCliClientCredentialOutputScanTests(unittest.TestCase):
         with patch(
             'claude_core_lib.claude_core_lib.cli_client.subprocess.run',
             return_value=completed,
-        ), self.assertLogs('kato.workflow.ClaudeCliClient', level='WARNING') as cm:
+        ), self.assertLogs('agent.workflow.ClaudeCliClient', level='WARNING') as cm:
             client.implement_task(build_task())
 
         joined = ' '.join(cm.output)

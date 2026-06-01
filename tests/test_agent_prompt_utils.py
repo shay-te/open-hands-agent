@@ -333,7 +333,13 @@ class ReviewCommentContextTextTests(unittest.TestCase):
                 {'author': 'reviewer', 'body': 'follow up'},
             ],
         )
-        out = review_comment_context_text(comment)
+        out = review_comment_context_text(
+            comment,
+            self_reply_prefixes=(
+                'Kato addressed review comment ',
+                'Kato addressed this review comment',
+            ),
+        )
         self.assertIn('reviewer: why X?', out)
         self.assertIn('reviewer: follow up', out)
         # Kato self-replies filtered out.
@@ -370,7 +376,16 @@ class ReviewCommentContextTextTests(unittest.TestCase):
                 {'author': 'kato', 'body': 'Kato addressed review comment Y'},
             ],
         )
-        self.assertEqual(review_comment_context_text(comment), '')
+        self.assertEqual(
+            review_comment_context_text(
+                comment,
+                self_reply_prefixes=(
+                    'Kato addressed review comment ',
+                    'Kato addressed this review comment',
+                ),
+            ),
+            '',
+        )
 
 
 class ReviewRepositoryContextTests(unittest.TestCase):

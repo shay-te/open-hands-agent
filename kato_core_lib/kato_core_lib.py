@@ -628,6 +628,10 @@ class KatoCoreLib(CoreLib):
         from kato_core_lib.helpers.workspace_refusal_guidance import (
             KATO_WORKSPACE_REFUSAL_GUIDANCE,
         )
+        from kato_core_lib.helpers.review_comment_utils import (
+            KATO_REVIEW_COMMENT_FIXED_PREFIX,
+            KATO_REVIEW_COMMENT_REPLY_PREFIX,
+        )
         platform = resolve_platform(getattr(open_cfg, 'agent_backend', '') or '')
         return AgentCoreLib(
             platform,
@@ -637,4 +641,11 @@ class KatoCoreLib(CoreLib):
             docker_mode_on=docker_mode_on,
             read_only_tools_on=read_only_tools_on,
             workspace_refusal_guidance=KATO_WORKSPACE_REFUSAL_GUIDANCE,
+            # The body prefixes kato's bot uses for the replies it posts, so
+            # the agent doesn't get fed back its own prior review replies. The
+            # 'Kato' brand lives here in kato, not in agent_core_lib.
+            self_reply_prefixes=(
+                KATO_REVIEW_COMMENT_FIXED_PREFIX,
+                KATO_REVIEW_COMMENT_REPLY_PREFIX,
+            ),
         ).agent

@@ -33,6 +33,7 @@ class AgentCoreLib(CoreLib):
         docker_mode_on: bool = False,
         read_only_tools_on: bool = False,
         workspace_refusal_guidance: str = '',
+        self_reply_prefixes: tuple = (),
     ) -> None:
         super().__init__()
         factory = AgentClientFactory(
@@ -41,5 +42,6 @@ class AgentCoreLib(CoreLib):
             docker_mode_on=docker_mode_on,
             read_only_tools_on=read_only_tools_on,
             workspace_refusal_guidance=workspace_refusal_guidance,
+            self_reply_prefixes=self_reply_prefixes,
         )
         self.agent: AgentProvider = factory.build(platform, cfg)

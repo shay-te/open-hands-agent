@@ -52,8 +52,6 @@ from agent_core_lib.agent_core_lib.helpers.agents_instruction_utils import (
 )
 from agent_core_lib.agent_core_lib.helpers.agent_prompt_utils import (
     IGNORED_REPOSITORY_FOLDERS_ENV,
-    _SELF_REPLY_PREFIXES,
-    _is_self_reply_body,
     agents_instructions_text,
     chat_continuity_ground_truth_block,
     forbidden_repository_guardrails_text,
@@ -241,19 +239,19 @@ class TextFromMappingTests(unittest.TestCase):
 class ConfigureLoggerTests(unittest.TestCase):
     def test_returns_kato_workflow_logger_with_suffix(self) -> None:
         logger = configure_logger('MyClass')
-        self.assertEqual(logger.name, 'kato.workflow.MyClass')
+        self.assertEqual(logger.name, 'agent.workflow.MyClass')
 
     def test_returns_kato_workflow_logger_without_suffix(self) -> None:
         logger = configure_logger('')
-        self.assertEqual(logger.name, 'kato.workflow')
+        self.assertEqual(logger.name, 'agent.workflow')
 
     def test_none_suffix_returns_base_logger(self) -> None:
         logger = configure_logger(None)
-        self.assertEqual(logger.name, 'kato.workflow')
+        self.assertEqual(logger.name, 'agent.workflow')
 
     def test_whitespace_only_suffix_returns_base_logger(self) -> None:
         logger = configure_logger('   ')
-        self.assertEqual(logger.name, 'kato.workflow')
+        self.assertEqual(logger.name, 'agent.workflow')
 
     def test_returns_logging_logger_instance(self) -> None:
         self.assertIsInstance(configure_logger('X'), logging.Logger)
@@ -946,11 +944,14 @@ class ReviewCommentContextTextTests(unittest.TestCase):
 
     def test_self_reply_bodies_excluded(self) -> None:
         comment = _comment(all_comments=[
-            {'author': 'kato', 'body': _SELF_REPLY_PREFIXES[0] + 'PR-1'},
+            {'author': 'kato', 'body': 'Kato addressed review comment PR-1'},
             {'author': 'reviewer', 'body': 'actual comment'},
         ])
-        result = review_comment_context_text(comment)
-        self.assertNotIn(_SELF_REPLY_PREFIXES[0], result)
+        result = review_comment_context_text(
+            comment,
+            ('Kato addressed review comment ', 'Kato addressed this review comment'),
+        )
+        self.assertNotIn('Kato addressed review comment ', result)
         self.assertIn('actual comment', result)
 
     def test_empty_body_skipped(self) -> None:
@@ -977,21 +978,13 @@ class ReviewCommentContextTextTests(unittest.TestCase):
                 {'author': 'kato', 'body': 'Kato addressed this review comment'},
             ],
         )
-        self.assertEqual(review_comment_context_text(comment), '')
-
-
-class IsSelfReplyBodyTests(unittest.TestCase):
-    def test_returns_true_for_kato_review_prefix(self) -> None:
-        self.assertTrue(_is_self_reply_body('Kato addressed review comment PR-1'))
-
-    def test_returns_true_for_kato_this_prefix(self) -> None:
-        self.assertTrue(_is_self_reply_body('Kato addressed this review comment'))
-
-    def test_returns_false_for_other_body(self) -> None:
-        self.assertFalse(_is_self_reply_body('This is a normal comment'))
-
-    def test_returns_false_for_empty_body(self) -> None:
-        self.assertFalse(_is_self_reply_body(''))
+        self.assertEqual(
+            review_comment_context_text(
+                comment,
+                ('Kato addressed review comment ', 'Kato addressed this review comment'),
+            ),
+            '',
+        )
 
 
 class ReviewRepositoryContextTests(unittest.TestCase):

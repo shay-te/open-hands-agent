@@ -15,7 +15,11 @@ from types import SimpleNamespace
 from unittest import mock
 
 from agent_core_lib.agent_core_lib.helpers.atomic_write import atomic_write_json
-from agent_core_lib.agent_core_lib.helpers.logging_utils import configure_logger
+from agent_core_lib.agent_core_lib.helpers.logging_utils import (
+    configure_logger,
+    get_workflow_root,
+    set_workflow_root,
+)
 from agent_core_lib.agent_core_lib.helpers.resume_prompt_utils import (
     build_inputs_from_session,
 )
@@ -167,10 +171,26 @@ class AtomicWriteJsonTests(unittest.TestCase):
 
 
 class ConfigureLoggerTests(unittest.TestCase):
-    # NOTE: the base namespace string is a tracked, deferred follow-up that
-    # will be genericized, so we assert the *relationship* between base and
-    # child loggers (child.name == base.name + '.<suffix>') rather than
-    # hard-coding the literal root namespace as a contract.
+    # The root namespace is generic + product-agnostic by default; a host
+    # overrides it via set_workflow_root (e.g. kato → 'kato.workflow').
+    def setUp(self):
+        # Restore the default after any test that overrides the root, so the
+        # module-global _root can't leak into sibling tests.
+        self.addCleanup(set_workflow_root, '')
+
+    def test_default_root_is_generic(self):
+        self.assertEqual(get_workflow_root(), 'agent.workflow')
+        self.assertEqual(configure_logger('').name, 'agent.workflow')
+        self.assertEqual(configure_logger('Svc').name, 'agent.workflow.Svc')
+
+    def test_set_workflow_root_overrides_and_resets(self):
+        set_workflow_root('kato.workflow')
+        self.assertEqual(get_workflow_root(), 'kato.workflow')
+        self.assertEqual(configure_logger('Svc').name, 'kato.workflow.Svc')
+        # Blank resets to the generic default.
+        set_workflow_root('')
+        self.assertEqual(get_workflow_root(), 'agent.workflow')
+
     def test_empty_name_returns_base_logger(self):
         base = configure_logger('')
         self.assertIsInstance(base, logging.Logger)

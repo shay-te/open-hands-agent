@@ -76,10 +76,15 @@ test('polled fallback maps each field combo to the right kind (matches old claud
   assert.equal(deriveAgentStatus(session({ status: 'provisioning' }), null, false).kind, 'provisioning');
 });
 
-test('polled fallback cannot tell closed from sleeping (best-effort sleeping)', () => {
-  // No live stream → live:false renders as sleeping even if the subprocess
-  // actually ended. Documented limitation; the active task gets it right.
-  assert.equal(deriveAgentStatus(session({ live: false }), null, false).kind, 'sleeping');
+test('polled fallback: non-live tab reads closed when terminal, else sleeping', () => {
+  // The real pollable distinction for background tabs (no live stream): a
+  // finished/stopped task is closed; any other non-live tab will lazily
+  // respawn on the next message → sleeping. Fixes done tabs showing sleeping.
+  assert.equal(deriveAgentStatus(session({ live: false, status: 'done' }), null, false).kind, 'closed');
+  assert.equal(deriveAgentStatus(session({ live: false, status: 'terminated' }), null, false).kind, 'closed');
+  assert.equal(deriveAgentStatus(session({ live: false, status: 'errored' }), null, false).kind, 'closed');
+  assert.equal(deriveAgentStatus(session({ live: false, status: 'active' }), null, false).kind, 'sleeping');
+  assert.equal(deriveAgentStatus(session({ live: false, status: 'review' }), null, false).kind, 'sleeping');
 });
 
 // ---- dotClass preserves the workspace axis ---------------------------------

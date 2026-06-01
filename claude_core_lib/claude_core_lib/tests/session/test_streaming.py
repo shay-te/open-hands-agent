@@ -226,7 +226,7 @@ class StreamingClaudeSessionTests(unittest.TestCase):
         ):
             session = StreamingClaudeSession(task_id='PROJ-1')
             with self.assertLogs(
-                'kato.workflow.StreamingClaudeSession', level='INFO',
+                'agent.workflow.StreamingClaudeSession', level='INFO',
             ) as cm:
                 session.start()
         joined = ' '.join(cm.output)
@@ -247,7 +247,7 @@ class StreamingClaudeSessionTests(unittest.TestCase):
                 task_id='PROJ-1', resume_session_id='keep-me-123',
             )
             with self.assertLogs(
-                'kato.workflow.StreamingClaudeSession', level='INFO',
+                'agent.workflow.StreamingClaudeSession', level='INFO',
             ) as cm:
                 session.start()
         joined = ' '.join(cm.output)
@@ -1619,7 +1619,7 @@ class StreamingClaudeSessionCredentialOutputScanTests(unittest.TestCase):
         ), patch(
             'claude_core_lib.claude_core_lib.session.streaming.shutil.which',
             return_value='/usr/local/bin/claude',
-        ), self.assertLogs('kato.workflow.StreamingClaudeSession', level='WARNING') as cm:
+        ), self.assertLogs('agent.workflow.StreamingClaudeSession', level='WARNING') as cm:
             session = StreamingClaudeSession(task_id='PROJ-CRED')
             session.start()
             # Consume events to drive the reader thread to the terminal.
@@ -1650,7 +1650,7 @@ class StreamingClaudeSessionCredentialOutputScanTests(unittest.TestCase):
             return_value='/usr/local/bin/claude',
         ):
             session = StreamingClaudeSession(task_id='PROJ-CLEAN')
-            with self.assertNoLogs('kato.workflow.StreamingClaudeSession', level='WARNING'):
+            with self.assertNoLogs('agent.workflow.StreamingClaudeSession', level='WARNING'):
                 session.start()
                 for _ in session.events_iter():
                     pass
@@ -1681,7 +1681,7 @@ class StreamingClaudeSessionCredentialOutputScanTests(unittest.TestCase):
         ), patch(
             'claude_core_lib.claude_core_lib.session.streaming.shutil.which',
             return_value='/usr/local/bin/claude',
-        ), self.assertLogs('kato.workflow.StreamingClaudeSession', level='WARNING') as cm:
+        ), self.assertLogs('agent.workflow.StreamingClaudeSession', level='WARNING') as cm:
             session = StreamingClaudeSession(task_id='PROJ-PHISH')
             session.start()
             for _ in session.events_iter():

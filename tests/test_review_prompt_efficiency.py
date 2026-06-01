@@ -63,7 +63,10 @@ class KatoReplyFilterTests(unittest.TestCase):
                 {'comment_id': '3', 'author': 'reviewer', 'body': 'thanks'},
             ],
         )
-        text = review_comment_context_text(comment)
+        text = review_comment_context_text(
+            comment,
+            ('Kato addressed review comment ', 'Kato addressed this review comment'),
+        )
         self.assertIn('reviewer: fix this typo', text)
         self.assertIn('reviewer: thanks', text)
         self.assertNotIn('Kato addressed', text)
@@ -79,7 +82,10 @@ class KatoReplyFilterTests(unittest.TestCase):
                 },
             ],
         )
-        text = review_comment_context_text(comment)
+        text = review_comment_context_text(
+            comment,
+            ('Kato addressed review comment ', 'Kato addressed this review comment'),
+        )
         self.assertNotIn('Kato addressed', text)
 
     def test_filter_does_not_drop_unrelated_kato_mentions(self) -> None:
@@ -115,7 +121,10 @@ class KatoReplyFilterTests(unittest.TestCase):
                 },
             ],
         )
-        text = review_comment_context_text(comment)
+        text = review_comment_context_text(
+            comment,
+            ('Kato addressed review comment ', 'Kato addressed this review comment'),
+        )
         self.assertEqual(text, '')
 
 

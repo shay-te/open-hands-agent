@@ -45,14 +45,30 @@ function liveKind(liveStatus, baseStatus, needsAttention) {
   return KIND_BY_LIFECYCLE[liveStatus.lifecycle] || 'unknown';
 }
 
-// Polled-fallback path — ported from Tab.claudeBadge (+ provisioning). Polled
-// data can't distinguish sleeping from closed, so ``live === false`` → sleeping.
+// Workspace states where the subprocess is gone for good — the task is
+// finished/stopped, so kato won't lazily respawn it. A non-live tab in one of
+// these reads as ``closed`` rather than ``sleeping``.
+const TERMINAL_STATUSES = new Set([
+  TAB_STATUS.DONE,
+  TAB_STATUS.TERMINATED,
+  TAB_STATUS.ERRORED,
+]);
+
+// Polled-fallback path (background tabs, no live SSE) — ported from
+// Tab.claudeBadge (+ provisioning). A non-live tab is ``closed`` when the task
+// is in a terminal state (done/terminated/errored — no respawn), else
+// ``sleeping`` because kato lazily ``--resume``s any other tab on the next
+// message. The transient post-exit "closed" flash an ACTIVE tab's live stream
+// shows is not a pollable fact, so background tabs can't reproduce it — and
+// don't need to (that tab will respawn on the next message → sleeping).
 function polledKind(session, baseStatus) {
   if (baseStatus === TAB_STATUS.PROVISIONING) { return 'provisioning'; }
   if (session?.working === true) { return 'working'; }
   if (session?.has_pending_permission) { return 'approval'; }
-  if (session?.live === false) { return 'sleeping'; }
   if (session?.live === true) { return 'idle'; }
+  if (session?.live === false) {
+    return TERMINAL_STATUSES.has(baseStatus) ? 'closed' : 'sleeping';
+  }
   return 'unknown';
 }
 
