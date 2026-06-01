@@ -210,15 +210,31 @@ class WorkspaceDataAccess(DataAccess):
             return
 
         def _on_rm_error(func, path, exc_info):
-            # Most Windows rmtree failures are read-only files (git
-            # pack files, .git/index lock). Flip the bit and retry
-            # the operation that failed.
+            # Most rmtree failures are read-only files (git pack files,
+            # .git/index lock). Flip the bit and retry the operation that
+            # failed. Make the path writable FIRST in every case.
             try:
                 os.chmod(path, stat.S_IWRITE)
+            except OSError:
+                # chmod itself failed (e.g. read-only fs) — re-raise the
+                # ORIGINAL rmtree error so the outer try sees a meaningful
+                # trace, not a misleading chmod failure.
+                raise exc_info[1]
+            # Under POSIX fd-based rmtree, ``func`` can be ``os.open`` (used to
+            # descend into a directory). Unlike unlink/rmdir/scandir it needs a
+            # ``flags`` arg, so calling ``func(path)`` raised
+            # ``TypeError: open() missing required argument 'flags'`` — which
+            # ESCAPED the OSError guard and aborted the whole delete (operator
+            # saw a confusing "forget failed" with that message). Re-opening
+            # wouldn't remove anything anyway, so the chmod above is the best
+            # effort here; the outer loop retries rmtree + verifies the dir.
+            if func is os.open:
+                return
+            try:
                 func(path)
             except OSError:
-                # Re-raise the ORIGINAL exception so the outer
-                # try/except sees a meaningful trace.
+                # Re-raise the ORIGINAL exception so the outer try/except sees
+                # a meaningful trace (and genuine locks surface cleanly).
                 raise exc_info[1]
 
         for attempt in range(3):

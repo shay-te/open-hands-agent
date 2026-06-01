@@ -257,6 +257,30 @@ class WorkspaceDataAccessTests(unittest.TestCase):
             # Should NOT raise — outer except swallows and logs after 3.
             self.data_access.delete('NOCHMOD-1')
 
+    def test_delete_on_rm_error_handles_os_open_without_crashing(self) -> None:
+        # Regression: under POSIX fd-based rmtree, ``onerror``'s ``func`` can be
+        # ``os.open`` (used to descend into a directory), which — unlike
+        # unlink/rmdir/scandir — needs a ``flags`` arg. The handler used to call
+        # ``func(path)`` blindly → ``TypeError: open() missing required argument
+        # 'flags'`` that escaped the OSError guard and aborted the whole delete
+        # (operator saw a confusing "Couldn't forget …" failure with exactly
+        # that message). It must now chmod (best effort) and NOT crash.
+        import os
+        from unittest.mock import patch
+        self.data_access.ensure_workspace_dir('FDOPEN-1')
+
+        def _failing_rmtree(path, onerror=None):
+            # Simulate the fd-based rmtree failing to os.open a subdir.
+            onerror(os.open, str(path), (OSError, OSError('open failed'), None))
+
+        with patch('shutil.rmtree', side_effect=_failing_rmtree), \
+                patch('os.chmod') as mock_chmod:
+            # Must NOT raise TypeError ("open() missing required argument …").
+            self.data_access.delete('FDOPEN-1')
+
+        # chmod best-effort fired; no blind os.open(path) retry happened.
+        mock_chmod.assert_called_once()
+
 
 if __name__ == '__main__':
     unittest.main()
