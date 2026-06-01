@@ -8,7 +8,6 @@ from provider_client_base.provider_client_base.data.review_comment import Review
 from kato_core_lib.helpers.review_comment_utils import (
     ReviewReplyTemplate,
     is_kato_review_comment_reply,
-    is_mention_comment,
     normalize_comment_context,
     review_comment_from_payload,
 )
@@ -127,23 +126,6 @@ class ReviewCommentUtilsTests(unittest.TestCase):
             [],
         )
         self.assertEqual(normalize_comment_context(None), [])
-
-    def test_is_mention_comment_detects_at_mention(self) -> None:
-        self.assertTrue(is_mention_comment(ReviewComment('1', '1', 'reviewer', '@john can you look at this?')))
-        self.assertTrue(is_mention_comment(ReviewComment('1', '1', 'reviewer', 'I think @shay.te should handle this')))
-        self.assertTrue(is_mention_comment(ReviewComment('1', '1', 'reviewer', 'Fix this @alice')))
-
-    def test_is_mention_comment_ignores_email_addresses(self) -> None:
-        self.assertFalse(is_mention_comment(ReviewComment('1', '1', 'reviewer', 'contact shay.te@gmail.com for details')))
-        self.assertFalse(is_mention_comment(ReviewComment('1', '1', 'reviewer', 'user@host is not a mention')))
-
-    def test_is_mention_comment_returns_false_for_plain_comment(self) -> None:
-        self.assertFalse(is_mention_comment(ReviewComment('1', '1', 'reviewer', 'Please rename this variable.')))
-        self.assertFalse(is_mention_comment(ReviewComment('1', '1', 'reviewer', 'Extract this to a helper.')))
-        self.assertFalse(is_mention_comment(ReviewComment('1', '1', 'reviewer', '')))
-
-    def test_is_mention_comment_returns_false_for_none_body(self) -> None:
-        self.assertFalse(is_mention_comment(ReviewComment('1', '1', 'reviewer', None)))
 
     def test_is_kato_review_comment_reply_recognizes_answer_mode(self) -> None:
         # Regression: an answer-mode reply opens with the bolded

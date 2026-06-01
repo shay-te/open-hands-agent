@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import glob
 from pathlib import Path
-from typing import Iterable
 
 from agent_core_lib.agent_core_lib.helpers.session_id_utils import (
     fix_session_id,
@@ -35,9 +34,9 @@ def _default_projects_root() -> Path:
     Delegates to :func:`...session.index.default_sessions_root` so the
     two modules walk the exact same directory (and the same
     ``KATO_CLAUDE_SESSIONS_ROOT`` override) — previously
-    ``find_session_id_for_cwd`` and ``iter_event_paths`` ignored the
-    override by reading ``_DEFAULT_PROJECTS_ROOT`` directly, so tests
-    that redirected the store missed them.
+    ``find_session_id_for_cwd`` ignored the override by reading
+    ``_DEFAULT_PROJECTS_ROOT`` directly, so tests that redirected the
+    store missed it.
     """
     return default_sessions_root()
 
@@ -280,21 +279,6 @@ def _is_tool_result_only(message) -> bool:
         isinstance(block, dict) and block.get('type') == 'tool_result'
         for block in content
     )
-
-
-def iter_event_paths(
-    *,
-    projects_root: Path | str | None = None,
-) -> Iterable[Path]:
-    """Yield every JSONL transcript path on disk (debugging helper)."""
-    root = Path(projects_root) if projects_root else _default_projects_root()
-    if not root.is_dir():
-        return
-    for entry in sorted(root.iterdir()):
-        if not entry.is_dir():
-            continue
-        for path in sorted(entry.glob('*.jsonl')):
-            yield path
 
 
 def resolve_agent_session_id(manager, workspace_manager, task_id: str) -> str:

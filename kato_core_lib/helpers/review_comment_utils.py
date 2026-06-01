@@ -1,7 +1,6 @@
 from __future__ import annotations
 from agent_core_lib.agent_core_lib.helpers.session_id_utils import fix_session_id
 
-import re
 from dataclasses import dataclass
 
 from provider_client_base.provider_client_base.data.review_comment import ReviewComment
@@ -185,22 +184,6 @@ def is_kato_review_comment_reply(comment: ReviewComment) -> bool:
             KATO_REVIEW_COMMENT_ANSWER_PREFIX,
         )
     )
-
-
-# Match @mention: @ not preceded by a dot or word character (so email
-# addresses like user@host are excluded) followed by at least one word char.
-_MENTION_RE = re.compile(r'(?<![.\w])@\w')
-
-
-def is_mention_comment(comment: ReviewComment) -> bool:
-    """True when the comment body contains an @mention.
-
-    @mentions direct a comment at a specific person, not kato, so kato
-    skips these entirely rather than treating them as fix or question requests.
-    Email-style addresses (user@host) are not counted as mentions.
-    """
-    body = str(getattr(comment, 'body', '') or '')
-    return bool(_MENTION_RE.search(body))
 
 
 # Heuristic: question vs fix-request classification for review comments.

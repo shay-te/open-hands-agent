@@ -21,7 +21,6 @@ from claude_core_lib.claude_core_lib.session.history import (
     delete_session_file,
     find_session_file,
     find_session_id_for_cwd,
-    iter_event_paths,
     load_history_events,
     _coerce_event,
     _default_projects_root,
@@ -612,45 +611,6 @@ class HasDisplayableTextNonDictBlock(unittest.TestCase):
                 {'type': 'text', 'text': 'hello'},
             ],
         }))
-
-
-class IterEventPathsTests(unittest.TestCase):
-    def setUp(self) -> None:
-        self._tmp = tempfile.TemporaryDirectory()
-        self.addCleanup(self._tmp.cleanup)
-        self.projects_root = Path(self._tmp.name)
-
-    def test_returns_nothing_when_root_missing(self) -> None:
-        # Iterator is empty (generator immediately returns).
-        result = list(iter_event_paths(projects_root=self.projects_root / 'gone'))
-        self.assertEqual(result, [])
-
-    def test_yields_jsonl_files_under_each_project_dir(self) -> None:
-        (self.projects_root / 'enc-a').mkdir()
-        (self.projects_root / 'enc-a' / 's1.jsonl').write_text('')
-        (self.projects_root / 'enc-a' / 's2.jsonl').write_text('')
-        (self.projects_root / 'enc-b').mkdir()
-        (self.projects_root / 'enc-b' / 's3.jsonl').write_text('')
-        # A non-dir entry at the top level → should be skipped.
-        (self.projects_root / 'not-a-dir.txt').write_text('')
-
-        paths = list(iter_event_paths(projects_root=self.projects_root))
-        names = sorted(p.name for p in paths)
-        self.assertEqual(names, ['s1.jsonl', 's2.jsonl', 's3.jsonl'])
-
-    def test_honours_env_override_when_no_projects_root_passed(self) -> None:
-        # Regression: previously iter_event_paths read the raw module
-        # default and ignored KATO_CLAUDE_SESSIONS_ROOT. With the
-        # resolver consolidated onto default_sessions_root(), an unset
-        # ``projects_root`` arg must fall through to the env override.
-        (self.projects_root / 'enc-z').mkdir()
-        (self.projects_root / 'enc-z' / 'only.jsonl').write_text('')
-        os.environ[_CLAUDE_SESSIONS_ROOT_ENV_KEY] = str(self.projects_root)
-        try:
-            names = sorted(p.name for p in iter_event_paths())
-        finally:
-            os.environ.pop(_CLAUDE_SESSIONS_ROOT_ENV_KEY, None)
-        self.assertEqual(names, ['only.jsonl'])
 
 
 class DeleteSessionFileTests(unittest.TestCase):
