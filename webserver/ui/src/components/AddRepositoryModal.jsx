@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { addTaskRepository, fetchInventoryRepositories } from '../api.js';
 import { toast } from '../stores/toastStore.js';
 import { apiErrorMessage } from '../utils/apiError.js';
+import { REPOSITORY_TAG_PREFIX } from '../utils/katoTags.js';
 import { usePickerData } from '../hooks/usePickerData.js';
 import SearchPickerModal from './SearchPickerModal.jsx';
 
@@ -84,7 +85,7 @@ export default function AddRepositoryModal({
       helpText={(
         <>
           Pick a repository from kato's inventory. Kato will tag the
-          task with <code>kato:repo:&lt;id&gt;</code> and clone the
+          task with <code>{REPOSITORY_TAG_PREFIX}&lt;id&gt;</code> and clone the
           repo into this task's workspace. Repositories already
           attached to the task are filtered out.
         </>

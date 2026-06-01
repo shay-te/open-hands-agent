@@ -8,10 +8,8 @@ bootstrap, scan-loop helpers, shutdown hook, etc.
 
 from __future__ import annotations
 
-import io
 import signal
 import threading
-import time
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -502,9 +500,11 @@ class ShutdownHookWatcherTests(unittest.TestCase):
             handler = signal.getsignal(signal.SIGINT)
             with self.assertRaises(SystemExit):
                 handler(signal.SIGINT, None)
-            # The watcher.stop failure was logged.
+            # The watcher.stop failure was logged. The hook loops over the
+            # watcher attribute names and logs with a ``%s`` placeholder, so
+            # the message + the attribute name arrive as separate call args.
             app.logger.exception.assert_any_call(
-                'error stopping resume_prompt watcher',
+                'error stopping %s', 'resume_prompt_watcher',
             )
             # And shutdown still ran on the service.
             service.shutdown.assert_called_once()
@@ -839,15 +839,9 @@ class MainBodyTests(unittest.TestCase):
             p = patch.object(main_module, name, value)
             ctx.append(p)
             p.start()
-        # Lazy-import gate inside main() also needs patching.
-        bypass_mod = MagicMock()
-        bypass_mod.is_docker_mode_enabled.return_value = False
-        mods_patch = patch.dict('sys.modules', {
-            'sandbox_core_lib.sandbox_core_lib.bypass_permissions_validator':
-                bypass_mod,
-        }, clear=False)
-        # Don't replace the existing module — only override attributes
-        # the test cares about. We just need is_docker_mode_enabled.
+        # Lazy-import gate inside main() also needs patching. Don't replace
+        # the existing module — only override the attribute the test cares
+        # about (is_docker_mode_enabled).
         from sandbox_core_lib.sandbox_core_lib import (
             bypass_permissions_validator as real_bypass,
         )

@@ -7,6 +7,9 @@ from kato_core_lib.data_layers.data.fields import (
     PullRequestFields,
     StatusFields,
 )
+from kato_core_lib.helpers.workspace_refusal_guidance import (
+    KATO_WORKSPACE_REFUSAL_GUIDANCE,
+)
 from task_core_lib.task_core_lib.platform import Platform
 from tests.utils import build_task, build_test_cfg
 
@@ -168,6 +171,7 @@ class KatoCoreLibTests(unittest.TestCase):
                 'poll_interval_seconds': 2.0,
                 'max_poll_attempts': 900,
                 'model_smoke_test_enabled': True,
+                'workspace_refusal_guidance': KATO_WORKSPACE_REFUSAL_GUIDANCE,
             },
         )
         self.assertEqual(
@@ -188,6 +192,7 @@ class KatoCoreLibTests(unittest.TestCase):
                 'poll_interval_seconds': 2.0,
                 'max_poll_attempts': 900,
                 'model_smoke_test_enabled': False,
+                'workspace_refusal_guidance': KATO_WORKSPACE_REFUSAL_GUIDANCE,
             },
         )
         mock_repository_service_cls.assert_called_once_with(

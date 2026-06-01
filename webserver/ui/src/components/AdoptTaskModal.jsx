@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { adoptTask, fetchAllAssignedTasks } from '../api.js';
 import { toast } from '../stores/toastStore.js';
+import { REPOSITORY_TAG_PREFIX } from '../utils/katoTags.js';
 import { usePickerData } from '../hooks/usePickerData.js';
 import SearchPickerModal from './SearchPickerModal.jsx';
 
@@ -66,7 +67,7 @@ export default function AdoptTaskModal({
         <>
           Pick a task assigned to kato. Kato will provision a per-task
           workspace and clone every repository the task touches (driven
-          by <code>kato:repo:&lt;id&gt;</code> tags + the description).
+          by <code>{REPOSITORY_TAG_PREFIX}&lt;id&gt;</code> tags + the description).
           Tasks in any state are listed — open, in progress, in review,
           done.
         </>

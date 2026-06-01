@@ -35,6 +35,7 @@ import {
 import { cssEscapeAttr } from './utils/dom.js';
 import { countNoun } from './utils/pluralize.js';
 import { apiErrorMessage } from './utils/apiError.js';
+import { REPOSITORY_TAG_PREFIX } from './utils/katoTags.js';
 import { moreUrgentCommentStatus } from './utils/commentStatus.js';
 import { useDismissOnOutsidePointerOrEscape } from './hooks/useDismissOnOutsidePointerOrEscape.js';
 
@@ -420,7 +421,7 @@ export default function FilesTab({
         className="files-tab-icon-btn"
         data-tooltip={
           'Add repository — pick from kato\'s inventory, tag the '
-          + 'task with ``kato:repo:<id>``, and clone it into the '
+          + `task with \`\`${REPOSITORY_TAG_PREFIX}<id>\`\`, and clone it into the `
           + 'workspace. Filters out repos already attached.'
         }
         aria-label="Add repository to task"
@@ -435,7 +436,7 @@ export default function FilesTab({
         data-tooltip={
           'Sync repositories — clone any repos this task touches '
           + 'that aren’t in the workspace yet (driven by '
-          + '``kato:repo:<name>`` tags + description). Never removes '
+          + `\`\`${REPOSITORY_TAG_PREFIX}<name>\`\` tags + description). Never removes `
           + 'a repo from disk; purely additive.'
         }
         aria-label="Sync task repositories"

@@ -8,6 +8,7 @@ from omegaconf import OmegaConf
 
 from kato_core_lib.data_layers.data.fields import RepositoryFields
 from kato_core_lib.data_layers.data_access.pull_request_data_access import PullRequestDataAccess
+from kato_core_lib.helpers.kato_tag_utils import repository_id_from_tag
 from kato_core_lib.helpers.logging_utils import configure_logger
 from git_core_lib.git_core_lib.helpers.repository_discovery_utils import (
     build_discovered_repository,
@@ -421,14 +422,10 @@ class RepositoryInventoryService(Service):
         repository_tags: list[str] = []
         for raw_tag in raw_tags:
             if isinstance(raw_tag, dict):
-                tag_text = normalized_text(raw_tag.get('name', ''))
+                tag_text = raw_tag.get('name', '')
             else:
-                tag_text = normalized_text(getattr(raw_tag, 'name', raw_tag))
-            if not tag_text.lower().startswith(RepositoryFields.REPOSITORY_TAG_PREFIX):
-                continue
-            repository_tag = normalized_text(
-                tag_text[len(RepositoryFields.REPOSITORY_TAG_PREFIX) :]
-            )
+                tag_text = getattr(raw_tag, 'name', raw_tag)
+            repository_tag = repository_id_from_tag(tag_text)
             if repository_tag:
                 repository_tags.append(repository_tag)
         return repository_tags

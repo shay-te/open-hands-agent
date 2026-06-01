@@ -13,6 +13,7 @@ import { CLAUDE_EVENT, CLAUDE_SYSTEM_SUBTYPE } from '../constants/claudeEvent.js
 import { ENTRY_SOURCE } from '../constants/entrySource.js';
 import { AGENT_SESSION_ID } from '../constants/sessionFields.js';
 import { useSessionStream, SESSION_LIFECYCLE } from '../hooks/useSessionStream.js';
+import { agentStatusStore } from '../stores/agentStatusStore.js';
 import { useSessionOption } from '../hooks/useSessionOption.js';
 import { useToolMemory } from '../hooks/useToolMemory.js';
 import { fetchEffortLevels, fetchModels, fetchSessionEffort, fetchSessionModel, postChatMessage, postSession, setSessionEffort, setSessionModel } from '../api.js';
@@ -37,6 +38,26 @@ export default function SessionDetail({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stream.reconnect]);
+
+  // Publish this (active) task's live agent status into the shared store, so
+  // the tab dot/badge derive from the SAME live value as the header chip
+  // instead of the laggy polled fields (UNA-2492). Scalar deps + the store's
+  // shallow-equal short-circuit keep this from looping.
+  useEffect(() => {
+    agentStatusStore.setStatus(taskId, {
+      lifecycle: stream.lifecycle,
+      turnInFlight: stream.turnInFlight,
+      pendingPermission: !!stream.pendingPermission,
+    });
+  }, [taskId, stream.lifecycle, stream.turnInFlight, stream.pendingPermission]);
+
+  // Drop this task's live entry when the active tab changes. SessionDetail is
+  // keyed per task, so unmount fires for the OLD task; clearStatus removes only
+  // that key (other tasks never had a live entry). The tab then falls back to
+  // polled status — correct, since its stream is gone.
+  useEffect(() => {
+    return () => { agentStatusStore.clearStatus(taskId); };
+  }, [taskId]);
 
   // The task header (title + action buttons + Claude status + chat
   // search) is hoisted into a full-width bar UNDER the tab strip and
@@ -251,6 +272,16 @@ export default function SessionDetail({
     setQueuedMessages((prev) => prev.filter((item) => item.id !== id));
   }
 
+  // Operator edited a queued row's text in place (Edit affordance) →
+  // update just that item's text, preserving its id/images/queue
+  // position so a revised steer message keeps its place in line
+  // instead of forcing a delete-and-retype.
+  function editQueuedMessage(id, text) {
+    setQueuedMessages((prev) => prev.map(
+      (item) => (item.id === id ? { ...item, text } : item),
+    ));
+  }
+
   // Operator clicked "Steer" on a queued row → deliver it NOW even
   // if Claude is mid-turn. The Claude CLI accepts mid-turn
   // ``send_user_message`` envelopes (the streaming session writes
@@ -450,6 +481,7 @@ export default function SessionDetail({
           items={queuedMessages}
           onSteer={steerQueuedMessage}
           onRemove={removeQueuedMessage}
+          onEdit={editQueuedMessage}
         />
         <MessageForm
           ref={composerRef}

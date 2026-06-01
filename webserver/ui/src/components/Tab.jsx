@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { cx } from '../utils/cx.js';
-import { TAB_STATUS } from '../constants/tabStatus.js';
-import { deriveTabStatus, resolveTabStatus, statusDotClass, tabStatusTitle } from '../utils/tabStatus.js';
+import { deriveTabStatus, tabStatusTitle } from '../utils/tabStatus.js';
+import { deriveAgentStatus, badgeKindFor } from '../utils/agentStatus.js';
 import Icon from './Icon.jsx';
 import TabTooltip from './TabTooltip.jsx';
 
@@ -11,20 +11,21 @@ import TabTooltip from './TabTooltip.jsx';
 const HOVER_DELAY_MS = 350;
 
 export default function Tab({
-  session, active, needsAttention, pinned = false,
+  session, active, needsAttention, liveStatus = null, pinned = false,
   onSelect, onForget, onTogglePin,
 }) {
   const baseStatus = deriveTabStatus(session);
-  const status = resolveTabStatus(session, needsAttention);
-  const isLoading = baseStatus === TAB_STATUS.PROVISIONING;
+  // The agent dot + tooltip badge derive from the SAME value as the header chip
+  // (UNA-2492). For the active tab the live SSE status (from agentStatusStore)
+  // wins; background tabs fall back to the polled session fields.
+  const agent = deriveAgentStatus(session, active ? liveStatus : null, needsAttention);
   const className = cx(
     'tab',
     active && 'active',
     needsAttention && 'needs-attention',
     pinned && 'is-pinned',
   );
-  const idleAlive = status === TAB_STATUS.ACTIVE && session?.working === false;
-  const dotClass = statusDotClass(status, { isLoading, idleAlive });
+  const dotClass = agent.dotClass;
 
   // Hover-card state. ``anchorRect`` is a frozen snapshot of the
   // <li>'s viewport rect taken when the card opens — TabTooltip
@@ -73,7 +74,7 @@ export default function Tab({
     </span>
   );
 
-  const model = buildTooltipModel(session, baseStatus, needsAttention, status);
+  const model = buildTooltipModel(session, baseStatus, needsAttention, agent);
 
   return (
     <>
@@ -123,7 +124,7 @@ export default function Tab({
 // Structured tooltip model — every fact the old ` · `-joined string
 // carried, now as discrete fields the card renders as a header +
 // labelled rows.
-function buildTooltipModel(session, baseStatus, needsAttention, statusKey) {
+function buildTooltipModel(session, baseStatus, needsAttention, agent) {
   const taskId = String(session?.task_id || '').trim() || 'Task';
   const summary = String(session?.task_summary || '').trim();
   const rows = [];
@@ -171,29 +172,20 @@ function buildTooltipModel(session, baseStatus, needsAttention, statusKey) {
   return {
     taskId,
     summary,
-    statusKey,
-    claudeBadge: claudeBadge(session),
+    statusKey: agent.status,
+    claudeBadge: agentTooltipBadge(agent),
     rows,
   };
 }
 
 
-// Compact Claude liveness badge for the card header. Mirrors the
-// chip wording SessionHeader uses so the tab card and the chat
-// header speak the same language.
-function claudeBadge(session) {
-  if (!session) { return null; }
-  if (session.live === false) {
-    return { kind: 'sleep', label: 'Claude: sleeping' };
-  }
-  if (session.working === true) {
-    return { kind: 'work', label: 'Claude: working' };
-  }
-  if (session.has_pending_permission) {
-    return { kind: 'wait', label: 'Claude: paused' };
-  }
-  if (session.live === true) {
-    return { kind: 'idle', label: 'Claude: idle' };
-  }
-  return null;
+// Compact Claude liveness badge for the hover card — now derived from the
+// shared agent status (utils/agentStatus.js) so the card, the tab dot, and the
+// chat header all speak the same language (UNA-2492). Returns null for kinds
+// with no badge styling (provisioning/missing/unknown), matching the old
+// claudeBadge's null.
+function agentTooltipBadge(agent) {
+  const kind = badgeKindFor(agent.kind);
+  if (!kind) { return null; }
+  return { kind, label: `Claude: ${agent.label}` };
 }

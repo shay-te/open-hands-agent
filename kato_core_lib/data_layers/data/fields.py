@@ -40,6 +40,13 @@ class EmailFields(object):
     PULL_REQUEST_SUMMARY = 'pull_request_summary'
 
 
+# Every kato-recognized task tag is namespaced under ``kato:`` so it can't
+# collide with user-defined ticket labels. These segment names are the single
+# source of truth — build/parse tags via ``kato_core_lib.helpers.kato_tag_utils``
+# instead of hand-writing ``kato:...`` strings.
+KATO_TAG_NAMESPACE = 'kato'
+
+
 class RepositoryFields(object):
     ID = 'id'
     DISPLAY_NAME = 'display_name'
@@ -51,17 +58,22 @@ class RepositoryFields(object):
     BITBUCKET_USERNAME = 'bitbucket_username'
     BITBUCKET_API_EMAIL = 'bitbucket_api_email'
     ALIASES = 'aliases'
-    REPOSITORY_TAG_PREFIX = 'kato:repo:'
+    # ``kato:repo:<repo-folder-name>`` — names a repository for a task.
+    REPOSITORY_TAG_SEGMENT = 'repo'
+    REPOSITORY_TAG_PREFIX = f'{KATO_TAG_NAMESPACE}:{REPOSITORY_TAG_SEGMENT}:'
 
 
 class TaskTags(object):
     """Kato-recognized task tag prefixes/values.
 
-    Tags are namespaced with the ``kato:`` prefix so they don't collide with
-    user-defined ticket labels.
+    Every tag is namespaced under ``kato:`` (``KATO_TAG_NAMESPACE``) so it
+    can't collide with user-defined ticket labels. The strings are built from
+    the namespace + a segment rather than hand-written; build/parse them via
+    ``kato_core_lib.helpers.kato_tag_utils``.
     """
 
-    WAIT_PLANNING = 'kato:wait-planning'
+    # Planning gate: hold a task in the planning UI before kato runs it.
+    WAIT_PLANNING = f'{KATO_TAG_NAMESPACE}:wait-planning'
 
     # Hold-before-publish gate. When this tag is on a task, kato runs
     # the agent and commits to the local task branch as usual, but
@@ -69,31 +81,32 @@ class TaskTags(object):
     # tag (via the planning UI's "Approve push" button or the platform
     # tag UI) lets the next scan tick proceed with publish. Kato — not
     # Claude — performs the push when approved.
-    WAIT_BEFORE_GIT_PUSH = 'kato:wait-before-git-push'
+    WAIT_BEFORE_GIT_PUSH = f'{KATO_TAG_NAMESPACE}:wait-before-git-push'
 
     # Triage workflow: when ``TRIAGE_INVESTIGATE`` is on a task, kato
     # spends one Claude turn investigating (read-only — no edits, no
     # PRs) and replaces it with one of the outcome tags below. The
     # original triage tag is removed once the outcome tag lands.
-    TRIAGE_INVESTIGATE = 'kato:triage:investigate'
-    TRIAGE_PREFIX = 'kato:triage:'
+    TRIAGE_SEGMENT = 'triage'
+    TRIAGE_PREFIX = f'{KATO_TAG_NAMESPACE}:{TRIAGE_SEGMENT}:'
+    TRIAGE_INVESTIGATE = f'{TRIAGE_PREFIX}investigate'
 
     # Priority/urgency outcomes — the issue is real, kato classifies
     # how soon it should be worked.
-    TRIAGE_CRITICAL = 'kato:triage:critical'
-    TRIAGE_HIGH = 'kato:triage:high'
-    TRIAGE_MEDIUM = 'kato:triage:medium'
-    TRIAGE_LOW = 'kato:triage:low'
+    TRIAGE_CRITICAL = f'{TRIAGE_PREFIX}critical'
+    TRIAGE_HIGH = f'{TRIAGE_PREFIX}high'
+    TRIAGE_MEDIUM = f'{TRIAGE_PREFIX}medium'
+    TRIAGE_LOW = f'{TRIAGE_PREFIX}low'
 
     # Disposition outcomes — the issue won't be worked as-is.
-    TRIAGE_DUPLICATE = 'kato:triage:duplicate'
-    TRIAGE_WONTFIX = 'kato:triage:wontfix'
-    TRIAGE_INVALID = 'kato:triage:invalid'
-    TRIAGE_NEEDS_INFO = 'kato:triage:needs-info'
+    TRIAGE_DUPLICATE = f'{TRIAGE_PREFIX}duplicate'
+    TRIAGE_WONTFIX = f'{TRIAGE_PREFIX}wontfix'
+    TRIAGE_INVALID = f'{TRIAGE_PREFIX}invalid'
+    TRIAGE_NEEDS_INFO = f'{TRIAGE_PREFIX}needs-info'
 
     # Optional extras.
-    TRIAGE_BLOCKED = 'kato:triage:blocked'
-    TRIAGE_QUESTION = 'kato:triage:question'
+    TRIAGE_BLOCKED = f'{TRIAGE_PREFIX}blocked'
+    TRIAGE_QUESTION = f'{TRIAGE_PREFIX}question'
 
 
 TRIAGE_OUTCOME_TAGS = (

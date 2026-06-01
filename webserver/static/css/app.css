@@ -548,8 +548,12 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .tabs-pane-top .tab.active {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.06);
+  /* Selected tab — the accent (cyan) tint + border make it unmistakable
+   * against the neutral inactive/hover pills (previously it shared the
+   * inactive pill's neutral background, so the selection was nearly
+   * invisible). Orange ``needs-attention`` below still overrides this. */
+  background: rgba(10, 132, 255, 0.18);
+  border-color: rgba(10, 132, 255, 0.55);
   color: #f5f5f7;
   box-shadow: 0 1px 8px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
@@ -716,11 +720,11 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .tabs-pane-top .tab.is-pinned.active {
-  /* Active + pinned = the same brighter background as a normal
-   * active tab so the active-state signal isn't overwritten by the
-   * pinned-panel base. */
+  /* Active + pinned keeps the opaque pinned panel (so scrolling tabs stay
+   * obscured behind it) but carries the same cyan accent border as a normal
+   * active tab, so the selection cue is consistent whether pinned or not. */
   background: linear-gradient(180deg, rgba(56, 56, 60, 0.98) 0%, rgba(13, 13, 15, 0.86) 100%);
-  border-color: rgba(245, 245, 247, 0.42);
+  border-color: rgba(10, 132, 255, 0.55);
 }
 
 .tabs-pane-top .tab.needs-attention {
@@ -2355,6 +2359,98 @@ header button.header-status.is-clickable.is-active .header-status-pulse {
 }
 
 .queued-message-remove svg {
+  width: 10px;
+  height: 10px;
+}
+
+/* Edit affordance — small circular icon button (like remove) that flips
+ * the row into in-place edit mode. Neutral by default, cyan accent on
+ * hover to read as a non-destructive action. */
+.queued-message-edit {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  color: rgba(245, 245, 247, 0.65);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.queued-message-edit:hover {
+  background: rgba(10, 132, 255, 0.4);
+  color: #f5f5f7;
+}
+
+.queued-message-edit svg {
+  width: 10px;
+  height: 10px;
+}
+
+/* In-place edit mode: the text span is replaced by a compact textarea
+ * flanked by Save (✓) and Cancel (✕) circular buttons. */
+.queued-message-row.is-editing {
+  align-items: center;
+}
+
+.queued-message-edit-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  resize: none;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(10, 132, 255, 0.55);
+  border-radius: 8px;
+  color: #f5f5f7;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.4;
+  padding: 4px 10px;
+}
+
+.queued-message-edit-input:focus {
+  outline: none;
+  border-color: rgba(10, 132, 255, 0.95);
+}
+
+.queued-message-save,
+.queued-message-cancel {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  color: rgba(245, 245, 247, 0.65);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.queued-message-save:hover {
+  background: rgba(10, 132, 255, 0.55);
+  color: #f5f5f7;
+}
+
+.queued-message-save:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.queued-message-cancel:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #f5f5f7;
+}
+
+.queued-message-save svg,
+.queued-message-cancel svg {
   width: 10px;
   height: 10px;
 }

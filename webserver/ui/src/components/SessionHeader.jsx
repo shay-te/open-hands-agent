@@ -8,12 +8,12 @@ import {
   updateTaskSource,
 } from '../api.js';
 import { AGENT_SESSION_ID } from '../constants/sessionFields.js';
-import { TAB_STATUS } from '../constants/tabStatus.js';
 import { useBusyAction } from '../hooks/useBusyAction.js';
 import { usePushApproval } from '../hooks/usePushApproval.js';
 import { useTaskPublish } from '../hooks/useTaskPublish.js';
 import { cx } from '../utils/cx.js';
-import { deriveTabStatus, resolveTabStatus, statusDotClass, tabStatusTitle } from '../utils/tabStatus.js';
+import { deriveTabStatus, tabStatusTitle } from '../utils/tabStatus.js';
+import { deriveAgentStatus } from '../utils/agentStatus.js';
 import { SESSION_LIFECYCLE } from '../hooks/useSessionStream.js';
 import { toast, toastResult } from '../stores/toastStore.js';
 import AdoptSessionModal from './AdoptSessionModal.jsx';
@@ -209,9 +209,7 @@ export default function SessionHeader({
 
   if (!session) { return null; }
   const baseStatus = deriveTabStatus(session);
-  const status = resolveTabStatus(session, needsAttention);
   const agentSessionId = session[AGENT_SESSION_ID] || '';
-  const isLoading = baseStatus === TAB_STATUS.PROVISIONING;
   // Session is "resumable" when the streaming subprocess isn't
   // running — the operator stopped it, it ended on its own, or the
   // tab loaded against a record with no live process. In those
@@ -256,10 +254,15 @@ export default function SessionHeader({
     });
   }
 
-  const idleAlive = status === TAB_STATUS.ACTIVE
-    && !turnInFlight
-    && session?.working === false;
-  const dotClass = statusDotClass(status, { isLoading, idleAlive });
+  // One derivation drives BOTH the dot and the chip — the same value the tab
+  // surfaces use — so the header and tab can never disagree (UNA-2492). The
+  // header is always the active task, so the live stream lifecycle/turnInFlight
+  // feed it directly (no store read needed here).
+  const agent = deriveAgentStatus(
+    session,
+    { lifecycle: streamLifecycle, turnInFlight },
+    needsAttention,
+  );
   const stopLabel = stopping ? 'Stopping…' : 'Stop';
   const resumeLabel = resuming ? 'Resuming…' : 'Resume';
   const pushLabel = pushApproval.busy ? 'Pushing…' : 'Approve push';
@@ -277,12 +280,6 @@ export default function SessionHeader({
     </button>
   );
 
-  const claudeStatus = describeClaudeStatus(
-    streamLifecycle,
-    turnInFlight,
-    baseStatus,
-    needsAttention,
-  );
   // The Push button is *only* gated on "is there anything to push?" —
   // not on workspace existence, not on PR existence. When everything's
   // already on the remote we disable it (clicking would be a no-op);
@@ -396,7 +393,7 @@ export default function SessionHeader({
         <div className="session-header-info">
           <span
             id="session-status-dot"
-            className={dotClass}
+            className={agent.dotClass}
             title={tabStatusTitle(baseStatus, needsAttention)}
           />
           <strong id="session-task-id">{session.task_id}</strong>
@@ -405,10 +402,10 @@ export default function SessionHeader({
         <div className="session-header-actions">
           <span
             id="session-claude-status"
-            className={`claude-status claude-status-${claudeStatus.kind}`}
-            title={claudeStatus.title}
+            className={`claude-status claude-status-${agent.kind}`}
+            title={agent.title}
           >
-            Claude: {claudeStatus.label}
+            Claude: {agent.label}
           </span>
           {sessionIdBadgeRight}
           {searchSlot}
@@ -604,73 +601,6 @@ function prTitleFor(state) {
   return 'Push the branch and open a pull request.';
 }
 
-// Map (lifecycle, turnInFlight) → a short status word + tooltip for the
-// Claude agent indicator. ``streamLifecycle`` is undefined when the
-// header is rendered without a stream context (defensive — should not
-// happen in normal use but keeps the chip from blowing up).
-function describeClaudeStatus(
-  streamLifecycle,
-  turnInFlight,
-  baseStatus,
-  needsAttention,
-) {
-  if (baseStatus === TAB_STATUS.PROVISIONING) {
-    return {
-      kind: 'provisioning',
-      label: 'provisioning',
-      title: 'Workspace is being set up.',
-    };
-  }
-  if (turnInFlight) {
-    return {
-      kind: 'working',
-      label: 'working',
-      title: 'Claude is processing the current turn.',
-    };
-  }
-  if (needsAttention) {
-    return {
-      kind: 'approval',
-      label: 'approval',
-      title: 'Claude is paused waiting for your approval.',
-    };
-  }
-  switch (streamLifecycle) {
-    case SESSION_LIFECYCLE.STREAMING:
-      return {
-        kind: 'idle',
-        label: 'idle',
-        title: 'Claude is connected and waiting for input.',
-      };
-    case SESSION_LIFECYCLE.CONNECTING:
-      return {
-        kind: 'connecting',
-        label: 'connecting',
-        title: 'Connecting to the Claude session…',
-      };
-    case SESSION_LIFECYCLE.IDLE:
-      return {
-        kind: 'sleeping',
-        label: 'sleeping',
-        title: 'No live subprocess — kato will respawn Claude on the next message.',
-      };
-    case SESSION_LIFECYCLE.CLOSED:
-      return {
-        kind: 'closed',
-        label: 'closed',
-        title: 'The Claude subprocess for this task has ended.',
-      };
-    case SESSION_LIFECYCLE.MISSING:
-      return {
-        kind: 'missing',
-        label: 'no record',
-        title: 'No record for this task on the server.',
-      };
-    default:
-      return {
-        kind: 'unknown',
-        label: '—',
-        title: 'Claude status unknown.',
-      };
-  }
-}
+// The Claude agent indicator (chip + dot) now derives from the shared
+// utils/agentStatus.js → deriveAgentStatus, so the header and the tab badge
+// can't disagree. (Former describeClaudeStatus lived here.)

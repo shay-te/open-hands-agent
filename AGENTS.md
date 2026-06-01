@@ -18,8 +18,8 @@ do not do any git commit or push. let me inspect the changes
 
 ### Reuse these before writing your own
 
-- **Frontend (`webserver/ui/src/`):** `hooks/` (data-load + save state machines — `useSettingsResource`, `useRestartingSave`, `useSessionOption`, `usePolling`, `useBusyAction`; plus `useAutoSizeTextarea`, `useEscapeKey`, `useDismissOnOutsidePointerOrEscape`), `utils/` (`apiErrorMessage`, `cx`, `storage`, `pluralize`/`countNoun`, `clipboard`, `basenameOf`, `settingsSource`), `stores/toastStore.js` — use `toast.errorFromResult(result, {...})` / `toastResult(...)` for API-result toasts instead of hand-rolling the `{ kind: 'error', message: apiErrorMessage(...) }` envelope — and `components/settings/` panel scaffolding (`SettingsPanelBody`, `SettingsActions`, `RestartBanner`).
-- **Backend:** `kato_core_lib/helpers/*_utils.py` — e.g. `kato_home_path` for any `~/.kato/<file>` path, `task_lookup_utils` (`find_task_by_id`, `task_id_matches`) for locating a task, `dotenv_utils` for `.env` parsing. Cross-`*_core_lib` duplication is the ONE intentional exception: the black-box libs must not import each other.
+- **Frontend (`webserver/ui/src/`):** `hooks/` (data-load + save state machines — `useSettingsResource`, `useRestartingSave`, `useSessionOption`, `usePolling`, `useBusyAction`; plus `useAutoSizeTextarea`, `useEscapeKey`, `useDismissOnOutsidePointerOrEscape`), `utils/` (`apiErrorMessage`, `cx`, `storage`, `pluralize`/`countNoun`, `clipboard`, `basenameOf`, `settingsSource`, `katoTags` for `kato:` tag prefixes/builders), `stores/toastStore.js` — use `toast.errorFromResult(result, {...})` / `toastResult(...)` for API-result toasts instead of hand-rolling the `{ kind: 'error', message: apiErrorMessage(...) }` envelope — and `components/settings/` panel scaffolding (`SettingsPanelBody`, `SettingsActions`, `RestartBanner`).
+- **Backend:** `kato_core_lib/helpers/*_utils.py` — e.g. `kato_home_path` for any `~/.kato/<file>` path, `task_lookup_utils` (`find_task_by_id`, `task_id_matches`) for locating a task, `dotenv_utils` for `.env` parsing, `kato_tag_utils` for building/parsing any `kato:` task tag. Cross-`*_core_lib` duplication is the ONE intentional exception: the black-box libs must not import each other.
 
 ## Architecture
 
@@ -31,6 +31,7 @@ do not do any git commit or push. let me inspect the changes
 - If a service starts collecting a grab-bag of pure helpers, formatting functions, or repeated logging wrappers, move them into `kato_core_lib/helpers/*_utils.py` or split them into a smaller service instead of keeping one oversized file.
 - Do not add pass-through helper methods on `KatoCoreLib` when the service can be used directly.
 - Prefer constants from `kato_core_lib/data_layers/data/fields.py` over free-text field names.
+- **Never hand-write `kato:` task-tag strings** (`'kato:repo:...'`, `'kato:triage:...'`, `'kato:wait-...'`). Every kato tag is namespaced under `KATO_TAG_NAMESPACE` in `fields.py` and each segment (`repo`, `triage`, …) is defined once; build and parse tags through `kato_core_lib/helpers/kato_tag_utils.py` — `build_repository_tag` / `repository_id_from_tag` / `is_repository_tag` / `build_triage_tag` / `build_kato_tag`. The web client mirrors these in `webserver/ui/src/utils/katoTags.js` (`REPOSITORY_TAG_PREFIX`, `buildRepositoryTag`, …) — use it instead of typing the prefix into JSX, and keep the two files in sync.
 - Reuse existing utilities before introducing duplicate helper logic.
 - Do not create compatibility shim modules, barrel exports, or `__all__` re-export files; import from the real module directly.
 - Put shared utility modules under `kato_core_lib/helpers/` instead of scattering them across service or root packages, and name them with the `_utils.py` suffix.

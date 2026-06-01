@@ -2539,8 +2539,8 @@ class AgentService(MissionStepLoggerMixin, Service):
                     f'``repositories`` first'
                 ),
             }
-        from kato_core_lib.data_layers.data.fields import RepositoryFields
-        tag_name = f'{RepositoryFields.REPOSITORY_TAG_PREFIX}{normalized_repo_id}'
+        from kato_core_lib.helpers.kato_tag_utils import build_repository_tag
+        tag_name = build_repository_tag(normalized_repo_id)
         tag_added = False
         try:
             # Check whether the tag is already present so the toast can

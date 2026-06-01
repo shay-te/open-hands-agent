@@ -9,7 +9,7 @@
     "build": "vite build && npm run build:css",
     "build:css": "sass src/styles/app.scss ../static/css/app.css --no-source-map --no-charset --style=expanded",
     "test": "npm run test:node && npm run test:vitest",
-    "test:node": "node --test src/*.test.js src/utils/*.test.js src/hooks/*.test.js src/components/*.test.js",
+    "test:node": "node --test src/*.test.js src/utils/*.test.js src/hooks/*.test.js src/components/*.test.js src/stores/*.test.js",
     "test:vitest": "vitest run",
     "dedup": "npx --yes jscpd src"
   },

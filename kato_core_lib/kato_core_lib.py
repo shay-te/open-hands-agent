@@ -49,6 +49,7 @@ from kato_core_lib.data_layers.data_access.lessons_data_access import (
     LessonsDataAccess,
 )
 from kato_core_lib.data_layers.service.lessons_service import LessonsService
+from kato_core_lib.helpers.lessons_path_utils import resolve_and_sync_lessons_path
 from claude_core_lib.claude_core_lib.helpers.one_shot_utils import make_claude_one_shot
 from kato_core_lib.helpers.runtime_identity_utils import runtime_source_fingerprint
 from sandbox_core_lib.sandbox_core_lib.bypass_permissions_validator import (
@@ -538,15 +539,14 @@ class KatoCoreLib(CoreLib):
         the one-shot LLM helper so extract / compact reuse the
         operator-configured Claude install.
         """
-        from pathlib import Path
-
         claude_cfg = getattr(open_cfg, 'claude', None)
-        configured = ''
-        if claude_cfg is not None:
-            configured = str(getattr(claude_cfg, 'lessons_path', '') or '').strip()
-        lessons_path = Path(configured).expanduser() if configured else (
-            Path.home() / '.kato' / 'lessons.md'
-        )
+        # Resolve the lessons path ONCE and sync it back into the config, so the
+        # agent client (which reads ``claude.lessons_path`` via the factory at
+        # spawn time) injects the SAME file LessonsService writes. Previously the
+        # writer defaulted to ``~/.kato/lessons.md`` while an unset
+        # ``KATO_LESSONS_PATH`` left the reader with '' → the agent saw no
+        # lessons and kept repeating mistakes.
+        lessons_path = resolve_and_sync_lessons_path(claude_cfg)
         state_dir = lessons_path.parent
         data_access = LessonsDataAccess(state_dir)
         binary = ''

@@ -30,6 +30,7 @@ export default function TabList({
   sessions,
   activeTaskId,
   attentionTaskIds,
+  activeLiveStatus = null,
   onSelect,
   onForget,
   onOpenAddTask,
@@ -233,6 +234,7 @@ export default function TabList({
         session={session}
         active={isActive}
         needsAttention={needsAttention}
+        liveStatus={isActive ? activeLiveStatus : null}
         pinned={pinnedSet.has(session.task_id)}
         onSelect={onSelect}
         onForget={onForget}

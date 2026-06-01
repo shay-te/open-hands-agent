@@ -169,6 +169,126 @@ describe('QueuedMessageList', () => {
     expect(screen.getByRole('list', { name: /queued messages/i }))
       .toBeInTheDocument();
   });
+
+  test('clicking Edit reveals a textarea pre-filled with the message text', () => {
+    render(
+      <QueuedMessageList
+        items={[_item({ id: 'q-1', text: 'fix the typo' })]}
+        onSteer={vi.fn()}
+        onRemove={vi.fn()}
+        onEdit={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /edit queued message/i }));
+    const input = screen.getByRole('textbox', { name: /edit queued message/i });
+    expect(input).toHaveValue('fix the typo');
+  });
+
+  test('editing + Save fires onEdit with the row id and the new (trimmed) text', () => {
+    const onEdit = vi.fn();
+    render(
+      <QueuedMessageList
+        items={[_item({ id: 'q-42', text: 'old text' })]}
+        onSteer={vi.fn()}
+        onRemove={vi.fn()}
+        onEdit={onEdit}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /edit queued message/i }));
+    fireEvent.change(screen.getByRole('textbox', { name: /edit queued message/i }), {
+      target: { value: '  new revised text  ' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /save edit/i }));
+    expect(onEdit).toHaveBeenCalledWith('q-42', 'new revised text');
+  });
+
+  test('Cmd/Ctrl+Enter in the textarea saves', () => {
+    const onEdit = vi.fn();
+    render(
+      <QueuedMessageList
+        items={[_item({ id: 'q-7', text: 'a' })]}
+        onSteer={vi.fn()}
+        onRemove={vi.fn()}
+        onEdit={onEdit}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /edit queued message/i }));
+    const input = screen.getByRole('textbox', { name: /edit queued message/i });
+    fireEvent.change(input, { target: { value: 'updated' } });
+    fireEvent.keyDown(input, { key: 'Enter', metaKey: true });
+    expect(onEdit).toHaveBeenCalledWith('q-7', 'updated');
+  });
+
+  test('Cancel exits edit mode WITHOUT firing onEdit, and restores the text', () => {
+    const onEdit = vi.fn();
+    render(
+      <QueuedMessageList
+        items={[_item({ id: 'q-1', text: 'original' })]}
+        onSteer={vi.fn()}
+        onRemove={vi.fn()}
+        onEdit={onEdit}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /edit queued message/i }));
+    fireEvent.change(screen.getByRole('textbox', { name: /edit queued message/i }), {
+      target: { value: 'discarded change' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /cancel edit/i }));
+    expect(onEdit).not.toHaveBeenCalled();
+    // Back to display mode showing the original.
+    expect(screen.getByText('original')).toBeInTheDocument();
+  });
+
+  test('Escape cancels the edit', () => {
+    const onEdit = vi.fn();
+    render(
+      <QueuedMessageList
+        items={[_item({ id: 'q-1', text: 'keep me' })]}
+        onSteer={vi.fn()}
+        onRemove={vi.fn()}
+        onEdit={onEdit}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /edit queued message/i }));
+    const input = screen.getByRole('textbox', { name: /edit queued message/i });
+    fireEvent.change(input, { target: { value: 'changed' } });
+    fireEvent.keyDown(input, { key: 'Escape' });
+    expect(onEdit).not.toHaveBeenCalled();
+    expect(screen.getByText('keep me')).toBeInTheDocument();
+  });
+
+  test('emptying the text then Save cancels instead of saving a blank steer', () => {
+    const onEdit = vi.fn();
+    render(
+      <QueuedMessageList
+        items={[_item({ id: 'q-1', text: 'something' })]}
+        onSteer={vi.fn()}
+        onRemove={vi.fn()}
+        onEdit={onEdit}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /edit queued message/i }));
+    fireEvent.change(screen.getByRole('textbox', { name: /edit queued message/i }), {
+      target: { value: '   ' },
+    });
+    // Save is disabled for blank text; clicking it (or it being unreachable)
+    // must not produce a blank onEdit.
+    fireEvent.click(screen.getByRole('button', { name: /save edit/i }));
+    expect(onEdit).not.toHaveBeenCalled();
+  });
+
+  test('Edit without an onEdit handler does not throw on Save', () => {
+    render(
+      <QueuedMessageList items={[_item({ text: 'x' })]} onSteer={vi.fn()} onRemove={vi.fn()} />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /edit queued message/i }));
+    fireEvent.change(screen.getByRole('textbox', { name: /edit queued message/i }), {
+      target: { value: 'y' },
+    });
+    expect(() => {
+      fireEvent.click(screen.getByRole('button', { name: /save edit/i }));
+    }).not.toThrow();
+  });
 });
 
 

@@ -26,6 +26,7 @@ import { useTaskAttention } from './hooks/useTaskAttention.js';
 import { useTaskTabShortcuts } from './hooks/useTaskTabShortcuts.js';
 import { useToolMemory } from './hooks/useToolMemory.js';
 import { CLAUDE_EVENT } from './constants/claudeEvent.js';
+import { agentStatusStore } from './stores/agentStatusStore.js';
 import { mergePendingPermissionTaskIds } from './utils/sessionAttention.js';
 
 const RIGHT_PANE_DEFAULT_WIDTH = 380;
@@ -52,6 +53,12 @@ export default function App() {
   const composerRef = useRef(null);
   const { sessions, refresh } = useSessions();
   const attention = useTaskAttention();
+  // Live agent status published by the active task's SessionDetail. Subscribed
+  // once here and passed down (via TabList) so the tab dot/badge derive from the
+  // same value as the header chip (UNA-2492). Only the active task ever has a
+  // live entry; inactive tabs get null and fall back to polled status.
+  const [agentStatuses, setAgentStatuses] = useState({});
+  useEffect(() => agentStatusStore.subscribe(setAgentStatuses), []);
   // Lifted from SessionDetail so the same recall function powers
   // both the permission modal AND the tab-attention filter. Without
   // this lift, the server's "has_pending_permission" poll would
@@ -298,6 +305,7 @@ export default function App() {
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
 
   const activeSession = sessions.find((s) => s.task_id === activeTaskId) || null;
+  const activeLiveStatus = (activeTaskId && agentStatuses[activeTaskId]) || null;
   const attentionTaskIds = useMemo(() => {
     return mergePendingPermissionTaskIds(
       attention.taskIds, sessions, toolMemory.recall,
@@ -376,6 +384,7 @@ export default function App() {
           sessions={sessions}
           activeTaskId={activeTaskId}
           attentionTaskIds={attentionTaskIds}
+          activeLiveStatus={activeLiveStatus}
           onSelect={setActiveTaskId}
           onForget={requestForgetTask}
           onOpenAddTask={() => setAddTaskModalOpen(true)}

@@ -28,16 +28,23 @@ from kato_core_lib.data_layers.data.fields import (
     TaskTags,
 )
 from kato_core_lib.data_layers.data.task import Task
+from kato_core_lib.helpers.kato_tag_utils import build_triage_tag
 from kato_core_lib.helpers.logging_utils import configure_logger
 from kato_core_lib.helpers.mission_logging_utils import log_mission_step
 from kato_core_lib.helpers.text_utils import normalized_text
 
 
-# Match ``kato:triage:<level>`` anywhere in Claude's response. The
-# value (group 1) is then re-validated against the canonical set
-# below before being applied to the task.
+# Match ``kato:triage:<level>`` anywhere in Claude's response. Both the
+# prefix and the alternation are derived from the canonical tag constants
+# so there is no second copy of the ``kato:triage:`` string or the outcome
+# list to keep in sync. The match (group 1) is re-validated against
+# TRIAGE_OUTCOME_TAGS below before being applied to the task.
+_TRIAGE_OUTCOMES = tuple(
+    tag[len(TaskTags.TRIAGE_PREFIX):] for tag in TRIAGE_OUTCOME_TAGS
+)
 _TRIAGE_OUTCOME_PATTERN = re.compile(
-    r'kato:triage:(critical|high|medium|low|duplicate|wontfix|invalid|needs-info|blocked|question)',
+    re.escape(TaskTags.TRIAGE_PREFIX)
+    + '(' + '|'.join(re.escape(outcome) for outcome in _TRIAGE_OUTCOMES) + ')',
     re.IGNORECASE,
 )
 
@@ -215,7 +222,7 @@ class TriageService(object):
         match = _TRIAGE_OUTCOME_PATTERN.search(text)
         if match is None:
             return ''
-        candidate = f'kato:triage:{match.group(1).lower()}'
+        candidate = build_triage_tag(match.group(1).lower())
         # Defensive double-check against the canonical set: the regex
         # already constrains the alternatives but a future expansion
         # of TRIAGE_OUTCOME_TAGS without a regex update would be
