@@ -269,10 +269,14 @@ def review_comments_batch_text(comments, workspace_path: str = '') -> str:
     return '\n'.join(lines).rstrip() + '\n'
 
 
-def review_comment_context_text(comment) -> str:
+def review_comment_context_text(comment, self_reply_prefixes=()) -> str:
     all_comments = getattr(comment, 'all_comments', [])
     if not isinstance(all_comments, list) or len(all_comments) <= 1:
         return ''
+    # Caller-provided prefixes the host bot uses for its own replies; drop
+    # those so the agent isn't fed back its own prior replies. Empty = no
+    # filter (agnostic default) — matches agent_core_lib's helper.
+    prefixes = tuple(prefix for prefix in (self_reply_prefixes or ()) if prefix)
     lines: list[str] = []
     for item in all_comments:
         if not isinstance(item, dict):
@@ -280,6 +284,8 @@ def review_comment_context_text(comment) -> str:
         author = text_from_mapping(item, 'author')
         body = text_from_mapping(item, 'body')
         if not body:
+            continue
+        if prefixes and body.startswith(prefixes):
             continue
         label = author if author else 'reviewer'
         lines.append(f'- {label}: {body}')

@@ -201,6 +201,21 @@ class ReviewCommentContextTextTests(unittest.TestCase):
             review_comment_context_text(SimpleNamespace()), '',
         )
 
+    def test_self_reply_prefixes_drop_the_bots_own_replies(self) -> None:
+        # Caller-provided prefixes drop the host bot's own replies (parity with
+        # claude/codex); the default ('') keeps them (agnostic — no hardcoded
+        # bot name).
+        comment = SimpleNamespace(all_comments=[
+            {'author': 'alice', 'body': 'please rename this'},
+            {'author': 'kato', 'body': 'Kato addressed review comment 5'},
+        ])
+        prefixes = ('Kato addressed review comment ', 'Kato addressed this review comment')
+        filtered = review_comment_context_text(comment, prefixes)
+        self.assertIn('please rename this', filtered)
+        self.assertNotIn('Kato addressed', filtered)
+        # Default = no filter: the bot reply stays.
+        self.assertIn('Kato addressed', review_comment_context_text(comment))
+
 
 class ReviewCommentLocationTextTests(unittest.TestCase):
     def test_appends_line_type_and_commit_sha(self) -> None:

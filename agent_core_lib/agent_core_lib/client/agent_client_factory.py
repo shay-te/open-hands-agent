@@ -187,4 +187,5 @@ class AgentClientFactory(object):
                 and bool(getattr(openhands_cfg, 'model_smoke_test_enabled', True))
             ),
             workspace_refusal_guidance=self._workspace_refusal_guidance,
+            self_reply_prefixes=self._self_reply_prefixes,
         )
