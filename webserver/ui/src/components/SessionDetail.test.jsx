@@ -8,7 +8,7 @@
 //   - hasVisibleBubbles: decides whether at least one event should
 //     render in EventLog (used to suppress the "waiting" banner).
 
-import { describe, test, expect, vi } from 'vitest';
+import { describe, test, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 
 // Stub the heavy children so the layout test renders fast and
@@ -75,6 +75,7 @@ import { postChatMessage } from '../api.js';
 import { ENTRY_SOURCE } from '../constants/entrySource.js';
 import { CLAUDE_EVENT, CLAUDE_SYSTEM_SUBTYPE } from '../constants/claudeEvent.js';
 import { BUBBLE_KIND } from '../constants/bubbleKind.js';
+import { _resetQueuedMessagesStore } from '../utils/queuedMessagesStore.js';
 
 
 describe('lifecycleBanner', () => {
@@ -351,6 +352,10 @@ describe('SessionDetail — working indicator placement', () => {
 
 
 describe('SessionDetail — outgoing message queue', () => {
+
+  // The per-task queue store is module-level (survives remounts by design), so
+  // reset it between cases to keep them isolated.
+  beforeEach(() => _resetQueuedMessagesStore());
 
   function _stream(overrides = {}) {
     return {

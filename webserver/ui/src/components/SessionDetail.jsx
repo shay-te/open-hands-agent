@@ -14,6 +14,7 @@ import { ENTRY_SOURCE } from '../constants/entrySource.js';
 import { AGENT_SESSION_ID } from '../constants/sessionFields.js';
 import { useSessionStream, SESSION_LIFECYCLE } from '../hooks/useSessionStream.js';
 import { agentStatusStore } from '../stores/agentStatusStore.js';
+import { readQueuedMessages, writeQueuedMessages } from '../utils/queuedMessagesStore.js';
 import { useSessionOption } from '../hooks/useSessionOption.js';
 import { useToolMemory } from '../hooks/useToolMemory.js';
 import { fetchEffortLevels, fetchModels, fetchSessionEffort, fetchSessionModel, postChatMessage, postSession, setSessionEffort, setSessionModel } from '../api.js';
@@ -88,19 +89,21 @@ export default function SessionDetail({
   // ``queuedMessagesRef`` mirrors the state so the turn-end flush
   // effect can read the latest list without re-subscribing on every
   // queue mutation (the effect depends only on ``turnInFlight``).
-  const [queuedMessages, setQueuedMessages] = useState([]);
-  const queuedMessagesRef = useRef([]);
+  // SessionDetail is keyed per task (App.jsx), so it REMOUNTS on tab switch
+  // and React drops this state. Seed from the per-task queue store and mirror
+  // every change back to it, so the operator's queued/steer messages survive
+  // switching away and back (they used to vanish). The store is keyed by task,
+  // so task A's queue never leaks into task B.
+  const [queuedMessages, setQueuedMessages] = useState(() => readQueuedMessages(taskId));
+  const queuedMessagesRef = useRef(queuedMessages);
   useEffect(() => {
     queuedMessagesRef.current = queuedMessages;
-  }, [queuedMessages]);
+    writeQueuedMessages(taskId, queuedMessages);
+  }, [taskId, queuedMessages]);
   const prevTurnInFlightRef = useRef(false);
-  // The queue belongs to the task it was typed for. SessionDetail is
-  // reused across tabs (not remounted per task), so drop anything
-  // pending when the bound task changes — never deliver task A's
-  // queued text into task B.
+  // Seed the turn-flight tracker for this mount (the queue itself is restored
+  // by the lazy initializer above, not cleared).
   useEffect(() => {
-    setQueuedMessages([]);
-    queuedMessagesRef.current = [];
     prevTurnInFlightRef.current = stream.turnInFlight;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [taskId]);
