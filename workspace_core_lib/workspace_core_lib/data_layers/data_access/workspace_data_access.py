@@ -112,8 +112,13 @@ class WorkspaceDataAccess(DataAccess):
         the entry entirely.
         """
         workspace_dir = self.workspace_dir(task_id)
-        if not workspace_dir.is_dir():
-            return None
+        try:
+            if not workspace_dir.is_dir():
+                return None
+        except OSError:
+            # The dir exists but can't be stat'd (permission denied) — fall
+            # through to the ERRORED record rather than crashing the caller.
+            pass
         record = self._read_metadata_at(workspace_dir)
         if record is not None:
             return record
@@ -138,9 +143,21 @@ class WorkspaceDataAccess(DataAccess):
         if not root.exists():
             return
         for entry in sorted(root.iterdir()):
-            if not entry.is_dir():
+            try:
+                if not entry.is_dir():
+                    continue
+            except OSError:
+                # Can't even stat the entry (permission denied) — skip it
+                # rather than crash the whole listing.
                 continue
-            yield entry, (entry / self._metadata_filename).is_file()
+            try:
+                has_metadata = (entry / self._metadata_filename).is_file()
+            except OSError:
+                # The dir is there but its metadata can't be stat'd (broken /
+                # permission-denied clone). Surface it as metadata-less so
+                # list_all builds an ERRORED record the operator can discard.
+                has_metadata = False
+            yield entry, has_metadata
 
     def list_all(self) -> list[WorkspaceRecord]:
         """Snapshot of every workspace folder under the root."""
@@ -237,6 +254,26 @@ class WorkspaceDataAccess(DataAccess):
                 # a meaningful trace (and genuine locks surface cleanly).
                 raise exc_info[1]
 
+        # Best-effort: make the whole tree user-rwx BEFORE rmtree, top-down so
+        # we add search/write to a directory before trying to chmod its
+        # children. This recovers a clone left in a broken permission state
+        # (a git op stripped perms, a metadata file the parent can no longer
+        # stat) where rmtree's per-entry onerror retry alone can't, because
+        # unlinking a file needs write+execute on its PARENT dir. Every step is
+        # swallowed — rmtree below does the actual removal + final error report.
+        try:
+            os.chmod(workspace_dir, stat.S_IRWXU)
+        except OSError:
+            pass
+        for dirpath, dirnames, filenames in os.walk(
+            workspace_dir, topdown=True, onerror=lambda _exc: None,
+        ):
+            for name in dirnames + filenames:
+                try:
+                    os.chmod(os.path.join(dirpath, name), stat.S_IRWXU)
+                except OSError:
+                    pass
+
         for attempt in range(3):
             try:
                 shutil.rmtree(workspace_dir, onerror=_on_rm_error)
@@ -260,11 +297,17 @@ class WorkspaceDataAccess(DataAccess):
 
     def _read_metadata_at(self, workspace_dir: Path) -> WorkspaceRecord | None:
         path = workspace_dir / self._metadata_filename
-        if not path.is_file():
-            return None
         try:
+            if not path.is_file():
+                return None
             payload = json.loads(path.read_text(encoding='utf-8'))
         except (OSError, json.JSONDecodeError) as exc:
+            # The ``is_file`` stat OR the read can fail with PermissionError /
+            # OSError when a clone is in a broken state (e.g. a metadata file
+            # whose dir lost search permission). Return None so the caller
+            # surfaces an ERRORED record the operator can discard — a single
+            # unreadable workspace must NOT crash list_all() / the whole
+            # /api/sessions response.
             self._logger.warning(
                 'failed to read workspace metadata at %s: %s', path, exc,
             )

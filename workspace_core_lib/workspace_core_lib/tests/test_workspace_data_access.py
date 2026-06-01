@@ -221,8 +221,10 @@ class WorkspaceDataAccessTests(unittest.TestCase):
                 patch('os.chmod') as mock_chmod:
             self.data_access.delete('READONLY-1')
 
-        # Both legs of the chmod-then-retry recovery fired.
-        mock_chmod.assert_called_once()
+        # The onerror chmod-then-retry recovery fired. The retry leg is pinned
+        # precisely (once); chmod is only asserted called, because delete() now
+        # also does a best-effort pre-walk chmod so the total count isn't fixed.
+        mock_chmod.assert_called()
         retry_func.assert_called_once()
 
     def test_delete_on_rm_error_reraises_original_when_chmod_fails(self) -> None:
@@ -278,8 +280,40 @@ class WorkspaceDataAccessTests(unittest.TestCase):
             # Must NOT raise TypeError ("open() missing required argument …").
             self.data_access.delete('FDOPEN-1')
 
-        # chmod best-effort fired; no blind os.open(path) retry happened.
-        mock_chmod.assert_called_once()
+        # chmod best-effort fired; no blind os.open(path) retry happened (the
+        # delete completes without the TypeError escaping). Count not pinned —
+        # delete() also pre-walk-chmods the tree.
+        mock_chmod.assert_called()
+
+    def test_permission_denied_workspace_does_not_crash_list_or_get(self) -> None:
+        # Regression (operator-reported): a clone left in a broken permission
+        # state — a metadata file the parent dir can no longer stat — made
+        # ``is_file()`` raise PermissionError inside _iter_workspace_dirs /
+        # _read_metadata_at. That uncaught error 500'd the ENTIRE
+        # /api/sessions listing (one bad workspace took down the whole UI).
+        # It must now surface as an ERRORED record instead of crashing.
+        import os
+        import stat as _stat
+        if hasattr(os, 'geteuid') and os.geteuid() == 0:
+            self.skipTest('root bypasses permission checks')
+
+        self.data_access.save(WorkspaceRecord(task_id='PERM-1'))
+        # A healthy sibling must still be listed alongside the broken one.
+        self.data_access.save(WorkspaceRecord(task_id='OK-1'))
+        ws_dir = self.data_access.workspace_dir('PERM-1')
+        # Strip all permissions: stat-ing files INSIDE the dir now raises
+        # PermissionError (no search/execute on the dir).
+        os.chmod(ws_dir, 0o000)
+        self.addCleanup(lambda: os.chmod(ws_dir, _stat.S_IRWXU))
+
+        records = self.data_access.list_all()  # must NOT raise
+        by_id = {r.task_id: r for r in records}
+        self.assertEqual(by_id['PERM-1'].status, WORKSPACE_STATUS_ERRORED)
+        self.assertIn('OK-1', by_id)  # the healthy workspace still listed
+
+        got = self.data_access.get('PERM-1')  # must NOT raise
+        self.assertIsNotNone(got)
+        self.assertEqual(got.status, WORKSPACE_STATUS_ERRORED)
 
 
 if __name__ == '__main__':

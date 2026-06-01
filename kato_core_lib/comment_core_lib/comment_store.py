@@ -334,9 +334,14 @@ class LocalCommentStore(object):
             and current_mtime == self._cache_mtime_ns
         ):
             return list(self._cache)
-        if not self._path.is_file():
-            return self._cache_empty(current_mtime)
         try:
+            # ``is_file()`` is INSIDE the try on purpose: if the parent dir is
+            # in a broken permission state the stat itself raises
+            # PermissionError, which used to escape this guard and crash the
+            # whole /api/sessions/<task>/comments response (one bad workspace
+            # took down the endpoint). Treat any stat/read failure as empty.
+            if not self._path.is_file():
+                return self._cache_empty(current_mtime)
             with self._path.open('r', encoding='utf-8') as fh:
                 payload = json.load(fh)
         except (OSError, json.JSONDecodeError) as exc:

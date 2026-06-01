@@ -216,6 +216,23 @@ class LocalCommentStoreDefensiveTests(unittest.TestCase):
         self.assertEqual(result, [])
         logger.warning.assert_called()
 
+    def test_load_all_returns_empty_when_store_is_permission_denied(self) -> None:
+        # Regression (operator-reported): a workspace left in a broken
+        # permission state made _load_all's ``is_file()`` stat raise
+        # PermissionError, which escaped the read guard and 500'd the whole
+        # /api/sessions/<task>/comments response. It must read as empty instead.
+        import os
+        import stat as _stat
+        if hasattr(os, 'geteuid') and os.geteuid() == 0:
+            self.skipTest('root bypasses permission checks')
+        self.store.add(_record())
+        os.chmod(self.workspace, 0o000)
+        self.addCleanup(lambda: os.chmod(self.workspace, _stat.S_IRWXU))
+        # A cold-cache store can't fall back to a warm cache — it must hit the
+        # now-guarded is_file() stat and survive.
+        fresh = LocalCommentStore(self.workspace)
+        self.assertEqual(fresh.list(), [])
+
     def test_load_all_returns_empty_for_non_dict_payload(self) -> None:
         # Lines 273-274.
         self.store.storage_path.write_text(
