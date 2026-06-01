@@ -12,6 +12,7 @@ import unittest
 from provider_client_base.provider_client_base.helpers.mention_utils import (
     extract_mention_logins,
     is_comment_addressed_elsewhere,
+    is_comment_addressed_elsewhere_any,
 )
 
 
@@ -143,6 +144,87 @@ class IsCommentAddressedElsewhereTests(unittest.TestCase):
         self.assertTrue(
             is_comment_addressed_elsewhere('@jane please', '  kato_bot  '),
         )
+
+
+class IsCommentAddressedElsewhereAnyTests(unittest.TestCase):
+    """A bot known under SEVERAL logins at once (e.g. a YouTrack assignee AND
+    a different Bitbucket username on a mixed deployment). A comment mentioning
+    ANY of them is for the bot; one mentioning only other people is skipped.
+    """
+
+    BOT = ('kato_yt', 'kato_bb')  # task-platform login + code-host login
+
+    # ---- filter disabled paths ----
+
+    def test_no_logins_disables_filter(self) -> None:
+        self.assertFalse(is_comment_addressed_elsewhere_any('@alice please', ()))
+        self.assertFalse(is_comment_addressed_elsewhere_any('@alice please', []))
+
+    def test_only_empty_or_me_logins_disables_filter(self) -> None:
+        # Every candidate normalizes away → no usable login → keep everything,
+        # exactly like the single-login form.
+        self.assertFalse(
+            is_comment_addressed_elsewhere_any('@alice please', ['', None, 'me', '  ME ']),
+        )
+
+    def test_none_argument_disables_filter(self) -> None:
+        self.assertFalse(is_comment_addressed_elsewhere_any('@alice please', None))
+
+    # ---- the multi-login rule ----
+
+    def test_mention_to_someone_else_is_skipped(self) -> None:
+        # Neither bot login is mentioned → addressed elsewhere → skip.
+        self.assertTrue(
+            is_comment_addressed_elsewhere_any('@jane.doe please look', self.BOT),
+        )
+
+    def test_mention_of_task_platform_login_is_kept(self) -> None:
+        self.assertFalse(
+            is_comment_addressed_elsewhere_any('@kato_yt fix the typo', self.BOT),
+        )
+
+    def test_mention_of_code_host_login_is_kept(self) -> None:
+        # The crux for a mixed deployment: the reviewer @-mentions the bot
+        # under its OTHER (Bitbucket) login — must NOT be dropped.
+        self.assertFalse(
+            is_comment_addressed_elsewhere_any('@kato_bb can you also fix X', self.BOT),
+        )
+
+    def test_bot_among_others_is_kept(self) -> None:
+        self.assertFalse(
+            is_comment_addressed_elsewhere_any('@alice and @kato_bb', self.BOT),
+        )
+        self.assertTrue(
+            is_comment_addressed_elsewhere_any('@alice and @bob', self.BOT),
+        )
+
+    def test_no_mentions_in_body_is_kept(self) -> None:
+        self.assertFalse(
+            is_comment_addressed_elsewhere_any('this also needs a unit test', self.BOT),
+        )
+
+    def test_empty_logins_mixed_with_a_real_one_still_filter(self) -> None:
+        # Blank/'me' entries are dropped but the one real login still applies.
+        self.assertTrue(
+            is_comment_addressed_elsewhere_any('@jane please', ['', 'me', 'kato_bb']),
+        )
+        self.assertFalse(
+            is_comment_addressed_elsewhere_any('@kato_bb please', ['', 'me', 'kato_bb']),
+        )
+
+    def test_case_insensitive_across_logins(self) -> None:
+        self.assertFalse(
+            is_comment_addressed_elsewhere_any('@Kato_BB fix it', self.BOT),
+        )
+
+    def test_bare_string_is_treated_as_single_login(self) -> None:
+        # Convenience: a single login may be passed as a plain string.
+        self.assertTrue(is_comment_addressed_elsewhere_any('@jane please', 'kato_bb'))
+        self.assertFalse(is_comment_addressed_elsewhere_any('@kato_bb please', 'kato_bb'))
+
+    def test_non_string_body_is_handled(self) -> None:
+        self.assertFalse(is_comment_addressed_elsewhere_any(42, self.BOT))
+        self.assertFalse(is_comment_addressed_elsewhere_any(None, self.BOT))
 
 
 if __name__ == '__main__':

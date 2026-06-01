@@ -37,6 +37,24 @@ class TaskServiceTests(unittest.TestCase):
             'Pull request created: https://bitbucket/pr/1',
         )
 
+    def test_bot_login_exposes_configured_assignee(self) -> None:
+        # The review-comment @-mention filter reads this to tell a comment
+        # @-mentioning the bot from one @-mentioning a teammate.
+        config = types.SimpleNamespace(
+            base_url='https://youtrack.example', token='t', project='PROJ',
+            assignee='kato-bot', issue_states=['Todo'],
+        )
+        task_service = TaskService(config, TaskDataAccess(config, Mock()))
+        self.assertEqual(task_service.bot_login, 'kato-bot')
+
+    def test_bot_login_is_empty_string_when_assignee_unset(self) -> None:
+        config = types.SimpleNamespace(
+            base_url='https://youtrack.example', token='t', project='PROJ',
+            assignee=None, issue_states=['Todo'],
+        )
+        task_service = TaskService(config, TaskDataAccess(config, Mock()))
+        self.assertEqual(task_service.bot_login, '')
+
     def test_get_review_tasks_uses_review_state_only(self) -> None:
         config = types.SimpleNamespace(
             base_url='https://youtrack.example',

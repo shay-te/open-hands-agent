@@ -66,17 +66,39 @@ def _normalize_bot_login(bot_login: object) -> str:
     return '' if text == 'me' else text
 
 
+def is_comment_addressed_elsewhere_any(body: object, bot_logins: object) -> bool:
+    """Same rule as :func:`is_comment_addressed_elsewhere`, but for a bot
+    known under SEVERAL logins at once.
+
+    A bot can have more than one login simultaneously — e.g. its
+    ticket-platform ``assignee`` and its (often different) code-host
+    username. A comment that ``@mentions`` the bot under ANY of those logins
+    is "for the bot" and is kept; only a comment that mentions other people
+    and none of the bot's logins is skipped. Empty / ``"me"`` logins are
+    ignored, so a bot with no usable login disables the filter (returns
+    False), exactly like the single-login form. A bare string is accepted as
+    a single login.
+    """
+    if bot_logins is None or isinstance(bot_logins, str):
+        candidates: tuple = (bot_logins,)
+    else:
+        candidates = tuple(bot_logins)
+    logins = {_normalize_bot_login(candidate) for candidate in candidates}
+    logins.discard('')
+    if not logins:
+        return False
+    mentions = set(extract_mention_logins(body))
+    if not mentions:
+        return False
+    return logins.isdisjoint(mentions)
+
+
 def is_comment_addressed_elsewhere(body: object, bot_login: object) -> bool:
     """Is this comment @-mentioning humans OTHER than the bot user?
 
     See the module docstring for the rule. Returns False whenever
     the filter is disabled (empty / ``"me"`` bot login) so callers
-    can wire this in unconditionally.
+    can wire this in unconditionally. Thin single-login wrapper over
+    :func:`is_comment_addressed_elsewhere_any`.
     """
-    login = _normalize_bot_login(bot_login)
-    if not login:
-        return False
-    mentions = extract_mention_logins(body)
-    if not mentions:
-        return False
-    return login not in mentions
+    return is_comment_addressed_elsewhere_any(body, (bot_login,))

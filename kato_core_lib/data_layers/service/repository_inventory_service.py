@@ -566,6 +566,47 @@ class RepositoryInventoryService(Service):
             text_from_attr(repository, 'remote_url'),
         ), token
 
+    def review_comment_bot_login(self, repository_id: str) -> str:
+        """The bot's own login on the code-review platform for this repo.
+
+        Used by the review-comment @-mention filter to tell a comment
+        @-mentioning the bot from one @-mentioning a teammate. Resolved for
+        whichever provider actually hosts the repo (GitHub / GitLab /
+        Bitbucket), NOT Bitbucket-only — all three support PR review comments
+        and route through the same path. Best-effort: an unknown repo yields
+        ``''`` so the filter stays disabled for it rather than raising
+        mid-scan.
+        """
+        try:
+            repository = self.get_repository(repository_id)
+            if repository is None:
+                return ''
+            # _resolved_review_bot_login -> _resolved_pull_request_provider
+            # raises ValueError when the provider can't be determined; swallow
+            # it too so an undeterminable repo just disables the filter.
+            return self._resolved_review_bot_login(repository)
+        except (ValueError, OSError):
+            return ''
+
+    def _resolved_review_bot_login(self, repository) -> str:
+        """The bot's login on the code-review platform hosting this repo.
+
+        Per provider: the Bitbucket username for Bitbucket repos, the
+        GitHub / GitLab username (repo ``username`` attr, else the provider's
+        configured default) for those. This is the identity the bot actually
+        replies under on THAT host — which in a mixed deployment (e.g. YouTrack
+        tickets, GitHub PRs) differs from the task-platform ``assignee``.
+        """
+        provider = self._resolved_pull_request_provider(repository)
+        if provider == 'bitbucket':
+            return self._resolved_bitbucket_username(repository)
+        username = text_from_attr(repository, 'username')
+        if username:
+            return username
+        return normalized_text(
+            self._provider_api_defaults.get(provider, {}).get('username', ''),
+        )
+
     def _resolved_bitbucket_username(self, repository) -> str:
         username = text_from_attr(repository, RepositoryFields.BITBUCKET_USERNAME) or text_from_attr(
             repository,

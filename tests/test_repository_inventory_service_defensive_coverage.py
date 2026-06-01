@@ -552,6 +552,73 @@ class ResolvedBitbucketUsernameTests(unittest.TestCase):
         )
 
 
+class ReviewCommentBotLoginTests(unittest.TestCase):
+    """The review-comment @-mention filter reads the bot's code-host login
+    from here, resolved per provider (NOT Bitbucket-only); lookups must never
+    raise."""
+
+    def test_resolves_from_repo_username_attr(self) -> None:
+        service = _make_service()
+        repo = SimpleNamespace(
+            id='r', provider='github', username='kato-bb', bitbucket_username='',
+        )
+        with patch.object(service, 'get_repository', return_value=repo):
+            self.assertEqual(service.review_comment_bot_login('r'), 'kato-bb')
+
+    def test_undeterminable_provider_yields_empty(self) -> None:
+        # No provider attr / base url / remote url → provider resolution
+        # raises ValueError → swallowed → '' (filter disabled, no crash).
+        service = _make_service()
+        repo = SimpleNamespace(id='r', username='', bitbucket_username='')
+        with patch.object(service, 'get_repository', return_value=repo):
+            self.assertEqual(service.review_comment_bot_login('r'), '')
+
+    def test_bitbucket_provider_delegates_to_bitbucket_username(self) -> None:
+        service = _make_service()
+        repo = SimpleNamespace(
+            id='r', provider='bitbucket', username='', bitbucket_username='kato-bb',
+        )
+        with patch.object(service, 'get_repository', return_value=repo):
+            self.assertEqual(service.review_comment_bot_login('r'), 'kato-bb')
+
+    def test_resolves_github_username_from_provider_default(self) -> None:
+        # The mixed-deployment fix: a GitHub repo resolves the bot's GitHub
+        # login from the github provider default, NOT a Bitbucket username.
+        service = _make_service(SimpleNamespace(
+            repositories=[],
+            github_issues=SimpleNamespace(
+                base_url='', token='', username='kato-gh', api_email='',
+            ),
+        ))
+        repo = SimpleNamespace(
+            id='r', provider='github', username='', bitbucket_username='',
+        )
+        with patch.object(service, 'get_repository', return_value=repo):
+            self.assertEqual(service.review_comment_bot_login('r'), 'kato-gh')
+
+    def test_unresolvable_code_host_login_is_empty(self) -> None:
+        # GitHub repo, no username configured anywhere → '' → the filter stays
+        # disabled (never matched against the wrong-platform task assignee).
+        service = _make_service()
+        repo = SimpleNamespace(
+            id='r', provider='github', username='', bitbucket_username='',
+        )
+        with patch.object(service, 'get_repository', return_value=repo):
+            self.assertEqual(service.review_comment_bot_login('r'), '')
+
+    def test_unknown_repo_yields_empty_not_raise(self) -> None:
+        # Real get_repository raises ValueError for an unknown id; the accessor
+        # swallows it so a poll tick is never crashed by a stale repo id.
+        service = _make_service()
+        with patch.object(service, 'get_repository', side_effect=ValueError('unknown')):
+            self.assertEqual(service.review_comment_bot_login('nope'), '')
+
+    def test_none_repo_yields_empty(self) -> None:
+        service = _make_service()
+        with patch.object(service, 'get_repository', return_value=None):
+            self.assertEqual(service.review_comment_bot_login('r'), '')
+
+
 class ReviewUrlFallbackProviderTests(unittest.TestCase):
     def test_uses_fallback_web_base_with_provider_inferred_from_base_url(
         self,

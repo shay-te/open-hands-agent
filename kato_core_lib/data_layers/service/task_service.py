@@ -116,6 +116,18 @@ class TaskService(Service):
     def _configured_assignee(self) -> str:
         return self._config.assignee
 
+    @property
+    def bot_login(self) -> str:
+        """The bot's own login on the task platform (its ``assignee``).
+
+        This is the single value every ticket platform already uses to tell a
+        comment @-mentioning the bot from one @-mentioning a teammate. Surfaced
+        publicly so the review-comment path can apply the same @-mention filter
+        the issue-comment path already does. Empty (or the YouTrack ``"me"``
+        alias) means "filter disabled".
+        """
+        return str(self._configured_assignee() or '')
+
     def _configured_issue_states(self) -> list[str]:
         configured_states = self._raw_configured_issue_states()
         filtered_states = self._exclude_non_queue_states(configured_states)
