@@ -17,6 +17,7 @@ from kato_core_lib.data_layers.service.agent_state_registry import AgentStateReg
 from kato_core_lib.data_layers.service.implementation_service import ImplementationService
 from kato_core_lib.data_layers.service.repository_service import RepositoryService
 from kato_core_lib.data_layers.service.task_service import TaskService
+from kato_core_lib.helpers.forgotten_tasks_store import forgotten_task_ids
 from kato_core_lib.helpers.logging_utils import configure_logger
 from kato_core_lib.helpers.mission_logging_utils import (
     log_mission_end,
@@ -268,7 +269,14 @@ class ReviewCommentService(Service):
     def _review_pull_request_contexts(self) -> list[dict[str, str]]:
         contexts: list[dict[str, str]] = []
         seen: set[tuple[str, str]] = set()
+        # Tasks the operator explicitly forgot must not be resurrected by the
+        # platform poll, even though their PR may still be in review with
+        # unresolved comments. Skip them until they're re-adopted (which clears
+        # the mark). Read the set once per scan, not per task.
+        forgotten = forgotten_task_ids()
         for task in self._task_service.get_review_tasks():
+            if str(getattr(task, 'id', '') or '').strip() in forgotten:
+                continue
             try:
                 task_contexts = self._review_task_pull_request_contexts(task)
             except Exception:

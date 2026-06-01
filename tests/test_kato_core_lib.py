@@ -10,6 +10,10 @@ from kato_core_lib.data_layers.data.fields import (
 from kato_core_lib.helpers.workspace_refusal_guidance import (
     KATO_WORKSPACE_REFUSAL_GUIDANCE,
 )
+from kato_core_lib.helpers.review_comment_utils import (
+    KATO_REVIEW_COMMENT_FIXED_PREFIX,
+    KATO_REVIEW_COMMENT_REPLY_PREFIX,
+)
 from task_core_lib.task_core_lib.platform import Platform
 from tests.utils import build_task, build_test_cfg
 
@@ -172,6 +176,10 @@ class KatoCoreLibTests(unittest.TestCase):
                 'max_poll_attempts': 900,
                 'model_smoke_test_enabled': True,
                 'workspace_refusal_guidance': KATO_WORKSPACE_REFUSAL_GUIDANCE,
+                'self_reply_prefixes': (
+                    KATO_REVIEW_COMMENT_FIXED_PREFIX,
+                    KATO_REVIEW_COMMENT_REPLY_PREFIX,
+                ),
             },
         )
         self.assertEqual(
@@ -193,6 +201,10 @@ class KatoCoreLibTests(unittest.TestCase):
                 'max_poll_attempts': 900,
                 'model_smoke_test_enabled': False,
                 'workspace_refusal_guidance': KATO_WORKSPACE_REFUSAL_GUIDANCE,
+                'self_reply_prefixes': (
+                    KATO_REVIEW_COMMENT_FIXED_PREFIX,
+                    KATO_REVIEW_COMMENT_REPLY_PREFIX,
+                ),
             },
         )
         mock_repository_service_cls.assert_called_once_with(

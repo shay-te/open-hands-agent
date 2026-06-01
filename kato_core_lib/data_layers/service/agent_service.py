@@ -2355,6 +2355,10 @@ class AgentService(MissionStepLoggerMixin, Service):
         normalized = str(task_id or '').strip()
         if not normalized:
             return {'adopted': False, 'error': 'empty task id'}
+        # Re-adopting a forgotten task re-engages it: clear the persistent
+        # "forgotten" mark so the review-comment scan polls its PR again.
+        from kato_core_lib.helpers.forgotten_tasks_store import unforget
+        unforget(normalized)
         if self._workspace_manager is None:
             return {
                 'adopted': False, 'task_id': normalized,

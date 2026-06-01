@@ -2134,6 +2134,13 @@ def _register_http_routes(app: Flask) -> None:
                 )
             except Exception as exc:
                 errors.append(f'terminate_session: {exc}')
+        # Record the operator's intent FIRST so the platform poll (the
+        # review-comment scan, which discovers in-review tasks from YouTrack/
+        # Bitbucket — not from local records) doesn't resurrect this task on the
+        # next tick or after a restart, even if the clone delete below partially
+        # fails on a file lock. Cleared when the operator re-adopts the task.
+        from kato_core_lib.helpers.forgotten_tasks_store import forget as _mark_forgotten
+        _mark_forgotten(task_id)
         # 2. Wipe the per-task workspace clone(s). ``delete``
         #    silently swallows ``OSError``; we VERIFY after.
         try:
