@@ -231,3 +231,68 @@ test('Bug B: HYDRATE preserves the lifecycle value it is given', function () {
   assert.equal(next.lifecycle, SESSION_LIFECYCLE.STREAMING);
   assert.equal(next.turnInFlight, true);
 });
+
+
+// ---------------------------------------------------------------------------
+// Bug C: the chat transcript shrinks / blanks on tab switch ("history prompt
+// disappears when switching between tasks").
+//
+// ``appendEntryIfNew`` mutates the ``eventKeys`` Set IN PLACE, and the module
+// cache stores reducer state BY REFERENCE — so a cached snapshot's ``events``
+// array can lag its (shared, already-advanced) Set when a newer append's state
+// object never reached the async cache-write effect before the tab unmounted.
+// On switch-back HYDRATE restored that snapshot verbatim, and the phantom keys
+// made the server's history re-replay dedupe AWAY the very entries the snapshot
+// was missing — so past prompts vanished with nothing to restore them. HYDRATE
+// must rebuild eventKeys from the hydrated events so the replay can re-add them.
+// ---------------------------------------------------------------------------
+
+function _historyRaw(uuid) {
+  return { uuid, type: 'assistant', message: { id: uuid } };
+}
+
+function _emptyState() {
+  return {
+    events: [], eventKeys: new Set(), lifecycle: SESSION_LIFECYCLE.CONNECTING,
+    turnInFlight: false, pendingPermission: null, lastEventAt: 0,
+  };
+}
+
+test('Bug C: HYDRATE rebuilds eventKeys from events so a drifted cache cannot blank the re-replay', function () {
+  // Build a real one-entry history snapshot via the reducer, then simulate the
+  // shared-Set drift: a later append (h2) mutated the SAME Set in place, but
+  // this older cached snapshot's events array only ever held h1.
+  const cached = reducer(_emptyState(), { type: 'incoming_history', event: _historyRaw('h1') });
+  assert.deepEqual(cached.events.map((e) => e.raw.uuid), ['h1']);
+  cached.eventKeys.add('history:u:h2'); // phantom key — events still only h1
+
+  // Switch back → hydrate from the drifted cache.
+  let state = reducer(cached, {
+    type: 'hydrate',
+    value: { ...cached, lifecycle: SESSION_LIFECYCLE.CONNECTING },
+  });
+  // The server re-replays the FULL history (h1 + h2) on reconnect.
+  state = reducer(state, { type: 'incoming_history', event: _historyRaw('h1') });
+  state = reducer(state, { type: 'incoming_history', event: _historyRaw('h2') });
+
+  assert.deepEqual(
+    state.events.map((e) => e.raw.uuid), ['h1', 'h2'],
+    'h2 must be restored by the replay — a phantom cached key must not blank it',
+  );
+});
+
+test('Bug C: a consistent cached history still dedupes on re-replay (no doubling)', function () {
+  // Companion guarantee: when the cache is consistent, re-replaying the same
+  // frames must NOT double them.
+  let cached = reducer(_emptyState(), { type: 'incoming_history', event: _historyRaw('h1') });
+  cached = reducer(cached, { type: 'incoming_history', event: _historyRaw('h2') });
+
+  let state = reducer(cached, {
+    type: 'hydrate',
+    value: { ...cached, lifecycle: SESSION_LIFECYCLE.CONNECTING },
+  });
+  state = reducer(state, { type: 'incoming_history', event: _historyRaw('h1') });
+  state = reducer(state, { type: 'incoming_history', event: _historyRaw('h2') });
+
+  assert.deepEqual(state.events.map((e) => e.raw.uuid), ['h1', 'h2']);
+});

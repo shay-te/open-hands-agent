@@ -134,6 +134,24 @@ function appendEntryIfNew(state, entry) {
   };
 }
 
+// Rebuild the dedupe Set from an ``events`` array. Used on HYDRATE: the
+// module cache stores reducer state BY REFERENCE and ``appendEntryIfNew``
+// mutates ``eventKeys`` in place, so a cached snapshot's Set can run AHEAD of
+// the (older) ``events`` array it was stored with — when a newer append's
+// state object never reached the cache-write effect before the tab unmounted.
+// Those phantom keys would make the server's history re-replay dedupe AWAY the
+// very entries the snapshot is missing, so the transcript renders short/blank
+// on switch-back. Recomputing the Set from the actual events makes the cache
+// self-correcting: missing turns get re-appended by the replay, present ones
+// stay deduped. O(N) once per remount — cheaper than cloning the Set per event.
+function keysFromEvents(events) {
+  const keys = new Set();
+  for (const entry of events || []) {
+    keys.add(entryDedupeKey(entry));
+  }
+  return keys;
+}
+
 // Exported for unit tests. Pure function — the hook is just a thin
 // `useReducer` wrapper around this. Tests pass in `{type, ...}` actions
 // with the constants below as type strings ("lifecycle", "mark_turn_busy",
@@ -141,7 +159,13 @@ function appendEntryIfNew(state, entry) {
 export function reducer(state, action) {
   switch (action.type) {
     case ACTION_HYDRATE:
-      return action.value;
+      // Rebuild eventKeys from the hydrated events so a cached snapshot whose
+      // shared Set drifted ahead of its events array can't suppress the SSE
+      // history re-replay — otherwise the transcript shrinks/blanks on switch.
+      return {
+        ...action.value,
+        eventKeys: keysFromEvents(action.value.events),
+      };
     case ACTION_INCOMING_EVENT: {
       const next = reduceIncomingEvent(state, action.event, action.receivedAtEpoch);
       // Live events also imply lifecycle=STREAMING. Folding the
